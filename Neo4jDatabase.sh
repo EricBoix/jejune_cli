@@ -66,7 +66,7 @@ jj_dump_database () {
   DUMP_FILENAME=$2
 
   # Dumping requires the DB to be halted properly
-  stop_neo4j_db
+  jj_stop_neo4j_db
   docker run --interactive --tty --rm  \
     --volume=$DATABASE_DIR:/data \
     --volume=$BACKUPS_DIR:/output \
