@@ -25,10 +25,10 @@ For example the `LLM_*` variables are only required when using [`jj_extract_know
 ### Use the commands
 
 ```bash
-jj_launch_neo4j_db  --help
+jj_neo4j_launch_db  --help
 jj_extract_knowledge_graph  --help
 jj_dump_knowledge_graph_in_turtle --help
-jj_dump_database --help
-jj_restore_database --help
-jj_stop_neo4j_db --help
+jj_neo4j_dump_database --help
+jj_neo4j_restore_database --help
+jj_neo4j_stop_db --help
 ```

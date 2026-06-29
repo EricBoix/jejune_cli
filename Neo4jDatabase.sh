@@ -1,6 +1,6 @@
 # !/bin/sh
 
-jj_launch_neo4j_db () {
+jj_neo4j_launch_db () {
   # Check that parameters are correctly provided
   if [ $# != 3 ]
     then
@@ -34,7 +34,7 @@ jj_launch_neo4j_db () {
    echo "Done with launching of Neo4j DB on port $PORT"
 }
 
-jj_stop_neo4j_db () {
+jj_neo4j_stop_db () {
   CONTAINER_NAME=jj_neo4j_db
   echo "Halting the Neo4j database server."
   echo "  Stopping container $CONTAINER_NAME"
@@ -44,7 +44,7 @@ jj_stop_neo4j_db () {
   echo "Neo4j database server now halted."
 }
 
-jj_dump_database () {
+jj_neo4j_dump_database () {
   # Check that parameters are correctly provided
   if [ $# != 2 ]
     then
@@ -66,7 +66,7 @@ jj_dump_database () {
   DUMP_FILENAME=$2
 
   # Dumping requires the DB to be halted properly
-  jj_stop_neo4j_db
+  jj_neo4j_stop_db
   docker run --interactive --tty --rm  \
     --volume=$DATABASE_DIR:/data \
     --volume=$BACKUPS_DIR:/output \
@@ -77,7 +77,7 @@ jj_dump_database () {
   mv $BACKUPS_DIR/neo4j.dump $BACKUPS_DIR/$2
 }
 
-jj_restore_database () {
+jj_neo4j_restore_database () {
   # Check that parameters are correctly provided
   if [ $# != 2 ]
     then
