@@ -21,17 +21,27 @@ jj_neo4j_launch_db () {
   PORT=$2
   USER_PASSWORD=$3
   IMAGE_NAME='jejuness:jj_neo4j_docker'
+  CONTAINER_NAME=jj_neo4j_db
 
   echo "Building image."
   docker build -t $IMAGE_NAME https://github.com/EricBoix/jj_neo4j_docker.git
 
-  docker run --rm --detach --name jj_neo4j_db \
+  docker run --rm --detach --name $CONTAINER_NAME \
       --publish=7474:7474 --publish=$PORT:7687 \
       --env NEO4J_AUTH=$USER_PASSWORD \
       -v $DIR/database:/data \
       $IMAGE_NAME
+  
+  # Alas neo4j container has no health check. Wait for it to be running and
+  # then just wait some more...
+  until [ "`docker inspect -f {{.State.Running}} $CONTAINER_NAME`"=="true" ]; do
+    echo "."
+    sleep 0.5;
+  done;
+  echo "Waiting for some arbitrary, and hopefully sufficient, time for neo4j"
+  sleep 5
    
-   echo "Done with launching of Neo4j DB on port $PORT"
+  echo "Done with launching of Neo4j DB on port $PORT"
 }
 
 jj_neo4j_stop_db () {
@@ -97,12 +107,18 @@ jj_neo4j_restore_database () {
   DATABASE_DIR=$RESULTS_DIR/database
   BACKUPS_DIR=$RESULTS_DIR/backups
   DUMP_FILENAME=$2
-   
+  
+  # In order to avoid possible conflict with already running db, DB restoration
+  # requires its halting 
+  jj_neo4j_stop_db
+  # Clean up the current database content
+  \rm -fr $DATABASE_DIR
   # The name of the dumped database file DID NOT matter: we still have to 
   # restore it properly (without any choice for the target filename)
-  cp $BACKUPS_DIR/$2 $BACKUPS_DIR/neo4j.dump
+  \cp $BACKUPS_DIR/$2 $BACKUPS_DIR/neo4j.dump
   docker run --interactive --tty --rm \
     --volume=$DATABASE_DIR:/data \
     --volume=$BACKUPS_DIR:/backups \
     neo4j/neo4j-admin neo4j-admin database load neo4j --from-path=/backups
+  return 0
 }
