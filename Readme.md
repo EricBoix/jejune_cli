@@ -32,3 +32,13 @@ jj_neo4j_dump_database --help
 jj_neo4j_restore_database --help
 jj_neo4j_stop_db --help
 ```
+
+## Notes and warnings
+
+### Concerning neo4j database
+
+- **WARNING**: the username/password given to the neo4j database are only **initial** values (valid when starting the database for the first time). Once the neo4j db has been initialized those values are "burned" into the `database` files...
+- There seems to be many caveats with the name of a neo4j dump, among which
+  - the [neo4j-admin](https://neo4j.com/docs/operations-manual/current/neo4j-admin-neo4j-cli/) utility does not allow to provide the filename of the dump.
+  - when restoring some dump, the provided database name must have a length between 1 and 63 characters.
+  - a neo4j username/password are part of/burnt into the dump and cannot be overwritten. When dumping a neo4j DB one must keep the (dump, username, password) triplet.
