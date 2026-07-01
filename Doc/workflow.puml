@@ -1,55 +1,58 @@
 @startuml
-title Knowledge Graph Workflow: PDF to RDF via Docker containers
 
 skinparam activity {
   BackgroundColor #LightBlue
   BorderColor #Blue
 }
 
-start
+partition "Knowledge Graph Workflow: PDF to RDF via Docker containers" {
 
-#Yellow:<<artifact>>\nSource PDF Document|
+  start
+  note right : <<in>>\n**Source PDF Document**
 
-partition "0. PDF to Markdown\n<img:docker_flaticon_919853_24.png> jejuness:jj_doc_some_book" {
-  :Run **Convert/main.py**;
+  fork
+    partition "1a. PDF to Markdown\n<img:docker_flaticon_919853_24.png> jejuness:jj_doc_some_book" {
+      :Run **Convert/main.py**;
+    }
+
+    #Yellow:<<artifact>>\noutput.md\nSentences_as_LangChain_Document.json|
+
+  fork again
+
+    partition "1b. Launch Neo4j database\n<img:docker_flaticon_919853_24.png> jejuness:jj_neo4j_docker" {
+      :**jj_neo4j_launch_db**\nbuild image + run container;
+    }
+
+    #Yellow:<<artifact>>\nNeo4j server (running)|
+
+  end fork
+
+  partition "2. GraphRAG ingestion: Markdown to Neo4j\n<img:docker_flaticon_919853_24.png> jejuness:jj_build_knowledge_graph" {
+    :**jj_extract_knowledge_graph**\nbuild image + run container;
+  }
+
+  #Yellow:<<artifact>>\nNeo4j Database (nodes + edges)|
+
+  partition "3. Neo4j to RDF/Turtle\n<img:docker_flaticon_919853_24.png> jejuness:jj_neo4j_to_rdf_ttl" {
+    :**jj_dump_knowledge_graph_in_turtle**\nbuild image + run container;
+  }
+
+  #Yellow:<<artifact>>\noutput.ttl (Turtle RDF)|
+
+  partition "4. Stop Neo4j database" {
+    :**jj_neo4j_stop_db**\nstop + remove container;
+  }
+
+  #Yellow:<<artifact>>\ndatabase as files|
+
+  partition "5. Dump Neo4j database (optional)\n<img:docker_flaticon_919853_24.png> neo4j/neo4j-admin" {
+    :**jj_neo4j_dump_database**\nbuild image + run container;
+  }
+
+  #Yellow:<<artifact>>\nneo4j.dump|
+
+  stop
+
 }
-
-fork
-  #Yellow:<<artifact>>\noutput.md|
-fork again
-  #Yellow:<<artifact>>\nSentences_as_LangChain_Document.json|
-end fork
-
-partition "1. Launch Neo4j database\n<img:docker_flaticon_919853_24.png> jejuness:jj_neo4j_docker" {
-  :**jj_neo4j_launch_db**\nbuild image + run container;
-}
-
-#Yellow:<<artifact>>\nNeo4j server (running)|
-
-partition "2. GraphRAG ingestion: Markdown to Neo4j\n<img:docker_flaticon_919853_24.png> jejuness:jj_build_knowledge_graph" {
-  :**jj_extract_knowledge_graph**\nbuild image + run container;
-}
-
-#Yellow:<<artifact>>\nNeo4j Database (nodes + edges)|
-
-partition "3. Neo4j to RDF/Turtle\n<img:docker_flaticon_919853_24.png> jejuness:jj_neo4j_to_rdf_ttl" {
-  :**jj_dump_knowledge_graph_in_turtle**\nbuild image + run container;
-}
-
-#Yellow:<<artifact>>\noutput.ttl (Turtle RDF)|
-
-partition "4. Stop Neo4j database" {
-  :**jj_neo4j_stop_db**\nstop + remove container;
-}
-
-#Yellow:<<artifact>>\ndatabase as files|
-
-partition "5. Dump Neo4j database (optional)\n<img:docker_flaticon_919853_24.png> neo4j/neo4j-admin" {
-  :**jj_neo4j_dump_database**\nbuild image + run container;
-}
-
-#Yellow:<<artifact>>\nneo4j.dump|
-
-stop
 
 @enduml
