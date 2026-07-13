@@ -1,5 +1,14 @@
 set -a
+if [ ! -f .env ]; then
+    echo "Environment file .env not found! Exiting."
+    exit 1
+fi
 source .env
-source jj_workflow_shell/Neo4jDatabase.sh 
-source jj_workflow_shell/treatments.sh
+DIR_OF_THIS_SCRIPT="$(dirname "$(realpath "$BASH_SOURCE")")"
+if [ ! -d $DIR_OF_THIS_SCRIPT ]; then
+    echo "Directory $DIR_OF_THIS_SCRIPT of scripts not found. Exiting."
+    exit 1
+fi
+source $DIR_OF_THIS_SCRIPT/Neo4jDatabase.sh 
+source $DIR_OF_THIS_SCRIPT/treatments.sh
 set +a
