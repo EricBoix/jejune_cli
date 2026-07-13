@@ -20,7 +20,7 @@ jj_neo4j_launch_db () {
   fi
   PORT=$2
   USER_PASSWORD=$3
-  IMAGE_NAME='jejuness:jj_neo4j_docker'
+  IMAGE_NAME='jejuneness:jj_neo4j_docker'
   CONTAINER_NAME=jj_neo4j_db
 
   echo "Building image."

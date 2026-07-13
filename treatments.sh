@@ -18,12 +18,12 @@ jj_extract_knowledge_graph () {
     return
   fi
 
-  docker build -t jejuness:jj_build_knowledge_graph https://github.com/EricBoix/jj_build_knowledge_graph.git#:DockerContext
+  docker build -t jejuneness:jj_build_knowledge_graph https://github.com/EricBoix/jj_build_knowledge_graph.git#:DockerContext
   docker run --rm --tty --name jj_build_knowledge_graph \
     --network host \
     -v $1:/data \
     --env-file .env \
-    jejuness:jj_build_knowledge_graph extracting_graph_semantic_chuncker.py --input_directory /data \
+    jejuneness:jj_build_knowledge_graph extracting_graph_semantic_chuncker.py --input_directory /data \
     $2
 }
 
@@ -43,11 +43,11 @@ jj_dump_knowledge_graph_in_turtle () {
     return
   fi
   FILENAME=$2
-  docker build -t jejuness:jj_neo4j_to_rdf_ttl https://github.com/EricBoix/jj_neo4j_to_rdf_ttl.git#:DockerContext
+  docker build -t jejuneness:jj_neo4j_to_rdf_ttl https://github.com/EricBoix/jj_neo4j_to_rdf_ttl.git#:DockerContext
   docker run --rm \
     --network host \
     -v $DATABASE_DIR:/output \
     --env-file .env \
-    jejuness:jj_neo4j_to_rdf_ttl \
+    jejuneness:jj_neo4j_to_rdf_ttl \
     neo4j_to_rdf.py /output/$FILENAME
 }

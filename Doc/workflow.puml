@@ -11,7 +11,7 @@ partition "Knowledge Graph Workflow: PDF to RDF via Docker containers" {
   note right : <<in>>\n**Source PDF Document**
 
   fork
-    partition "1a. PDF to Markdown\n<img:docker_flaticon_919853_24.png> jejuness:jj_doc_some_book" {
+    partition "1a. PDF to Markdown\n<img:docker_flaticon_919853_24.png> jejuneness:jj_doc_some_book" {
       :Run **Convert/main.py**;
     }
 
@@ -19,7 +19,7 @@ partition "Knowledge Graph Workflow: PDF to RDF via Docker containers" {
 
   fork again
 
-    partition "1b. Launch Neo4j database\n<img:docker_flaticon_919853_24.png> jejuness:jj_neo4j_docker" {
+    partition "1b. Launch Neo4j database\n<img:docker_flaticon_919853_24.png> jejuneness:jj_neo4j_docker" {
       :**jj_neo4j_launch_db**\nbuild image + run container;
     }
 
@@ -27,13 +27,13 @@ partition "Knowledge Graph Workflow: PDF to RDF via Docker containers" {
 
   end fork
 
-  partition "2. GraphRAG ingestion: Markdown to Neo4j\n<img:docker_flaticon_919853_24.png> jejuness:jj_build_knowledge_graph" {
+  partition "2. GraphRAG ingestion: Markdown to Neo4j\n<img:docker_flaticon_919853_24.png> jejuneness:jj_build_knowledge_graph" {
     :**jj_extract_knowledge_graph**\nbuild image + run container;
   }
 
   #Yellow:<<artifact>>\nNeo4j Database (nodes + edges)|
 
-  partition "3. Neo4j to RDF/Turtle\n<img:docker_flaticon_919853_24.png> jejuness:jj_neo4j_to_rdf_ttl" {
+  partition "3. Neo4j to RDF/Turtle\n<img:docker_flaticon_919853_24.png> jejuneness:jj_neo4j_to_rdf_ttl" {
     :**jj_dump_knowledge_graph_in_turtle**\nbuild image + run container;
   }
 
