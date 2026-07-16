@@ -1,6 +1,12 @@
 {
-    "cSpell.words": [
-        "chuncker",
-        "Openweb"
-    ]
+    "cSpell.customDictionaries": {
+        "jj-workflow-shell-words": {
+            "name": "jj_workflow_shell",
+            "path": "${workspaceRoot}/jj_workflow_shell-words.txt",
+            "description": "Words used for jj_workflow_shell repository",
+            "addWords": true
+        },
+        "jj_workflow_shell": true
+    }
+
 }
