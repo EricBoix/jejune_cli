@@ -1,4 +1,4 @@
-# jj_workflow_shell<!-- omit in toc -->
+# jejune_cli<!-- omit in toc -->
 
 ## Table of content<!-- omit in toc -->
 
@@ -16,7 +16,7 @@
 
 ## Introduction
 
-`jj_workflow_shell` addresses three clearly distinct stages of the jejuneness workflow,
+`jejune_cli` addresses three clearly distinct stages of the jejuneness workflow,
 unified under the `jejune` command-line interface:
 
 ```
@@ -94,7 +94,7 @@ Non-secret defaults (`NEO4J_PORT`, `NEO4J_URI`, `NEO4J_USERNAME`) are committed 
 and loaded automatically. Copy `env-reference` to `env-secrets` and fill in the secret values:
 
 ```bash
-cp jj_workflow_shell/env-reference jj_workflow_shell/env-secrets
+cp env-reference env-secrets
 # edit env-secrets with your credentials — it is gitignored
 ```
 
@@ -160,7 +160,7 @@ must not be committed.
 ### Set up a deployment
 
 ```bash
-# Clone or create the jj_deployments private repo alongside jj_workflow_shell
+# Clone or create the jj_deployments private repo alongside jejune_cli
 git clone git@github.com:EricBoix/jj_deployments.git   # or: git init jj_deployments
 
 # Bootstrap a new deployment directory from the scaffolds

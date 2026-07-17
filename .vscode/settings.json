@@ -1,12 +1,12 @@
 {
     "cSpell.customDictionaries": {
-        "jj-workflow-shell-words": {
-            "name": "jj_workflow_shell",
-            "path": "${workspaceRoot}/jj_workflow_shell-words.txt",
-            "description": "Words used for jj_workflow_shell repository",
+        "jejune-cli-words": {
+            "name": "jejune_cli",
+            "path": "${workspaceRoot}/jejune_cli-words.txt",
+            "description": "Words used for jejune_cli repository",
             "addWords": true
         },
-        "jj_workflow_shell": true
+        "jejune_cli": true
     }
 
 }
