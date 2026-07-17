@@ -1,5 +1,10 @@
 # Markdown Registry — Design Notes<!-- omit from toc -->
 
+> **Historical note:** this design document was written when the codebase was at commit
+> [`b809f17`](https://github.com/EricBoix/jj_workflow_shell/tree/b809f17967eb9e5b7c25fd0a9a55f2d12cd43475).
+> Read it in that context — shell functions and file structures described here may have since
+> been superseded by the `jejune` CLI.
+
 ## Table of contents<!-- omit from toc -->
 
 - [Context and initial use-case](#context-and-initial-use-case)

@@ -1,21 +1,20 @@
-### Most of the treatment methods (refer to treatments.sh) require a running 
-# Neo4j database. In order to configure the Neo4j server designation and 
-# associated credentials, define the following parameter values
-NEO4J_PORT=7687
-NEO4J_URI=bolt://localhost:7687
-NEO4J_USERNAME=neo4j
+# Template for env-secrets — copy to env-secrets and fill in real values.
+# env-secrets is gitignored and must never be committed.
+#
+# Non-secret defaults (NEO4J_PORT, NEO4J_URI, NEO4J_USERNAME) live in env-config.
+# Variables set directly in the environment take precedence over this file.
+
+### Neo4j credentials
 NEO4J_PASSWORD=your_password_CHANGE_ME
 
-### Variables required for the execution of jj_extract_knowledge_graph
-# LLM server designation
+### LLM server (URL may point to a private server — keep it secret)
 LLM_MODEL_URL=https://your_favorite_server_CHANGE_ME/ollama/
-# Associated server credentials (handled through the OpenWebUI access key)
 LLM_API_KEY=sk-CHANGE_ME
-# LLM name as known by the llama platform:
 LLM_MODEL_NAME=llama3:70b_CHANGE_ME
-# Optionnal LLM observability: base URL of the OTLP HTTP receiver served by
-# jj_build_knowledge_graph.git/Observability/docker-compose.yml 
-# Notes: 
-#   - the port value must match the value configured in docker-compose
-#   - this self-managed OTLP backend requires no API key.
+
+### Catalog and workspace layout
+# Absolute path to the local directory holding all side-by-side jj_* clones.
+JJ_ROOT_DIR=/absolute/path/to/local/clones_CHANGE_ME
+
+### Optional: LLM observability (OTLP HTTP receiver — no API key required)
 # TRACELOOP_BASE_URL=http://localhost:4318

@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+"""Development entry point — use `uv run jejune` or install with `uv tool install`."""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from jejune_cli.main import cli
+
+if __name__ == "__main__":
+    cli()
