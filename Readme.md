@@ -19,7 +19,7 @@
 `jejune_cli` addresses three clearly distinct stages of the jejuneness workflow,
 unified under the `jejune` command-line interface:
 
-```
+```text
 jejune doctor                        # overall workspace health check (run this first)
 jejune configure <action>            # Stage 1 — verify workspace coherence
 jejune build     <action>            # Stage 2 — run the treatment pipeline
