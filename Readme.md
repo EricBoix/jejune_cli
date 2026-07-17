@@ -112,7 +112,7 @@ Variables to set in `.jejune/env-secrets`:
 jejune doctor                               # run all checks below and report overall health
 
 jejune configure init                       # write .jejune/ scaffold files (run once per repo)
-jejune configure check-env                  # verify all .jejune/env-reference variables are set in .jejune/env-secrets or the environment
+jejune configure check-env                  # verify all variables from .jejune/env-secrets are set and non-placeholder
 jejune configure check-catalog              # verify .jejune/catalog-reference.yaml against GitHub visibility and local clones
 jejune configure sync-catalog               # report public jj_doc_* repos missing from .jejune/catalog-reference.yaml
 jejune configure check-deployment <path>    # validate a deployment catalog against .jejune/catalog-reference.yaml
@@ -152,8 +152,7 @@ for the full design rationale.
 | ---- | ---- |
 | `.jejune/catalog-reference.yaml` | Lists all public `jj_doc_*` repositories; scaffold only, never read at runtime |
 | `.jejune/env-config` | Non-secret defaults (`NEO4J_PORT`, `NEO4J_URI`, `NEO4J_USERNAME`) |
-| `.jejune/env-reference` | Template for `.jejune/env-secrets`; covers credentials and `JJ_ROOT_DIR` |
-| `.jejune/env-secrets` | Created by `init` from the template; fill in credentials; gitignored via `.jejune` |
+| `.jejune/env-secrets` | Created by `init`; fill in credentials and `JJ_ROOT_DIR`; gitignored via `.jejune` |
 
 `JJ_ROOT_DIR` must be set to the absolute path of the local directory holding all
 side-by-side `jj_*` clones (e.g. `/Users/you/workspace/`). It is machine-specific and

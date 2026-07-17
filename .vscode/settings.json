@@ -1,4 +1,8 @@
 {
+    "files.associations": {
+        "env-config": "dotenv",
+        "env-secrets": "dotenv"
+    },
     "cSpell.customDictionaries": {
         "jejune-cli-words": {
             "name": "jejune_cli",

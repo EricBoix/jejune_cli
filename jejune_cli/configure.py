@@ -22,7 +22,7 @@ _PLACEHOLDER = "_CHANGE_ME"
 # ---------------------------------------------------------------------------
 
 def _parse_ref_keys(reference: Path) -> list[str]:
-    """Return variable names listed in an env-reference-style file (non-commented lines)."""
+    """Return variable names listed in a KEY=VALUE file (non-commented lines)."""
     keys: list[str] = []
     for line in reference.read_text().splitlines():
         line = line.strip()
@@ -35,7 +35,7 @@ def _parse_ref_keys(reference: Path) -> list[str]:
 def _check_env_impl(reference: Path) -> list[tuple[str, bool, str]]:
     """Check each key from reference against os.environ; return (key, ok, message)."""
     if not reference.exists():
-        return [("env-reference", False, f"not found: {reference}")]
+        return [("env-secrets", False, f"not found: {reference}")]
     results: list[tuple[str, bool, str]] = []
     for key in _parse_ref_keys(reference):
         val = os.environ.get(key)
@@ -248,8 +248,8 @@ def configure():
 def init():
     """Write jejune scaffold files into .jejune/ in the current directory.
 
-    Creates .jejune/env-config, .jejune/env-reference, .jejune/env-secrets,
-    and .jejune/catalog-reference.yaml from built-in templates.
+    Creates .jejune/env-config, .jejune/env-secrets, and
+    .jejune/catalog-reference.yaml from built-in templates.
     Adds .jejune to .gitignore so the whole directory stays local by default.
     """
     d = dot_jejune()
@@ -257,20 +257,13 @@ def init():
 
     created = []
     skipped = []
-    for fname in ("env-config", "env-reference", "catalog-reference.yaml"):
+    for fname in ("env-config", "env-secrets", "catalog-reference.yaml"):
         dst = d / fname
         if dst.exists():
             skipped.append(fname)
         else:
             shutil.copy2(_TEMPLATES / fname, dst)
             created.append(fname)
-
-    secrets = d / "env-secrets"
-    if secrets.exists():
-        skipped.append("env-secrets")
-    else:
-        shutil.copy2(_TEMPLATES / "env-reference", secrets)
-        created.append("env-secrets")
 
     for f in created:
         click.echo(click.style(f"  created  .jejune/{f}", fg="green"))
@@ -293,15 +286,19 @@ def init():
     "--reference",
     default=None,
     type=click.Path(),
-    help="Path to env-reference (default: .jejune/env-reference).",
+    help="Path to env-secrets file (default: .jejune/env-secrets).",
 )
 def check_env(reference):
-    """Verify all env-reference variables are defined in env-secrets or the environment.
+    """Verify all variables in env-secrets are defined and non-placeholder.
 
     Checks os.environ (which already includes values loaded from .jejune/env-config and
     .jejune/env-secrets at startup). Flags missing variables and placeholder values.
     """
-    ref_path = Path(reference) if reference else dot_jejune() / "env-reference"
+    if reference:
+        ref_path = Path(reference)
+    else:
+        local = dot_jejune() / "env-secrets"
+        ref_path = local if local.exists() else _TEMPLATES / "env-secrets"
     results = _check_env_impl(ref_path)
 
     all_ok = True
@@ -493,7 +490,8 @@ def run_all() -> list[tuple[str, bool, str]]:
     d = dot_jejune()
 
     # check-env
-    env_results = _check_env_impl(d / "env-reference")
+    local_ref = d / "env-secrets"
+    env_results = _check_env_impl(local_ref if local_ref.exists() else _TEMPLATES / "env-secrets")
     failed_keys = [k for k, ok, _ in env_results if not ok]
     results.append((
         "check-env",
