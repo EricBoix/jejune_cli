@@ -95,7 +95,6 @@ It writes scaffold files into a `.jejune/` directory and adds `.jejune` to `.git
 
 ```bash
 jejune configure init
-cp .jejune/env-reference .jejune/env-secrets
 # edit .jejune/env-secrets with your credentials
 ```
 
@@ -154,7 +153,7 @@ for the full design rationale.
 | `.jejune/catalog-reference.yaml` | Lists all public `jj_doc_*` repositories; scaffold only, never read at runtime |
 | `.jejune/env-config` | Non-secret defaults (`NEO4J_PORT`, `NEO4J_URI`, `NEO4J_USERNAME`) |
 | `.jejune/env-reference` | Template for `.jejune/env-secrets`; covers credentials and `JJ_ROOT_DIR` |
-| `.jejune/env-secrets` | Copy of `env-reference`, filled in by the user; gitignored via `.jejune` |
+| `.jejune/env-secrets` | Created by `init` from the template; fill in credentials; gitignored via `.jejune` |
 
 `JJ_ROOT_DIR` must be set to the absolute path of the local directory holding all
 side-by-side `jj_*` clones (e.g. `/Users/you/workspace/`). It is machine-specific and

@@ -248,13 +248,9 @@ def configure():
 def init():
     """Write jejune scaffold files into .jejune/ in the current directory.
 
-    Creates .jejune/env-config, .jejune/env-reference, and
-    .jejune/catalog-reference.yaml from built-in templates.
+    Creates .jejune/env-config, .jejune/env-reference, .jejune/env-secrets,
+    and .jejune/catalog-reference.yaml from built-in templates.
     Adds .jejune to .gitignore so the whole directory stays local by default.
-
-    After running this command:\n
-      cp .jejune/env-reference .jejune/env-secrets\n
-      # edit .jejune/env-secrets with your credentials\n
     """
     d = dot_jejune()
     d.mkdir(exist_ok=True)
@@ -269,6 +265,13 @@ def init():
             shutil.copy2(_TEMPLATES / fname, dst)
             created.append(fname)
 
+    secrets = d / "env-secrets"
+    if secrets.exists():
+        skipped.append("env-secrets")
+    else:
+        shutil.copy2(_TEMPLATES / "env-reference", secrets)
+        created.append("env-secrets")
+
     for f in created:
         click.echo(click.style(f"  created  .jejune/{f}", fg="green"))
     for f in skipped:
@@ -282,9 +285,7 @@ def init():
         click.echo(click.style("  updated  .gitignore (.jejune)", fg="green"))
 
     click.echo()
-    click.echo("Next steps:")
-    click.echo("  cp .jejune/env-reference .jejune/env-secrets")
-    click.echo("  # edit .jejune/env-secrets with your credentials")
+    click.echo("Next step: edit .jejune/env-secrets with your credentials.")
 
 
 @configure.command("check-env")
@@ -486,7 +487,7 @@ def check_deployment(deployment_path, root_dir):
 # Called by `jejune doctor`
 # ---------------------------------------------------------------------------
 
-def run_all(verbose: bool = False) -> list[tuple[str, bool, str]]:
+def run_all() -> list[tuple[str, bool, str]]:
     """Return [(check_name, passed, message), ...] for every automatable check."""
     results: list[tuple[str, bool, str]] = []
     d = dot_jejune()
