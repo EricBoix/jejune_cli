@@ -43,15 +43,17 @@ def doctor():
     results = configure_run_all()
     any_error = False
 
-    for name, status, message in results:
+    _W = 26  # message column width
+    for name, status, message, usage in results:
+        snippet = message if len(message) <= _W else message[:_W - 1] + "…"
         if status == "ok":
-            label = click.style("ok", fg="green")
+            label = click.style(f"{snippet:<{_W}}", fg="green")
         elif status == "warn":
-            label = click.style(message, fg="yellow")
+            label = click.style(f"{snippet:<{_W}}", fg="yellow")
         else:
-            label = click.style(message, fg="red")
+            label = click.style(f"{snippet:<{_W}}", fg="red")
             any_error = True
-        click.echo(f"  {name:<30} {label}")
+        click.echo(f"  {name:<16} {label} {usage}")
 
     click.echo("=" * 40)
     if not any_error:

@@ -16,13 +16,13 @@ _INFERENCE_TEST_PROMPT = "How are you today?"
 _INFERENCE_TIMEOUT = 10  # seconds
 _PLACEHOLDER = "_CHANGE_ME"
 
-# Env-var groups keyed by use-case name.
+# Env-var groups: name → (variables, commands that require them).
 # "warn" (yellow) = none set — use case not configured, valid.
 # "error" (red)   = partial or placeholder — needs attention.
-_ENV_GROUPS: dict[str, list[str]] = {
-    "neo4j":     ["NEO4J_PASSWORD"],
-    "llm":       ["LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"],
-    "workspace": ["JJ_ROOT_DIR"],
+_ENV_GROUPS: dict[str, tuple[list[str], str]] = {
+    "neo4j":     (["NEO4J_PASSWORD"],                              "build neo4j-*, extract, dump-turtle"),
+    "llm":       (["LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"], "build extract"),
+    "workspace": (["JJ_ROOT_DIR"],                                 "build test, configure check-catalog"),
 }
 
 
@@ -300,16 +300,16 @@ def check_env():
     .jejune/env-config and .jejune/env-secrets at startup.
     """
     any_error = False
-    for group, keys in _ENV_GROUPS.items():
+    for group, (keys, usage) in _ENV_GROUPS.items():
         status, msg = _check_env_group(keys)
         if status == "ok":
-            label = click.style("ok", fg="green")
+            label = click.style(f"{'ok':<26}", fg="green")
         elif status == "warn":
-            label = click.style(msg, fg="yellow")
+            label = click.style(f"{msg:<26}", fg="yellow")
         else:
-            label = click.style(msg, fg="red")
+            label = click.style(f"{msg:<26}", fg="red")
             any_error = True
-        click.echo(f"  {group:<15} {label}")
+        click.echo(f"  {group:<16} {label} {usage}")
 
     if any_error:
         raise SystemExit(1)
@@ -487,18 +487,19 @@ def check_deployment(deployment_path, root_dir):
 # Called by `jejune doctor`
 # ---------------------------------------------------------------------------
 
-def run_all() -> list[tuple[str, str, str]]:
-    """Return [(check_name, status, message), ...] for every automatable check.
+def run_all() -> list[tuple[str, str, str, str]]:
+    """Return [(check_name, status, message, usage), ...] for every automatable check.
 
     status is "ok" (green), "warn" (yellow — not configured), or "error" (red).
+    usage is a short description of which commands require the check to pass.
     """
-    results: list[tuple[str, str, str]] = []
+    results: list[tuple[str, str, str, str]] = []
     d = dot_jejune()
 
     # check-env: one entry per use-case group
-    for group, keys in _ENV_GROUPS.items():
+    for group, (keys, usage) in _ENV_GROUPS.items():
         status, msg = _check_env_group(keys)
-        results.append((f"env:{group}", status, msg))
+        results.append((f"env:{group}", status, msg, usage))
 
     # check-catalog
     root_dir_str = os.environ.get("JJ_ROOT_DIR")
@@ -509,6 +510,7 @@ def run_all() -> list[tuple[str, str, str]]:
         "check-catalog",
         "ok" if not failed_repos else "error",
         "ok" if not failed_repos else f"{len(failed_repos)} repo(s) with issues",
+        "build test, configure check-catalog",
     ))
 
     # test-inference — skip gracefully when llm group is not configured
@@ -517,8 +519,8 @@ def run_all() -> list[tuple[str, str, str]]:
     model = os.environ.get("LLM_MODEL_NAME")
     if url and api_key and model:
         passed, msg = _do_test_inference(url, api_key, model)
-        results.append(("test-inference", "ok" if passed else "error", msg))
+        results.append(("test-inference", "ok" if passed else "error", msg, "build extract"))
     else:
-        results.append(("test-inference", "warn", "llm not configured — skipped"))
+        results.append(("test-inference", "warn", "llm not configured — skipped", "build extract"))
 
     return results
