@@ -90,15 +90,16 @@ uv run jejune doctor
 
 ### Configure the environment
 
-Non-secret defaults (`NEO4J_PORT`, `NEO4J_URI`, `NEO4J_USERNAME`) are committed in `env-config`
-and loaded automatically. Copy `env-reference` to `env-secrets` and fill in the secret values:
+Run `jejune configure init` once in the repository where you intend to use `jejune`.
+It writes scaffold files into a `.jejune/` directory and adds `.jejune` to `.gitignore`:
 
 ```bash
-cp env-reference env-secrets
-# edit env-secrets with your credentials — it is gitignored
+jejune configure init
+cp .jejune/env-reference .jejune/env-secrets
+# edit .jejune/env-secrets with your credentials
 ```
 
-Variables to set in `env-secrets`:
+Variables to set in `.jejune/env-secrets`:
 
 | Variable | Required by | Purpose |
 | -------- | ----------- | ------- |
@@ -111,10 +112,11 @@ Variables to set in `env-secrets`:
 ```bash
 jejune doctor                               # run all checks below and report overall health
 
-jejune configure check-env                  # verify all env-reference variables are set in env-secrets or the environment
-jejune configure check-catalog              # verify catalog-reference.yaml against GitHub visibility and local clones
-jejune configure sync-catalog               # report public jj_doc_* repos missing from catalog-reference.yaml
-jejune configure check-deployment <path>    # validate a deployment catalog against catalog-reference.yaml
+jejune configure init                       # write .jejune/ scaffold files (run once per repo)
+jejune configure check-env                  # verify all .jejune/env-reference variables are set in .jejune/env-secrets or the environment
+jejune configure check-catalog              # verify .jejune/catalog-reference.yaml against GitHub visibility and local clones
+jejune configure sync-catalog               # report public jj_doc_* repos missing from .jejune/catalog-reference.yaml
+jejune configure check-deployment <path>    # validate a deployment catalog against .jejune/catalog-reference.yaml
 ```
 
 ---
@@ -145,13 +147,14 @@ for the full design rationale.
 
 `jejune configure check-deployment <path>` (Stage 1) can validate a deployment catalog before use.
 
-**Scaffold files in this repository:**
+**Scaffold files written by `jejune configure init` into `.jejune/`:**
 
 | File | Role |
 | ---- | ---- |
-| `catalog-reference.yaml` | Lists all public `jj_doc_*` repositories; scaffold only, never read at runtime |
-| `env-config` | Committed non-secret defaults (`NEO4J_PORT`, `NEO4J_URI`, `NEO4J_USERNAME`) |
-| `env-reference` | Template for `env-secrets`; covers credentials and `JJ_ROOT_DIR` |
+| `.jejune/catalog-reference.yaml` | Lists all public `jj_doc_*` repositories; scaffold only, never read at runtime |
+| `.jejune/env-config` | Non-secret defaults (`NEO4J_PORT`, `NEO4J_URI`, `NEO4J_USERNAME`) |
+| `.jejune/env-reference` | Template for `.jejune/env-secrets`; covers credentials and `JJ_ROOT_DIR` |
+| `.jejune/env-secrets` | Copy of `env-reference`, filled in by the user; gitignored via `.jejune` |
 
 `JJ_ROOT_DIR` must be set to the absolute path of the local directory holding all
 side-by-side `jj_*` clones (e.g. `/Users/you/workspace/`). It is machine-specific and

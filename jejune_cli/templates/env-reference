@@ -1,7 +1,7 @@
-# Template for env-secrets — copy to env-secrets and fill in real values.
-# env-secrets is gitignored and must never be committed.
+# Template for .jejune/env-secrets — copy to .jejune/env-secrets and fill in real values.
+# .jejune/env-secrets must never be committed (.jejune is gitignored by jejune configure init).
 #
-# Non-secret defaults (NEO4J_PORT, NEO4J_URI, NEO4J_USERNAME) live in env-config.
+# Non-secret defaults (NEO4J_PORT, NEO4J_URI, NEO4J_USERNAME) live in .jejune/env-config.
 # Variables set directly in the environment take precedence over this file.
 
 ### Neo4j credentials

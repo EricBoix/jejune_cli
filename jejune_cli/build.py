@@ -195,7 +195,7 @@ def extract(doc_dir, input_files):
     to the extractor, e.g. 'file1.md file2.md' or '--flag val file.md'.
 
     Requires a running Neo4j instance (`jejune build neo4j-start`).
-    Credentials and LLM settings are read from env-secrets / environment.
+    Credentials and LLM settings are read from .jejune/env-secrets / environment.
     """
     doc_dir = Path(doc_dir).resolve()
 
@@ -226,7 +226,7 @@ def dump_turtle(output_dir, filename):
     """Export the Neo4j knowledge graph to OUTPUT_DIR/FILENAME (RDF/Turtle).
 
     Requires a running Neo4j instance populated by `jejune build extract`.
-    Neo4j credentials are read from env-secrets / environment.
+    Neo4j credentials are read from .jejune/env-secrets / environment.
     """
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)

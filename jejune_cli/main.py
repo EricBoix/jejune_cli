@@ -3,7 +3,7 @@ import click
 from .build import build
 from .configure import configure, run_all as configure_run_all
 from .deploy import deploy
-from .env import load_env_files
+from .env import dot_jejune, load_env_files
 
 
 @click.group()
@@ -15,7 +15,8 @@ def cli():
       jejune build       Stage 2: run the treatment pipeline\n
       jejune deploy      Stage 3: manage and launch deployments\n
 
-    Run `jejune doctor` first on a fresh checkout or after any config change.
+    First time in a repository: run `jejune configure init` to create .jejune/.
+    Then run `jejune doctor` to verify the workspace is healthy.
     """
     load_env_files()
 
@@ -27,6 +28,15 @@ def doctor():
     Equivalent to running every `jejune configure` check in sequence.
     Inspired by `brew doctor`.
     """
+    d = dot_jejune()
+    if not d.is_dir():
+        click.echo(click.style(
+            f"No .jejune/ directory found in {d.parent}.\n"
+            "Run `jejune configure init` first to set up the workspace.",
+            fg="yellow",
+        ))
+        raise SystemExit(1)
+
     click.echo("jejune doctor")
     click.echo("=" * 40)
 

@@ -1,10 +1,7 @@
-"""Environment loading with precedence: existing env vars > env-secrets > env-config."""
+"""Environment loading with precedence: existing env vars > .jejune/env-secrets > .jejune/env-config."""
 
 import os
 from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parent.parent
-_REPO_ROOT = REPO_ROOT  # backward-compat alias within this module
 
 # Variables forwarded to the jj_build_knowledge_graph Docker container.
 EXTRACT_ENV_VARS = [
@@ -24,14 +21,22 @@ TTL_ENV_VARS = [
     "NEO4J_PASSWORD",
 ]
 
+_DOT_JEJUNE = ".jejune"
+
+
+def dot_jejune(cwd: Path | None = None) -> Path:
+    """Return the .jejune/ directory path relative to cwd (defaults to Path.cwd())."""
+    return (cwd or Path.cwd()) / _DOT_JEJUNE
+
 
 def load_env_files(
     config_file: Path | None = None,
     secrets_file: Path | None = None,
 ) -> None:
-    """Load env-config then env-secrets; existing env vars always take precedence."""
-    _load(config_file or _REPO_ROOT / "env-config")
-    _load(secrets_file or _REPO_ROOT / "env-secrets")
+    """Load .jejune/env-config then .jejune/env-secrets; existing env vars always take precedence."""
+    d = dot_jejune()
+    _load(config_file or d / "env-config")
+    _load(secrets_file or d / "env-secrets")
 
 
 def _load(path: Path) -> None:

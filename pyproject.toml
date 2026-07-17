@@ -17,3 +17,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["jejune_cli"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"jejune_cli/templates" = "jejune_cli/templates"

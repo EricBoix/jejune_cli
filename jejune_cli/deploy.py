@@ -4,7 +4,15 @@ from pathlib import Path
 
 import click
 
-from .env import REPO_ROOT as _REPO_ROOT
+from .env import dot_jejune
+
+_TEMPLATES = Path(__file__).parent / "templates"
+
+
+def _catalog_ref() -> Path:
+    """Return the catalog-reference.yaml to use: local .jejune/ if present, else built-in template."""
+    local = dot_jejune() / "catalog-reference.yaml"
+    return local if local.exists() else _TEMPLATES / "catalog-reference.yaml"
 
 
 def _do_bootstrap(deployments_dir: Path, deploy_name: str) -> None:
@@ -17,7 +25,7 @@ def _do_bootstrap(deployments_dir: Path, deploy_name: str) -> None:
 
     deploy_dir.mkdir(parents=True)
 
-    shutil.copy(_REPO_ROOT / "catalog-reference.yaml", deploy_dir / "catalog.yaml")
+    shutil.copy(_catalog_ref(), deploy_dir / "catalog.yaml")
 
     (deploy_dir / "deployment.env").write_text("JJ_CATALOG=./catalog.yaml\n")
 
@@ -61,6 +69,9 @@ def bootstrap(deployments_dir, deploy_name):
 
     DEPLOYMENTS_DIR is the path to the jj_deployments repository.
     DEPLOY_NAME is the short name for the deployment (creates deploy_DEPLOY_NAME/).
+
+    The deployment catalog is seeded from .jejune/catalog-reference.yaml in the
+    current directory if present, otherwise from the built-in template.
     """
     _do_bootstrap(Path(deployments_dir).resolve(), deploy_name)
 
@@ -78,5 +89,3 @@ def list_deployments(deployments_dir):
         catalog = d / "catalog.yaml"
         status = "ok" if catalog.exists() else "missing catalog.yaml"
         click.echo(f"  {d.name}  [{status}]")
-
-

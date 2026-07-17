@@ -1,5 +1,5 @@
 # Non-secret defaults — safe to commit and share across developers.
-# Variables set in the environment or in env-secrets take precedence over these.
+# Variables set in the environment or in .jejune/env-secrets take precedence over these.
 
 ### Neo4j connection defaults (local Docker instance)
 NEO4J_PORT=7687

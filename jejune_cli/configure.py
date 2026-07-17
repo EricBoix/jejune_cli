@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 import urllib.error
 import urllib.request
@@ -8,8 +9,9 @@ from pathlib import Path
 import click
 import yaml
 
-from .env import REPO_ROOT
+from .env import dot_jejune
 
+_TEMPLATES = Path(__file__).parent / "templates"
 _INFERENCE_TEST_PROMPT = "How are you today?"
 _INFERENCE_TIMEOUT = 10  # seconds
 _PLACEHOLDER = "_CHANGE_ME"
@@ -242,20 +244,63 @@ def configure():
     """Stage 1 — verify workspace coherence (read-only, no side-effects)."""
 
 
+@configure.command("init")
+def init():
+    """Write jejune scaffold files into .jejune/ in the current directory.
+
+    Creates .jejune/env-config, .jejune/env-reference, and
+    .jejune/catalog-reference.yaml from built-in templates.
+    Adds .jejune to .gitignore so the whole directory stays local by default.
+
+    After running this command:\n
+      cp .jejune/env-reference .jejune/env-secrets\n
+      # edit .jejune/env-secrets with your credentials\n
+    """
+    d = dot_jejune()
+    d.mkdir(exist_ok=True)
+
+    created = []
+    skipped = []
+    for fname in ("env-config", "env-reference", "catalog-reference.yaml"):
+        dst = d / fname
+        if dst.exists():
+            skipped.append(fname)
+        else:
+            shutil.copy2(_TEMPLATES / fname, dst)
+            created.append(fname)
+
+    for f in created:
+        click.echo(click.style(f"  created  .jejune/{f}", fg="green"))
+    for f in skipped:
+        click.echo(click.style(f"  skipped  .jejune/{f} (already exists)", fg="yellow"))
+
+    gitignore = Path.cwd() / ".gitignore"
+    entry = ".jejune\n"
+    if not gitignore.exists() or ".jejune" not in gitignore.read_text().splitlines():
+        with gitignore.open("a") as fh:
+            fh.write(entry)
+        click.echo(click.style("  updated  .gitignore (.jejune)", fg="green"))
+
+    click.echo()
+    click.echo("Next steps:")
+    click.echo("  cp .jejune/env-reference .jejune/env-secrets")
+    click.echo("  # edit .jejune/env-secrets with your credentials")
+
+
 @configure.command("check-env")
 @click.option(
     "--reference",
     default=None,
     type=click.Path(),
-    help="Path to env-reference (default: auto-detected).",
+    help="Path to env-reference (default: .jejune/env-reference).",
 )
 def check_env(reference):
     """Verify all env-reference variables are defined in env-secrets or the environment.
 
-    Checks os.environ (which already includes values loaded from env-config and
-    env-secrets at startup). Flags missing variables and placeholder values.
+    Checks os.environ (which already includes values loaded from .jejune/env-config and
+    .jejune/env-secrets at startup). Flags missing variables and placeholder values.
     """
-    ref_path = Path(reference) if reference else REPO_ROOT / "env-reference"
+    ref_path = Path(reference) if reference else dot_jejune() / "env-reference"
     results = _check_env_impl(ref_path)
 
     all_ok = True
@@ -274,7 +319,7 @@ def check_env(reference):
     "--catalog",
     default=None,
     type=click.Path(),
-    help="Path to catalog-reference.yaml (default: auto-detected).",
+    help="Path to catalog-reference.yaml (default: .jejune/catalog-reference.yaml).",
 )
 @click.option(
     "--root-dir",
@@ -290,7 +335,7 @@ def check_catalog(catalog, root_dir):
     and that a local clone exists under JJ_ROOT_DIR.
     Requires the gh CLI to be authenticated.
     """
-    cat_path = Path(catalog) if catalog else REPO_ROOT / "catalog-reference.yaml"
+    cat_path = Path(catalog) if catalog else dot_jejune() / "catalog-reference.yaml"
     root = Path(root_dir) if root_dir else None
     results = _check_catalog_impl(cat_path, root)
 
@@ -310,7 +355,7 @@ def check_catalog(catalog, root_dir):
     "--catalog",
     default=None,
     type=click.Path(),
-    help="Path to catalog-reference.yaml (default: auto-detected).",
+    help="Path to catalog-reference.yaml (default: .jejune/catalog-reference.yaml).",
 )
 @click.option(
     "--root-dir",
@@ -336,7 +381,7 @@ def sync_catalog(catalog, root_dir, do_add):
     if not root_dir:
         raise click.ClickException("JJ_ROOT_DIR is not set. Use --root-dir or set the env var.")
 
-    cat_path = Path(catalog) if catalog else REPO_ROOT / "catalog-reference.yaml"
+    cat_path = Path(catalog) if catalog else dot_jejune() / "catalog-reference.yaml"
     results = _sync_catalog_impl(cat_path, Path(root_dir), do_add)
 
     for name, ok, msg in results:
@@ -424,7 +469,7 @@ def check_deployment(deployment_path, root_dir):
     """
     dep_path = Path(deployment_path)
     root = Path(root_dir) if root_dir else None
-    results = _check_deployment_impl(dep_path, REPO_ROOT / "catalog-reference.yaml", root)
+    results = _check_deployment_impl(dep_path, dot_jejune() / "catalog-reference.yaml", root)
 
     all_ok = True
     for item, ok, msg in results:
@@ -444,9 +489,10 @@ def check_deployment(deployment_path, root_dir):
 def run_all(verbose: bool = False) -> list[tuple[str, bool, str]]:
     """Return [(check_name, passed, message), ...] for every automatable check."""
     results: list[tuple[str, bool, str]] = []
+    d = dot_jejune()
 
     # check-env
-    env_results = _check_env_impl(REPO_ROOT / "env-reference")
+    env_results = _check_env_impl(d / "env-reference")
     failed_keys = [k for k, ok, _ in env_results if not ok]
     results.append((
         "check-env",
@@ -458,7 +504,7 @@ def run_all(verbose: bool = False) -> list[tuple[str, bool, str]]:
     # check-catalog
     root_dir_str = os.environ.get("JJ_ROOT_DIR")
     root_dir = Path(root_dir_str) if root_dir_str else None
-    cat_results = _check_catalog_impl(REPO_ROOT / "catalog-reference.yaml", root_dir)
+    cat_results = _check_catalog_impl(d / "catalog-reference.yaml", root_dir)
     failed_repos = [n for n, ok, _ in cat_results if not ok]
     results.append((
         "check-catalog",
