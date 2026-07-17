@@ -5,18 +5,19 @@
 - [Introduction](#introduction)
 - [Stage 1 — Configure: set up the workspace](#stage-1--configure-set-up-the-workspace)
 - [Stage 2 — Build: run the treatment pipeline](#stage-2--build-run-the-treatment-pipeline)
+- [Test commands](#test-commands)
 - [Stage 3 — Exploit: deploy and browse results](#stage-3--exploit-deploy-and-browse-results)
 - [Notes and warnings](#notes-and-warnings)
 
 ## Introduction
 
-`jejune_cli` addresses three clearly distinct stages of the jejuneness workflow,
-unified under the `jejune` command-line interface:
+`jejune_cli` addresses the jejuneness workflow through four command groups:
 
 ```text
 jejune doctor                        # overall workspace health check (run this first)
 jejune configure <action>            # Stage 1 — verify workspace coherence
 jejune build     <action>            # Stage 2 — run the treatment pipeline
+jejune test      <action>            # run test suites for the pipeline
 jejune deploy    <action>            # Stage 3 — manage and launch deployments
 ```
 
@@ -123,7 +124,13 @@ jejune build dump-turtle          # export Neo4j → RDF/Turtle
 jejune build neo4j-stop           # stop the Neo4j container
 jejune build neo4j-dump           # dump the Neo4j database to a file
 jejune build neo4j-restore        # restore the Neo4j database from a dump
+```
 
+---
+
+## Test commands
+
+```bash
 jejune test pdf-to-markdown       # run Convert/test_main.py for each repo in the catalog
 ```
 
