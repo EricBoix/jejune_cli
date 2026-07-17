@@ -11,7 +11,7 @@ _TEMPLATES = Path(__file__).parent / "templates"
 
 def _catalog_ref() -> Path:
     """Return the catalog-reference.yaml to use: local .jejune/ if present, else built-in template."""
-    local = dot_jejune() / "catalog-reference.yaml"
+    local = dot_jejune() / "catalog.yaml"
     return local if local.exists() else _TEMPLATES / "catalog-reference.yaml"
 
 

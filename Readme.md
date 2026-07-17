@@ -4,14 +4,8 @@
 
 - [Introduction](#introduction)
 - [Stage 1 — Configure: set up the workspace](#stage-1--configure-set-up-the-workspace)
-  - [Install](#install)
-  - [Configure the environment](#configure-the-environment)
-  - [Configure commands](#configure-commands)
 - [Stage 2 — Build: run the treatment pipeline](#stage-2--build-run-the-treatment-pipeline)
-  - [Build commands](#build-commands)
 - [Stage 3 — Exploit: deploy and browse results](#stage-3--exploit-deploy-and-browse-results)
-  - [Set up a deployment](#set-up-a-deployment)
-  - [Exploit commands](#exploit-commands)
 - [Notes and warnings](#notes-and-warnings)
 
 ## Introduction
@@ -31,14 +25,12 @@ produces a pass/fail summary. It is the recommended first command to run on a fr
 checkout or after any configuration change.
 
 **Stage 1 — Configure.** Verify that the local workspace is correctly set up: environment
-variables are defined, `catalog-reference.yaml` is coherent with what is actually hosted on
+variables are defined, `catalog.yaml` is coherent with what is actually hosted on
 GitHub and cloned locally, and deployment configurations are valid. This stage has no
 side-effects on data; it only reads and reports.
 
 **Stage 2 — Build.** Run the data-processing pipeline that turns source documents (PDFs
-in `jj_doc_*` repositories) into a knowledge graph (RDF/Turtle file). This is a
-per-document, per-developer operation that requires a running Neo4j instance and access
-to an LLM server. The pipeline is implemented as a chain of Docker container invocations.
+in a given `jj_doc_<some_document>` repository) into some knowledge graph (RDF/Turtle file). This is a per-document, per-developer operation that requires a running Neo4j instance and access to an LLM server. The pipeline is implemented as a chain of Docker container invocations.
 
 **Stage 3 — Exploit.** Configure and launch the downstream tools (`jj_vis_net_viewer`,
 `jj_markdown_browser`) that consume the Turtle files produced by Stage 2. This stage
@@ -112,10 +104,10 @@ Variables to set in `.jejune/env-secrets`:
 jejune doctor                               # run all checks below and report overall health
 
 jejune configure init                       # write .jejune/ scaffold files (run once per repo)
-jejune configure check-env                  # verify all variables from .jejune/env-secrets are set and non-placeholder
-jejune configure check-catalog              # verify .jejune/catalog-reference.yaml against GitHub visibility and local clones
-jejune configure sync-catalog               # report public jj_doc_* repos missing from .jejune/catalog-reference.yaml
-jejune configure check-deployment <path>    # validate a deployment catalog against .jejune/catalog-reference.yaml
+jejune configure check-env                  # check env vars by use-case group (neo4j, llm, workspace)
+jejune configure check-catalog              # verify .jejune/catalog.yaml against GitHub visibility and local clones
+jejune configure sync-catalog               # report public jj_doc_* repos missing from .jejune/catalog.yaml
+jejune configure check-deployment <path>    # validate a deployment catalog against .jejune/catalog.yaml
 ```
 
 ---
@@ -150,7 +142,7 @@ for the full design rationale.
 
 | File | Role |
 | ---- | ---- |
-| `.jejune/catalog-reference.yaml` | Lists all public `jj_doc_*` repositories; scaffold only, never read at runtime |
+| `.jejune/catalog.yaml` | Lists known `jj_doc_*` repositories; used by `configure check-catalog` and `build test` |
 | `.jejune/env-config` | Non-secret defaults (`NEO4J_PORT`, `NEO4J_URI`, `NEO4J_USERNAME`) |
 | `.jejune/env-secrets` | Created by `init`; fill in credentials and `JJ_ROOT_DIR`; gitignored via `.jejune` |
 

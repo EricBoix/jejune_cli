@@ -16,36 +16,42 @@ _INFERENCE_TEST_PROMPT = "How are you today?"
 _INFERENCE_TIMEOUT = 10  # seconds
 _PLACEHOLDER = "_CHANGE_ME"
 
+# Env-var groups keyed by use-case name.
+# "warn" (yellow) = none set — use case not configured, valid.
+# "error" (red)   = partial or placeholder — needs attention.
+_ENV_GROUPS: dict[str, list[str]] = {
+    "neo4j":     ["NEO4J_PASSWORD"],
+    "llm":       ["LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"],
+    "workspace": ["JJ_ROOT_DIR"],
+}
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _parse_ref_keys(reference: Path) -> list[str]:
-    """Return variable names listed in a KEY=VALUE file (non-commented lines)."""
-    keys: list[str] = []
-    for line in reference.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        keys.append(line.partition("=")[0].strip())
-    return keys
+def _check_env_group(keys: list[str]) -> tuple[str, str]:
+    """Check a group of env vars; return (status, message).
 
-
-def _check_env_impl(reference: Path) -> list[tuple[str, bool, str]]:
-    """Check each key from reference against os.environ; return (key, ok, message)."""
-    if not reference.exists():
-        return [("env-secrets", False, f"not found: {reference}")]
-    results: list[tuple[str, bool, str]] = []
-    for key in _parse_ref_keys(reference):
+    status is "ok", "warn" (none set — use case not configured), or "error"
+    (partial fill or placeholder values present).
+    """
+    states: list[tuple[str, str]] = []
+    for key in keys:
         val = os.environ.get(key)
         if val is None:
-            results.append((key, False, "not set"))
+            states.append((key, "missing"))
         elif _PLACEHOLDER in val:
-            results.append((key, False, "still a placeholder"))
+            states.append((key, "placeholder"))
         else:
-            results.append((key, True, "ok"))
-    return results
+            states.append((key, "ok"))
+
+    if all(s == "ok" for _, s in states):
+        return "ok", "ok"
+    if all(s == "missing" for _, s in states):
+        return "warn", "not configured"
+    issues = [f"{k}: {s}" for k, s in states if s != "ok"]
+    return "error", "; ".join(issues)
 
 
 def _gh_is_private(slug: str) -> tuple[bool | None, str]:
@@ -67,7 +73,7 @@ def _gh_is_private(slug: str) -> tuple[bool | None, str]:
 def _check_catalog_impl(catalog: Path, root_dir: Path | None) -> list[tuple[str, bool, str]]:
     """Check each catalog entry for visibility and local clone; return (name, ok, message)."""
     if not catalog.exists():
-        return [("catalog-reference.yaml", False, f"not found: {catalog}")]
+        return [("catalog.yaml", False, f"not found: {catalog}")]
     docs = yaml.safe_load(catalog.read_text()).get("documents", [])
     results: list[tuple[str, bool, str]] = []
     for doc in docs:
@@ -249,7 +255,7 @@ def init():
     """Write jejune scaffold files into .jejune/ in the current directory.
 
     Creates .jejune/env-config, .jejune/env-secrets, and
-    .jejune/catalog-reference.yaml from built-in templates.
+    .jejune/catalog.yaml from built-in templates.
     Adds .jejune to .gitignore so the whole directory stays local by default.
     """
     d = dot_jejune()
@@ -257,7 +263,7 @@ def init():
 
     created = []
     skipped = []
-    for fname in ("env-config", "env-secrets", "catalog-reference.yaml"):
+    for fname in ("env-config", "env-secrets", "catalog.yaml"):
         dst = d / fname
         if dst.exists():
             skipped.append(fname)
@@ -282,33 +288,30 @@ def init():
 
 
 @configure.command("check-env")
-@click.option(
-    "--reference",
-    default=None,
-    type=click.Path(),
-    help="Path to env-secrets file (default: .jejune/env-secrets).",
-)
-def check_env(reference):
-    """Verify all variables in env-secrets are defined and non-placeholder.
+def check_env():
+    """Verify env-secrets variables by use-case group.
 
-    Checks os.environ (which already includes values loaded from .jejune/env-config and
-    .jejune/env-secrets at startup). Flags missing variables and placeholder values.
+    Reports each group (neo4j, llm, workspace) independently:\n
+      ok            — all vars set and non-placeholder\n
+      not configured — none set (use case not activated, not an error)\n
+      error         — partial or placeholder values (needs attention)\n
+
+    Checks os.environ, which already includes values loaded from
+    .jejune/env-config and .jejune/env-secrets at startup.
     """
-    if reference:
-        ref_path = Path(reference)
-    else:
-        local = dot_jejune() / "env-secrets"
-        ref_path = local if local.exists() else _TEMPLATES / "env-secrets"
-    results = _check_env_impl(ref_path)
+    any_error = False
+    for group, keys in _ENV_GROUPS.items():
+        status, msg = _check_env_group(keys)
+        if status == "ok":
+            label = click.style("ok", fg="green")
+        elif status == "warn":
+            label = click.style(msg, fg="yellow")
+        else:
+            label = click.style(msg, fg="red")
+            any_error = True
+        click.echo(f"  {group:<15} {label}")
 
-    all_ok = True
-    for key, ok, msg in results:
-        status = click.style("ok", fg="green") if ok else click.style(msg, fg="red")
-        click.echo(f"  {key:<35} {status}")
-        if not ok:
-            all_ok = False
-
-    if not all_ok:
+    if any_error:
         raise SystemExit(1)
 
 
@@ -317,7 +320,7 @@ def check_env(reference):
     "--catalog",
     default=None,
     type=click.Path(),
-    help="Path to catalog-reference.yaml (default: .jejune/catalog-reference.yaml).",
+    help="Path to catalog.yaml (default: .jejune/catalog.yaml).",
 )
 @click.option(
     "--root-dir",
@@ -327,13 +330,13 @@ def check_env(reference):
     help="Directory holding jj_* clones (default: $JJ_ROOT_DIR).",
 )
 def check_catalog(catalog, root_dir):
-    """Verify catalog-reference.yaml against GitHub visibility and local clones.
+    """Verify catalog.yaml against GitHub visibility and local clones.
 
     For each entry: confirms the public flag matches actual GitHub visibility
     and that a local clone exists under JJ_ROOT_DIR.
     Requires the gh CLI to be authenticated.
     """
-    cat_path = Path(catalog) if catalog else dot_jejune() / "catalog-reference.yaml"
+    cat_path = Path(catalog) if catalog else dot_jejune() / "catalog.yaml"
     root = Path(root_dir) if root_dir else None
     results = _check_catalog_impl(cat_path, root)
 
@@ -353,7 +356,7 @@ def check_catalog(catalog, root_dir):
     "--catalog",
     default=None,
     type=click.Path(),
-    help="Path to catalog-reference.yaml (default: .jejune/catalog-reference.yaml).",
+    help="Path to catalog.yaml (default: .jejune/catalog.yaml).",
 )
 @click.option(
     "--root-dir",
@@ -367,10 +370,10 @@ def check_catalog(catalog, root_dir):
     "do_add",
     is_flag=True,
     default=False,
-    help="Append missing public repos to catalog-reference.yaml.",
+    help="Append missing public repos to catalog.yaml.",
 )
 def sync_catalog(catalog, root_dir, do_add):
-    """Report public jj_doc_* repos under JJ_ROOT_DIR missing from catalog-reference.yaml.
+    """Report public jj_doc_* repos under JJ_ROOT_DIR missing from catalog.yaml.
 
     With --add, appends missing public repos to the catalog file in place.
     Private repos are flagged as informational only — add them manually to
@@ -379,7 +382,7 @@ def sync_catalog(catalog, root_dir, do_add):
     if not root_dir:
         raise click.ClickException("JJ_ROOT_DIR is not set. Use --root-dir or set the env var.")
 
-    cat_path = Path(catalog) if catalog else dot_jejune() / "catalog-reference.yaml"
+    cat_path = Path(catalog) if catalog else dot_jejune() / "catalog.yaml"
     results = _sync_catalog_impl(cat_path, Path(root_dir), do_add)
 
     for name, ok, msg in results:
@@ -459,7 +462,7 @@ def test_inference(prompt):
     help="Directory holding jj_* clones (default: $JJ_ROOT_DIR).",
 )
 def check_deployment(deployment_path, root_dir):
-    """Validate a deployment directory against catalog-reference.yaml.
+    """Validate a deployment directory against catalog.yaml.
 
     DEPLOYMENT_PATH is the path to a jj_deployments/deploy_*/ directory.
     Checks required files, URL consistency with the reference catalog,
@@ -467,7 +470,7 @@ def check_deployment(deployment_path, root_dir):
     """
     dep_path = Path(deployment_path)
     root = Path(root_dir) if root_dir else None
-    results = _check_deployment_impl(dep_path, dot_jejune() / "catalog-reference.yaml", root)
+    results = _check_deployment_impl(dep_path, dot_jejune() / "catalog.yaml", root)
 
     all_ok = True
     for item, ok, msg in results:
@@ -484,41 +487,38 @@ def check_deployment(deployment_path, root_dir):
 # Called by `jejune doctor`
 # ---------------------------------------------------------------------------
 
-def run_all() -> list[tuple[str, bool, str]]:
-    """Return [(check_name, passed, message), ...] for every automatable check."""
-    results: list[tuple[str, bool, str]] = []
+def run_all() -> list[tuple[str, str, str]]:
+    """Return [(check_name, status, message), ...] for every automatable check.
+
+    status is "ok" (green), "warn" (yellow — not configured), or "error" (red).
+    """
+    results: list[tuple[str, str, str]] = []
     d = dot_jejune()
 
-    # check-env
-    local_ref = d / "env-secrets"
-    env_results = _check_env_impl(local_ref if local_ref.exists() else _TEMPLATES / "env-secrets")
-    failed_keys = [k for k, ok, _ in env_results if not ok]
-    results.append((
-        "check-env",
-        not failed_keys,
-        "ok" if not failed_keys
-        else f"missing/placeholder: {', '.join(failed_keys)}",
-    ))
+    # check-env: one entry per use-case group
+    for group, keys in _ENV_GROUPS.items():
+        status, msg = _check_env_group(keys)
+        results.append((f"env:{group}", status, msg))
 
     # check-catalog
     root_dir_str = os.environ.get("JJ_ROOT_DIR")
     root_dir = Path(root_dir_str) if root_dir_str else None
-    cat_results = _check_catalog_impl(d / "catalog-reference.yaml", root_dir)
+    cat_results = _check_catalog_impl(d / "catalog.yaml", root_dir)
     failed_repos = [n for n, ok, _ in cat_results if not ok]
     results.append((
         "check-catalog",
-        not failed_repos,
+        "ok" if not failed_repos else "error",
         "ok" if not failed_repos else f"{len(failed_repos)} repo(s) with issues",
     ))
 
-    # test-inference
+    # test-inference — skip gracefully when llm group is not configured
     url = os.environ.get("LLM_MODEL_URL")
     api_key = os.environ.get("LLM_API_KEY")
     model = os.environ.get("LLM_MODEL_NAME")
     if url and api_key and model:
         passed, msg = _do_test_inference(url, api_key, model)
-        results.append(("test-inference", passed, msg))
+        results.append(("test-inference", "ok" if passed else "error", msg))
     else:
-        results.append(("test-inference", False, "LLM env vars not set"))
+        results.append(("test-inference", "warn", "llm not configured — skipped"))
 
     return results

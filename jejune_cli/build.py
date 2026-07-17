@@ -9,7 +9,7 @@ from pathlib import Path
 import click
 import yaml
 
-from .env import EXTRACT_ENV_VARS, TTL_ENV_VARS, docker_env_args
+from .env import EXTRACT_ENV_VARS, TTL_ENV_VARS, docker_env_args, dot_jejune
 
 _NEO4J_CONTAINER = "jj_neo4j_db"
 _NEO4J_IMAGE = "jejuneness:jj_neo4j_docker"
@@ -252,9 +252,9 @@ def dump_turtle(output_dir, filename):
 @click.option(
     "--catalog",
     envvar="JJ_CATALOG",
-    required=True,
-    type=click.Path(exists=True),
-    help="Path to a deployment catalog.yaml (default: $JJ_CATALOG).",
+    default=None,
+    type=click.Path(),
+    help="Path to a catalog.yaml (default: $JJ_CATALOG, then .jejune/catalog.yaml).",
 )
 @click.option(
     "--root-dir",
@@ -281,6 +281,15 @@ def test_cmd(catalog, root_dir, repo, pull):
     Each suite runs inside its own venv (created automatically if absent).
     Replaces the Testing/Makefile workflow.
     """
+    if catalog is None:
+        default = dot_jejune() / "catalog.yaml"
+        if not default.exists():
+            raise click.ClickException(
+                "No catalog specified. Set $JJ_CATALOG, use --catalog, "
+                "or run `jejune configure init` to create .jejune/catalog.yaml."
+            )
+        catalog = str(default)
+
     root = Path(root_dir)
     docs = yaml.safe_load(Path(catalog).read_text())["documents"]
 

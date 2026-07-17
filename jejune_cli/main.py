@@ -41,23 +41,23 @@ def doctor():
     click.echo("=" * 40)
 
     results = configure_run_all()
-    all_passed = True
+    any_error = False
 
-    for name, passed, message in results:
-        if passed:
-            status = click.style("ok", fg="green")
+    for name, status, message in results:
+        if status == "ok":
+            label = click.style("ok", fg="green")
+        elif status == "warn":
+            label = click.style(message, fg="yellow")
         else:
-            status = click.style(message, fg="yellow")
-            all_passed = False
-        click.echo(f"  {name:<30} {status}")
+            label = click.style(message, fg="red")
+            any_error = True
+        click.echo(f"  {name:<30} {label}")
 
     click.echo("=" * 40)
-    if all_passed:
+    if not any_error:
         click.echo(click.style("Your jejune workspace looks healthy.", fg="green"))
     else:
-        click.echo(
-            click.style("Some checks are pending or failed. See above.", fg="yellow")
-        )
+        click.echo(click.style("Some checks failed. See above.", fg="red"))
 
 
 cli.add_command(configure)
