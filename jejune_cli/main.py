@@ -5,6 +5,9 @@ from .configure import configure, run_all as configure_run_all
 from .deploy import deploy
 from .env import dot_jejune, load_env_files
 
+_W_NAME = 16   # "check-catalog" = 13, "test-inference" = 14
+_W_MSG  = 26   # truncated status message
+
 
 @click.group()
 def cli():
@@ -38,28 +41,38 @@ def doctor():
         raise SystemExit(1)
 
     click.echo("jejune doctor")
-    click.echo("=" * 40)
+    click.echo("=" * 72)
+    click.echo(f"  {'Check':<{_W_NAME}} {'Status':<{_W_MSG}} Needed by")
+    click.echo("  " + "─" * 68)
 
     results = configure_run_all()
-    any_error = False
+    failed: list[str] = []
 
-    _W = 26  # message column width
     for name, status, message, usage in results:
-        snippet = message if len(message) <= _W else message[:_W - 1] + "…"
+        snippet = message if len(message) <= _W_MSG else message[:_W_MSG - 1] + "…"
         if status == "ok":
-            label = click.style(f"{snippet:<{_W}}", fg="green")
+            label = click.style(f"{snippet:<{_W_MSG}}", fg="green")
         elif status == "warn":
-            label = click.style(f"{snippet:<{_W}}", fg="yellow")
+            label = click.style(f"{snippet:<{_W_MSG}}", fg="yellow")
         else:
-            label = click.style(f"{snippet:<{_W}}", fg="red")
-            any_error = True
-        click.echo(f"  {name:<16} {label} {usage}")
+            label = click.style(f"{snippet:<{_W_MSG}}", fg="red")
+            failed.append(name)
+        click.echo(f"  {name:<{_W_NAME}} {label} {usage}")
 
-    click.echo("=" * 40)
-    if not any_error:
+    click.echo("=" * 72)
+
+    if not failed:
         click.echo(click.style("Your jejune workspace looks healthy.", fg="green"))
     else:
         click.echo(click.style("Some checks failed. See above.", fg="red"))
+        click.echo()
+        if any(n.startswith("env:") for n in failed):
+            click.echo("  env:* failures    → edit .jejune/env-secrets")
+        if "check-catalog" in failed:
+            click.echo("  check-catalog     → run `jejune configure check-catalog` for details")
+        if "test-inference" in failed:
+            click.echo("  test-inference    → check LLM server connectivity"
+                       " (see env:llm for credentials)")
 
 
 cli.add_command(configure)
