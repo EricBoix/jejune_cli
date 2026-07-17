@@ -20,9 +20,9 @@ _PLACEHOLDER = "_CHANGE_ME"
 # "warn" (yellow) = none set — use case not configured, valid.
 # "error" (red)   = partial or placeholder — needs attention.
 _ENV_GROUPS: dict[str, tuple[list[str], str]] = {
-    "neo4j":     (["NEO4J_PASSWORD"],                              "build neo4j-*, extract, dump-turtle"),
-    "llm":       (["LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"], "build extract"),
-    "workspace": (["JJ_ROOT_DIR"],                                 "build test, configure check-catalog"),
+    "neo4j":     (["NEO4J_PASSWORD"],                              "build neo4j-*, kg-extract, dump-turtle"),
+    "llm":       (["LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"], "build kg-extract"),
+    "workspace": (["JJ_ROOT_DIR"],                                 "test pdf-to-markdown, configure check-catalog"),
 }
 
 
@@ -510,7 +510,7 @@ def run_all() -> list[tuple[str, str, str, str]]:
         "check-catalog",
         "ok" if not failed_repos else "error",
         "ok" if not failed_repos else f"{len(failed_repos)} repo(s) with issues",
-        "build test, configure check-catalog",
+        "test pdf-to-markdown, configure check-catalog",
     ))
 
     # test-inference — skip gracefully when llm group is not configured
@@ -519,8 +519,8 @@ def run_all() -> list[tuple[str, str, str, str]]:
     model = os.environ.get("LLM_MODEL_NAME")
     if url and api_key and model:
         passed, msg = _do_test_inference(url, api_key, model)
-        results.append(("test-inference", "ok" if passed else "error", msg, "build extract"))
+        results.append(("test-inference", "ok" if passed else "error", msg, "build kg-extract"))
     else:
-        results.append(("test-inference", "warn", "llm not configured — skipped", "build extract"))
+        results.append(("test-inference", "warn", "llm not configured — skipped", "build kg-extract"))
 
     return results

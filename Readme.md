@@ -95,7 +95,7 @@ Variables to set in `.jejune/env-secrets`:
 | Variable | Required by | Purpose |
 | -------- | ----------- | ------- |
 | `NEO4J_PASSWORD` | all Neo4j commands | Database password |
-| `LLM_MODEL_URL`, `LLM_API_KEY`, `LLM_MODEL_NAME` | `jejune build extract` | LLM server |
+| `LLM_MODEL_URL`, `LLM_API_KEY`, `LLM_MODEL_NAME` | `jejune build kg-extract` | LLM server |
 | `JJ_ROOT_DIR` | Stages 1 & 3 | Absolute path to the local directory holding all side-by-side `jj_*` clones |
 
 ### Configure commands
@@ -117,13 +117,14 @@ jejune configure check-deployment <path>    # validate a deployment catalog agai
 ### Build commands
 
 ```bash
-jejune build neo4j-start        # launch the Neo4j container
-jejune build extract            # run Markdown → Neo4j extraction (requires LLM)
-jejune build dump-turtle        # export Neo4j → RDF/Turtle
-jejune build neo4j-stop         # stop the Neo4j container
-jejune build neo4j-dump         # dump the Neo4j database to a file
-jejune build neo4j-restore      # restore the Neo4j database from a dump
-jejune build test               # run Convert/test_main.py for each repo in the catalog
+jejune build neo4j-start          # launch the Neo4j container
+jejune build kg-extract           # run Markdown → Neo4j extraction (requires LLM)
+jejune build dump-turtle          # export Neo4j → RDF/Turtle
+jejune build neo4j-stop           # stop the Neo4j container
+jejune build neo4j-dump           # dump the Neo4j database to a file
+jejune build neo4j-restore        # restore the Neo4j database from a dump
+
+jejune test pdf-to-markdown       # run Convert/test_main.py for each repo in the catalog
 ```
 
 ---
@@ -142,7 +143,7 @@ for the full design rationale.
 
 | File | Role |
 | ---- | ---- |
-| `.jejune/catalog.yaml` | Lists known `jj_doc_*` repositories; used by `configure check-catalog` and `build test` |
+| `.jejune/catalog.yaml` | Lists known `jj_doc_*` repositories; used by `configure check-catalog` and `test pdf-to-markdown` |
 | `.jejune/env-config` | Non-secret defaults (`NEO4J_PORT`, `NEO4J_URI`, `NEO4J_USERNAME`) |
 | `.jejune/env-secrets` | Created by `init`; fill in credentials and `JJ_ROOT_DIR`; gitignored via `.jejune` |
 
@@ -188,7 +189,7 @@ source secrets.env      # local only, never committed
 **Run tests against a deployment catalog:**
 
 ```bash
-jejune build test \
+jejune test pdf-to-markdown \
   --catalog /path/to/jj_deployments/deploy_my_deployment/catalog.yaml \
   --root-dir /Users/you/workspace/
 ```
