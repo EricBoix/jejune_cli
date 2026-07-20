@@ -48,6 +48,18 @@ _AVAIL_HINTS: dict[str, str] = {
     "llm-observability": "run `jejune llm-observability start`",
 }
 
+# Required dependencies: a component is only effective when all its deps are ok.
+_COMPONENT_DEPS: dict[str, list[str]] = {
+    "graph":           ["neo4j", "llm"],
+    "deployment":      ["catalog"],
+    "pdf-to-markdown": ["catalog"],
+}
+
+# Optional dependencies: enhance a component but do not affect its effective status.
+_COMPONENT_OPTIONAL_DEPS: dict[str, list[str]] = {
+    "graph": ["llm-observability"],
+}
+
 
 class _JejuneGroup(click.Group):
     def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
@@ -98,7 +110,9 @@ def cli():
       jejune deployment     Manage deployments\n
       jejune pdf-to-markdown  Test the pipeline across the catalog\n
 
-    Run `jejune env init` first in a repository, then `jejune doctor`.
+    Run `jejune configuration init` first — in a jj_doc_<name> repository for\n
+    single-document use, or in a deployment directory for collection-level use.\n
+    Then run `jejune doctor`.
     """
     load_env_files()
 
@@ -154,6 +168,12 @@ def doctor():
         av = by_avail.get(comp, ("ok", ""))[0]
         return max(cs, av, key=lambda s: _STATUS_RANK.get(s, 0))
 
+    def _effective_status(comp: str) -> str:
+        statuses = [_comp_status(comp)] + [
+            _comp_status(dep) for dep in _COMPONENT_DEPS.get(comp, [])
+        ]
+        return max(statuses, key=lambda s: _STATUS_RANK.get(s, 0))
+
     click.echo("jejune COMPONENT COMMAND [ARGS]")
     click.echo("=" * sep)
     click.echo(_CONFIG_NOTE)
@@ -178,10 +198,10 @@ def doctor():
     click.echo()
 
     # ── Components ───────────────────────────────────────────────────
-    click.echo(f"  {'Component':<{_W_SECT}} {'Status':<{_W_MSG}} Enables")
+    click.echo(f"  {'Component':<{_W_SECT}} {'Effective':<{_W_MSG}} Enables")
     click.echo(divider)
     for comp, enables in _COMPONENT_ENABLES.items():
-        click.echo(f"  {comp:<{_W_SECT}} {_config_label(_comp_status(comp))} {enables}")
+        click.echo(f"  {comp:<{_W_SECT}} {_config_label(_effective_status(comp))} {enables}")
 
     # ── Summary ──────────────────────────────────────────────────────
     click.echo("=" * sep)
