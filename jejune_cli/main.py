@@ -8,16 +8,16 @@ from .graph import graph
 from .neo4j import neo4j
 from .pdf_to_markdown import pdf_to_markdown
 
-_W_NAME = 16   # "check-catalog" = 13, "test-inference" = 14
+_W_NAME = 22   # "catalog:test-inference" = 22
 _W_MSG  = 16   # "not configured" = 14
 _W_CMD  = 28   # "neo4j, graph dump-turtle" = 25
 
 # Command → checks that must pass for the command to be usable.
 _COMMAND_CHECKS: list[tuple[str, list[str]]] = [
     ("neo4j, graph dump-turtle",  ["env:neo4j"]),
-    ("graph extract",             ["env:neo4j", "env:llm", "test-inference"]),
-    ("pdf-to-markdown test",      ["env:workspace", "check-catalog"]),
-    ("catalog check",             ["env:workspace", "check-catalog"]),
+    ("graph extract",             ["env:neo4j", "env:llm", "catalog:test-inference"]),
+    ("pdf-to-markdown test",      ["env:workspace", "catalog:check"]),
+    ("catalog check",             ["env:workspace", "catalog:check"]),
 ]
 
 _STATUS_RANK  = {"error": 2, "warn": 1, "ok": 0}
@@ -28,8 +28,8 @@ _CHECK_HINTS: dict[str, str] = {
     "env:neo4j":     "edit .jejune/env-secrets",
     "env:llm":       "edit .jejune/env-secrets",
     "env:workspace": "edit .jejune/env-secrets",
-    "check-catalog": "run `jejune catalog check`",
-    "test-inference": "check LLM server connectivity",
+    "catalog:check":          "run `jejune catalog check`",
+    "catalog:test-inference": "check LLM server connectivity",
 }
 
 
@@ -108,6 +108,8 @@ def doctor():
     # ── Check table ──────────────────────────────────────────────────
     click.echo("jejune doctor")
     click.echo("=" * sep)
+    click.echo("  Config: .jejune/env-config (non-secret defaults) · .jejune/env-secrets (credentials)")
+    click.echo()
     click.echo(f"  {'Check':<{_W_NAME}} {'Status':<{_W_MSG}} Needed by")
     click.echo("  " + "─" * (sep - 2))
 

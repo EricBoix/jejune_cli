@@ -401,7 +401,7 @@ def run_all() -> list[tuple[str, str, str, str]]:
     cat_results = _check_catalog_impl(d / "catalog.yaml", root_dir)
     failed_repos = [n for n, ok, _ in cat_results if not ok]
     results.append((
-        "check-catalog",
+        "catalog:check",
         "ok" if not failed_repos else "error",
         "ok" if not failed_repos else f"{len(failed_repos)} repo(s) with issues",
         "pdf-to-markdown test, catalog check",
@@ -412,8 +412,8 @@ def run_all() -> list[tuple[str, str, str, str]]:
     model = os.environ.get("LLM_MODEL_NAME")
     if url and api_key and model:
         passed, msg = _do_test_inference(url, api_key, model)
-        results.append(("test-inference", "ok" if passed else "error", msg, "graph extract"))
+        results.append(("catalog:test-inference", "ok" if passed else "error", msg, "graph extract"))
     else:
-        results.append(("test-inference", "warn", "llm not configured — skipped", "graph extract"))
+        results.append(("catalog:test-inference", "warn", "llm not configured — skipped", "graph extract"))
 
     return results
