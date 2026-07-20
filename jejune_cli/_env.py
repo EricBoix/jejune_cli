@@ -3,7 +3,8 @@
 import os
 from pathlib import Path
 
-# Variables forwarded to the jj_build_knowledge_graph Docker container.
+# Variables forwarded to the jejuneness:extract_knowledge_graph Docker
+# container.
 EXTRACT_ENV_VARS = [
     "NEO4J_URI",
     "NEO4J_USERNAME",

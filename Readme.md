@@ -5,13 +5,7 @@
 - [Introduction](#introduction)
 - [Installing jejune\_cli](#installing-jejune_cli)
 - [Single-document commands](#single-document-commands)
-  - [Set up the environment](#set-up-the-environment)
-  - [Neo4j commands](#neo4j-commands)
-  - [Graph commands](#graph-commands)
 - [Collection-level commands](#collection-level-commands)
-  - [Catalog commands](#catalog-commands)
-  - [Deployment commands](#deployment-commands)
-  - [pdf-to-markdown commands](#pdf-to-markdown-commands)
 - [Notes and warnings](#notes-and-warnings)
 
 ## Introduction
@@ -43,8 +37,8 @@ Run `jejune doctor` at any time to see the health of your workspace.
 | ---- | ------- | ------------ | ----- | ------ |
 | 1a. PDF to Markdown | (external: `jj_doc_some_book`) | — | PDF | `.md` + `.json` |
 | 1b. Launch Neo4j | `jejune neo4j start` | `jejuneness:jj_neo4j_docker` (built from [`jj_neo4j_docker`](https://github.com/EricBoix/jj_neo4j_docker)) | — | Neo4j server |
-| 2. Markdown to Neo4j | `jejune graph extract` | `jejuneness:jj_build_knowledge_graph` (built from [`jj_build_knowledge_graph`](https://github.com/EricBoix/jj_build_knowledge_graph)) | `.md` + `.json` | Neo4j DB |
-| 3. Neo4j to RDF | `jejune graph dump-turtle` | `jejuneness:jj_neo4j_to_rdf_ttl` (built from [`jj_neo4j_to_rdf_ttl`](https://github.com/EricBoix/jj_neo4j_to_rdf_ttl)) | Neo4j DB | `.ttl` |
+| 2. Markdown to Neo4j | `jejune graph extract` | `jejuneness:extract_knowledge_graph` (built from [`jejune_extract_knowledge_graph`](https://github.com/EricBoix/jejune_extract_knowledge_graph)) | `.md` + `.json` | Neo4j DB |
+| 3. Neo4j to RDF | `jejune neo4j dump-turtle` | `jejuneness:jj_neo4j_to_rdf_ttl` (built from [`jj_neo4j_to_rdf_ttl`](https://github.com/EricBoix/jj_neo4j_to_rdf_ttl)) | Neo4j DB | `.ttl` |
 | 4. Stop Neo4j | `jejune neo4j stop` | — | — | — |
 
 ---
@@ -117,13 +111,13 @@ jejune neo4j start          # launch the Neo4j container
 jejune neo4j stop           # stop the Neo4j container
 jejune neo4j dump           # dump the Neo4j database to a file
 jejune neo4j restore        # restore the Neo4j database from a dump
+jejune neo4j dump-turtle    # export Neo4j → RDF/Turtle
 ```
 
 ### Graph commands
 
 ```bash
 jejune graph extract        # run Markdown → Neo4j extraction (requires LLM)
-jejune graph dump-turtle    # export Neo4j → RDF/Turtle
 ```
 
 ---

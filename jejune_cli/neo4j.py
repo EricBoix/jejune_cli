@@ -5,10 +5,12 @@ from pathlib import Path
 
 import click
 
+from ._env import TTL_ENV_VARS, docker_env_args
 from .configuration import component_config_check, print_config_hint, print_config_status
 
 _NEO4J_CONTAINER = "jj_neo4j_db"
-_NEO4J_IMAGE = "jejuneness:jj_neo4j_docker"
+_NEO4J_IMAGE     = "jejuneness:jj_neo4j_docker"
+_TTL_IMAGE       = "jejuneness:jj_neo4j_to_rdf_ttl"
 
 
 def _run(*cmd: str) -> None:
@@ -180,6 +182,35 @@ def dump(results_dir, dump_filename):
     # neo4j-admin does not allow choosing the output filename; rename afterwards
     (backups_dir / "neo4j.dump").rename(backups_dir / dump_filename)
     click.echo(f"Dump written to {backups_dir / dump_filename}.")
+
+
+@neo4j.command("dump-turtle")
+@click.argument("output_dir", type=click.Path())
+@click.argument("filename")
+def dump_turtle(output_dir, filename):
+    """Export the Neo4j knowledge graph to OUTPUT_DIR/FILENAME (RDF/Turtle).
+
+    Requires a running Neo4j instance populated by `jejune graph extract`.
+    Neo4j credentials are read from .jejune/env-secrets / environment.
+    """
+    output_dir = Path(output_dir).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    click.echo(f"Building {_TTL_IMAGE} ...")
+    _run(
+        "docker", "build", "-t", _TTL_IMAGE,
+        "https://github.com/EricBoix/jj_neo4j_to_rdf_ttl.git#:DockerContext",
+    )
+
+    click.echo(f"Exporting to {output_dir / filename} ...")
+    _run(
+        "docker", "run", "--rm",
+        "--network", "host",
+        "-v", f"{output_dir}:/output",
+        *docker_env_args(TTL_ENV_VARS),
+        _TTL_IMAGE,
+        "neo4j_to_rdf.py", f"/output/{filename}",
+    )
 
 
 @neo4j.command("restore")
