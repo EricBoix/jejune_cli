@@ -11,6 +11,7 @@ from .configuration import (
     component_config_check, print_config_hint, print_config_status,
 )
 from .llm import (
+    DEFAULT_INFERENCE_PATH as _LLM_DEFAULT_INFERENCE_PATH,
     check_server as _check_llm_server,
     check_auth as _check_llm_auth,
     check_model as _check_llm_model,
@@ -361,15 +362,16 @@ def run_all() -> tuple[
     avail.append(("neo4j", "ok" if running else "warn", msg))
 
     if url and api_key and model:
+        inference_path = os.environ.get("LLM_INFERENCE_ENDPOINT", _LLM_DEFAULT_INFERENCE_PATH)
         passed, msg = _check_llm_server(url)
         if passed:
             passed, msg = _check_llm_auth(url, api_key)
         if passed:
             passed, msg = _check_llm_model(url, api_key, model)
         if passed:
-            passed, msg = _check_llm_inference_endpoint(url, api_key)
+            passed, msg = _check_llm_inference_endpoint(url, api_key, inference_path)
         if passed:
-            passed, msg = _check_llm_inference(url, api_key, model)
+            passed, msg = _check_llm_inference(url, api_key, model, inference_path)
         avail.append(("llm", "ok" if passed else "error", msg))
     else:
         avail.append(("llm", "warn", "skipped"))
