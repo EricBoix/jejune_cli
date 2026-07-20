@@ -1,4 +1,3 @@
-import shlex
 from pathlib import Path
 
 import click
@@ -35,15 +34,15 @@ def hint_config():
     print_config_hint("graph")
 
 
-@graph.command("extract")
+@graph.command("extract", context_settings={"ignore_unknown_options": True})
 @click.argument("doc_dir", type=click.Path(exists=True))
-@click.argument("input_files")
-def extract(doc_dir, input_files):
+@click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
+def extract(doc_dir, extra_args):
     """Run the Markdown → Neo4j knowledge-graph extraction for DOC_DIR.
 
     DOC_DIR is the root of a jj_doc_<name> repository.
-    INPUT_FILES is a quoted string of filenames (and optional flags) passed
-    to the extractor, e.g. 'file1.md file2.md' or '--flag val file.md'.
+    EXTRA_ARGS are filenames and flags forwarded verbatim to the extractor,
+    e.g. file1.md file2.md or --load_markdown_document file.md.
 
     Requires a running Neo4j instance (`jejune neo4j start`).
     Credentials and LLM settings are read from .jejune/env-secrets / environment.
@@ -76,5 +75,5 @@ def extract(doc_dir, input_files):
         "extracting_graph_semantic_chuncker.py",
         "--input_directory",
         "/data",
-        *shlex.split(input_files),
+        *extra_args,
     )
