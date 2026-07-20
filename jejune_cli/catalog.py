@@ -439,7 +439,11 @@ def run_all() -> tuple[
     else:
         avail.append(("llm", "warn", "skipped"))
 
-    running, msg = _llm_obs_running()
-    avail.append(("llm-observability", "ok" if running else "warn", msg))
+    lo_cfg_status, _ = component_config_check("llm-observability")
+    if lo_cfg_status != "ok":
+        avail.append(("llm-observability", "warn", "not configured"))
+    else:
+        running, msg = _llm_obs_running()
+        avail.append(("llm-observability", "ok" if running else "warn", msg))
 
     return config, avail

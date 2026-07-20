@@ -5,7 +5,7 @@ from pathlib import Path
 
 import click
 
-from .configuration import print_config_hint, print_config_status
+from .configuration import component_config_check, print_config_hint, print_config_status
 
 _NEO4J_CONTAINER = "jj_neo4j_db"
 _NEO4J_IMAGE = "jejuneness:jj_neo4j_docker"
@@ -50,6 +50,25 @@ def check_config():
 def hint_config():
     """Show the configuration hint for the neo4j component."""
     print_config_hint("neo4j")
+
+
+@neo4j.command("status")
+def status():
+    """Report the Neo4j container state."""
+    cfg_status, hint = component_config_check("neo4j")
+    if cfg_status != "ok":
+        click.echo(f"  {click.style('not configured', fg='yellow')}  {hint}")
+        return
+
+    running, _ = container_running()
+    port = os.environ.get("NEO4J_PORT", "7687")
+
+    if running:
+        container_text = click.style("running", fg="green")
+    else:
+        container_text = click.style("not running", fg="yellow")
+    click.echo(f"  container   {container_text}")
+    click.echo(f"  bolt        bolt://localhost:{port}")
 
 
 @neo4j.command("start")

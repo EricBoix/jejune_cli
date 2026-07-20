@@ -208,8 +208,14 @@ def doctor():
     for comp, status, msg in avail_results:
         if status == "error":
             failed_avail.append(comp)
-        show_hint = (status == "error") or (msg == "not started")
-        hint = _AVAIL_HINTS.get(comp, "") if show_hint else ""
+        if msg == "not configured":
+            hint = "Refer above to configuration hint"
+        elif status == "error":
+            hint = msg
+        elif msg == "not started":
+            hint = _AVAIL_HINTS.get(comp, "")
+        else:
+            hint = ""
         click.echo(f"  {comp:<{_W_SECT}} {_avail_label(status, msg)} {hint}")
     click.echo()
 
