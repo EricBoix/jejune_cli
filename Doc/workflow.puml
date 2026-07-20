@@ -19,7 +19,7 @@ partition "Knowledge Graph Workflow: PDF to RDF via Docker containers" {
 
   fork again
 
-    partition "1b. Launch Neo4j database\n<img:docker_flaticon_919853_24.png> jejuneness:jj_neo4j_docker" {
+    partition "1b. Launch Neo4j database\n<img:docker_flaticon_919853_24.png> jejuneness:jejune_neo4j_docker" {
       :**jj_neo4j_launch_db**\nbuild image + run container;
     }
 

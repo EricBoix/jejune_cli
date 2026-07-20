@@ -6,11 +6,15 @@ from pathlib import Path
 import click
 
 from ._env import TTL_ENV_VARS, docker_env_args
-from .configuration import component_config_check, print_config_hint, print_config_status
+from .configuration import (
+    component_config_check,
+    print_config_hint,
+    print_config_status,
+)
 
 _NEO4J_CONTAINER = "jj_neo4j_db"
-_NEO4J_IMAGE     = "jejuneness:jj_neo4j_docker"
-_TTL_IMAGE       = "jejuneness:jj_neo4j_to_rdf_ttl"
+_NEO4J_IMAGE = "jejuneness:neo4j_docker"
+_TTL_IMAGE = "jejuneness:jj_neo4j_to_rdf_ttl"
 
 
 def _run(*cmd: str) -> None:
@@ -24,7 +28,8 @@ def container_running() -> tuple[bool, str]:
     """Return (is_running, message) for the Neo4j container."""
     result = subprocess.run(
         ["docker", "inspect", "-f", "{{.State.Running}}", _NEO4J_CONTAINER],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     if result.returncode != 0 or result.stdout.strip() != "true":
         return False, "not started"
@@ -34,7 +39,7 @@ def container_running() -> tuple[bool, str]:
 def _stop_quiet() -> None:
     """Stop and remove the Neo4j container, ignoring errors."""
     subprocess.run(["docker", "stop", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
-    subprocess.run(["docker", "rm",   _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
+    subprocess.run(["docker", "rm", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
 
 
 @click.group()
@@ -107,19 +112,32 @@ def start(data_dir, port, credentials):
         credentials = f"{user}/{password}"
 
     click.echo(f"Building {_NEO4J_IMAGE} ...")
-    _run("docker", "build", "-t", _NEO4J_IMAGE,
-         "https://github.com/EricBoix/jj_neo4j_docker.git")
+    _run(
+        "docker",
+        "build",
+        "-t",
+        _NEO4J_IMAGE,
+        "https://github.com/EricBoix/jejune_neo4j_docker.git",
+    )
 
     (data_dir / "database").mkdir(parents=True, exist_ok=True)
 
     click.echo(f"Starting Neo4j on bolt port {port} ...")
     _run(
-        "docker", "run", "--rm", "--detach",
-        "--name", _NEO4J_CONTAINER,
-        "--publish", "7474:7474",
-        "--publish", f"{port}:7687",
-        "--env", f"NEO4J_AUTH={credentials}",
-        "-v", f"{data_dir}/database:/data",
+        "docker",
+        "run",
+        "--rm",
+        "--detach",
+        "--name",
+        _NEO4J_CONTAINER,
+        "--publish",
+        "7474:7474",
+        "--publish",
+        f"{port}:7687",
+        "--env",
+        f"NEO4J_AUTH={credentials}",
+        "-v",
+        f"{data_dir}/database:/data",
         _NEO4J_IMAGE,
     )
 
@@ -127,7 +145,8 @@ def start(data_dir, port, credentials):
     while True:
         probe = subprocess.run(
             ["docker", "inspect", "-f", "{{.State.Running}}", _NEO4J_CONTAINER],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         if probe.stdout.strip() == "true":
             break
@@ -145,7 +164,7 @@ def stop():
     click.echo(f"Stopping {_NEO4J_CONTAINER} ...")
     subprocess.run(["docker", "stop", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
     click.echo(f"Removing {_NEO4J_CONTAINER} ...")
-    subprocess.run(["docker", "rm",   _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
+    subprocess.run(["docker", "rm", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
     click.echo("Neo4j stopped.")
 
 
@@ -164,7 +183,7 @@ def dump(results_dir, dump_filename):
     """
     results_dir = Path(results_dir).resolve()
     database_dir = results_dir / "database"
-    backups_dir  = results_dir / "backups"
+    backups_dir = results_dir / "backups"
     backups_dir.mkdir(parents=True, exist_ok=True)
 
     click.echo("Stopping Neo4j (required before dump) ...")
@@ -172,11 +191,19 @@ def dump(results_dir, dump_filename):
 
     click.echo("Dumping database ...")
     _run(
-        "docker", "run", "--interactive", "--tty", "--rm",
+        "docker",
+        "run",
+        "--interactive",
+        "--tty",
+        "--rm",
         f"--volume={database_dir}:/data",
         f"--volume={backups_dir}:/output",
         "neo4j/neo4j-admin",
-        "neo4j-admin", "database", "dump", "neo4j", "--to-path=/output",
+        "neo4j-admin",
+        "database",
+        "dump",
+        "neo4j",
+        "--to-path=/output",
     )
 
     # neo4j-admin does not allow choosing the output filename; rename afterwards
@@ -198,18 +225,26 @@ def dump_turtle(output_dir, filename):
 
     click.echo(f"Building {_TTL_IMAGE} ...")
     _run(
-        "docker", "build", "-t", _TTL_IMAGE,
+        "docker",
+        "build",
+        "-t",
+        _TTL_IMAGE,
         "https://github.com/EricBoix/jj_neo4j_to_rdf_ttl.git#:DockerContext",
     )
 
     click.echo(f"Exporting to {output_dir / filename} ...")
     _run(
-        "docker", "run", "--rm",
-        "--network", "host",
-        "-v", f"{output_dir}:/output",
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "host",
+        "-v",
+        f"{output_dir}:/output",
         *docker_env_args(TTL_ENV_VARS),
         _TTL_IMAGE,
-        "neo4j_to_rdf.py", f"/output/{filename}",
+        "neo4j_to_rdf.py",
+        f"/output/{filename}",
     )
 
 
@@ -223,10 +258,11 @@ def restore(results_dir, dump_filename):
     The username/password burnt into the dump must match the target instance.
     """
     import shutil
-    results_dir  = Path(results_dir).resolve()
+
+    results_dir = Path(results_dir).resolve()
     database_dir = results_dir / "database"
-    backups_dir  = results_dir / "backups"
-    dump_path    = backups_dir / dump_filename
+    backups_dir = results_dir / "backups"
+    dump_path = backups_dir / dump_filename
 
     if not dump_path.exists():
         raise click.ClickException(f"Dump file not found: {dump_path}")
@@ -243,10 +279,18 @@ def restore(results_dir, dump_filename):
 
     click.echo(f"Restoring from {dump_path} ...")
     _run(
-        "docker", "run", "--interactive", "--tty", "--rm",
+        "docker",
+        "run",
+        "--interactive",
+        "--tty",
+        "--rm",
         f"--volume={database_dir}:/data",
         f"--volume={backups_dir}:/backups",
         "neo4j/neo4j-admin",
-        "neo4j-admin", "database", "load", "neo4j", "--from-path=/backups",
+        "neo4j-admin",
+        "database",
+        "load",
+        "neo4j",
+        "--from-path=/backups",
     )
     click.echo("Restore complete.")
