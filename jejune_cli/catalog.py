@@ -400,12 +400,26 @@ def run_all() -> tuple[
     config.append(("llm-observability", lo_status, "ok" if lo_status == "ok" else "not configured"))
 
     root_dir_str = os.environ.get("JJ_ROOT_DIR")
-    if not root_dir_str:
-        config.append(("catalog", "warn", "not configured"))
-    elif _PLACEHOLDER in root_dir_str:
-        config.append(("catalog", "error", "JJ_ROOT_DIR still has placeholder value"))
+    root_valid = bool(root_dir_str) and _PLACEHOLDER not in root_dir_str
+    cat_path = d / "catalog.yaml"
+    cat_exists = cat_path.exists()
+
+    if not root_valid and not cat_exists:
+        if not root_dir_str:
+            config.append(("catalog", "error",
+                           "JJ_ROOT_DIR not configured; catalog.yaml missing"))
+        else:
+            config.append(("catalog", "error",
+                           "JJ_ROOT_DIR has placeholder value; catalog.yaml missing"))
+    elif not root_valid:
+        if not root_dir_str:
+            config.append(("catalog", "warn", "JJ_ROOT_DIR not configured"))
+        else:
+            config.append(("catalog", "error", "JJ_ROOT_DIR has placeholder value"))
+    elif not cat_exists:
+        config.append(("catalog", "error", "catalog.yaml missing"))
     else:
-        cat_results = _check_catalog_impl(d / "catalog.yaml", Path(root_dir_str))
+        cat_results = _check_catalog_impl(cat_path, Path(root_dir_str))
         failed_repos = [n for n, ok, _ in cat_results if not ok]
         config.append((
             "catalog",

@@ -21,7 +21,7 @@ CONFIG_GROUPS: dict[str, tuple[list[str], str]] = {
 COMPONENT_CONFIG_HINTS: dict[str, str] = {
     "neo4j":             "edit .jejune/env-secrets or .jejune/env-config",
     "llm":               "edit .jejune/env-secrets",
-    "llm-observability": "uncomment TRACELOOP_BASE_URL in .jejune/env-config",
+    "llm-observability": "configure TRACELOOP_BASE_URL in .jejune/env-config",
     "catalog":           "edit .jejune/env-config or .jejune/catalog.yaml",
 }
 
@@ -48,6 +48,20 @@ def component_config_check(component: str) -> tuple[str, str]:
     keys, _ = CONFIG_GROUPS[component]
     status, _ = check_config_group(keys)
     return status, COMPONENT_CONFIG_HINTS.get(component, "")
+
+
+def get_config_hint(component: str, status: str, message: str) -> str:
+    """Return the precise configuration hint given a component's status and message."""
+    if component == "catalog" and status != "ok":
+        env_issue = "JJ_ROOT_DIR" in message
+        cat_issue = any(k in message for k in ("catalog.yaml", "repo(s)"))
+        if env_issue and cat_issue:
+            return "edit .jejune/env-config and .jejune/catalog.yaml"
+        if env_issue:
+            return "edit .jejune/env-config"
+        if cat_issue:
+            return "edit .jejune/catalog.yaml"
+    return COMPONENT_CONFIG_HINTS.get(component, "")
 
 
 def print_config_hint(component: str) -> None:

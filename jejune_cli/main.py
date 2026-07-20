@@ -3,7 +3,7 @@ import click
 from ._env import dot_jejune, load_env_files
 from .catalog import catalog, run_all
 from .deployment import deployment
-from .configuration import configuration, COMPONENT_CONFIG_HINTS as _CONFIG_HINTS
+from .configuration import configuration, COMPONENT_CONFIG_HINTS as _CONFIG_HINTS, get_config_hint
 from .graph import graph
 from .llm import llm
 from .llm_observability import llm_observability
@@ -171,6 +171,22 @@ def doctor():
         ]
         return max(statuses, key=lambda s: _STATUS_RANK.get(s, 0))
 
+    def _deps_colored(comp: str) -> str:
+        req = _COMPONENT_DEPS.get(comp, [])
+        opt = _COMPONENT_OPTIONAL_DEPS.get(comp, [])
+        req_parts = [
+            click.style(dep, fg="green" if _comp_status(dep) == "ok" else "red")
+            for dep in req
+        ]
+        result = ", ".join(req_parts)
+        if opt:
+            opt_parts = [
+                click.style(dep, fg="green" if _comp_status(dep) == "ok" else "yellow")
+                for dep in opt
+            ]
+            result += f" ({', '.join(opt_parts)} optional)"
+        return result
+
     click.echo("jejune COMPONENT COMMAND [ARGS]")
     click.echo("=" * sep)
     click.echo(_CONFIG_NOTE)
@@ -179,10 +195,10 @@ def doctor():
     # ── Configuration ────────────────────────────────────────────────
     click.echo(f"  {'Configuration':<{_W_SECT}} {'Status':<{_W_MSG}} Hint")
     click.echo(divider)
-    for comp, status, _ in config_results:
+    for comp, status, msg in config_results:
         if status == "error":
             failed_config.append(comp)
-        hint = "" if status == "ok" else _CONFIG_HINTS.get(comp, "")
+        hint = "" if status == "ok" else get_config_hint(comp, status, msg)
         click.echo(f"  {comp:<{_W_SECT}} {_config_label(status)} {hint}")
     click.echo()
 
@@ -201,7 +217,7 @@ def doctor():
     click.echo(f"  {'Component':<{_W_SECT}} {'Effective':<{_W_MSG}} Depends on")
     click.echo(divider)
     for comp in _COMPONENT_DEPS:
-        click.echo(f"  {comp:<{_W_SECT}} {_config_label(_effective_status(comp))} {_deps_str(comp)}")
+        click.echo(f"  {comp:<{_W_SECT}} {_config_label(_effective_status(comp))} {_deps_colored(comp)}")
 
     # ── Summary ──────────────────────────────────────────────────────
     click.echo("=" * sep)
@@ -212,10 +228,10 @@ def doctor():
             click.echo(click.style("Configuration issues:", fg="red"))
             click.echo()
             _W = max(len(n) for n in failed_config)
-            _WH = max(len(_CONFIG_HINTS.get(n, "investigate")) for n in failed_config)
+            _WH = max(len(get_config_hint(n, "error", by_config[n][1])) for n in failed_config)
             for name in failed_config:
-                action = _CONFIG_HINTS.get(name, "investigate")
                 detail = by_config[name][1]
+                action = get_config_hint(name, "error", detail)
                 click.echo(f"  {click.style(f'{name:<{_W}}', fg='red')}  {action:<{_WH}}  [{detail}]")
         if failed_avail:
             if failed_config:
