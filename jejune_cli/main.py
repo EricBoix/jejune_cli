@@ -29,13 +29,6 @@ _W_MSG  = 16   # "not configured" = 14
 _STATUS_RANK  = {"error": 2, "warn": 1, "ok": 0}
 _STATUS_LABEL = {"ok": "ok", "warn": "not configured", "error": "error"}
 
-_COMPONENT_ENABLES: dict[str, str] = {
-    "neo4j":             "neo4j *, graph dump-turtle, graph extract",
-    "llm":               "graph extract",
-    "llm-observability": "graph extract (LLM tracing)",
-    "catalog":           "pdf-to-markdown test, catalog check",
-}
-
 _CONFIG_HINTS: dict[str, str] = {
     "neo4j":   "edit .jejune/env-secrets",
     "llm":     "edit .jejune/env-secrets",
@@ -66,30 +59,20 @@ class _JejuneGroup(click.Group):
         formatter.write_usage(ctx.command_path, "[OPTIONS] COMPONENT COMMAND [ARGS]...")
 
     def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        cli_help: dict[str, str] = {
-            name: cmd.get_short_help_str(limit=formatter.width)
-            for name in self.list_commands(ctx)
-            if (cmd := self.get_command(ctx, name)) is not None and not cmd.hidden
-        }
-
-        # Components: _COMPONENTS first (preserving order), then remaining CLI commands.
-        seen: set[str] = set(_COMPONENTS)
-        components: list[tuple[str, str]] = [
-            (name, cli_help.get(name, ""))
-            for name in _COMPONENTS
-        ]
-        other: list[tuple[str, str]] = []
+        # Components and shared commands are described in the docstring above;
+        # only emit commands not covered there.
+        covered = set(_COMPONENTS) | {"configuration"}
+        rows: list[tuple[str, str]] = []
         for name in self.list_commands(ctx):
-            if name in seen or cli_help.get(name) is None:
+            if name in covered:
                 continue
-            (other if name == "doctor" else components).append((name, cli_help[name]))
-
-        if components:
-            with formatter.section("List of components"):
-                formatter.write_dl(components)
-        if other:
+            cmd = self.get_command(ctx, name)
+            if cmd is None or cmd.hidden:
+                continue
+            rows.append((name, cmd.get_short_help_str(limit=formatter.width)))
+        if rows:
             with formatter.section("Commands"):
-                formatter.write_dl(other)
+                formatter.write_dl(rows)
 
 
 @click.group(cls=_JejuneGroup)
@@ -99,9 +82,8 @@ def cli():
     \b
     Shared (single-document and collection-level):
       jejune configuration     Manage the .jejune/ configuration
-
-    Run `jejune configuration init` first — in a jj_doc_<name> repository for
-    single-document use, or in a deployment directory for collection-level use.
+      Run `jejune configuration init` first — in a jj_doc_<name> repository
+      for single-document use, or a deployment directory for collection-level.
 
     \b
     Single-document commands (jj_doc_<name> repository):
@@ -145,13 +127,21 @@ def doctor():
     failed_config: list[str] = []
     failed_avail:  list[str] = []
 
+    def _deps_str(comp: str) -> str:
+        req = _COMPONENT_DEPS.get(comp, [])
+        opt = _COMPONENT_OPTIONAL_DEPS.get(comp, [])
+        result = ", ".join(req)
+        if opt:
+            result += f" ({', '.join(opt)} optional)"
+        return result
+
     _CONFIG_NOTE = (
         "  Config: .jejune/env-config · .jejune/env-secrets · .jejune/catalog.yaml"
     )
-    _W_ENABLES = max(len(e) for e in _COMPONENT_ENABLES.values())
+    _W_DEPENDS = max(len("Depends on"), max(len(_deps_str(c)) for c in _COMPONENT_DEPS))
     sep = max(
         len(_CONFIG_NOTE),
-        2 + _W_SECT + 1 + _W_MSG + 1 + _W_ENABLES,
+        2 + _W_SECT + 1 + _W_MSG + 1 + _W_DEPENDS,
     )
     divider = "  " + "─" * (sep - 2)
 
@@ -200,10 +190,10 @@ def doctor():
     click.echo()
 
     # ── Components ───────────────────────────────────────────────────
-    click.echo(f"  {'Component':<{_W_SECT}} {'Effective':<{_W_MSG}} Enables")
+    click.echo(f"  {'Component':<{_W_SECT}} {'Effective':<{_W_MSG}} Depends on")
     click.echo(divider)
-    for comp, enables in _COMPONENT_ENABLES.items():
-        click.echo(f"  {comp:<{_W_SECT}} {_config_label(_effective_status(comp))} {enables}")
+    for comp in _COMPONENT_DEPS:
+        click.echo(f"  {comp:<{_W_SECT}} {_config_label(_effective_status(comp))} {_deps_str(comp)}")
 
     # ── Summary ──────────────────────────────────────────────────────
     click.echo("=" * sep)
