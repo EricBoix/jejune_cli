@@ -137,7 +137,6 @@ jejune catalog check                   # verify .jejune/catalog.yaml against Git
 jejune catalog sync                    # report public jj_doc_* repos missing from .jejune/catalog.yaml
 jejune catalog sync --add              # append missing public repos to .jejune/catalog.yaml
 jejune catalog check-deployment <path> # validate a deployment directory against .jejune/catalog.yaml
-jejune catalog test-inference          # test LLM server connectivity and inference
 ```
 
 ### Deployment commands

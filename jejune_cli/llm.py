@@ -5,7 +5,7 @@ import urllib.request
 
 import click
 
-from .configuration import component_config_check, print_config_hint, print_config_status
+from .configuration import print_config_hint, print_config_status
 
 _TEST_PROMPT = "How are you today?"
 _TIMEOUT = 10  # seconds
@@ -56,14 +56,15 @@ def status(prompt):
       1. GET  <LLM_MODEL_URL>/api/tags        — server reachable and authenticated\n
       2. POST <LLM_MODEL_URL>/api/generate    — inference round-trip succeeds\n
     """
-    cfg_status, hint = component_config_check("llm")
-    if cfg_status != "ok":
-        click.echo(f"  {click.style('not configured', fg='yellow')}  {hint}")
-        return
-
     url     = os.environ.get("LLM_MODEL_URL")
     api_key = os.environ.get("LLM_API_KEY")
     model   = os.environ.get("LLM_MODEL_NAME")
+
+    missing = [n for n, v in [
+        ("LLM_MODEL_URL", url), ("LLM_API_KEY", api_key), ("LLM_MODEL_NAME", model)
+    ] if not v]
+    if missing:
+        raise click.ClickException(f"Missing environment variables: {', '.join(missing)}")
 
     click.echo(f"Server : {url}")
     click.echo(f"Model  : {model}")
