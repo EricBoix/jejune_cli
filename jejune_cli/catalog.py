@@ -10,6 +10,7 @@ import yaml
 
 from ._env import dot_jejune
 from .env import ENV_GROUPS, check_env_group
+from .llm_observability import container_running as _llm_obs_running
 
 _INFERENCE_TEST_PROMPT = "How are you today?"
 _INFERENCE_TIMEOUT = 10  # seconds
@@ -383,28 +384,34 @@ def check_deployment(deployment_path, root_dir):
 # Called by `jejune doctor`
 # ---------------------------------------------------------------------------
 
-def run_all() -> list[tuple[str, str, str, str]]:
-    """Return [(check_name, status, message, usage), ...] for every automatable check.
+def run_all() -> tuple[
+    list[tuple[str, str, str]],
+    list[tuple[str, str, str]],
+]:
+    """Return (config_results, avail_results) for jejune doctor.
 
-    status is "ok" (green), "warn" (yellow — not configured), or "error" (red).
-    usage describes which commands require the check to pass.
+    Each entry is (component, status, message).
+    status: "ok", "warn" (not configured / skipped), "error".
+
+    config_results — was the component configured by the user?
+    avail_results  — is the component's service reachable?
     """
-    results: list[tuple[str, str, str, str]] = []
+    config: list[tuple[str, str, str]] = []
+    avail:  list[tuple[str, str, str]] = []
     d = dot_jejune()
 
-    for group, (keys, usage) in ENV_GROUPS.items():
+    for group, (keys, _) in ENV_GROUPS.items():
         status, msg = check_env_group(keys)
-        results.append((f"env:{group}", status, msg, usage))
+        config.append((group, status, msg))
 
     root_dir_str = os.environ.get("JJ_ROOT_DIR")
     root_dir = Path(root_dir_str) if root_dir_str else None
     cat_results = _check_catalog_impl(d / "catalog.yaml", root_dir)
     failed_repos = [n for n, ok, _ in cat_results if not ok]
-    results.append((
-        "catalog:check",
+    config.append((
+        "catalog",
         "ok" if not failed_repos else "error",
         "ok" if not failed_repos else f"{len(failed_repos)} repo(s) with issues",
-        "pdf-to-markdown test, catalog check",
     ))
 
     url = os.environ.get("LLM_MODEL_URL")
@@ -412,8 +419,11 @@ def run_all() -> list[tuple[str, str, str, str]]:
     model = os.environ.get("LLM_MODEL_NAME")
     if url and api_key and model:
         passed, msg = _do_test_inference(url, api_key, model)
-        results.append(("catalog:test-inference", "ok" if passed else "error", msg, "graph extract"))
+        avail.append(("llm", "ok" if passed else "error", msg))
     else:
-        results.append(("catalog:test-inference", "warn", "llm not configured — skipped", "graph extract"))
+        avail.append(("llm", "warn", "skipped"))
 
-    return results
+    running, msg = _llm_obs_running()
+    avail.append(("llm-observability", "ok" if running else "warn", msg))
+
+    return config, avail

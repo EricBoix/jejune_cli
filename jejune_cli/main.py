@@ -5,45 +5,36 @@ from .catalog import catalog, run_all
 from .deployment import deployment
 from .env import env
 from .graph import graph
+from .llm_observability import llm_observability
 from .neo4j import neo4j
 from .pdf_to_markdown import pdf_to_markdown
 
-_W_NAME = 22   # "catalog:test-inference" = 22
+_W_SECT = 17   # len("llm-observability")
 _W_MSG  = 16   # "not configured" = 14
-_W_CMD  = 28   # "neo4j, graph dump-turtle" = 25
-
-# Command → checks that must pass for the command to be usable.
-_COMMAND_CHECKS: list[tuple[str, list[str]]] = [
-    ("neo4j, graph dump-turtle",  ["env:neo4j"]),
-    ("graph extract",             ["env:neo4j", "env:llm", "catalog:test-inference"]),
-    ("pdf-to-markdown test",      ["env:workspace", "catalog:check"]),
-    ("catalog check",             ["env:workspace", "catalog:check"]),
-]
 
 _STATUS_RANK  = {"error": 2, "warn": 1, "ok": 0}
 _STATUS_LABEL = {"ok": "ok", "warn": "not configured", "error": "error"}
 
-# Per-check remediation hints shown in the summary when a check fails.
-_CHECK_HINTS: dict[str, str] = {
-    "env:neo4j":     "edit .jejune/env-secrets",
-    "env:llm":       "edit .jejune/env-secrets",
-    "env:workspace": "edit .jejune/env-secrets",
-    "catalog:check":          "run `jejune catalog check`",
-    "catalog:test-inference": "check LLM server connectivity",
+# Component → commands it enables.
+_COMPONENT_ENABLES: dict[str, str] = {
+    "neo4j":             "neo4j *, graph dump-turtle, graph extract",
+    "llm":               "graph extract",
+    "llm-observability": "graph extract (LLM tracing)",
+    "workspace":         "pdf-to-markdown test, catalog check",
+    "catalog":           "pdf-to-markdown test, catalog check",
 }
 
+_CONFIG_HINTS: dict[str, str] = {
+    "neo4j":     "edit .jejune/env-secrets",
+    "llm":       "edit .jejune/env-secrets",
+    "workspace": "edit .jejune/env-config",
+    "catalog":   "run `jejune catalog check`",
+}
 
-def _command_status(check_names: list[str], by_name: dict[str, str]) -> str:
-    """Return the worst status among the named checks."""
-    return max(
-        (by_name.get(n, "ok") for n in check_names),
-        key=lambda s: _STATUS_RANK.get(s, 0),
-    )
-
-
-def _row_width(col1_width: int, col3_text: str) -> int:
-    """Visual width: indent(2) + col1 + space + status(_W_MSG) + space + col3."""
-    return 2 + col1_width + 1 + _W_MSG + 1 + len(col3_text)
+_AVAIL_HINTS: dict[str, str] = {
+    "llm":               "check LLM server connectivity",
+    "llm-observability": "run `jejune llm-observability start`",
+}
 
 
 @click.group()
@@ -67,10 +58,13 @@ def cli():
 
 @cli.command()
 def doctor():
-    """Run all workspace coherence checks and report overall health.
+    """Report component configuration and availability. Inspired by `brew doctor`.
 
-    Equivalent to running every `jejune env check` and `jejune catalog check`
-    in sequence. Inspired by `brew doctor`.
+    Two-stage check:\n
+      Configuration — were the components configured by the user?\n
+      Availability  — are the component services reachable?\n
+
+    Followed by a Components summary showing which commands each enables.
     """
     d = dot_jejune()
     if not d.is_dir():
@@ -81,87 +75,98 @@ def doctor():
         ))
         raise SystemExit(1)
 
-    results = run_all()
-    by_name    = {name: status  for name, status, _, _   in results}
-    by_message = {name: message for name, _,      message, _ in results}
-    failed: list[str] = []
+    config_results, avail_results = run_all()
+    by_config = {comp: (status, msg) for comp, status, msg in config_results}
+    by_avail  = {comp: (status, msg) for comp, status, msg in avail_results}
 
-    # Pre-compute command rows (failing/passing split) so widths are known.
-    cmd_rows: list[tuple[str, str, list[str], list[str]]] = [
-        (
-            cmd,
-            _command_status(check_names, by_name),
-            [n for n in check_names if by_name.get(n, "ok") != "ok"],
-            [n for n in check_names if by_name.get(n, "ok") == "ok"],
-        )
-        for cmd, check_names in _COMMAND_CHECKS
-    ]
+    failed_config: list[str] = []
+    failed_avail:  list[str] = []
 
-    # Separator width = widest row across both tables.
-    sep = max(
-        _row_width(_W_NAME, "Needed by"),
-        _row_width(_W_CMD,  "Checks"),
-        *(_row_width(_W_NAME, usage)            for *_, usage in results),
-        *(_row_width(_W_CMD,  ", ".join(f + p)) for _, _, f, p in cmd_rows),
+    _CONFIG_NOTE = (
+        "  Config: .jejune/env-config · .jejune/env-secrets · .jejune/catalog.yaml"
     )
+    _W_ENABLES = max(len(e) for e in _COMPONENT_ENABLES.values())
+    sep = max(
+        len(_CONFIG_NOTE),
+        2 + _W_SECT + 1 + _W_MSG + 1 + _W_ENABLES,
+    )
+    divider = "  " + "─" * (sep - 2)
 
-    # ── Check table ──────────────────────────────────────────────────
-    click.echo("jejune doctor")
+    def _config_label(status: str) -> str:
+        text = _STATUS_LABEL[status]
+        fg = {"ok": "green", "warn": "yellow", "error": "red"}[status]
+        return click.style(f"{text:<{_W_MSG}}", fg=fg)
+
+    def _avail_label(status: str, msg: str) -> str:
+        text = "error" if status == "error" else msg
+        fg = {"ok": "green", "warn": "yellow", "error": "red"}[status]
+        return click.style(f"{text:<{_W_MSG}}", fg=fg)
+
+    def _comp_status(comp: str) -> str:
+        cs = by_config.get(comp, ("ok", ""))[0]
+        av = by_avail.get(comp, ("ok", ""))[0]
+        return max(cs, av, key=lambda s: _STATUS_RANK.get(s, 0))
+
+    click.echo("jejune COMPONENT COMMAND [ARGS]")
     click.echo("=" * sep)
-    click.echo("  Config: .jejune/env-config (non-secret defaults) · .jejune/env-secrets (credentials)")
+    click.echo(_CONFIG_NOTE)
     click.echo()
-    click.echo(f"  {'Check':<{_W_NAME}} {'Status':<{_W_MSG}} Needed by")
-    click.echo("  " + "─" * (sep - 2))
 
-    for name, status, _, usage in results:
-        label_text = _STATUS_LABEL[status]
-        if status == "ok":
-            label = click.style(f"{label_text:<{_W_MSG}}", fg="green")
-        elif status == "warn":
-            label = click.style(f"{label_text:<{_W_MSG}}", fg="yellow")
-        else:
-            label = click.style(f"{label_text:<{_W_MSG}}", fg="red")
-            failed.append(name)
-        click.echo(f"  {name:<{_W_NAME}} {label} {usage}")
-
-    # ── Command table ────────────────────────────────────────────────
+    # ── Configuration ────────────────────────────────────────────────
+    click.echo(f"  {'Configuration':<{_W_SECT}} {'Status':<{_W_MSG}}")
+    click.echo(divider)
+    for comp, status, _ in config_results:
+        if status == "error":
+            failed_config.append(comp)
+        click.echo(f"  {comp:<{_W_SECT}} {_config_label(status)}")
     click.echo()
-    click.echo(f"  {'Command':<{_W_CMD}} {'Status':<{_W_MSG}} Checks")
-    click.echo("  " + "─" * (sep - 2))
 
-    for cmd, status, failing, passing in cmd_rows:
-        label_text = _STATUS_LABEL[status]
-        colored_checks = ", ".join(
-            [click.style(n, fg="red")   for n in failing] +
-            [click.style(n, fg="green") for n in passing]
-        )
-        if status == "ok":
-            label = click.style(f"{label_text:<{_W_MSG}}", fg="green")
-        elif status == "warn":
-            label = click.style(f"{label_text:<{_W_MSG}}", fg="yellow")
-        else:
-            label = click.style(f"{label_text:<{_W_MSG}}", fg="red")
-        click.echo(f"  {cmd:<{_W_CMD}} {label} {colored_checks}")
+    # ── Availability ─────────────────────────────────────────────────
+    click.echo(f"  {'Availability':<{_W_SECT}} {'Status':<{_W_MSG}}")
+    click.echo(divider)
+    for comp, status, msg in avail_results:
+        if status == "error":
+            failed_avail.append(comp)
+        click.echo(f"  {comp:<{_W_SECT}} {_avail_label(status, msg)}")
+    click.echo()
+
+    # ── Components ───────────────────────────────────────────────────
+    click.echo(f"  {'Component':<{_W_SECT}} {'Status':<{_W_MSG}} Enables")
+    click.echo(divider)
+    for comp, enables in _COMPONENT_ENABLES.items():
+        click.echo(f"  {comp:<{_W_SECT}} {_config_label(_comp_status(comp))} {enables}")
 
     # ── Summary ──────────────────────────────────────────────────────
     click.echo("=" * sep)
-    if not failed:
+    if not failed_config and not failed_avail:
         click.echo(click.style("Your jejune workspace looks healthy.", fg="green"))
     else:
-        click.echo(click.style("Some checks failed:", fg="red"))
-        click.echo()
-        _W_HINT_NAME = max(len(n) for n in failed)
-        _W_HINT_ACT  = max(len(_CHECK_HINTS.get(n, "investigate")) for n in failed)
-        for name in failed:
-            action  = _CHECK_HINTS.get(name, "investigate")
-            detail  = by_message[name]
-            colored = click.style(f"{name:<{_W_HINT_NAME}}", fg="red")
-            click.echo(f"  {colored}  {action:<{_W_HINT_ACT}}  [{detail}]")
+        if failed_config:
+            click.echo(click.style("Configuration issues:", fg="red"))
+            click.echo()
+            _W = max(len(n) for n in failed_config)
+            _WH = max(len(_CONFIG_HINTS.get(n, "investigate")) for n in failed_config)
+            for name in failed_config:
+                action = _CONFIG_HINTS.get(name, "investigate")
+                detail = by_config[name][1]
+                click.echo(f"  {click.style(f'{name:<{_W}}', fg='red')}  {action:<{_WH}}  [{detail}]")
+        if failed_avail:
+            if failed_config:
+                click.echo()
+            click.echo(click.style("Availability issues:", fg="red"))
+            click.echo()
+            _W = max(len(n) for n in failed_avail)
+            _WH = max(len(_AVAIL_HINTS.get(n, "investigate")) for n in failed_avail)
+            for name in failed_avail:
+                action = _AVAIL_HINTS.get(name, "investigate")
+                detail = by_avail[name][1]
+                click.echo(f"  {click.style(f'{name:<{_W}}', fg='red')}  {action:<{_WH}}  [{detail}]")
 
 
 cli.add_command(env)
 cli.add_command(neo4j)
 cli.add_command(graph)
+cli.add_command(llm_observability)
 cli.add_command(catalog)
 cli.add_command(deployment)
 cli.add_command(pdf_to_markdown)
