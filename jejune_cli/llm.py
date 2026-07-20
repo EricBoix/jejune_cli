@@ -153,10 +153,10 @@ def status(prompt):
       4. POST <LLM_MODEL_URL><LLM_INFERENCE_ENDPOINT>   — inference endpoint accepts POST\n
       5. POST <LLM_MODEL_URL><LLM_INFERENCE_ENDPOINT>   — inference round-trip succeeds\n
     """
-    model_url      = os.environ.get("LLM_MODEL_URL")
+    model_url      = (os.environ.get("LLM_MODEL_URL") or "").rstrip("/")
     api_key        = os.environ.get("LLM_API_KEY")
     model          = os.environ.get("LLM_MODEL_NAME")
-    server_url     = os.environ.get("LLM_SERVER_URL") or model_url
+    server_url     = (os.environ.get("LLM_SERVER_URL") or model_url).rstrip("/")
     inference_path = os.environ.get("LLM_INFERENCE_ENDPOINT", DEFAULT_INFERENCE_PATH)
 
     missing = [n for n, v in [

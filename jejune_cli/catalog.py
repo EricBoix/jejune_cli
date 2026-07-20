@@ -355,14 +355,14 @@ def run_all() -> tuple[
             "ok" if not failed_repos else f"{len(failed_repos)} repo(s) with issues",
         ))
 
-    url = os.environ.get("LLM_MODEL_URL")
+    url = (os.environ.get("LLM_MODEL_URL") or "").rstrip("/")
     api_key = os.environ.get("LLM_API_KEY")
     model = os.environ.get("LLM_MODEL_NAME")
     running, msg = _neo4j_running()
     avail.append(("neo4j", "ok" if running else "warn", msg))
 
     if url and api_key and model:
-        server_url     = os.environ.get("LLM_SERVER_URL") or url
+        server_url     = (os.environ.get("LLM_SERVER_URL") or url).rstrip("/")
         inference_path = os.environ.get("LLM_INFERENCE_ENDPOINT", _LLM_DEFAULT_INFERENCE_PATH)
         passed, msg = _check_llm_server(server_url)
         if passed:
