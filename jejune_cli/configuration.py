@@ -8,16 +8,16 @@ from ._env import dot_jejune
 _TEMPLATES = Path(__file__).parent / "templates"
 _PLACEHOLDER = "_CHANGE_ME"
 
-# Env-var groups: name → (variables, commands that require them).
+# Config groups: name → (env vars, components that require them).
 # "warn" (yellow) = none set — use case not configured, valid.
 # "error" (red)   = partial or placeholder — needs attention.
-ENV_GROUPS: dict[str, tuple[list[str], str]] = {
+CONFIG_GROUPS: dict[str, tuple[list[str], str]] = {
     "neo4j": (["NEO4J_PASSWORD"],                                  "neo4j, graph dump-turtle, graph extract"),
     "llm":   (["LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"], "graph extract"),
 }
 
 
-def check_env_group(keys: list[str]) -> tuple[str, str]:
+def check_config_group(keys: list[str]) -> tuple[str, str]:
     """Check a group of env vars; return (status, message).
 
     status is "ok", "warn" (none set — use case not configured), or "error"
@@ -43,11 +43,11 @@ def check_env_group(keys: list[str]) -> tuple[str, str]:
 
 
 @click.group()
-def env():
-    """Manage the .jejune/ environment for the current jj_doc_* repository."""
+def configuration():
+    """Manage the .jejune/ configuration (env-config, env-secrets, catalog.yaml)."""
 
 
-@env.command("init")
+@configuration.command("init")
 def init():
     """Write jejune scaffold files into .jejune/ in the current directory.
 
@@ -84,9 +84,9 @@ def init():
     click.echo("Next step: edit .jejune/env-secrets with your credentials.")
 
 
-@env.command("check")
-def check_env():
-    """Verify env-secrets variables by use-case group.
+@configuration.command("check")
+def check():
+    """Verify configuration variables by component group.
 
     Reports each group (neo4j, llm) independently:\n
       ok             — all vars set and non-placeholder\n
@@ -97,8 +97,8 @@ def check_env():
     .jejune/env-config and .jejune/env-secrets at startup.
     """
     any_error = False
-    for group, (keys, usage) in ENV_GROUPS.items():
-        status, msg = check_env_group(keys)
+    for group, (keys, usage) in CONFIG_GROUPS.items():
+        status, msg = check_config_group(keys)
         if status == "ok":
             label = click.style(f"{'ok':<26}", fg="green")
         elif status == "warn":

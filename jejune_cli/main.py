@@ -3,7 +3,7 @@ import click
 from ._env import dot_jejune, load_env_files
 from .catalog import catalog, run_all
 from .deployment import deployment
-from .env import env
+from .configuration import configuration
 from .graph import graph
 from .llm import llm
 from .llm_observability import llm_observability
@@ -84,10 +84,14 @@ class _JejuneGroup(click.Group):
 def cli():
     """jejune — jejuneness workflow CLI.
 
-    Single-document commands (operate on one jj_doc_* repository):\n
-      jejune env      Manage the local .jejune/ environment\n
-      jejune neo4j    Manage the Neo4j instance\n
-      jejune graph    Build and export the knowledge graph\n
+    Shared (single-document and collection-level):\n
+      jejune configuration   Manage the local .jejune/ configuration\n
+
+    Single-document commands (operate on one jj_doc_<name> repository):\n
+      jejune neo4j           Manage the Neo4j instance\n
+      jejune llm             Manage the LLM inference server\n
+      jejune llm-observability  Manage the LLM observability backend\n
+      jejune graph           Build and export the knowledge graph\n
 
     Collection-level commands (operate across a catalog of repositories):\n
       jejune catalog        Manage the document catalog\n
@@ -113,7 +117,7 @@ def doctor():
     if not d.is_dir():
         click.echo(click.style(
             f"No .jejune/ directory found in {d.parent}.\n"
-            "Run `jejune env init` first to set up the workspace.",
+            "Run `jejune configuration init` first to set up the workspace.",
             fg="yellow",
         ))
         raise SystemExit(1)
@@ -206,7 +210,7 @@ def doctor():
                 click.echo(f"  {click.style(f'{name:<{_W}}', fg='red')}  {action:<{_WH}}  [{detail}]")
 
 
-cli.add_command(env)
+cli.add_command(configuration)
 cli.add_command(neo4j)
 cli.add_command(llm)
 cli.add_command(llm_observability)

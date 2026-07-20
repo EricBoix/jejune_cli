@@ -19,7 +19,7 @@ def _run(*cmd: str) -> None:
 
 @click.group()
 def graph():
-    """Build and export the knowledge graph for the current jj_doc_* repository."""
+    """Build and export the knowledge graph for the current jj_doc_<name> repository."""
 
 
 @graph.command("extract")
@@ -28,7 +28,7 @@ def graph():
 def extract(doc_dir, input_files):
     """Run the Markdown → Neo4j knowledge-graph extraction for DOC_DIR.
 
-    DOC_DIR is the root of a jj_doc_* repository.
+    DOC_DIR is the root of a jj_doc_<name> repository.
     INPUT_FILES is a quoted string of filenames (and optional flags) passed
     to the extractor, e.g. 'file1.md file2.md' or '--flag val file.md'.
 

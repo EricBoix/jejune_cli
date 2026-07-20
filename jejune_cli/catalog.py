@@ -9,7 +9,7 @@ import click
 import yaml
 
 from ._env import dot_jejune
-from .env import ENV_GROUPS, check_env_group
+from .configuration import CONFIG_GROUPS, check_config_group
 from .llm import check_connectivity as _check_llm_connectivity
 from .llm import _TEST_PROMPT as _INFERENCE_TEST_PROMPT, _TIMEOUT as _INFERENCE_TIMEOUT
 from .llm_observability import container_running as _llm_obs_running
@@ -373,8 +373,8 @@ def run_all() -> tuple[
     avail:  list[tuple[str, str, str]] = []
     d = dot_jejune()
 
-    for group, (keys, _) in ENV_GROUPS.items():
-        status, msg = check_env_group(keys)
+    for group, (keys, _) in CONFIG_GROUPS.items():
+        status, msg = check_config_group(keys)
         config.append((group, status, msg))
 
     root_dir_str = os.environ.get("JJ_ROOT_DIR")

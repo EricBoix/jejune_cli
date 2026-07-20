@@ -35,7 +35,7 @@ def _stop_quiet() -> None:
 
 @click.group()
 def neo4j():
-    """Manage the Neo4j instance for the current jj_doc_* repository."""
+    """Manage the Neo4j instance for the current jj_doc_<name> repository."""
 
 
 @neo4j.command("start")
