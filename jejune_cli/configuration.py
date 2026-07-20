@@ -38,10 +38,21 @@ def component_config_check(component: str) -> tuple[str, str]:
         return "ok", ""
     if component == "catalog":
         val = os.environ.get("JJ_ROOT_DIR")
-        if not val:
-            return "warn", COMPONENT_CONFIG_HINTS.get("catalog", "")
-        if _PLACEHOLDER in val:
-            return "error", COMPONENT_CONFIG_HINTS.get("catalog", "")
+        root_valid = bool(val) and _PLACEHOLDER not in val
+        cat_exists = (dot_jejune() / "catalog.yaml").exists()
+        if not root_valid and not cat_exists:
+            msg = (
+                "JJ_ROOT_DIR not configured; catalog.yaml missing"
+                if not val else
+                "JJ_ROOT_DIR has placeholder value; catalog.yaml missing"
+            )
+            return "error", get_config_hint("catalog", "error", msg)
+        if not root_valid:
+            if not val:
+                return "warn", get_config_hint("catalog", "warn", "JJ_ROOT_DIR not configured")
+            return "error", get_config_hint("catalog", "error", "JJ_ROOT_DIR has placeholder value")
+        if not cat_exists:
+            return "error", get_config_hint("catalog", "error", "catalog.yaml missing")
         return "ok", ""
     if component not in CONFIG_GROUPS:
         return "ok", ""
@@ -66,7 +77,7 @@ def get_config_hint(component: str, status: str, message: str) -> str:
 
 def print_config_hint(component: str) -> None:
     """Print the configuration hint for a component."""
-    hint = COMPONENT_CONFIG_HINTS.get(component, "")
+    _, hint = component_config_check(component)
     if hint:
         click.echo(hint)
     else:

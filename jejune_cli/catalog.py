@@ -1,8 +1,5 @@
-import json
 import os
 import subprocess
-import urllib.error
-import urllib.request
 from pathlib import Path
 
 import click
@@ -13,8 +10,7 @@ from .configuration import (
     CONFIG_GROUPS, _PLACEHOLDER, check_config_group, component_config_check,
     print_config_hint, print_config_status,
 )
-from .llm import check_connectivity as _check_llm_connectivity
-from .llm import _TEST_PROMPT as _INFERENCE_TEST_PROMPT, _TIMEOUT as _INFERENCE_TIMEOUT
+from .llm import check_reachability as _check_llm_reachability
 from .llm_observability import container_running as _llm_obs_running
 from .neo4j import container_running as _neo4j_running
 
@@ -224,7 +220,7 @@ def check(catalog_path, root_dir):
     """
     cat_path = Path(catalog_path) if catalog_path else dot_jejune() / "catalog.yaml"
     root = Path(root_dir) if root_dir else None
-    if root is None:
+    if not root or _PLACEHOLDER in str(root_dir):
         cfg_status, hint = component_config_check("catalog")
         if cfg_status != "ok":
             raise click.ClickException(f"not configured — {hint}")
@@ -280,65 +276,6 @@ def sync(catalog_path, root_dir, do_add):
         else:
             status = click.style(msg, fg="yellow" if "private" in msg else "red")
         click.echo(f"  {name:<45} {status}")
-
-
-@catalog.command("test-inference")
-@click.option(
-    "--prompt",
-    default=_INFERENCE_TEST_PROMPT,
-    show_default=True,
-    help="Prompt sent to the LLM for the inference round-trip test.",
-)
-def test_inference(prompt):
-    """Test LLM server connectivity and inference capability.
-
-    Reads LLM_MODEL_URL, LLM_API_KEY, LLM_MODEL_NAME from the environment.
-    Performs two checks:\n
-      1. GET  <LLM_MODEL_URL>/api/tags        — server reachable and authenticated\n
-      2. POST <LLM_MODEL_URL>/api/generate    — inference round-trip succeeds\n
-    """
-    url = os.environ.get("LLM_MODEL_URL")
-    api_key = os.environ.get("LLM_API_KEY")
-    model = os.environ.get("LLM_MODEL_NAME")
-
-    missing = [n for n, v in [
-        ("LLM_MODEL_URL", url), ("LLM_API_KEY", api_key), ("LLM_MODEL_NAME", model)
-    ] if not v]
-    if missing:
-        raise click.ClickException(f"Missing environment variables: {', '.join(missing)}")
-
-    click.echo(f"Server : {url}")
-    click.echo(f"Model  : {model}")
-    click.echo(f"Prompt : {prompt!r}")
-    click.echo()
-
-    auth = {"Authorization": f"BEARER {api_key}"}
-
-    click.echo("  [1/2] Server reachability... ", nl=False)
-    req = urllib.request.Request(f"{url}/api/tags", headers=auth)
-    try:
-        with urllib.request.urlopen(req, timeout=_INFERENCE_TIMEOUT) as resp:
-            resp.read()
-        click.echo(click.style("ok", fg="green"))
-    except urllib.error.URLError as e:
-        click.echo(click.style(f"FAILED — {e.reason}", fg="red"))
-        raise SystemExit(1)
-
-    click.echo("  [2/2] Inference round-trip... ", nl=False)
-    payload = json.dumps({"model": model, "prompt": prompt}).encode()
-    req = urllib.request.Request(
-        f"{url}/api/generate",
-        data=payload,
-        headers={**auth, "Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=_INFERENCE_TIMEOUT) as resp:
-            resp.read()
-        click.echo(click.style("ok", fg="green"))
-    except urllib.error.URLError as e:
-        click.echo(click.style(f"FAILED — {e.reason}", fg="red"))
-        raise SystemExit(1)
 
 
 @catalog.command("check-deployment")
@@ -434,7 +371,7 @@ def run_all() -> tuple[
     avail.append(("neo4j", "ok" if running else "warn", msg))
 
     if url and api_key and model:
-        passed, msg = _check_llm_connectivity(url, api_key, model)
+        passed, msg = _check_llm_reachability(url, api_key)
         avail.append(("llm", "ok" if passed else "error", msg))
     else:
         avail.append(("llm", "warn", "skipped"))
