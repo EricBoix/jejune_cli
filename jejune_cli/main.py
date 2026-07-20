@@ -96,23 +96,25 @@ class _JejuneGroup(click.Group):
 def cli():
     """jejune — jejuneness workflow CLI.
 
-    Shared (single-document and collection-level):\n
-      jejune configuration   Manage the local .jejune/ configuration\n
+    \b
+    Shared (single-document and collection-level):
+      jejune configuration     Manage the .jejune/ configuration
 
-    Single-document commands (operate on one jj_doc_<name> repository):\n
-      jejune neo4j           Manage the Neo4j instance\n
-      jejune llm             Manage the LLM inference server\n
-      jejune llm-observability  Manage the LLM observability backend\n
-      jejune graph           Build and export the knowledge graph\n
+    Run `jejune configuration init` first — in a jj_doc_<name> repository for
+    single-document use, or in a deployment directory for collection-level use.
 
-    Collection-level commands (operate across a catalog of repositories):\n
-      jejune catalog        Manage the document catalog\n
-      jejune deployment     Manage deployments\n
-      jejune pdf-to-markdown  Test the pipeline across the catalog\n
+    \b
+    Single-document commands (jj_doc_<name> repository):
+      jejune neo4j              Manage the Neo4j instance
+      jejune llm                Manage the LLM inference server
+      jejune llm-observability  Manage the LLM observability backend
+      jejune graph              Build and export the knowledge graph
 
-    Run `jejune configuration init` first — in a jj_doc_<name> repository for\n
-    single-document use, or in a deployment directory for collection-level use.\n
-    Then run `jejune doctor`.
+    \b
+    Collection-level commands (catalog of repositories):
+      jejune catalog            Manage the document catalog
+      jejune deployment         Manage deployments
+      jejune pdf-to-markdown    Test the pipeline across the catalog
     """
     load_env_files()
 
