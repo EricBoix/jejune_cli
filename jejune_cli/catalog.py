@@ -10,7 +10,7 @@ from .configuration import (
     CONFIG_GROUPS, _catalog_config_status, check_config_group,
     component_config_check, print_config_hint, print_config_status,
 )
-from .llm import check_reachability as _check_llm_reachability, check_inference as _check_llm_inference
+from .llm import check_server as _check_llm_server, check_auth as _check_llm_auth, check_inference as _check_llm_inference
 from .llm_observability import container_running as _llm_obs_running
 from .neo4j import container_running as _neo4j_running
 
@@ -355,7 +355,9 @@ def run_all() -> tuple[
     avail.append(("neo4j", "ok" if running else "warn", msg))
 
     if url and api_key and model:
-        passed, msg = _check_llm_reachability(url, api_key)
+        passed, msg = _check_llm_server(url)
+        if passed:
+            passed, msg = _check_llm_auth(url, api_key)
         if passed:
             passed, msg = _check_llm_inference(url, api_key, model)
         avail.append(("llm", "ok" if passed else "error", msg))
