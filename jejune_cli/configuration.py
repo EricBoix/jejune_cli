@@ -13,7 +13,7 @@ _PLACEHOLDER = "_CHANGE_ME"
 # "error" (red)   = partial or placeholder — needs attention.
 CONFIG_GROUPS: dict[str, tuple[list[str], str]] = {
     "neo4j": (["NEO4J_PASSWORD"],                                  "neo4j, graph dump-turtle, graph extract"),
-    "llm":   (["LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"], "graph extract"),
+    "llm":   (["LLM_SERVER_URL", "LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"], "graph extract"),
 }
 
 

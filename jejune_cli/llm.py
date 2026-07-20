@@ -10,7 +10,7 @@ from .configuration import print_config_hint, print_config_status
 _TEST_PROMPT = "How are you today?"
 _TIMEOUT = 10            # seconds — used for all checks except inference
 _INFERENCE_TIMEOUT = 120 # seconds — large models can be slow to respond
-DEFAULT_INFERENCE_PATH = "/api/chat/completions"
+DEFAULT_INFERENCE_PATH = "/api/chat"
 
 
 def check_server(url: str) -> tuple[bool, str]:
@@ -138,38 +138,46 @@ def hint_config():
 def status(prompt):
     """Test LLM server connectivity and inference capability.
 
-    Reads LLM_MODEL_URL, LLM_API_KEY, LLM_MODEL_NAME from the environment.
-    Optionally reads LLM_INFERENCE_ENDPOINT (default: /api/chat/completions).
+    Reads from the environment:\n
+      LLM_SERVER_URL        — OpenWebUI root, for auth and model-list checks
+                              (optional: defaults to LLM_MODEL_URL)\n
+      LLM_MODEL_URL         — Ollama base URL passed to ChatOllama\n
+      LLM_API_KEY           — bearer token\n
+      LLM_MODEL_NAME        — model identifier\n
+      LLM_INFERENCE_ENDPOINT — path appended to LLM_MODEL_URL for inference
+                              (optional: defaults to /api/chat)\n
     Performs five checks:\n
-      1. GET  <LLM_MODEL_URL>                        — HTTPS-level reachability\n
-      2. GET  <LLM_MODEL_URL>/api/v1/auths/          — API key valid\n
-      3. GET  <LLM_MODEL_URL>/api/models             — configured model exists on server\n
-      4. POST <LLM_MODEL_URL><LLM_INFERENCE_ENDPOINT> — inference endpoint accepts POST\n
-      5. POST <LLM_MODEL_URL><LLM_INFERENCE_ENDPOINT> — inference round-trip succeeds\n
+      1. GET  <LLM_SERVER_URL>                          — HTTPS-level reachability\n
+      2. GET  <LLM_SERVER_URL>/api/v1/auths/            — API key valid\n
+      3. GET  <LLM_SERVER_URL>/api/models               — configured model exists\n
+      4. POST <LLM_MODEL_URL><LLM_INFERENCE_ENDPOINT>   — inference endpoint accepts POST\n
+      5. POST <LLM_MODEL_URL><LLM_INFERENCE_ENDPOINT>   — inference round-trip succeeds\n
     """
-    url            = os.environ.get("LLM_MODEL_URL")
+    model_url      = os.environ.get("LLM_MODEL_URL")
     api_key        = os.environ.get("LLM_API_KEY")
     model          = os.environ.get("LLM_MODEL_NAME")
+    server_url     = os.environ.get("LLM_SERVER_URL") or model_url
     inference_path = os.environ.get("LLM_INFERENCE_ENDPOINT", DEFAULT_INFERENCE_PATH)
 
     missing = [n for n, v in [
-        ("LLM_MODEL_URL", url), ("LLM_API_KEY", api_key), ("LLM_MODEL_NAME", model)
+        ("LLM_MODEL_URL", model_url), ("LLM_API_KEY", api_key), ("LLM_MODEL_NAME", model)
     ] if not v]
     if missing:
         raise click.ClickException(f"Missing environment variables: {', '.join(missing)}")
 
-    click.echo(f"Server   : {url}")
-    click.echo(f"Model    : {model}")
-    click.echo(f"Endpoint : {inference_path}")
-    click.echo(f"Prompt   : {prompt!r}")
+    click.echo(f"LLM_SERVER_URL : {server_url}")
+    click.echo(f"LLM_MODEL_URL  : {model_url}")
+    click.echo(f"Model          : {model}")
+    click.echo(f"Endpoint       : {inference_path}")
+    click.echo(f"Prompt         : {prompt!r}")
     click.echo()
 
     steps = [
-        ("HTTPS connectivity",       lambda: check_server(url)),
-        ("API key",                   lambda: check_auth(url, api_key)),
-        ("Model exists on server",    lambda: check_model(url, api_key, model)),
-        ("Inference endpoint",        lambda: check_inference_endpoint(url, api_key, inference_path)),
-        ("Inference round-trip",      lambda: check_inference(url, api_key, model, inference_path, prompt)),
+        ("HTTPS connectivity",      lambda: check_server(server_url)),
+        ("API key",                  lambda: check_auth(server_url, api_key)),
+        ("Model exists on server",   lambda: check_model(server_url, api_key, model)),
+        ("Inference endpoint",       lambda: check_inference_endpoint(model_url, api_key, inference_path)),
+        ("Inference round-trip",     lambda: check_inference(model_url, api_key, model, inference_path, prompt)),
     ]
     n = len(steps)
     for i, (label, fn) in enumerate(steps, 1):
