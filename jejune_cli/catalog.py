@@ -11,6 +11,7 @@ import yaml
 from ._env import dot_jejune
 from .env import ENV_GROUPS, check_env_group
 from .llm_observability import container_running as _llm_obs_running
+from .neo4j import container_running as _neo4j_running
 
 _INFERENCE_TEST_PROMPT = "How are you today?"
 _INFERENCE_TIMEOUT = 10  # seconds
@@ -417,6 +418,9 @@ def run_all() -> tuple[
     url = os.environ.get("LLM_MODEL_URL")
     api_key = os.environ.get("LLM_API_KEY")
     model = os.environ.get("LLM_MODEL_NAME")
+    running, msg = _neo4j_running()
+    avail.append(("neo4j", "ok" if running else "warn", msg))
+
     if url and api_key and model:
         passed, msg = _do_test_inference(url, api_key, model)
         avail.append(("llm", "ok" if passed else "error", msg))

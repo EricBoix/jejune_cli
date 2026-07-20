@@ -32,6 +32,7 @@ _CONFIG_HINTS: dict[str, str] = {
 }
 
 _AVAIL_HINTS: dict[str, str] = {
+    "neo4j":             "run `jejune neo4j start`",
     "llm":               "check LLM server connectivity",
     "llm-observability": "run `jejune llm-observability start`",
 }

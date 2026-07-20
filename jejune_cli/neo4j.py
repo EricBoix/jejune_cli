@@ -16,6 +16,17 @@ def _run(*cmd: str) -> None:
         raise SystemExit(result.returncode)
 
 
+def container_running() -> tuple[bool, str]:
+    """Return (is_running, message) for the Neo4j container."""
+    result = subprocess.run(
+        ["docker", "inspect", "-f", "{{.State.Running}}", _NEO4J_CONTAINER],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0 or result.stdout.strip() != "true":
+        return False, "not started"
+    return True, "ok"
+
+
 def _stop_quiet() -> None:
     """Stop and remove the Neo4j container, ignoring errors."""
     subprocess.run(["docker", "stop", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
