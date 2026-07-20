@@ -19,9 +19,10 @@ CONFIG_GROUPS: dict[str, tuple[list[str], str]] = {
 
 # Hints shown when a component's configuration is incomplete.
 COMPONENT_CONFIG_HINTS: dict[str, str] = {
-    "neo4j":   "edit .jejune/env-secrets or .jejune/env-config",
-    "llm":     "edit .jejune/env-secrets",
-    "catalog": "edit .jejune/env-config or .jejune/catalog.yaml",
+    "neo4j":             "edit .jejune/env-secrets or .jejune/env-config",
+    "llm":               "edit .jejune/env-secrets",
+    "llm-observability": "uncomment TRACELOOP_BASE_URL in .jejune/env-config",
+    "catalog":           "edit .jejune/env-config or .jejune/catalog.yaml",
 }
 
 
@@ -31,9 +32,16 @@ def component_config_check(component: str) -> tuple[str, str]:
     For components with no required env vars the status is always "ok".
     """
     import os
+    if component == "llm-observability":
+        if not os.environ.get("TRACELOOP_BASE_URL"):
+            return "warn", COMPONENT_CONFIG_HINTS["llm-observability"]
+        return "ok", ""
     if component == "catalog":
-        if not os.environ.get("JJ_ROOT_DIR"):
+        val = os.environ.get("JJ_ROOT_DIR")
+        if not val:
             return "warn", COMPONENT_CONFIG_HINTS.get("catalog", "")
+        if _PLACEHOLDER in val:
+            return "error", COMPONENT_CONFIG_HINTS.get("catalog", "")
         return "ok", ""
     if component not in CONFIG_GROUPS:
         return "ok", ""

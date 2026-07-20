@@ -10,7 +10,7 @@ import yaml
 
 from ._env import dot_jejune
 from .configuration import (
-    CONFIG_GROUPS, check_config_group, component_config_check,
+    CONFIG_GROUPS, _PLACEHOLDER, check_config_group, component_config_check,
     print_config_hint, print_config_status,
 )
 from .llm import check_connectivity as _check_llm_connectivity
@@ -396,9 +396,14 @@ def run_all() -> tuple[
         status, msg = check_config_group(keys)
         config.append((group, status, msg))
 
+    lo_status, _ = component_config_check("llm-observability")
+    config.append(("llm-observability", lo_status, "ok" if lo_status == "ok" else "not configured"))
+
     root_dir_str = os.environ.get("JJ_ROOT_DIR")
     if not root_dir_str:
         config.append(("catalog", "warn", "not configured"))
+    elif _PLACEHOLDER in root_dir_str:
+        config.append(("catalog", "error", "JJ_ROOT_DIR still has placeholder value"))
     else:
         cat_results = _check_catalog_impl(d / "catalog.yaml", Path(root_dir_str))
         failed_repos = [n for n, ok, _ in cat_results if not ok]
