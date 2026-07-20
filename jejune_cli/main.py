@@ -30,9 +30,9 @@ _STATUS_RANK  = {"error": 2, "warn": 1, "ok": 0}
 _STATUS_LABEL = {"ok": "ok", "warn": "not configured", "error": "error"}
 
 _CONFIG_HINTS: dict[str, str] = {
-    "neo4j":   "edit .jejune/env-secrets",
+    "neo4j":   "edit .jejune/env-secrets or .jejune/env-config",
     "llm":     "edit .jejune/env-secrets",
-    "catalog": "run `jejune catalog check`",
+    "catalog": "edit .jejune/env-config or .jejune/catalog.yaml",
 }
 
 _AVAIL_HINTS: dict[str, str] = {
@@ -138,9 +138,13 @@ def doctor():
     _CONFIG_NOTE = (
         "  Config: .jejune/env-config · .jejune/env-secrets · .jejune/catalog.yaml"
     )
-    _W_DEPENDS = max(len("Depends on"), max(len(_deps_str(c)) for c in _COMPONENT_DEPS))
+    _W_HINT       = max(len("Hint"),             max(len(h) for h in _CONFIG_HINTS.values()))
+    _W_DIAG_HINT  = max(len("Diagnostic hint"),  max(len(h) for h in _AVAIL_HINTS.values()))
+    _W_DEPENDS    = max(len("Depends on"),        max(len(_deps_str(c)) for c in _COMPONENT_DEPS))
     sep = max(
         len(_CONFIG_NOTE),
+        2 + _W_SECT + 1 + _W_MSG + 1 + _W_HINT,
+        2 + _W_SECT + 1 + _W_MSG + 1 + _W_DIAG_HINT,
         2 + _W_SECT + 1 + _W_MSG + 1 + _W_DEPENDS,
     )
     divider = "  " + "─" * (sep - 2)
@@ -172,21 +176,24 @@ def doctor():
     click.echo()
 
     # ── Configuration ────────────────────────────────────────────────
-    click.echo(f"  {'Configuration':<{_W_SECT}} {'Status':<{_W_MSG}}")
+    click.echo(f"  {'Configuration':<{_W_SECT}} {'Status':<{_W_MSG}} Hint")
     click.echo(divider)
     for comp, status, _ in config_results:
         if status == "error":
             failed_config.append(comp)
-        click.echo(f"  {comp:<{_W_SECT}} {_config_label(status)}")
+        hint = "" if status == "ok" else _CONFIG_HINTS.get(comp, "")
+        click.echo(f"  {comp:<{_W_SECT}} {_config_label(status)} {hint}")
     click.echo()
 
     # ── Availability ─────────────────────────────────────────────────
-    click.echo(f"  {'Availability':<{_W_SECT}} {'Status':<{_W_MSG}}")
+    click.echo(f"  {'Availability':<{_W_SECT}} {'Status':<{_W_MSG}} Diagnostic hint")
     click.echo(divider)
     for comp, status, msg in avail_results:
         if status == "error":
             failed_avail.append(comp)
-        click.echo(f"  {comp:<{_W_SECT}} {_avail_label(status, msg)}")
+        show_hint = (status == "error") or (msg == "not started")
+        hint = _AVAIL_HINTS.get(comp, "") if show_hint else ""
+        click.echo(f"  {comp:<{_W_SECT}} {_avail_label(status, msg)} {hint}")
     click.echo()
 
     # ── Components ───────────────────────────────────────────────────
