@@ -3,7 +3,11 @@ import click
 from ._env import dot_jejune, load_env_files
 from .catalog import catalog, run_all
 from .deployment import deployment
-from .configuration import configuration, COMPONENT_CONFIG_HINTS as _CONFIG_HINTS, get_config_hint
+from .configuration import (
+    configuration,
+    COMPONENT_CONFIG_HINTS as _CONFIG_HINTS,
+    get_config_hint,
+)
 from .graph import graph
 from .llm import llm
 from .llm_observability import llm_observability
@@ -23,23 +27,23 @@ _COMPONENTS = [
 ]
 
 
-_W_SECT = 17   # len("llm-observability")
-_W_MSG  = 16   # "not configured" = 14
+_W_SECT = 17  # len("llm-observability")
+_W_MSG = 16  # "not configured" = 14
 
-_STATUS_RANK  = {"error": 2, "warn": 1, "ok": 0}
+_STATUS_RANK = {"error": 2, "warn": 1, "ok": 0}
 _STATUS_LABEL = {"ok": "ok", "warn": "not configured", "error": "error"}
 
 
 _AVAIL_HINTS: dict[str, str] = {
-    "neo4j":             "run `jejune neo4j start`",
-    "llm":               "check LLM server connectivity",
+    "neo4j": "run `jejune neo4j start --help`",
+    "llm": "check LLM server connectivity",
     "llm-observability": "run `jejune llm-observability start`",
 }
 
 # Required dependencies: a component is only effective when all its deps are ok.
 _COMPONENT_DEPS: dict[str, list[str]] = {
-    "graph":           ["neo4j", "llm"],
-    "deployment":      ["catalog"],
+    "graph": ["neo4j", "llm"],
+    "deployment": ["catalog"],
     "pdf-to-markdown": ["catalog"],
 }
 
@@ -53,7 +57,9 @@ class _JejuneGroup(click.Group):
     def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         formatter.write_usage(ctx.command_path, "[OPTIONS] COMPONENT COMMAND [ARGS]...")
 
-    def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+    def format_commands(
+        self, ctx: click.Context, formatter: click.HelpFormatter
+    ) -> None:
         # Components and shared commands are described in the docstring above;
         # only emit commands not covered there.
         covered = set(_COMPONENTS) | {"configuration"}
@@ -108,25 +114,26 @@ def doctor():
     """
     d = dot_jejune()
     if not d.is_dir():
-        click.echo(click.style(
-            f"No .jejune/ directory found in {d.parent}.\n"
-            "Run `jejune configuration init` first to set up the workspace.",
-            fg="yellow",
-        ))
+        click.echo(
+            click.style(
+                f"No .jejune/ directory found in {d.parent}.\n"
+                "Run `jejune configuration init` first to set up the workspace.",
+                fg="yellow",
+            )
+        )
         raise SystemExit(1)
 
     config_results, avail_results = run_all()
     by_config = {comp: (status, msg) for comp, status, msg in config_results}
-    by_avail  = {comp: (status, msg) for comp, status, msg in avail_results}
+    by_avail = {comp: (status, msg) for comp, status, msg in avail_results}
 
     # Ensure every component appears in the config table, in _COMPONENTS order.
     config_results = [
-        (comp,) + by_config.get(comp, ("ok", "ok"))
-        for comp in _COMPONENTS
+        (comp,) + by_config.get(comp, ("ok", "ok")) for comp in _COMPONENTS
     ]
 
     failed_config: list[str] = []
-    failed_avail:  list[str] = []
+    failed_avail: list[str] = []
 
     def _deps_str(comp: str) -> str:
         req = _COMPONENT_DEPS.get(comp, [])
@@ -139,9 +146,11 @@ def doctor():
     _CONFIG_NOTE = (
         "  Config: .jejune/env-config · .jejune/env-secrets · .jejune/catalog.yaml"
     )
-    _W_HINT       = max(len("Hint"),             max(len(h) for h in _CONFIG_HINTS.values()))
-    _W_DIAG_HINT  = max(len("Diagnostic hint"),  max(len(h) for h in _AVAIL_HINTS.values()))
-    _W_DEPENDS    = max(len("Depends on"),        max(len(_deps_str(c)) for c in _COMPONENT_DEPS))
+    _W_HINT = max(len("Hint"), max(len(h) for h in _CONFIG_HINTS.values()))
+    _W_DIAG_HINT = max(
+        len("Diagnostic hint"), max(len(h) for h in _AVAIL_HINTS.values())
+    )
+    _W_DEPENDS = max(len("Depends on"), max(len(_deps_str(c)) for c in _COMPONENT_DEPS))
     sep = max(
         len(_CONFIG_NOTE),
         2 + _W_SECT + 1 + _W_MSG + 1 + _W_HINT,
@@ -223,7 +232,9 @@ def doctor():
     click.echo(f"  {'Component':<{_W_SECT}} {'Effective':<{_W_MSG}} Depends on")
     click.echo(divider)
     for comp in _COMPONENT_DEPS:
-        click.echo(f"  {comp:<{_W_SECT}} {_config_label(_effective_status(comp))} {_deps_colored(comp)}")
+        click.echo(
+            f"  {comp:<{_W_SECT}} {_config_label(_effective_status(comp))} {_deps_colored(comp)}"
+        )
 
     # ── Summary ──────────────────────────────────────────────────────
     click.echo("=" * sep)
@@ -234,11 +245,15 @@ def doctor():
             click.echo(click.style("Configuration issues:", fg="red"))
             click.echo()
             _W = max(len(n) for n in failed_config)
-            _WH = max(len(get_config_hint(n, "error", by_config[n][1])) for n in failed_config)
+            _WH = max(
+                len(get_config_hint(n, "error", by_config[n][1])) for n in failed_config
+            )
             for name in failed_config:
                 detail = by_config[name][1]
                 action = get_config_hint(name, "error", detail)
-                click.echo(f"  {click.style(f'{name:<{_W}}', fg='red')}  {action:<{_WH}}  [{detail}]")
+                click.echo(
+                    f"  {click.style(f'{name:<{_W}}', fg='red')}  {action:<{_WH}}  [{detail}]"
+                )
         if failed_avail:
             if failed_config:
                 click.echo()
@@ -249,7 +264,9 @@ def doctor():
             for name in failed_avail:
                 action = _AVAIL_HINTS.get(name, "investigate")
                 detail = by_avail[name][1]
-                click.echo(f"  {click.style(f'{name:<{_W}}', fg='red')}  {action:<{_WH}}  [{detail}]")
+                click.echo(
+                    f"  {click.style(f'{name:<{_W}}', fg='red')}  {action:<{_WH}}  [{detail}]"
+                )
 
 
 cli.add_command(configuration)
