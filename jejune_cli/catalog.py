@@ -7,8 +7,8 @@ import yaml
 
 from ._env import dot_jejune
 from .configuration import (
-    CONFIG_GROUPS, _PLACEHOLDER, check_config_group, component_config_check,
-    print_config_hint, print_config_status,
+    CONFIG_GROUPS, _catalog_config_status, check_config_group,
+    component_config_check, print_config_hint, print_config_status,
 )
 from .llm import check_reachability as _check_llm_reachability
 from .llm_observability import container_running as _llm_obs_running
@@ -218,12 +218,12 @@ def check(catalog_path, root_dir):
     and that a local clone exists under JJ_ROOT_DIR.
     Requires the gh CLI to be authenticated.
     """
+    cfg_status, hint = component_config_check("catalog")
+    if cfg_status == "error":
+        raise click.ClickException(f"not configured — {hint}")
+
     cat_path = Path(catalog_path) if catalog_path else dot_jejune() / "catalog.yaml"
     root = Path(root_dir) if root_dir else None
-    if not root or _PLACEHOLDER in str(root_dir):
-        cfg_status, hint = component_config_check("catalog")
-        if cfg_status != "ok":
-            raise click.ClickException(f"not configured — {hint}")
     results = _check_catalog_impl(cat_path, root)
 
     all_ok = True
@@ -336,27 +336,11 @@ def run_all() -> tuple[
     lo_status, _ = component_config_check("llm-observability")
     config.append(("llm-observability", lo_status, "ok" if lo_status == "ok" else "not configured"))
 
-    root_dir_str = os.environ.get("JJ_ROOT_DIR")
-    root_valid = bool(root_dir_str) and _PLACEHOLDER not in root_dir_str
-    cat_path = d / "catalog.yaml"
-    cat_exists = cat_path.exists()
-
-    if not root_valid and not cat_exists:
-        if not root_dir_str:
-            config.append(("catalog", "error",
-                           "JJ_ROOT_DIR not configured; catalog.yaml missing"))
-        else:
-            config.append(("catalog", "error",
-                           "JJ_ROOT_DIR has placeholder value; catalog.yaml missing"))
-    elif not root_valid:
-        if not root_dir_str:
-            config.append(("catalog", "warn", "JJ_ROOT_DIR not configured"))
-        else:
-            config.append(("catalog", "error", "JJ_ROOT_DIR has placeholder value"))
-    elif not cat_exists:
-        config.append(("catalog", "error", "catalog.yaml missing"))
+    cat_status, cat_msg = _catalog_config_status()
+    if cat_status != "ok":
+        config.append(("catalog", cat_status, cat_msg))
     else:
-        cat_results = _check_catalog_impl(cat_path, Path(root_dir_str))
+        cat_results = _check_catalog_impl(d / "catalog.yaml", Path(os.environ["JJ_ROOT_DIR"]))
         failed_repos = [n for n, ok, _ in cat_results if not ok]
         config.append((
             "catalog",
