@@ -1,6 +1,5 @@
 import json
 import os
-import shutil
 import subprocess
 import urllib.error
 import urllib.request
@@ -9,50 +8,16 @@ from pathlib import Path
 import click
 import yaml
 
-from .env import dot_jejune
+from ._env import dot_jejune
+from .env import ENV_GROUPS, check_env_group
 
-_TEMPLATES = Path(__file__).parent / "templates"
 _INFERENCE_TEST_PROMPT = "How are you today?"
 _INFERENCE_TIMEOUT = 10  # seconds
-_PLACEHOLDER = "_CHANGE_ME"
-
-# Env-var groups: name → (variables, commands that require them).
-# "warn" (yellow) = none set — use case not configured, valid.
-# "error" (red)   = partial or placeholder — needs attention.
-_ENV_GROUPS: dict[str, tuple[list[str], str]] = {
-    "neo4j":     (["NEO4J_PASSWORD"],                              "build neo4j-*, kg-extract, dump-turtle"),
-    "llm":       (["LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"], "build kg-extract"),
-    "workspace": (["JJ_ROOT_DIR"],                                 "test pdf-to-markdown, configure check-catalog"),
-}
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-def _check_env_group(keys: list[str]) -> tuple[str, str]:
-    """Check a group of env vars; return (status, message).
-
-    status is "ok", "warn" (none set — use case not configured), or "error"
-    (partial fill or placeholder values present).
-    """
-    states: list[tuple[str, str]] = []
-    for key in keys:
-        val = os.environ.get(key)
-        if val is None:
-            states.append((key, "missing"))
-        elif _PLACEHOLDER in val:
-            states.append((key, "placeholder"))
-        else:
-            states.append((key, "ok"))
-
-    if all(s == "ok" for _, s in states):
-        return "ok", "ok"
-    if all(s == "missing" for _, s in states):
-        return "warn", "not configured"
-    issues = [f"{k}: {s}" for k, s in states if s != "ok"]
-    return "error", "; ".join(issues)
-
 
 def _gh_is_private(slug: str) -> tuple[bool | None, str]:
     """Query GitHub via gh CLI; return (is_private, error_message)."""
@@ -141,7 +106,6 @@ def _check_deployment_impl(
             ref_url = ref_docs[name]["url"].rstrip("/")
             if url != ref_url:
                 issues.append(f"URL drift: deployment={url!r}, reference={ref_url!r}")
-        # else: private repo absent from reference — expected
 
         label = "public" if doc.get("public") else "private"
         results.append((
@@ -165,7 +129,7 @@ def _sync_catalog_impl(
             existing.add(doc["name"])
 
     results: list[tuple[str, bool, str]] = []
-    to_add: list[tuple[str, str]] = []  # (name, url)
+    to_add: list[tuple[str, str]] = []
 
     for repo_dir in sorted(root_dir.glob("jj_doc_*")):
         if not repo_dir.is_dir():
@@ -198,7 +162,7 @@ def _sync_catalog_impl(
         elif is_private:
             results.append((name, True, "private — add manually to deployment catalog if needed"))
         else:
-            results.append((name, False, f"public repo missing from catalog"))
+            results.append((name, False, "public repo missing from catalog"))
             to_add.append((name, url))
 
     if do_add and to_add and catalog.exists():
@@ -212,9 +176,7 @@ def _sync_catalog_impl(
     return results
 
 
-def _do_test_inference(
-    url: str, api_key: str, model: str, prompt: str = _INFERENCE_TEST_PROMPT
-) -> tuple[bool, str]:
+def _do_test_inference(url: str, api_key: str, model: str) -> tuple[bool, str]:
     """Run both LLM connectivity checks; return (passed, message)."""
     auth = {"Authorization": f"BEARER {api_key}"}
 
@@ -225,7 +187,7 @@ def _do_test_inference(
     except urllib.error.URLError as e:
         return False, f"server unreachable: {e.reason}"
 
-    payload = json.dumps({"model": model, "prompt": prompt}).encode()
+    payload = json.dumps({"model": model, "prompt": _INFERENCE_TEST_PROMPT}).encode()
     req = urllib.request.Request(
         f"{url}/api/generate",
         data=payload,
@@ -246,78 +208,13 @@ def _do_test_inference(
 # ---------------------------------------------------------------------------
 
 @click.group()
-def configure():
-    """Stage 1 — verify workspace coherence (read-only, no side-effects)."""
+def catalog():
+    """Manage the catalog of jj_doc_* repositories (collection-level)."""
 
 
-@configure.command("init")
-def init():
-    """Write jejune scaffold files into .jejune/ in the current directory.
-
-    Creates .jejune/env-config, .jejune/env-secrets, and
-    .jejune/catalog.yaml from built-in templates.
-    Adds .jejune to .gitignore so the whole directory stays local by default.
-    """
-    d = dot_jejune()
-    d.mkdir(exist_ok=True)
-
-    created = []
-    skipped = []
-    for fname in ("env-config", "env-secrets", "catalog.yaml"):
-        dst = d / fname
-        if dst.exists():
-            skipped.append(fname)
-        else:
-            shutil.copy2(_TEMPLATES / fname, dst)
-            created.append(fname)
-
-    for f in created:
-        click.echo(click.style(f"  created  .jejune/{f}", fg="green"))
-    for f in skipped:
-        click.echo(click.style(f"  skipped  .jejune/{f} (already exists)", fg="yellow"))
-
-    gitignore = Path.cwd() / ".gitignore"
-    entry = ".jejune\n"
-    if not gitignore.exists() or ".jejune" not in gitignore.read_text().splitlines():
-        with gitignore.open("a") as fh:
-            fh.write(entry)
-        click.echo(click.style("  updated  .gitignore (.jejune)", fg="green"))
-
-    click.echo()
-    click.echo("Next step: edit .jejune/env-secrets with your credentials.")
-
-
-@configure.command("check-env")
-def check_env():
-    """Verify env-secrets variables by use-case group.
-
-    Reports each group (neo4j, llm, workspace) independently:\n
-      ok            — all vars set and non-placeholder\n
-      not configured — none set (use case not activated, not an error)\n
-      error         — partial or placeholder values (needs attention)\n
-
-    Checks os.environ, which already includes values loaded from
-    .jejune/env-config and .jejune/env-secrets at startup.
-    """
-    any_error = False
-    for group, (keys, usage) in _ENV_GROUPS.items():
-        status, msg = _check_env_group(keys)
-        if status == "ok":
-            label = click.style(f"{'ok':<26}", fg="green")
-        elif status == "warn":
-            label = click.style(f"{msg:<26}", fg="yellow")
-        else:
-            label = click.style(f"{msg:<26}", fg="red")
-            any_error = True
-        click.echo(f"  {group:<16} {label} {usage}")
-
-    if any_error:
-        raise SystemExit(1)
-
-
-@configure.command("check-catalog")
+@catalog.command("check")
 @click.option(
-    "--catalog",
+    "--catalog", "catalog_path",
     default=None,
     type=click.Path(),
     help="Path to catalog.yaml (default: .jejune/catalog.yaml).",
@@ -329,14 +226,14 @@ def check_env():
     type=click.Path(),
     help="Directory holding jj_* clones (default: $JJ_ROOT_DIR).",
 )
-def check_catalog(catalog, root_dir):
+def check(catalog_path, root_dir):
     """Verify catalog.yaml against GitHub visibility and local clones.
 
     For each entry: confirms the public flag matches actual GitHub visibility
     and that a local clone exists under JJ_ROOT_DIR.
     Requires the gh CLI to be authenticated.
     """
-    cat_path = Path(catalog) if catalog else dot_jejune() / "catalog.yaml"
+    cat_path = Path(catalog_path) if catalog_path else dot_jejune() / "catalog.yaml"
     root = Path(root_dir) if root_dir else None
     results = _check_catalog_impl(cat_path, root)
 
@@ -351,9 +248,9 @@ def check_catalog(catalog, root_dir):
         raise SystemExit(1)
 
 
-@configure.command("sync-catalog")
+@catalog.command("sync")
 @click.option(
-    "--catalog",
+    "--catalog", "catalog_path",
     default=None,
     type=click.Path(),
     help="Path to catalog.yaml (default: .jejune/catalog.yaml).",
@@ -372,17 +269,16 @@ def check_catalog(catalog, root_dir):
     default=False,
     help="Append missing public repos to catalog.yaml.",
 )
-def sync_catalog(catalog, root_dir, do_add):
+def sync(catalog_path, root_dir, do_add):
     """Report public jj_doc_* repos under JJ_ROOT_DIR missing from catalog.yaml.
 
     With --add, appends missing public repos to the catalog file in place.
-    Private repos are flagged as informational only — add them manually to
-    deployment catalogs as needed.
+    Private repos are flagged as informational only.
     """
     if not root_dir:
         raise click.ClickException("JJ_ROOT_DIR is not set. Use --root-dir or set the env var.")
 
-    cat_path = Path(catalog) if catalog else dot_jejune() / "catalog.yaml"
+    cat_path = Path(catalog_path) if catalog_path else dot_jejune() / "catalog.yaml"
     results = _sync_catalog_impl(cat_path, Path(root_dir), do_add)
 
     for name, ok, msg in results:
@@ -393,7 +289,7 @@ def sync_catalog(catalog, root_dir, do_add):
         click.echo(f"  {name:<45} {status}")
 
 
-@configure.command("test-inference")
+@catalog.command("test-inference")
 @click.option(
     "--prompt",
     default=_INFERENCE_TEST_PROMPT,
@@ -452,7 +348,7 @@ def test_inference(prompt):
         raise SystemExit(1)
 
 
-@configure.command("check-deployment")
+@catalog.command("check-deployment")
 @click.argument("deployment_path", type=click.Path(exists=True))
 @click.option(
     "--root-dir",
@@ -491,17 +387,15 @@ def run_all() -> list[tuple[str, str, str, str]]:
     """Return [(check_name, status, message, usage), ...] for every automatable check.
 
     status is "ok" (green), "warn" (yellow — not configured), or "error" (red).
-    usage is a short description of which commands require the check to pass.
+    usage describes which commands require the check to pass.
     """
     results: list[tuple[str, str, str, str]] = []
     d = dot_jejune()
 
-    # check-env: one entry per use-case group
-    for group, (keys, usage) in _ENV_GROUPS.items():
-        status, msg = _check_env_group(keys)
+    for group, (keys, usage) in ENV_GROUPS.items():
+        status, msg = check_env_group(keys)
         results.append((f"env:{group}", status, msg, usage))
 
-    # check-catalog
     root_dir_str = os.environ.get("JJ_ROOT_DIR")
     root_dir = Path(root_dir_str) if root_dir_str else None
     cat_results = _check_catalog_impl(d / "catalog.yaml", root_dir)
@@ -510,17 +404,16 @@ def run_all() -> list[tuple[str, str, str, str]]:
         "check-catalog",
         "ok" if not failed_repos else "error",
         "ok" if not failed_repos else f"{len(failed_repos)} repo(s) with issues",
-        "test pdf-to-markdown, configure check-catalog",
+        "pdf-to-markdown test, catalog check",
     ))
 
-    # test-inference — skip gracefully when llm group is not configured
     url = os.environ.get("LLM_MODEL_URL")
     api_key = os.environ.get("LLM_API_KEY")
     model = os.environ.get("LLM_MODEL_NAME")
     if url and api_key and model:
         passed, msg = _do_test_inference(url, api_key, model)
-        results.append(("test-inference", "ok" if passed else "error", msg, "build kg-extract"))
+        results.append(("test-inference", "ok" if passed else "error", msg, "graph extract"))
     else:
-        results.append(("test-inference", "warn", "llm not configured — skipped", "build kg-extract"))
+        results.append(("test-inference", "warn", "llm not configured — skipped", "graph extract"))
 
     return results

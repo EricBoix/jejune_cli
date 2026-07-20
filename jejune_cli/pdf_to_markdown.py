@@ -5,15 +5,15 @@ from pathlib import Path
 import click
 import yaml
 
-from .env import dot_jejune
+from ._env import dot_jejune
 
 
-@click.group()
-def test():
-    """Run test suites for the document processing pipeline."""
+@click.group("pdf-to-markdown")
+def pdf_to_markdown():
+    """Test the pdf-to-markdown pipeline across the document catalog (collection-level)."""
 
 
-@test.command("pdf-to-markdown")
+@pdf_to_markdown.command("test")
 @click.option(
     "--catalog",
     envvar="JJ_CATALOG",
@@ -39,7 +39,7 @@ def test():
     show_default=True,
     help="Clone or pull each repository before running tests.",
 )
-def pdf_to_markdown(catalog, root_dir, repo, pull):
+def test_cmd(catalog, root_dir, repo, pull):
     """Run each jj_doc_* Convert/test_main.py suite listed in the catalog.
 
     Repositories are expected under ROOT_DIR/<name>/.

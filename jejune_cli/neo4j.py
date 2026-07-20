@@ -1,18 +1,12 @@
 import os
-import shlex
-import shutil
 import subprocess
 import time
 from pathlib import Path
 
 import click
 
-from .env import EXTRACT_ENV_VARS, TTL_ENV_VARS, docker_env_args
-
 _NEO4J_CONTAINER = "jj_neo4j_db"
 _NEO4J_IMAGE = "jejuneness:jj_neo4j_docker"
-_BUILD_KG_IMAGE = "jejuneness:jj_build_knowledge_graph"
-_TTL_IMAGE = "jejuneness:jj_neo4j_to_rdf_ttl"
 
 
 def _run(*cmd: str) -> None:
@@ -22,18 +16,18 @@ def _run(*cmd: str) -> None:
         raise SystemExit(result.returncode)
 
 
-def _neo4j_stop_quiet() -> None:
-    """Stop and remove the Neo4j container, ignoring errors (may already be down)."""
+def _stop_quiet() -> None:
+    """Stop and remove the Neo4j container, ignoring errors."""
     subprocess.run(["docker", "stop", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
-    subprocess.run(["docker", "rm", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
+    subprocess.run(["docker", "rm",   _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
 
 
 @click.group()
-def build():
-    """Stage 2 — run the document-to-knowledge-graph treatment pipeline."""
+def neo4j():
+    """Manage the Neo4j instance for the current jj_doc_* repository."""
 
 
-@build.command("neo4j-start")
+@neo4j.command("start")
 @click.argument("data_dir", type=click.Path())
 @click.option(
     "--port",
@@ -46,7 +40,7 @@ def build():
     metavar="USER/PASSWORD",
     help="Neo4j auth string (default: NEO4J_USERNAME/NEO4J_PASSWORD env vars).",
 )
-def neo4j_start(data_dir, port, credentials):
+def start(data_dir, port, credentials):
     """Launch the Neo4j Docker container, storing files in DATA_DIR/database/.
 
     DATA_DIR must be an absolute path.
@@ -99,20 +93,20 @@ def neo4j_start(data_dir, port, credentials):
     click.echo(f"Neo4j ready on bolt port {port}.")
 
 
-@build.command("neo4j-stop")
-def neo4j_stop():
+@neo4j.command("stop")
+def stop():
     """Stop and remove the Neo4j Docker container."""
     click.echo(f"Stopping {_NEO4J_CONTAINER} ...")
     subprocess.run(["docker", "stop", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
     click.echo(f"Removing {_NEO4J_CONTAINER} ...")
-    subprocess.run(["docker", "rm", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
+    subprocess.run(["docker", "rm",   _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
     click.echo("Neo4j stopped.")
 
 
-@build.command("neo4j-dump")
+@neo4j.command("dump")
 @click.argument("results_dir", type=click.Path())
 @click.argument("dump_filename")
-def neo4j_dump(results_dir, dump_filename):
+def dump(results_dir, dump_filename):
     """Dump the Neo4j database to RESULTS_DIR/backups/DUMP_FILENAME.
 
     RESULTS_DIR must contain a database/ subdirectory.
@@ -124,11 +118,11 @@ def neo4j_dump(results_dir, dump_filename):
     """
     results_dir = Path(results_dir).resolve()
     database_dir = results_dir / "database"
-    backups_dir = results_dir / "backups"
+    backups_dir  = results_dir / "backups"
     backups_dir.mkdir(parents=True, exist_ok=True)
 
     click.echo("Stopping Neo4j (required before dump) ...")
-    _neo4j_stop_quiet()
+    _stop_quiet()
 
     click.echo("Dumping database ...")
     _run(
@@ -144,25 +138,26 @@ def neo4j_dump(results_dir, dump_filename):
     click.echo(f"Dump written to {backups_dir / dump_filename}.")
 
 
-@build.command("neo4j-restore")
+@neo4j.command("restore")
 @click.argument("results_dir", type=click.Path())
 @click.argument("dump_filename")
-def neo4j_restore(results_dir, dump_filename):
+def restore(results_dir, dump_filename):
     """Restore the Neo4j database from RESULTS_DIR/backups/DUMP_FILENAME.
 
     Stops Neo4j, wipes the current database directory, then loads the dump.
     The username/password burnt into the dump must match the target instance.
     """
-    results_dir = Path(results_dir).resolve()
+    import shutil
+    results_dir  = Path(results_dir).resolve()
     database_dir = results_dir / "database"
-    backups_dir = results_dir / "backups"
-    dump_path = backups_dir / dump_filename
+    backups_dir  = results_dir / "backups"
+    dump_path    = backups_dir / dump_filename
 
     if not dump_path.exists():
         raise click.ClickException(f"Dump file not found: {dump_path}")
 
     click.echo("Stopping Neo4j (required before restore) ...")
-    _neo4j_stop_quiet()
+    _stop_quiet()
 
     click.echo("Wiping current database ...")
     shutil.rmtree(database_dir, ignore_errors=True)
@@ -180,69 +175,3 @@ def neo4j_restore(results_dir, dump_filename):
         "neo4j-admin", "database", "load", "neo4j", "--from-path=/backups",
     )
     click.echo("Restore complete.")
-
-
-@build.command("kg-extract")
-@click.argument("doc_dir", type=click.Path(exists=True))
-@click.argument("input_files")
-def kg_extract(doc_dir, input_files):
-    """Run the Markdown → Neo4j knowledge-graph extraction for DOC_DIR.
-
-    DOC_DIR is the root of a jj_doc_* repository.
-    INPUT_FILES is a quoted string of filenames (and optional flags) passed
-    to the extractor, e.g. 'file1.md file2.md' or '--flag val file.md'.
-
-    Requires a running Neo4j instance (`jejune build neo4j-start`).
-    Credentials and LLM settings are read from .jejune/env-secrets / environment.
-    """
-    doc_dir = Path(doc_dir).resolve()
-
-    click.echo(f"Building {_BUILD_KG_IMAGE} ...")
-    _run(
-        "docker", "build", "-t", _BUILD_KG_IMAGE,
-        "https://github.com/EricBoix/jj_build_knowledge_graph.git#:DockerContext",
-    )
-
-    click.echo("Running extraction ...")
-    _run(
-        "docker", "run", "--rm", "--tty",
-        "--name", "jj_build_knowledge_graph",
-        "--network", "host",
-        "-v", f"{doc_dir}:/data",
-        *docker_env_args(EXTRACT_ENV_VARS),
-        _BUILD_KG_IMAGE,
-        "extracting_graph_semantic_chuncker.py",
-        "--input_directory", "/data",
-        *shlex.split(input_files),
-    )
-
-
-@build.command("dump-turtle")
-@click.argument("output_dir", type=click.Path())
-@click.argument("filename")
-def dump_turtle(output_dir, filename):
-    """Export the Neo4j knowledge graph to OUTPUT_DIR/FILENAME (RDF/Turtle).
-
-    Requires a running Neo4j instance populated by `jejune build kg-extract`.
-    Neo4j credentials are read from .jejune/env-secrets / environment.
-    """
-    output_dir = Path(output_dir).resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    click.echo(f"Building {_TTL_IMAGE} ...")
-    _run(
-        "docker", "build", "-t", _TTL_IMAGE,
-        "https://github.com/EricBoix/jj_neo4j_to_rdf_ttl.git#:DockerContext",
-    )
-
-    click.echo(f"Exporting to {output_dir / filename} ...")
-    _run(
-        "docker", "run", "--rm",
-        "--network", "host",
-        "-v", f"{output_dir}:/output",
-        *docker_env_args(TTL_ENV_VARS),
-        _TTL_IMAGE,
-        "neo4j_to_rdf.py", f"/output/{filename}",
-    )
-
-

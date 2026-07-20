@@ -3,61 +3,53 @@
 ## Table of content<!-- omit in toc -->
 
 - [Introduction](#introduction)
-- [Stage 1 — Configure: set up the workspace](#stage-1--configure-set-up-the-workspace)
-- [Stage 2 — Build: run the treatment pipeline](#stage-2--build-run-the-treatment-pipeline)
-- [Test commands](#test-commands)
-- [Stage 3 — Exploit: deploy and browse results](#stage-3--exploit-deploy-and-browse-results)
+- [Installing jejune\_cli](#installing-jejune_cli)
+- [Single-document commands](#single-document-commands)
+  - [Set up the environment](#set-up-the-environment)
+  - [Neo4j commands](#neo4j-commands)
+  - [Graph commands](#graph-commands)
+- [Collection-level commands](#collection-level-commands)
+  - [Catalog commands](#catalog-commands)
+  - [Deployment commands](#deployment-commands)
+  - [pdf-to-markdown commands](#pdf-to-markdown-commands)
 - [Notes and warnings](#notes-and-warnings)
 
 ## Introduction
 
-`jejune_cli` addresses the jejuneness workflow through four command groups:
+`jejune_cli` addresses the jejuneness workflow through seven object-oriented command groups,
+split into two scopes:
+
+**Single-document** — operate on one `jj_doc_*` repository at a time:
 
 ```text
-jejune doctor                        # overall workspace health check (run this first)
-jejune configure <action>            # Stage 1 — verify workspace coherence
-jejune build     <action>            # Stage 2 — run the treatment pipeline
-jejune test      <action>            # run test suites for the pipeline
-jejune deploy    <action>            # Stage 3 — manage and launch deployments
+jejune env    <action>   # manage the local .jejune/ environment
+jejune neo4j  <action>   # manage the Neo4j instance
+jejune graph  <action>   # build and export the knowledge graph
 ```
 
-`jejune doctor` (inspired by `brew doctor`) runs all Stage 1 checks in sequence and
-produces a pass/fail summary. It is the recommended first command to run on a fresh
-checkout or after any configuration change.
+**Collection-level** — operate across a catalog of repositories:
 
-**Stage 1 — Configure.** Verify that the local workspace is correctly set up: environment
-variables are defined, `catalog.yaml` is coherent with what is actually hosted on
-GitHub and cloned locally, and deployment configurations are valid. This stage has no
-side-effects on data; it only reads and reports.
+```text
+jejune catalog          <action>   # manage the document catalog
+jejune deployment       <action>   # manage deployments
+jejune pdf-to-markdown  <action>   # test the pipeline across the catalog
+```
 
-**Stage 2 — Build.** Run the data-processing pipeline that turns source documents (PDFs
-in a given `jj_doc_<some_document>` repository) into some knowledge graph (RDF/Turtle file). This is a per-document, per-developer operation that requires a running Neo4j instance and access to an LLM server. The pipeline is implemented as a chain of Docker container invocations.
+Run `jejune doctor` at any time to see the health of your workspace.
 
-**Stage 3 — Exploit.** Configure and launch the downstream tools (`jj_vis_net_viewer`,
-`jj_markdown_browser`) that consume the Turtle files produced by Stage 2. This stage
-revolves around *deployments*: named configurations that declare which `jj_doc_*`
-repositories are active and where they are cloned locally. Multiple deployments can coexist
-(e.g. a public-only deployment and a full deployment that includes private repositories).
+### Pipeline summary
 
-Each stage has **separate configuration concerns**: Stage 2 needs Neo4j and LLM credentials;
-Stage 3 needs a catalog of repositories and local paths. Only Stage 3 involves the
-`jj_deployments` private repository and the deployment catalog scheme.
-
-### Pipeline Summary (Stage 2)
-
-| Step | `jejune build` command | Docker Image | Input | Output |
-| ---- | ---------------------- | ------------ | ----- | ------ |
+| Step | Command | Docker Image | Input | Output |
+| ---- | ------- | ------------ | ----- | ------ |
 | 1a. PDF to Markdown | (external: `jj_doc_some_book`) | — | PDF | `.md` + `.json` |
-| 1b. Launch Neo4j | `neo4j-start` | `jejuneness:jj_neo4j_docker` (built from [`jj_neo4j_docker`](https://github.com/EricBoix/jj_neo4j_docker)) | — | Neo4j server |
-| 2. Markdown to Neo4j | `extract` | `jejuneness:jj_build_knowledge_graph` (built from [`jj_build_knowledge_graph`](https://github.com/EricBoix/jj_build_knowledge_graph)) | `.md` + `.json` | Neo4j DB |
-| 3. Neo4j to RDF | `dump-turtle` | `jejuneness:jj_neo4j_to_rdf_ttl` (built from [`jj_neo4j_to_rdf_ttl`](https://github.com/EricBoix/jj_neo4j_to_rdf_ttl)) | Neo4j DB | `.ttl` |
-| 4. Stop Neo4j | `neo4j-stop` | — | — | — |
+| 1b. Launch Neo4j | `jejune neo4j start` | `jejuneness:jj_neo4j_docker` (built from [`jj_neo4j_docker`](https://github.com/EricBoix/jj_neo4j_docker)) | — | Neo4j server |
+| 2. Markdown to Neo4j | `jejune graph extract` | `jejuneness:jj_build_knowledge_graph` (built from [`jj_build_knowledge_graph`](https://github.com/EricBoix/jj_build_knowledge_graph)) | `.md` + `.json` | Neo4j DB |
+| 3. Neo4j to RDF | `jejune graph dump-turtle` | `jejuneness:jj_neo4j_to_rdf_ttl` (built from [`jj_neo4j_to_rdf_ttl`](https://github.com/EricBoix/jj_neo4j_to_rdf_ttl)) | Neo4j DB | `.ttl` |
+| 4. Stop Neo4j | `jejune neo4j stop` | — | — | — |
 
 ---
 
-## Stage 1 — Configure: set up the workspace
-
-### Install
+## Installing jejune_cli
 
 **One-shot (no clone needed):**
 
@@ -81,13 +73,17 @@ uv sync          # creates .venv and installs jejune-cli in editable mode
 uv run jejune doctor
 ```
 
-### Configure the environment
+---
 
-Run `jejune configure init` once in the repository where you intend to use `jejune`.
+## Single-document commands
+
+### Set up the environment
+
+Run `jejune env init` once in the repository where you intend to use `jejune`.
 It writes scaffold files into a `.jejune/` directory and adds `.jejune` to `.gitignore`:
 
 ```bash
-jejune configure init
+jejune env init
 # edit .jejune/env-secrets with your credentials
 ```
 
@@ -96,76 +92,72 @@ Variables to set in `.jejune/env-secrets`:
 | Variable | Required by | Purpose |
 | -------- | ----------- | ------- |
 | `NEO4J_PASSWORD` | all Neo4j commands | Database password |
-| `LLM_MODEL_URL`, `LLM_API_KEY`, `LLM_MODEL_NAME` | `jejune build kg-extract` | LLM server |
-| `JJ_ROOT_DIR` | Stages 1 & 3 | Absolute path to the local directory holding all side-by-side `jj_*` clones |
+| `LLM_MODEL_URL`, `LLM_API_KEY`, `LLM_MODEL_NAME` | `jejune graph extract` | LLM server |
+| `JJ_ROOT_DIR` | catalog & deployment commands | Absolute path to the local directory holding all side-by-side `jj_*` clones |
 
-### Configure commands
-
-```bash
-jejune doctor                               # run all checks below and report overall health
-
-jejune configure init                       # write .jejune/ scaffold files (run once per repo)
-jejune configure check-env                  # check env vars by use-case group (neo4j, llm, workspace)
-jejune configure check-catalog              # verify .jejune/catalog.yaml against GitHub visibility and local clones
-jejune configure sync-catalog               # report public jj_doc_* repos missing from .jejune/catalog.yaml
-jejune configure check-deployment <path>    # validate a deployment catalog against .jejune/catalog.yaml
-```
-
----
-
-## Stage 2 — Build: run the treatment pipeline
-
-### Build commands
-
-```bash
-jejune build neo4j-start          # launch the Neo4j container
-jejune build kg-extract           # run Markdown → Neo4j extraction (requires LLM)
-jejune build dump-turtle          # export Neo4j → RDF/Turtle
-jejune build neo4j-stop           # stop the Neo4j container
-jejune build neo4j-dump           # dump the Neo4j database to a file
-jejune build neo4j-restore        # restore the Neo4j database from a dump
-```
-
----
-
-## Test commands
-
-```bash
-jejune test pdf-to-markdown       # run Convert/test_main.py for each repo in the catalog
-```
-
----
-
-## Stage 3 — Exploit: deploy and browse results
-
-A *deployment* is a named configuration stored in the separate private `jj_deployments`
-repository. It declares which `jj_doc_*` repositories are active and how to locate them
-locally. This separation keeps private repository names and credentials out of any public
-repository. See [`Doc/MarkdownRegistryDesignNotes.md`](./Doc/MarkdownRegistryDesignNotes.md)
-for the full design rationale.
-
-`jejune configure check-deployment <path>` (Stage 1) can validate a deployment catalog before use.
-
-**Scaffold files written by `jejune configure init` into `.jejune/`:**
+**Scaffold files written by `jejune env init` into `.jejune/`:**
 
 | File | Role |
 | ---- | ---- |
-| `.jejune/catalog.yaml` | Lists known `jj_doc_*` repositories; used by `configure check-catalog` and `test pdf-to-markdown` |
+| `.jejune/catalog.yaml` | Lists known `jj_doc_*` repositories; used by `catalog check` and `pdf-to-markdown test` |
 | `.jejune/env-config` | Non-secret defaults (`NEO4J_PORT`, `NEO4J_URI`, `NEO4J_USERNAME`) |
 | `.jejune/env-secrets` | Created by `init`; fill in credentials and `JJ_ROOT_DIR`; gitignored via `.jejune` |
+
+```bash
+jejune doctor                          # overall workspace health check
+
+jejune env init                        # write .jejune/ scaffold files (run once per repo)
+jejune env check                       # check env vars by use-case group (neo4j, llm, workspace)
+```
+
+### Neo4j commands
+
+```bash
+jejune neo4j start          # launch the Neo4j container
+jejune neo4j stop           # stop the Neo4j container
+jejune neo4j dump           # dump the Neo4j database to a file
+jejune neo4j restore        # restore the Neo4j database from a dump
+```
+
+### Graph commands
+
+```bash
+jejune graph extract        # run Markdown → Neo4j extraction (requires LLM)
+jejune graph dump-turtle    # export Neo4j → RDF/Turtle
+```
+
+---
+
+## Collection-level commands
+
+### Catalog commands
+
+```bash
+jejune catalog check                   # verify .jejune/catalog.yaml against GitHub visibility and local clones
+jejune catalog sync                    # report public jj_doc_* repos missing from .jejune/catalog.yaml
+jejune catalog sync --add              # append missing public repos to .jejune/catalog.yaml
+jejune catalog check-deployment <path> # validate a deployment directory against .jejune/catalog.yaml
+jejune catalog test-inference          # test LLM server connectivity and inference
+```
+
+### Deployment commands
+
+A *deployment* is a named configuration stored in the separate private `jj_deployments`
+repository. It declares which `jj_doc_*` repositories are active and how to locate them
+locally. This separation keeps private repository names out of any public repository.
+See [`Doc/MarkdownRegistryDesignNotes.md`](./Doc/MarkdownRegistryDesignNotes.md) for the
+full design rationale.
 
 `JJ_ROOT_DIR` must be set to the absolute path of the local directory holding all
 side-by-side `jj_*` clones (e.g. `/Users/you/workspace/`). It is machine-specific and
 must not be committed.
 
-### Set up a deployment
-
 ```bash
-# Clone or create the jj_deployments private repo alongside jejune_cli
+# Clone or create the jj_deployments private repo
 git clone git@github.com:EricBoix/jj_deployments.git   # or: git init jj_deployments
 
-# Bootstrap a new deployment directory from the scaffolds
-jejune deploy bootstrap jj_deployments my_deployment
+# Create a new deployment directory from scaffold files
+jejune deployment configure jj_deployments my_deployment
 ```
 
 This creates `jj_deployments/deploy_my_deployment/` containing:
@@ -185,7 +177,7 @@ git -C jj_deployments add deploy_my_deployment/catalog.yaml \
 git -C jj_deployments commit -m "Add deploy_my_deployment deployment"
 ```
 
-**Source a deployment before running exploit commands:**
+**Source a deployment before running collection-level commands:**
 
 ```bash
 cd jj_deployments/deploy_my_deployment
@@ -193,19 +185,18 @@ source deployment.env
 source secrets.env      # local only, never committed
 ```
 
-**Run tests against a deployment catalog:**
-
 ```bash
-jejune test pdf-to-markdown \
-  --catalog /path/to/jj_deployments/deploy_my_deployment/catalog.yaml \
-  --root-dir /Users/you/workspace/
+jejune deployment configure <deployments-dir> <name>   # create a new deployment from scaffolds
+jejune deployment list <deployments-dir>               # list available deployments
 ```
 
-### Exploit commands
+### pdf-to-markdown commands
 
 ```bash
-jejune deploy bootstrap <deployments-dir> <name>    # create a new deployment from scaffolds
-jejune deploy list                                  # list available deployments
+jejune pdf-to-markdown test                            # run Convert/test_main.py for each repo in the catalog
+jejune pdf-to-markdown test \
+  --catalog /path/to/jj_deployments/deploy_my_deployment/catalog.yaml \
+  --root-dir /Users/you/workspace/                    # test against a specific deployment catalog
 ```
 
 ---

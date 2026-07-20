@@ -1,63 +1,113 @@
-"""Environment loading with precedence: existing env vars > .jejune/env-secrets > .jejune/env-config."""
-
-import os
+import shutil
 from pathlib import Path
 
-# Variables forwarded to the jj_build_knowledge_graph Docker container.
-EXTRACT_ENV_VARS = [
-    "NEO4J_URI",
-    "NEO4J_USERNAME",
-    "NEO4J_PASSWORD",
-    "LLM_MODEL_URL",
-    "LLM_API_KEY",
-    "LLM_MODEL_NAME",
-    "TRACELOOP_BASE_URL",  # optional — omitted from Docker args if unset
-]
+import click
 
-# Variables forwarded to the jj_neo4j_to_rdf_ttl Docker container.
-TTL_ENV_VARS = [
-    "NEO4J_URI",
-    "NEO4J_USERNAME",
-    "NEO4J_PASSWORD",
-]
+from ._env import dot_jejune
 
-_DOT_JEJUNE = ".jejune"
+_TEMPLATES = Path(__file__).parent / "templates"
+_PLACEHOLDER = "_CHANGE_ME"
+
+# Env-var groups: name → (variables, commands that require them).
+# "warn" (yellow) = none set — use case not configured, valid.
+# "error" (red)   = partial or placeholder — needs attention.
+ENV_GROUPS: dict[str, tuple[list[str], str]] = {
+    "neo4j":     (["NEO4J_PASSWORD"],                                  "neo4j, graph dump-turtle, graph extract"),
+    "llm":       (["LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"], "graph extract"),
+    "workspace": (["JJ_ROOT_DIR"],                                     "pdf-to-markdown test, catalog check"),
+}
 
 
-def dot_jejune(cwd: Path | None = None) -> Path:
-    """Return the .jejune/ directory path relative to cwd (defaults to Path.cwd())."""
-    return (cwd or Path.cwd()) / _DOT_JEJUNE
+def check_env_group(keys: list[str]) -> tuple[str, str]:
+    """Check a group of env vars; return (status, message).
 
-
-def load_env_files(
-    config_file: Path | None = None,
-    secrets_file: Path | None = None,
-) -> None:
-    """Load .jejune/env-config then .jejune/env-secrets; existing env vars always take precedence."""
-    d = dot_jejune()
-    _load(config_file or d / "env-config")
-    _load(secrets_file or d / "env-secrets")
-
-
-def _load(path: Path) -> None:
-    """Parse a KEY=VALUE file; skip if absent; never override existing env vars."""
-    if not path.exists():
-        return
-    for line in path.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key = key.strip()
-        if key not in os.environ:
-            os.environ[key] = value.strip()
-
-
-def docker_env_args(var_names: list[str]) -> list[str]:
-    """Return [--env KEY=VALUE, ...] Docker args for env vars present in os.environ."""
-    args: list[str] = []
-    for key in var_names:
+    status is "ok", "warn" (none set — use case not configured), or "error"
+    (partial or placeholder values present).
+    """
+    import os
+    states: list[tuple[str, str]] = []
+    for key in keys:
         val = os.environ.get(key)
-        if val is not None:
-            args += ["--env", f"{key}={val}"]
-    return args
+        if val is None:
+            states.append((key, "missing"))
+        elif _PLACEHOLDER in val:
+            states.append((key, "placeholder"))
+        else:
+            states.append((key, "ok"))
+
+    if all(s == "ok" for _, s in states):
+        return "ok", "ok"
+    if all(s == "missing" for _, s in states):
+        return "warn", "not configured"
+    issues = [f"{k}: {s}" for k, s in states if s != "ok"]
+    return "error", "; ".join(issues)
+
+
+@click.group()
+def env():
+    """Manage the .jejune/ environment for the current jj_doc_* repository."""
+
+
+@env.command("init")
+def init():
+    """Write jejune scaffold files into .jejune/ in the current directory.
+
+    Creates .jejune/env-config, .jejune/env-secrets, and
+    .jejune/catalog.yaml from built-in templates.
+    Adds .jejune to .gitignore so the whole directory stays local by default.
+    """
+    d = dot_jejune()
+    d.mkdir(exist_ok=True)
+
+    created = []
+    skipped = []
+    for fname in ("env-config", "env-secrets", "catalog.yaml"):
+        dst = d / fname
+        if dst.exists():
+            skipped.append(fname)
+        else:
+            shutil.copy2(_TEMPLATES / fname, dst)
+            created.append(fname)
+
+    for f in created:
+        click.echo(click.style(f"  created  .jejune/{f}", fg="green"))
+    for f in skipped:
+        click.echo(click.style(f"  skipped  .jejune/{f} (already exists)", fg="yellow"))
+
+    gitignore = Path.cwd() / ".gitignore"
+    entry = ".jejune\n"
+    if not gitignore.exists() or ".jejune" not in gitignore.read_text().splitlines():
+        with gitignore.open("a") as fh:
+            fh.write(entry)
+        click.echo(click.style("  updated  .gitignore (.jejune)", fg="green"))
+
+    click.echo()
+    click.echo("Next step: edit .jejune/env-secrets with your credentials.")
+
+
+@env.command("check")
+def check_env():
+    """Verify env-secrets variables by use-case group.
+
+    Reports each group (neo4j, llm, workspace) independently:\n
+      ok             — all vars set and non-placeholder\n
+      not configured — none set (use case not activated, not an error)\n
+      error          — partial or placeholder values (needs attention)\n
+
+    Checks os.environ, which already includes values loaded from
+    .jejune/env-config and .jejune/env-secrets at startup.
+    """
+    any_error = False
+    for group, (keys, usage) in ENV_GROUPS.items():
+        status, msg = check_env_group(keys)
+        if status == "ok":
+            label = click.style(f"{'ok':<26}", fg="green")
+        elif status == "warn":
+            label = click.style(f"{msg:<26}", fg="yellow")
+        else:
+            label = click.style(f"{msg:<26}", fg="red")
+            any_error = True
+        click.echo(f"  {group:<16} {label} {usage}")
+
+    if any_error:
+        raise SystemExit(1)

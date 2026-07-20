@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from .env import dot_jejune
+from ._env import dot_jejune
 
 _TEMPLATES = Path(__file__).parent / "templates"
 
@@ -16,7 +16,7 @@ def _catalog_ref() -> Path:
 
 
 def _do_bootstrap(deployments_dir: Path, deploy_name: str) -> None:
-    """Core logic for `jejune deploy bootstrap`."""
+    """Core logic for `jejune deployment configure`."""
     deploy_dir = deployments_dir / f"deploy_{deploy_name}"
 
     if deploy_dir.exists():
@@ -57,26 +57,26 @@ def _do_bootstrap(deployments_dir: Path, deploy_name: str) -> None:
 
 
 @click.group()
-def deploy():
-    """Stage 3 — manage deployments and launch exploitation tools."""
+def deployment():
+    """Manage deployments — collections of active jj_doc_* repositories (collection-level)."""
 
 
-@deploy.command("bootstrap")
+@deployment.command("configure")
 @click.argument("deployments_dir", type=click.Path())
 @click.argument("deploy_name")
-def bootstrap(deployments_dir, deploy_name):
+def configure_deployment(deployments_dir, deploy_name):
     """Create a new deployment directory from scaffold files.
 
     DEPLOYMENTS_DIR is the path to the jj_deployments repository.
     DEPLOY_NAME is the short name for the deployment (creates deploy_DEPLOY_NAME/).
 
-    The deployment catalog is seeded from .jejune/catalog-reference.yaml in the
+    The deployment catalog is seeded from .jejune/catalog.yaml in the
     current directory if present, otherwise from the built-in template.
     """
     _do_bootstrap(Path(deployments_dir).resolve(), deploy_name)
 
 
-@deploy.command("list")
+@deployment.command("list")
 @click.argument("deployments_dir", type=click.Path(exists=True))
 def list_deployments(deployments_dir):
     """List deployments found in DEPLOYMENTS_DIR."""
