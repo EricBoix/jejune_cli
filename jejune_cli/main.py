@@ -9,13 +9,24 @@ from .llm_observability import llm_observability
 from .neo4j import neo4j
 from .pdf_to_markdown import pdf_to_markdown
 
-_W_SECT = 18   # len("List of components")
+# Components tracked by `jejune doctor` (not the same as CLI command names:
+# env, graph, deployment, pdf-to-markdown are CLI commands but not doctor components;
+# llm and workspace are doctor components but have no dedicated CLI command).
+_COMPONENTS = [
+    "neo4j",
+    "llm",
+    "llm-observability",
+    "workspace",
+    "catalog",
+]
+
+_W_SECT = 17   # len("llm-observability")
 _W_MSG  = 16   # "not configured" = 14
 
 _STATUS_RANK  = {"error": 2, "warn": 1, "ok": 0}
 _STATUS_LABEL = {"ok": "ok", "warn": "not configured", "error": "error"}
 
-# Component → commands it enables.
+# Keys must be a subset of _COMPONENTS.
 _COMPONENT_ENABLES: dict[str, str] = {
     "neo4j":             "neo4j *, graph dump-turtle, graph extract",
     "llm":               "graph extract",
@@ -41,6 +52,22 @@ _AVAIL_HINTS: dict[str, str] = {
 class _JejuneGroup(click.Group):
     def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         formatter.write_usage(ctx.command_path, "[OPTIONS] COMPONENT COMMAND [ARGS]...")
+
+    def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        components: list[tuple[str, str]] = []
+        other:      list[tuple[str, str]] = []
+        for name in self.list_commands(ctx):
+            cmd = self.get_command(ctx, name)
+            if cmd is None or cmd.hidden:
+                continue
+            help_text = cmd.get_short_help_str(limit=formatter.width)
+            (other if name == "doctor" else components).append((name, help_text))
+        if components:
+            with formatter.section("List of components"):
+                formatter.write_dl(components)
+        if other:
+            with formatter.section("Commands"):
+                formatter.write_dl(other)
 
 
 @click.group(cls=_JejuneGroup)
@@ -137,7 +164,7 @@ def doctor():
     click.echo()
 
     # ── Components ───────────────────────────────────────────────────
-    click.echo(f"  {'List of components':<{_W_SECT}} {'Status':<{_W_MSG}} Enables")
+    click.echo(f"  {'Component':<{_W_SECT}} {'Status':<{_W_MSG}} Enables")
     click.echo(divider)
     for comp, enables in _COMPONENT_ENABLES.items():
         click.echo(f"  {comp:<{_W_SECT}} {_config_label(_comp_status(comp))} {enables}")
