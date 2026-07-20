@@ -12,9 +12,9 @@ _TIMEOUT = 10  # seconds
 
 
 def check_reachability(url: str, api_key: str) -> tuple[bool, str]:
-    """Coarse check: is the LLM server reachable? (GET /api/tags only)."""
+    """Coarse check: is the server reachable and the API key valid? (GET /api/v1/auths/)."""
     auth = {"Authorization": f"BEARER {api_key}"}
-    req = urllib.request.Request(f"{url}/api/tags", headers=auth)
+    req = urllib.request.Request(f"{url}/api/v1/auths/", headers=auth)
     try:
         with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
             resp.read()
@@ -22,6 +22,25 @@ def check_reachability(url: str, api_key: str) -> tuple[bool, str]:
     except urllib.error.URLError as e:
         return False, f"server unreachable: {e.reason}"
 
+
+def check_inference(
+    url: str, api_key: str, model: str, prompt: str = _TEST_PROMPT
+) -> tuple[bool, str]:
+    """Fine check: does inference succeed? (POST /api/generate)."""
+    auth = {"Authorization": f"BEARER {api_key}"}
+    payload = json.dumps({"model": model, "prompt": prompt}).encode()
+    req = urllib.request.Request(
+        f"{url}/api/generate",
+        data=payload,
+        headers={**auth, "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
+            resp.read()
+        return True, "ok"
+    except urllib.error.URLError as e:
+        return False, f"inference failed: {e.reason}"
 
 
 @click.group()
@@ -53,7 +72,7 @@ def status(prompt):
 
     Reads LLM_MODEL_URL, LLM_API_KEY, LLM_MODEL_NAME from the environment.
     Performs two checks:\n
-      1. GET  <LLM_MODEL_URL>/api/tags        — server reachable and authenticated\n
+      1. GET  <LLM_MODEL_URL>/api/v1/auths/   — server reachable and API key valid\n
       2. POST <LLM_MODEL_URL>/api/generate    — inference round-trip succeeds\n
     """
     url     = os.environ.get("LLM_MODEL_URL")
@@ -71,30 +90,18 @@ def status(prompt):
     click.echo(f"Prompt : {prompt!r}")
     click.echo()
 
-    auth = {"Authorization": f"BEARER {api_key}"}
-
     click.echo("  [1/2] Server reachability... ", nl=False)
-    req = urllib.request.Request(f"{url}/api/tags", headers=auth)
-    try:
-        with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
-            resp.read()
+    passed, msg = check_reachability(url, api_key)
+    if passed:
         click.echo(click.style("ok", fg="green"))
-    except urllib.error.URLError as e:
-        click.echo(click.style(f"FAILED — {e.reason}", fg="red"))
+    else:
+        click.echo(click.style(f"FAILED — {msg}", fg="red"))
         raise SystemExit(1)
 
     click.echo("  [2/2] Inference round-trip... ", nl=False)
-    payload = json.dumps({"model": model, "prompt": prompt}).encode()
-    req = urllib.request.Request(
-        f"{url}/api/generate",
-        data=payload,
-        headers={**auth, "Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
-            resp.read()
+    passed, msg = check_inference(url, api_key, model, prompt)
+    if passed:
         click.echo(click.style("ok", fg="green"))
-    except urllib.error.URLError as e:
-        click.echo(click.style(f"FAILED — {e.reason}", fg="red"))
+    else:
+        click.echo(click.style(f"FAILED — {msg}", fg="red"))
         raise SystemExit(1)
