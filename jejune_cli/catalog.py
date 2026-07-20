@@ -10,7 +10,13 @@ from .configuration import (
     CONFIG_GROUPS, _catalog_config_status, check_config_group,
     component_config_check, print_config_hint, print_config_status,
 )
-from .llm import check_server as _check_llm_server, check_auth as _check_llm_auth, check_inference as _check_llm_inference
+from .llm import (
+    check_server as _check_llm_server,
+    check_auth as _check_llm_auth,
+    check_model as _check_llm_model,
+    check_inference_endpoint as _check_llm_inference_endpoint,
+    check_inference as _check_llm_inference,
+)
 from .llm_observability import container_running as _llm_obs_running
 from .neo4j import container_running as _neo4j_running
 
@@ -358,6 +364,10 @@ def run_all() -> tuple[
         passed, msg = _check_llm_server(url)
         if passed:
             passed, msg = _check_llm_auth(url, api_key)
+        if passed:
+            passed, msg = _check_llm_model(url, api_key, model)
+        if passed:
+            passed, msg = _check_llm_inference_endpoint(url, api_key)
         if passed:
             passed, msg = _check_llm_inference(url, api_key, model)
         avail.append(("llm", "ok" if passed else "error", msg))

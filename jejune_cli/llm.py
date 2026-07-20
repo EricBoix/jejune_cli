@@ -36,10 +36,55 @@ def check_auth(url: str, api_key: str) -> tuple[bool, str]:
         return False, f"auth failed: {e.reason}"
 
 
+def check_model(url: str, api_key: str, model: str) -> tuple[bool, str]:
+    """Stage 3: does the model exist on the server? (GET /api/models)."""
+    auth = {"Authorization": f"BEARER {api_key}"}
+    req = urllib.request.Request(f"{url}/api/models", headers=auth)
+    try:
+        with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
+            data = json.loads(resp.read())
+    except urllib.error.URLError as e:
+        return False, f"model list unavailable: {e.reason}"
+    except json.JSONDecodeError:
+        return False, "model list: unexpected response format"
+
+    models = [m.get("id", "") for m in data.get("data", [])]
+    if model in models:
+        return True, "ok"
+    if models:
+        shown = ", ".join(models[:5])
+        suffix = f" … ({len(models)} total)" if len(models) > 5 else ""
+        hint = f"available: {shown}{suffix}"
+    else:
+        hint = "no models returned"
+    return False, f"model {model!r} not found — {hint}"
+
+
+def check_inference_endpoint(url: str, api_key: str) -> tuple[bool, str]:
+    """Stage 4: does the inference endpoint accept POST? (POST /api/generate with empty body)."""
+    auth = {"Authorization": f"BEARER {api_key}"}
+    req = urllib.request.Request(
+        f"{url}/api/generate",
+        data=b"{}",
+        headers={**auth, "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
+            resp.read()
+        return True, "ok"
+    except urllib.error.HTTPError as e:
+        if e.code in (400, 422):
+            return True, "ok"  # endpoint exists; bad-request is expected for an empty body
+        return False, f"endpoint error {e.code}: {e.reason}"
+    except urllib.error.URLError as e:
+        return False, f"endpoint unreachable: {e.reason}"
+
+
 def check_inference(
     url: str, api_key: str, model: str, prompt: str = _TEST_PROMPT
 ) -> tuple[bool, str]:
-    """Stage 3: does inference succeed? (POST /api/generate)."""
+    """Stage 5: does inference succeed? (POST /api/generate)."""
     auth = {"Authorization": f"BEARER {api_key}"}
     payload = json.dumps({"model": model, "prompt": prompt}).encode()
     req = urllib.request.Request(
@@ -52,6 +97,8 @@ def check_inference(
         with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
             resp.read()
         return True, "ok"
+    except urllib.error.HTTPError as e:
+        return False, f"inference failed: {e.code} {e.reason}"
     except urllib.error.URLError as e:
         return False, f"inference failed: {e.reason}"
 
@@ -84,10 +131,12 @@ def status(prompt):
     """Test LLM server connectivity and inference capability.
 
     Reads LLM_MODEL_URL, LLM_API_KEY, LLM_MODEL_NAME from the environment.
-    Performs three checks:\n
+    Performs five checks:\n
       1. GET  <LLM_MODEL_URL>                — HTTPS-level reachability\n
       2. GET  <LLM_MODEL_URL>/api/v1/auths/  — API key valid\n
-      3. POST <LLM_MODEL_URL>/api/generate   — inference round-trip succeeds\n
+      3. GET  <LLM_MODEL_URL>/api/models     — configured model exists on server\n
+      4. POST <LLM_MODEL_URL>/api/generate   — inference endpoint accepts POST\n
+      5. POST <LLM_MODEL_URL>/api/generate   — inference round-trip succeeds\n
     """
     url     = os.environ.get("LLM_MODEL_URL")
     api_key = os.environ.get("LLM_API_KEY")
@@ -104,26 +153,19 @@ def status(prompt):
     click.echo(f"Prompt : {prompt!r}")
     click.echo()
 
-    click.echo("  [1/3] HTTPS connectivity... ", nl=False)
-    passed, msg = check_server(url)
-    if passed:
-        click.echo(click.style("ok", fg="green"))
-    else:
-        click.echo(click.style(f"FAILED — {msg}", fg="red"))
-        raise SystemExit(1)
-
-    click.echo("  [2/3] API key... ", nl=False)
-    passed, msg = check_auth(url, api_key)
-    if passed:
-        click.echo(click.style("ok", fg="green"))
-    else:
-        click.echo(click.style(f"FAILED — {msg}", fg="red"))
-        raise SystemExit(1)
-
-    click.echo("  [3/3] Inference round-trip... ", nl=False)
-    passed, msg = check_inference(url, api_key, model, prompt)
-    if passed:
-        click.echo(click.style("ok", fg="green"))
-    else:
-        click.echo(click.style(f"FAILED — {msg}", fg="red"))
-        raise SystemExit(1)
+    steps = [
+        ("HTTPS connectivity",      lambda: check_server(url)),
+        ("API key",                  lambda: check_auth(url, api_key)),
+        ("Model exists on server",   lambda: check_model(url, api_key, model)),
+        ("Inference endpoint",       lambda: check_inference_endpoint(url, api_key)),
+        ("Inference round-trip",     lambda: check_inference(url, api_key, model, prompt)),
+    ]
+    n = len(steps)
+    for i, (label, fn) in enumerate(steps, 1):
+        click.echo(f"  [{i}/{n}] {label}... ", nl=False)
+        passed, msg = fn()
+        if passed:
+            click.echo(click.style("ok", fg="green"))
+        else:
+            click.echo(click.style(f"FAILED — {msg}", fg="red"))
+            raise SystemExit(1)
