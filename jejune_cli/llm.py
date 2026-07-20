@@ -8,7 +8,8 @@ import click
 from .configuration import print_config_hint, print_config_status
 
 _TEST_PROMPT = "How are you today?"
-_TIMEOUT = 10  # seconds
+_TIMEOUT = 10            # seconds — used for all checks except inference
+_INFERENCE_TIMEOUT = 120 # seconds — large models can be slow to respond
 DEFAULT_INFERENCE_PATH = "/api/chat/completions"
 
 
@@ -99,13 +100,15 @@ def check_inference(
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
+        with urllib.request.urlopen(req, timeout=_INFERENCE_TIMEOUT) as resp:
             resp.read()
         return True, "ok"
     except urllib.error.HTTPError as e:
         return False, f"inference failed: {e.code} {e.reason}"
     except urllib.error.URLError as e:
         return False, f"inference failed: {e.reason}"
+    except TimeoutError:
+        return False, f"inference timed out after {_INFERENCE_TIMEOUT}s"
 
 
 @click.group()
