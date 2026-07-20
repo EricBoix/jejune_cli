@@ -27,7 +27,7 @@ partition "Knowledge Graph Workflow: PDF to RDF via Docker containers" {
 
   end fork
 
-  partition "2. GraphRAG ingestion: Markdown to Neo4j\n<img:docker_flaticon_919853_24.png> jejuneness:jj_build_knowledge_graph" {
+  partition "2. GraphRAG ingestion: Markdown to Neo4j\n<img:docker_flaticon_919853_24.png> jejuneness:jejune_extract_knowledge_graph" {
     :**jj_extract_knowledge_graph**\nbuild image + run container;
   }
 
