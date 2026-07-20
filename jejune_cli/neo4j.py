@@ -5,6 +5,8 @@ from pathlib import Path
 
 import click
 
+from .configuration import print_config_hint, print_config_status
+
 _NEO4J_CONTAINER = "jj_neo4j_db"
 _NEO4J_IMAGE = "jejuneness:jj_neo4j_docker"
 
@@ -36,6 +38,18 @@ def _stop_quiet() -> None:
 @click.group()
 def neo4j():
     """Manage the Neo4j instance for the current jj_doc_<name> repository."""
+
+
+@neo4j.command("check-config")
+def check_config():
+    """Check whether the neo4j component is properly configured."""
+    print_config_status("neo4j")
+
+
+@neo4j.command("hint-config")
+def hint_config():
+    """Show the configuration hint for the neo4j component."""
+    print_config_hint("neo4j")
 
 
 @neo4j.command("start")

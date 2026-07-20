@@ -5,6 +5,8 @@ import urllib.request
 
 import click
 
+from .configuration import component_config_check, print_config_hint, print_config_status
+
 _CONTAINER = "jj_llm_observability"
 _IMAGE     = "jaegertracing/all-in-one"
 _OTLP_PORT = 4318
@@ -25,6 +27,18 @@ def container_running() -> tuple[bool, str]:
 @click.group("llm-observability")
 def llm_observability():
     """Manage the LLM observability backend (OTLP trace receiver)."""
+
+
+@llm_observability.command("check-config")
+def check_config():
+    """Check whether the llm-observability component is properly configured."""
+    print_config_status("llm-observability")
+
+
+@llm_observability.command("hint-config")
+def hint_config():
+    """Show the configuration hint for the llm-observability component."""
+    print_config_hint("llm-observability")
 
 
 @llm_observability.command("start")
@@ -64,6 +78,11 @@ def stop():
 @llm_observability.command("status")
 def status():
     """Report the LLM observability container state and endpoint reachability."""
+    cfg_status, hint = component_config_check("llm-observability")
+    if cfg_status != "ok":
+        click.echo(f"  {click.style('not configured', fg='yellow')}  {hint}")
+        return
+
     running, _ = container_running()
     url = os.environ.get("TRACELOOP_BASE_URL", f"http://localhost:{_OTLP_PORT}")
 

@@ -9,7 +9,10 @@ import click
 import yaml
 
 from ._env import dot_jejune
-from .configuration import CONFIG_GROUPS, check_config_group
+from .configuration import (
+    CONFIG_GROUPS, check_config_group, component_config_check,
+    print_config_hint, print_config_status,
+)
 from .llm import check_connectivity as _check_llm_connectivity
 from .llm import _TEST_PROMPT as _INFERENCE_TEST_PROMPT, _TIMEOUT as _INFERENCE_TIMEOUT
 from .llm_observability import container_running as _llm_obs_running
@@ -186,6 +189,18 @@ def catalog():
     """Manage the catalog of jj_doc_* repositories (collection-level)."""
 
 
+@catalog.command("check-config")
+def check_config():
+    """Check whether the catalog component is properly configured."""
+    print_config_status("catalog")
+
+
+@catalog.command("hint-config")
+def hint_config():
+    """Show the configuration hint for the catalog component."""
+    print_config_hint("catalog")
+
+
 @catalog.command("check")
 @click.option(
     "--catalog", "catalog_path",
@@ -209,6 +224,10 @@ def check(catalog_path, root_dir):
     """
     cat_path = Path(catalog_path) if catalog_path else dot_jejune() / "catalog.yaml"
     root = Path(root_dir) if root_dir else None
+    if root is None:
+        cfg_status, hint = component_config_check("catalog")
+        if cfg_status != "ok":
+            raise click.ClickException(f"not configured — {hint}")
     results = _check_catalog_impl(cat_path, root)
 
     all_ok = True

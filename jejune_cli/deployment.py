@@ -5,6 +5,7 @@ from pathlib import Path
 import click
 
 from ._env import dot_jejune
+from .configuration import print_config_hint, print_config_status
 
 _TEMPLATES = Path(__file__).parent / "templates"
 
@@ -59,6 +60,18 @@ def _do_bootstrap(deployments_dir: Path, deploy_name: str) -> None:
 @click.group()
 def deployment():
     """Manage deployments — collections of active jj_doc_* repositories (collection-level)."""
+
+
+@deployment.command("check-config")
+def check_config():
+    """Check whether the deployment component is properly configured."""
+    print_config_status("deployment")
+
+
+@deployment.command("hint-config")
+def hint_config():
+    """Show the configuration hint for the deployment component."""
+    print_config_hint("deployment")
 
 
 @deployment.command("configure")

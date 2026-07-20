@@ -6,11 +6,24 @@ import click
 import yaml
 
 from ._env import dot_jejune
+from .configuration import print_config_hint, print_config_status
 
 
 @click.group("pdf-to-markdown")
 def pdf_to_markdown():
     """Test the pdf-to-markdown pipeline across the document catalog (collection-level)."""
+
+
+@pdf_to_markdown.command("check-config")
+def check_config():
+    """Check whether the pdf-to-markdown component is properly configured."""
+    print_config_status("pdf-to-markdown")
+
+
+@pdf_to_markdown.command("hint-config")
+def hint_config():
+    """Show the configuration hint for the pdf-to-markdown component."""
+    print_config_hint("pdf-to-markdown")
 
 
 @pdf_to_markdown.command("test")

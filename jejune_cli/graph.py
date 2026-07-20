@@ -4,6 +4,7 @@ from pathlib import Path
 import click
 
 from ._env import EXTRACT_ENV_VARS, TTL_ENV_VARS, docker_env_args
+from .configuration import print_config_hint, print_config_status
 
 _BUILD_KG_IMAGE = "jejuneness:jj_build_knowledge_graph"
 _TTL_IMAGE      = "jejuneness:jj_neo4j_to_rdf_ttl"
@@ -20,6 +21,18 @@ def _run(*cmd: str) -> None:
 @click.group()
 def graph():
     """Build and export the knowledge graph for the current jj_doc_<name> repository."""
+
+
+@graph.command("check-config")
+def check_config():
+    """Check whether the graph component is properly configured."""
+    print_config_status("graph")
+
+
+@graph.command("hint-config")
+def hint_config():
+    """Show the configuration hint for the graph component."""
+    print_config_hint("graph")
 
 
 @graph.command("extract")

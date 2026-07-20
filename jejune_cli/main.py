@@ -3,7 +3,7 @@ import click
 from ._env import dot_jejune, load_env_files
 from .catalog import catalog, run_all
 from .deployment import deployment
-from .configuration import configuration
+from .configuration import configuration, COMPONENT_CONFIG_HINTS as _CONFIG_HINTS
 from .graph import graph
 from .llm import llm
 from .llm_observability import llm_observability
@@ -29,11 +29,6 @@ _W_MSG  = 16   # "not configured" = 14
 _STATUS_RANK  = {"error": 2, "warn": 1, "ok": 0}
 _STATUS_LABEL = {"ok": "ok", "warn": "not configured", "error": "error"}
 
-_CONFIG_HINTS: dict[str, str] = {
-    "neo4j":   "edit .jejune/env-secrets or .jejune/env-config",
-    "llm":     "edit .jejune/env-secrets",
-    "catalog": "edit .jejune/env-config or .jejune/catalog.yaml",
-}
 
 _AVAIL_HINTS: dict[str, str] = {
     "neo4j":             "run `jejune neo4j start`",
@@ -123,6 +118,12 @@ def doctor():
     config_results, avail_results = run_all()
     by_config = {comp: (status, msg) for comp, status, msg in config_results}
     by_avail  = {comp: (status, msg) for comp, status, msg in avail_results}
+
+    # Ensure every component appears in the config table, in _COMPONENTS order.
+    config_results = [
+        (comp,) + by_config.get(comp, ("ok", "ok"))
+        for comp in _COMPONENTS
+    ]
 
     failed_config: list[str] = []
     failed_avail:  list[str] = []

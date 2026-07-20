@@ -17,6 +17,52 @@ CONFIG_GROUPS: dict[str, tuple[list[str], str]] = {
 }
 
 
+# Hints shown when a component's configuration is incomplete.
+COMPONENT_CONFIG_HINTS: dict[str, str] = {
+    "neo4j":   "edit .jejune/env-secrets or .jejune/env-config",
+    "llm":     "edit .jejune/env-secrets",
+    "catalog": "edit .jejune/env-config or .jejune/catalog.yaml",
+}
+
+
+def component_config_check(component: str) -> tuple[str, str]:
+    """Return (status, hint) for a component's configuration.
+
+    For components with no required env vars the status is always "ok".
+    """
+    import os
+    if component == "catalog":
+        if not os.environ.get("JJ_ROOT_DIR"):
+            return "warn", COMPONENT_CONFIG_HINTS.get("catalog", "")
+        return "ok", ""
+    if component not in CONFIG_GROUPS:
+        return "ok", ""
+    keys, _ = CONFIG_GROUPS[component]
+    status, _ = check_config_group(keys)
+    return status, COMPONENT_CONFIG_HINTS.get(component, "")
+
+
+def print_config_hint(component: str) -> None:
+    """Print the configuration hint for a component."""
+    hint = COMPONENT_CONFIG_HINTS.get(component, "")
+    if hint:
+        click.echo(hint)
+    else:
+        click.echo(click.style("no configuration required", fg="green"))
+
+
+def print_config_status(component: str) -> None:
+    """Print configuration status for a component; exit 1 on error."""
+    status, hint = component_config_check(component)
+    if status == "ok":
+        click.echo(click.style("configured", fg="green"))
+    elif status == "warn":
+        click.echo(f"{click.style('not configured', fg='yellow')}  {hint}")
+    else:
+        click.echo(f"{click.style('error', fg='red')}  {hint}")
+        raise SystemExit(1)
+
+
 def check_config_group(keys: list[str]) -> tuple[str, str]:
     """Check a group of env vars; return (status, message).
 

@@ -5,6 +5,8 @@ import urllib.request
 
 import click
 
+from .configuration import component_config_check, print_config_hint, print_config_status
+
 _TEST_PROMPT = "How are you today?"
 _TIMEOUT = 10  # seconds
 
@@ -41,22 +43,29 @@ def llm():
     """Manage the LLM inference server."""
 
 
+@llm.command("check-config")
+def check_config():
+    """Check whether the llm component is properly configured."""
+    print_config_status("llm")
+
+
+@llm.command("hint-config")
+def hint_config():
+    """Show the configuration hint for the llm component."""
+    print_config_hint("llm")
+
+
 @llm.command("status")
 def status():
     """Report LLM server configuration and connectivity."""
+    cfg_status, hint = component_config_check("llm")
+    if cfg_status != "ok":
+        click.echo(f"  {click.style('not configured', fg='yellow')}  {hint}")
+        return
+
     url     = os.environ.get("LLM_MODEL_URL")
     api_key = os.environ.get("LLM_API_KEY")
     model   = os.environ.get("LLM_MODEL_NAME")
-
-    configured = url and api_key and model
-    if configured:
-        vars_text = click.style("ok", fg="green")
-    else:
-        vars_text = click.style("not configured", fg="yellow")
-    click.echo(f"  env vars    {vars_text}")
-
-    if not configured:
-        return
 
     click.echo(f"  url         {url}")
     click.echo(f"  model       {model}")
