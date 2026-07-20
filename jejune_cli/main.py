@@ -9,7 +9,7 @@ from .llm_observability import llm_observability
 from .neo4j import neo4j
 from .pdf_to_markdown import pdf_to_markdown
 
-_W_SECT = 17   # len("llm-observability")
+_W_SECT = 18   # len("List of components")
 _W_MSG  = 16   # "not configured" = 14
 
 _STATUS_RANK  = {"error": 2, "warn": 1, "ok": 0}
@@ -38,7 +38,12 @@ _AVAIL_HINTS: dict[str, str] = {
 }
 
 
-@click.group()
+class _JejuneGroup(click.Group):
+    def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        formatter.write_usage(ctx.command_path, "[OPTIONS] COMPONENT COMMAND [ARGS]...")
+
+
+@click.group(cls=_JejuneGroup)
 def cli():
     """jejune — jejuneness workflow CLI.
 
@@ -132,7 +137,7 @@ def doctor():
     click.echo()
 
     # ── Components ───────────────────────────────────────────────────
-    click.echo(f"  {'Component':<{_W_SECT}} {'Status':<{_W_MSG}} Enables")
+    click.echo(f"  {'List of components':<{_W_SECT}} {'Status':<{_W_MSG}} Enables")
     click.echo(divider)
     for comp, enables in _COMPONENT_ENABLES.items():
         click.echo(f"  {comp:<{_W_SECT}} {_config_label(_comp_status(comp))} {enables}")
