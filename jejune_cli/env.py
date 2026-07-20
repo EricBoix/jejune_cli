@@ -12,9 +12,8 @@ _PLACEHOLDER = "_CHANGE_ME"
 # "warn" (yellow) = none set — use case not configured, valid.
 # "error" (red)   = partial or placeholder — needs attention.
 ENV_GROUPS: dict[str, tuple[list[str], str]] = {
-    "neo4j":     (["NEO4J_PASSWORD"],                                  "neo4j, graph dump-turtle, graph extract"),
-    "llm":       (["LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"], "graph extract"),
-    "workspace": (["JJ_ROOT_DIR"],                                     "pdf-to-markdown test, catalog check"),
+    "neo4j": (["NEO4J_PASSWORD"],                                  "neo4j, graph dump-turtle, graph extract"),
+    "llm":   (["LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"], "graph extract"),
 }
 
 
@@ -89,7 +88,7 @@ def init():
 def check_env():
     """Verify env-secrets variables by use-case group.
 
-    Reports each group (neo4j, llm, workspace) independently:\n
+    Reports each group (neo4j, llm) independently:\n
       ok             — all vars set and non-placeholder\n
       not configured — none set (use case not activated, not an error)\n
       error          — partial or placeholder values (needs attention)\n

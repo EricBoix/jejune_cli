@@ -5,20 +5,23 @@ from .catalog import catalog, run_all
 from .deployment import deployment
 from .env import env
 from .graph import graph
+from .llm import llm
 from .llm_observability import llm_observability
 from .neo4j import neo4j
 from .pdf_to_markdown import pdf_to_markdown
 
-# Components tracked by `jejune doctor` (not the same as CLI command names:
-# env, graph, deployment, pdf-to-markdown are CLI commands but not doctor components;
-# llm and workspace are doctor components but have no dedicated CLI command).
+# Components — drives both `jejune --help` listing and `jejune doctor` output.
+# env is a CLI command but not a component.
 _COMPONENTS = [
     "neo4j",
     "llm",
     "llm-observability",
-    "workspace",
+    "graph",
     "catalog",
+    "deployment",
+    "pdf-to-markdown",
 ]
+
 
 _W_SECT = 17   # len("llm-observability")
 _W_MSG  = 16   # "not configured" = 14
@@ -26,20 +29,17 @@ _W_MSG  = 16   # "not configured" = 14
 _STATUS_RANK  = {"error": 2, "warn": 1, "ok": 0}
 _STATUS_LABEL = {"ok": "ok", "warn": "not configured", "error": "error"}
 
-# Keys must be a subset of _COMPONENTS.
 _COMPONENT_ENABLES: dict[str, str] = {
     "neo4j":             "neo4j *, graph dump-turtle, graph extract",
     "llm":               "graph extract",
     "llm-observability": "graph extract (LLM tracing)",
-    "workspace":         "pdf-to-markdown test, catalog check",
     "catalog":           "pdf-to-markdown test, catalog check",
 }
 
 _CONFIG_HINTS: dict[str, str] = {
-    "neo4j":     "edit .jejune/env-secrets",
-    "llm":       "edit .jejune/env-secrets",
-    "workspace": "edit .jejune/env-config",
-    "catalog":   "run `jejune catalog check`",
+    "neo4j":   "edit .jejune/env-secrets",
+    "llm":     "edit .jejune/env-secrets",
+    "catalog": "run `jejune catalog check`",
 }
 
 _AVAIL_HINTS: dict[str, str] = {
@@ -54,14 +54,24 @@ class _JejuneGroup(click.Group):
         formatter.write_usage(ctx.command_path, "[OPTIONS] COMPONENT COMMAND [ARGS]...")
 
     def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        components: list[tuple[str, str]] = []
-        other:      list[tuple[str, str]] = []
+        cli_help: dict[str, str] = {
+            name: cmd.get_short_help_str(limit=formatter.width)
+            for name in self.list_commands(ctx)
+            if (cmd := self.get_command(ctx, name)) is not None and not cmd.hidden
+        }
+
+        # Components: _COMPONENTS first (preserving order), then remaining CLI commands.
+        seen: set[str] = set(_COMPONENTS)
+        components: list[tuple[str, str]] = [
+            (name, cli_help.get(name, ""))
+            for name in _COMPONENTS
+        ]
+        other: list[tuple[str, str]] = []
         for name in self.list_commands(ctx):
-            cmd = self.get_command(ctx, name)
-            if cmd is None or cmd.hidden:
+            if name in seen or cli_help.get(name) is None:
                 continue
-            help_text = cmd.get_short_help_str(limit=formatter.width)
-            (other if name == "doctor" else components).append((name, help_text))
+            (other if name == "doctor" else components).append((name, cli_help[name]))
+
         if components:
             with formatter.section("List of components"):
                 formatter.write_dl(components)
@@ -198,8 +208,9 @@ def doctor():
 
 cli.add_command(env)
 cli.add_command(neo4j)
-cli.add_command(graph)
+cli.add_command(llm)
 cli.add_command(llm_observability)
+cli.add_command(graph)
 cli.add_command(catalog)
 cli.add_command(deployment)
 cli.add_command(pdf_to_markdown)

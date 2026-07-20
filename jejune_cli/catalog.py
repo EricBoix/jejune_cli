@@ -10,11 +10,10 @@ import yaml
 
 from ._env import dot_jejune
 from .env import ENV_GROUPS, check_env_group
+from .llm import check_connectivity as _check_llm_connectivity
+from .llm import _TEST_PROMPT as _INFERENCE_TEST_PROMPT, _TIMEOUT as _INFERENCE_TIMEOUT
 from .llm_observability import container_running as _llm_obs_running
 from .neo4j import container_running as _neo4j_running
-
-_INFERENCE_TEST_PROMPT = "How are you today?"
-_INFERENCE_TIMEOUT = 10  # seconds
 
 
 # ---------------------------------------------------------------------------
@@ -176,33 +175,6 @@ def _sync_catalog_impl(
         click.echo(f"Added {len(to_add)} repo(s) to {catalog}.")
 
     return results
-
-
-def _do_test_inference(url: str, api_key: str, model: str) -> tuple[bool, str]:
-    """Run both LLM connectivity checks; return (passed, message)."""
-    auth = {"Authorization": f"BEARER {api_key}"}
-
-    req = urllib.request.Request(f"{url}/api/tags", headers=auth)
-    try:
-        with urllib.request.urlopen(req, timeout=_INFERENCE_TIMEOUT) as resp:
-            resp.read()
-    except urllib.error.URLError as e:
-        return False, f"server unreachable: {e.reason}"
-
-    payload = json.dumps({"model": model, "prompt": _INFERENCE_TEST_PROMPT}).encode()
-    req = urllib.request.Request(
-        f"{url}/api/generate",
-        data=payload,
-        headers={**auth, "Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=_INFERENCE_TIMEOUT) as resp:
-            resp.read()
-    except urllib.error.URLError as e:
-        return False, f"inference failed: {e.reason}"
-
-    return True, "ok"
 
 
 # ---------------------------------------------------------------------------
@@ -406,14 +378,16 @@ def run_all() -> tuple[
         config.append((group, status, msg))
 
     root_dir_str = os.environ.get("JJ_ROOT_DIR")
-    root_dir = Path(root_dir_str) if root_dir_str else None
-    cat_results = _check_catalog_impl(d / "catalog.yaml", root_dir)
-    failed_repos = [n for n, ok, _ in cat_results if not ok]
-    config.append((
-        "catalog",
-        "ok" if not failed_repos else "error",
-        "ok" if not failed_repos else f"{len(failed_repos)} repo(s) with issues",
-    ))
+    if not root_dir_str:
+        config.append(("catalog", "warn", "not configured"))
+    else:
+        cat_results = _check_catalog_impl(d / "catalog.yaml", Path(root_dir_str))
+        failed_repos = [n for n, ok, _ in cat_results if not ok]
+        config.append((
+            "catalog",
+            "ok" if not failed_repos else "error",
+            "ok" if not failed_repos else f"{len(failed_repos)} repo(s) with issues",
+        ))
 
     url = os.environ.get("LLM_MODEL_URL")
     api_key = os.environ.get("LLM_API_KEY")
@@ -422,7 +396,7 @@ def run_all() -> tuple[
     avail.append(("neo4j", "ok" if running else "warn", msg))
 
     if url and api_key and model:
-        passed, msg = _do_test_inference(url, api_key, model)
+        passed, msg = _check_llm_connectivity(url, api_key, model)
         avail.append(("llm", "ok" if passed else "error", msg))
     else:
         avail.append(("llm", "warn", "skipped"))
