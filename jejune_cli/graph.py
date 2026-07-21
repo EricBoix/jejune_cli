@@ -3,7 +3,8 @@ from pathlib import Path
 import click
 
 from ._env import EXTRACT_ENV_VARS, docker_env_args
-from .configuration import CONFIG_GROUPS, check_config_group, print_config_hint, print_config_status
+from .configuration import print_config_hint, print_config_status
+from .llm import llm_available as _llm_available
 from .neo4j import container_running as _neo4j_running
 
 _BUILD_KG_IMAGE = "jejuneness:extract_knowledge_graph"
@@ -18,11 +19,10 @@ def _preflight() -> None:
             "neo4j is not running — refer to `jejune neo4j start --help`"
         )
 
-    llm_keys, _ = CONFIG_GROUPS["llm"]
-    status, _ = check_config_group(llm_keys)
-    if status != "ok":
+    available, msg = _llm_available()
+    if not available:
         raise click.ClickException(
-            "llm is not configured — refer to `jejune llm hint-config`"
+            f"llm is not available ({msg}) — refer to `jejune llm status`"
         )
 
 

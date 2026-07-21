@@ -128,6 +128,25 @@ def check_inference(
         return False, f"inference timed out after {_INFERENCE_TIMEOUT}s"
 
 
+def llm_available() -> tuple[bool, str]:
+    """Quick availability check: server reachable and API key valid.
+
+    Reads LLM_MODEL_URL, LLM_API_KEY, and optionally LLM_SERVER_URL from the
+    environment.  Intended as a preflight guard before launching containers.
+    Returns (False, "not configured") when required env vars are absent.
+    """
+    url     = (os.environ.get("LLM_MODEL_URL") or "").rstrip("/")
+    api_key = os.environ.get("LLM_API_KEY") or ""
+    if not url or not api_key:
+        return False, "not configured"
+    explicit = os.environ.get("LLM_SERVER_URL")
+    server_url = explicit.rstrip("/") if explicit else infer_server_url(url)
+    passed, msg = check_server(server_url)
+    if not passed:
+        return False, msg
+    return check_auth(server_url, api_key)
+
+
 @click.group()
 def llm():
     """Manage the LLM inference server."""
