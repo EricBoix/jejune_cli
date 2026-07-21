@@ -35,7 +35,7 @@ def _run(*cmd: str) -> None:
         raise SystemExit(result.returncode)
 
 
-@click.group()
+@click.group(short_help="Build and export the knowledge graph")
 @click.pass_context
 def graph(ctx):
     """Build and export the knowledge graph for the current jj_doc_<name> repository."""

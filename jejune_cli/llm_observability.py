@@ -24,7 +24,7 @@ def container_running() -> tuple[bool, str]:
     return True, "ok"
 
 
-@click.group("llm-observability")
+@click.group("llm-observability", short_help="Manage the LLM observability backend")
 def llm_observability():
     """Manage the LLM observability backend (OTLP trace receiver)."""
 

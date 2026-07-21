@@ -75,17 +75,17 @@ class _JejuneGroup(click.Group):
             for name in names:
                 cmd = self.get_command(ctx, name)
                 if cmd and not cmd.hidden:
-                    result.append((name, cmd.get_short_help_str(limit=formatter.width)))
+                    result.append((f"jejune {name}", cmd.get_short_help_str(limit=formatter.width)))
             return result
 
         def _plugin_rows(stage: str) -> list[tuple[str, str]]:
             return [
-                (p.name, p.group.get_short_help_str(limit=formatter.width))
+                (f"jejune {p.name}", p.group.get_short_help_str(limit=formatter.width))
                 for p in _REGISTRY if p.stage == stage
             ]
 
-        # Uncategorised commands (e.g. doctor).
-        categorised = (
+        # Uncategorized commands (e.g. doctor).
+        categorized = (
             _BUILTIN_COMPONENTS
             | set(_SHARED_COMPONENTS)
             | {p.name for p in _REGISTRY}
@@ -93,7 +93,7 @@ class _JejuneGroup(click.Group):
         other = [
             (name, self.get_command(ctx, name).get_short_help_str(limit=formatter.width))
             for name in self.list_commands(ctx)
-            if name not in categorised
+            if name not in categorized
             and self.get_command(ctx, name) is not None
             and not self.get_command(ctx, name).hidden
         ]

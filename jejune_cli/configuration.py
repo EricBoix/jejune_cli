@@ -130,7 +130,7 @@ def check_config_group(keys: list[str]) -> tuple[str, str]:
     return "error", "; ".join(issues)
 
 
-@click.group()
+@click.group(short_help="Manage the .jejune/ configuration")
 def configuration():
     """Manage the .jejune/ configuration (env-config, env-secrets, catalog.yaml)."""
 

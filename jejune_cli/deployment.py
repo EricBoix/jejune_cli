@@ -57,7 +57,7 @@ def _do_bootstrap(deployments_dir: Path, deploy_name: str) -> None:
     click.echo(f"  4. git -C {deployments_dir} commit -m 'Add deploy_{deploy_name} deployment'")
 
 
-@click.group()
+@click.group(short_help="Manage deployments")
 def deployment():
     """Manage deployments — collections of active jj_doc_* repositories (collection-level)."""
 

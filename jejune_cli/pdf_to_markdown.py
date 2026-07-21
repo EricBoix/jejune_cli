@@ -9,7 +9,7 @@ from ._env import dot_jejune
 from .configuration import print_config_hint, print_config_status
 
 
-@click.group("pdf-to-markdown")
+@click.group("pdf-to-markdown", short_help="Test the pipeline across the catalog")
 def pdf_to_markdown():
     """Test the pdf-to-markdown pipeline across the document catalog (collection-level)."""
 

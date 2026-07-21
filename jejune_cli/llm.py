@@ -147,7 +147,7 @@ def llm_available() -> tuple[bool, str]:
     return check_auth(server_url, api_key)
 
 
-@click.group()
+@click.group(short_help="Manage the LLM inference server")
 def llm():
     """Manage the LLM inference server."""
 

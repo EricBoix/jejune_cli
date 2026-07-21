@@ -188,7 +188,7 @@ def _sync_catalog_impl(
 # Click commands
 # ---------------------------------------------------------------------------
 
-@click.group()
+@click.group(short_help="Manage the document catalog")
 def catalog():
     """Manage the catalog of jj_doc_* repositories (collection-level)."""
 
