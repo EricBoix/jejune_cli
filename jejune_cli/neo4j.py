@@ -45,6 +45,59 @@ def _require_stopped() -> None:
         )
 
 
+def _resolve_port_credentials(port: str | None, credentials: str | None) -> tuple[str, str]:
+    """Resolve port and credentials from explicit args or environment variables."""
+    if port is None:
+        port = os.environ.get("NEO4J_PORT", "7687")
+    if credentials is None:
+        user = os.environ.get("NEO4J_USERNAME")
+        password = os.environ.get("NEO4J_PASSWORD")
+        if not user or not password:
+            raise click.ClickException(
+                "Provide --credentials USER/PASSWORD or set NEO4J_USERNAME and NEO4J_PASSWORD."
+            )
+        credentials = f"{user}/{password}"
+    return port, credentials
+
+
+def _launch_container(data_dir: Path, port: str, credentials: str) -> None:
+    """Build the Neo4j image, start the container, and wait until it is ready."""
+    click.echo(f"Building {_NEO4J_IMAGE} ...")
+    _run(
+        "docker", "build", "-t", _NEO4J_IMAGE,
+        "https://github.com/EricBoix/jejune_neo4j_docker.git",
+    )
+
+    (data_dir / "database").mkdir(parents=True, exist_ok=True)
+
+    click.echo(f"Starting Neo4j on bolt port {port} ...")
+    _run(
+        "docker", "run",
+        "--rm", "--detach",
+        "--name", _NEO4J_CONTAINER,
+        "--publish", "7474:7474",
+        "--publish", f"{port}:7687",
+        "--env", f"NEO4J_AUTH={credentials}",
+        "-v", f"{data_dir}/database:/data",
+        _NEO4J_IMAGE,
+    )
+
+    click.echo("Waiting for container to be running ", nl=False)
+    while True:
+        probe = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.Running}}", _NEO4J_CONTAINER],
+            capture_output=True, text=True,
+        )
+        if probe.stdout.strip() == "true":
+            break
+        click.echo(".", nl=False)
+        time.sleep(0.5)
+    click.echo()
+    click.echo("Waiting for Neo4j to finish initializing (5 s) ...")
+    time.sleep(5)
+    click.echo(f"Neo4j ready on bolt port {port}.")
+
+
 @click.group()
 def neo4j():
     """Manage the Neo4j instance for the current jj_doc_<name> repository."""
@@ -101,64 +154,8 @@ def start(data_dir, port, credentials):
     Requires NEO4J_USERNAME and NEO4J_PASSWORD (or --credentials USER/PASSWORD).
     """
     data_dir = Path(data_dir).resolve()
-
-    if port is None:
-        port = os.environ.get("NEO4J_PORT", "7687")
-
-    if credentials is None:
-        user = os.environ.get("NEO4J_USERNAME")
-        password = os.environ.get("NEO4J_PASSWORD")
-        if not user or not password:
-            raise click.ClickException(
-                "Provide --credentials USER/PASSWORD or set NEO4J_USERNAME and NEO4J_PASSWORD."
-            )
-        credentials = f"{user}/{password}"
-
-    click.echo(f"Building {_NEO4J_IMAGE} ...")
-    _run(
-        "docker",
-        "build",
-        "-t",
-        _NEO4J_IMAGE,
-        "https://github.com/EricBoix/jejune_neo4j_docker.git",
-    )
-
-    (data_dir / "database").mkdir(parents=True, exist_ok=True)
-
-    click.echo(f"Starting Neo4j on bolt port {port} ...")
-    _run(
-        "docker",
-        "run",
-        "--rm",
-        "--detach",
-        "--name",
-        _NEO4J_CONTAINER,
-        "--publish",
-        "7474:7474",
-        "--publish",
-        f"{port}:7687",
-        "--env",
-        f"NEO4J_AUTH={credentials}",
-        "-v",
-        f"{data_dir}/database:/data",
-        _NEO4J_IMAGE,
-    )
-
-    click.echo("Waiting for container to be running ", nl=False)
-    while True:
-        probe = subprocess.run(
-            ["docker", "inspect", "-f", "{{.State.Running}}", _NEO4J_CONTAINER],
-            capture_output=True,
-            text=True,
-        )
-        if probe.stdout.strip() == "true":
-            break
-        click.echo(".", nl=False)
-        time.sleep(0.5)
-    click.echo()
-    click.echo("Waiting for Neo4j to finish initializing (5 s) ...")
-    time.sleep(5)
-    click.echo(f"Neo4j ready on bolt port {port}.")
+    port, credentials = _resolve_port_credentials(port, credentials)
+    _launch_container(data_dir, port, credentials)
 
 
 @neo4j.command("stop")
@@ -169,6 +166,44 @@ def stop():
     click.echo(f"Removing {_NEO4J_CONTAINER} ...")
     subprocess.run(["docker", "rm", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
     click.echo("Neo4j stopped.")
+
+
+@neo4j.command("delete")
+@click.argument("data_dir", type=click.Path())
+@click.option(
+    "--port",
+    default=None,
+    help="Bolt port for the restarted Neo4j server (default: NEO4J_PORT env var, fallback 7687).",
+)
+@click.option(
+    "--credentials",
+    default=None,
+    metavar="USER/PASSWORD",
+    help="Neo4j auth string (default: NEO4J_USERNAME/NEO4J_PASSWORD env vars).",
+)
+def delete(data_dir, port, credentials):
+    """Delete all Neo4j data (databases and transactions) and restart fresh.
+
+    Stops Neo4j if running, wipes DATA_DIR/database/, then starts a clean instance.
+    DATA_DIR must be the same directory used with `jejune neo4j start`.
+    Requires NEO4J_USERNAME and NEO4J_PASSWORD (or --credentials USER/PASSWORD).
+    """
+    import shutil
+
+    data_dir = Path(data_dir).resolve()
+    database_dir = data_dir / "database"
+    port, credentials = _resolve_port_credentials(port, credentials)
+
+    running, _ = container_running()
+    if running:
+        click.echo(f"Stopping {_NEO4J_CONTAINER} ...")
+        subprocess.run(["docker", "stop", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
+        subprocess.run(["docker", "rm", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
+
+    click.echo(f"Deleting {database_dir} ...")
+    shutil.rmtree(database_dir, ignore_errors=True)
+
+    _launch_container(data_dir, port, credentials)
 
 
 @neo4j.command("dump")
