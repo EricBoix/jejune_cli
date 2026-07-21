@@ -40,6 +40,13 @@ def container_running() -> tuple[bool, str]:
     return True, "ok"
 
 
+def _wipe_database(database_dir: Path) -> None:
+    """Remove the Neo4j database directory entirely."""
+    import shutil
+    click.echo(f"Wiping {database_dir} ...")
+    shutil.rmtree(database_dir, ignore_errors=True)
+
+
 def _require_stopped() -> None:
     """Raise ClickException if the Neo4j container is currently running."""
     running, _ = container_running()
@@ -281,8 +288,6 @@ def delete(data_dir, port, credentials):
     DATA_DIR must be the same directory used with `jejune neo4j start`.
     Requires NEO4J_USERNAME and NEO4J_PASSWORD (or --credentials USER/PASSWORD).
     """
-    import shutil
-
     data_dir = Path(data_dir).resolve()
     database_dir = data_dir / "database"
     port, credentials = _resolve_port_credentials(port, credentials)
@@ -293,8 +298,7 @@ def delete(data_dir, port, credentials):
         subprocess.run(["docker", "stop", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
         subprocess.run(["docker", "rm", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
 
-    click.echo(f"Deleting {database_dir} ...")
-    shutil.rmtree(database_dir, ignore_errors=True)
+    _wipe_database(database_dir)
 
     _launch_container(data_dir, port, credentials)
 
@@ -406,8 +410,7 @@ def restore(results_dir, dump_filename):
 
     _require_stopped()
 
-    click.echo("Wiping current database ...")
-    shutil.rmtree(database_dir, ignore_errors=True)
+    _wipe_database(database_dir)
 
     # neo4j-admin load expects the source file to be named neo4j.dump
     neo4j_dump_path = backups_dir / "neo4j.dump"
