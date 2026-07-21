@@ -79,11 +79,21 @@ class _JejuneGroup(click.Group):
         if rows:
             with formatter.section("Commands"):
                 formatter.write_dl(rows)
-        if _REGISTRY:
-            with formatter.section("Extension components"):
+        _STAGE_TITLES = {
+            "single-document": "Single-document extension components",
+            "collection": "Collection-level extension components",
+            "extension": "Extension components",
+        }
+        by_stage: dict[str, list] = {}
+        for p in _REGISTRY:
+            by_stage.setdefault(p.stage, []).append(p)
+        for stage in ("single-document", "collection", "extension"):
+            if stage not in by_stage:
+                continue
+            with formatter.section(_STAGE_TITLES[stage]):
                 formatter.write_dl([
                     (p.name, p.group.get_short_help_str(limit=formatter.width))
-                    for p in _REGISTRY
+                    for p in by_stage[stage]
                 ])
 
 

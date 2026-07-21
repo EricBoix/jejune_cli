@@ -38,6 +38,9 @@ class JejunePlugin:
                           shows "warn / no availability check".
     required_deps       : names of components that must be ok first.
     optional_deps       : names of components that enhance this one.
+    stage               : controls which ``jejune --help`` section lists
+                          this component — ``"single-document"``,
+                          ``"collection"``, or ``"extension"`` (default).
     """
 
     name: str
@@ -48,6 +51,13 @@ class JejunePlugin:
     check_availability: Callable[[], tuple[bool, str]] | None = None
     required_deps: list[str] = field(default_factory=list)
     optional_deps: list[str] = field(default_factory=list)
+    stage: str = "extension"
+    """Determines the ``jejune --help`` section for this component.
+
+    ``"single-document"``  → "Single-document extension components"
+    ``"collection"``       → "Collection-level extension components"
+    ``"extension"``        → "Extension components" (default)
+    """
 
 
 # Populated at startup by main._load_plugins().  Read by catalog.run_all().
