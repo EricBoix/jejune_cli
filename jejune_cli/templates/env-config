@@ -12,3 +12,8 @@ JJ_ROOT_DIR=/absolute/path/to/local/clones_CHANGE_ME
 
 ### Optional: LLM observability (OTLP HTTP receiver — no API key required)
 # TRACELOOP_BASE_URL=http://localhost:4318
+
+### Optional: document converter (enables `jejune convert` when set)
+# Root directory of the document repository to convert.  Must contain a
+# DockerContext/ subdirectory from which the converter Docker image is built.
+# CONVERT_DOC_DIR=.
