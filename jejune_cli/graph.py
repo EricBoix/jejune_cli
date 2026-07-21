@@ -3,9 +3,27 @@ from pathlib import Path
 import click
 
 from ._env import EXTRACT_ENV_VARS, docker_env_args
-from .configuration import print_config_hint, print_config_status
+from .configuration import CONFIG_GROUPS, check_config_group, print_config_hint, print_config_status
+from .neo4j import container_running as _neo4j_running
 
 _BUILD_KG_IMAGE = "jejuneness:extract_knowledge_graph"
+
+_PREFLIGHT_SKIP = {"check-config", "hint-config"}
+
+
+def _preflight() -> None:
+    running, _ = _neo4j_running()
+    if not running:
+        raise click.ClickException(
+            "neo4j is not running — refer to `jejune neo4j start --help`"
+        )
+
+    llm_keys, _ = CONFIG_GROUPS["llm"]
+    status, _ = check_config_group(llm_keys)
+    if status != "ok":
+        raise click.ClickException(
+            "llm is not configured — refer to `jejune llm hint-config`"
+        )
 
 
 def _run(*cmd: str) -> None:
@@ -18,8 +36,11 @@ def _run(*cmd: str) -> None:
 
 
 @click.group()
-def graph():
+@click.pass_context
+def graph(ctx):
     """Build and export the knowledge graph for the current jj_doc_<name> repository."""
+    if ctx.invoked_subcommand not in _PREFLIGHT_SKIP:
+        _preflight()
 
 
 @graph.command("check-config")
