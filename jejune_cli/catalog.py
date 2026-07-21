@@ -386,4 +386,12 @@ def run_all() -> tuple[
         running, msg = _llm_obs_running()
         avail.append(("llm-observability", "ok" if running else "warn", msg))
 
+    from .plugin import _REGISTRY
+    for plugin in _REGISTRY:
+        if plugin.check_availability is not None:
+            passed, msg = plugin.check_availability()
+            avail.append((plugin.name, "ok" if passed else "error", msg))
+        else:
+            avail.append((plugin.name, "warn", "no availability check"))
+
     return config, avail

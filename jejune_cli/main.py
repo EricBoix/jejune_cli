@@ -1,7 +1,10 @@
+import importlib.metadata
+
 import click
 
 from ._env import dot_jejune, load_env_files
 from .catalog import catalog, run_all
+from .plugin import JejunePlugin, _REGISTRY
 from .deployment import deployment
 from .configuration import (
     configuration,
@@ -25,9 +28,11 @@ _COMPONENTS = [
     "deployment",
     "pdf-to-markdown",
 ]
+# Frozen at startup — used to distinguish built-ins from loaded plugins in help.
+_BUILTIN_COMPONENTS: frozenset[str] = frozenset(_COMPONENTS)
 
 
-_W_SECT = 17  # len("llm-observability")
+_W_SECT = 17  # len("llm-observability") — recomputed after _load_plugins()
 _W_MSG = 16  # "not configured" = 14
 
 _STATUS_RANK = {"error": 2, "warn": 1, "ok": 0}
@@ -60,9 +65,9 @@ class _JejuneGroup(click.Group):
     def format_commands(
         self, ctx: click.Context, formatter: click.HelpFormatter
     ) -> None:
-        # Components and shared commands are described in the docstring above;
-        # only emit commands not covered there.
-        covered = set(_COMPONENTS) | {"configuration"}
+        # Built-in components are described in the docstring above; plugins get
+        # their own section; only truly uncovered commands fall through here.
+        covered = _BUILTIN_COMPONENTS | {"configuration"} | {p.name for p in _REGISTRY}
         rows: list[tuple[str, str]] = []
         for name in self.list_commands(ctx):
             if name in covered:
@@ -74,6 +79,12 @@ class _JejuneGroup(click.Group):
         if rows:
             with formatter.section("Commands"):
                 formatter.write_dl(rows)
+        if _REGISTRY:
+            with formatter.section("Extension components"):
+                formatter.write_dl([
+                    (p.name, p.group.get_short_help_str(limit=formatter.width))
+                    for p in _REGISTRY
+                ])
 
 
 @click.group(cls=_JejuneGroup)
@@ -278,3 +289,30 @@ cli.add_command(catalog)
 cli.add_command(deployment)
 cli.add_command(pdf_to_markdown)
 cli.add_command(doctor)
+
+
+def _load_plugins() -> None:
+    global _W_SECT
+    from .configuration import CONFIG_GROUPS, COMPONENT_CONFIG_HINTS
+    for ep in importlib.metadata.entry_points(group="jejune.plugins"):
+        try:
+            plugin: JejunePlugin = ep.load()
+        except Exception as exc:
+            click.echo(f"Warning: failed to load plugin {ep.name!r}: {exc}", err=True)
+            continue
+        _REGISTRY.append(plugin)
+        cli.add_command(plugin.group, plugin.name)
+        _COMPONENTS.append(plugin.name)
+        if plugin.required_deps:
+            _COMPONENT_DEPS[plugin.name] = plugin.required_deps
+        if plugin.optional_deps:
+            _COMPONENT_OPTIONAL_DEPS[plugin.name] = plugin.optional_deps
+        if plugin.avail_hint:
+            _AVAIL_HINTS[plugin.name] = plugin.avail_hint
+        if plugin.config_vars:
+            CONFIG_GROUPS[plugin.name] = (plugin.config_vars, plugin.name)
+            COMPONENT_CONFIG_HINTS[plugin.name] = plugin.config_hint
+    _W_SECT = max(len(n) for n in _COMPONENTS)
+
+
+_load_plugins()
