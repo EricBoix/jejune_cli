@@ -191,6 +191,12 @@ def dump(results_dir, dump_filename):
 
     _require_stopped()
 
+    existing = backups_dir / "neo4j.dump"
+    if existing.exists():
+        raise click.ClickException(
+            f"{existing} already exists — remove it first"
+        )
+
     click.echo("Dumping database ...")
     _run(
         "docker",
