@@ -82,6 +82,8 @@ def component_config_check(component: str) -> tuple[str, str]:
         status, msg = _convert_config_status()
         if status == "ok":
             return "ok", ""
+        if status == "error":
+            return status, msg  # specific: "DockerContext not found at <path>"
         return status, get_config_hint("convert", status, msg)
     if component not in CONFIG_GROUPS:
         return "ok", ""
