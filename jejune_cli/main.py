@@ -31,6 +31,11 @@ _COMPONENTS = [
 # Frozen at startup — used to distinguish built-ins from loaded plugins in help.
 _BUILTIN_COMPONENTS: frozenset[str] = frozenset(_COMPONENTS)
 
+# Help-section membership for built-in components.
+_SHARED_COMPONENTS = ["configuration"]
+_SINGLE_DOC_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph"]
+_COLLECTION_COMPONENTS = ["catalog", "deployment", "pdf-to-markdown"]
+
 
 _W_SECT = 17  # len("llm-observability") — recomputed after _load_plugins()
 _W_MSG = 16  # "not configured" = 14
@@ -65,60 +70,64 @@ class _JejuneGroup(click.Group):
     def format_commands(
         self, ctx: click.Context, formatter: click.HelpFormatter
     ) -> None:
-        # Built-in components are described in the docstring above; plugins get
-        # their own section; only truly uncovered commands fall through here.
-        covered = _BUILTIN_COMPONENTS | {"configuration"} | {p.name for p in _REGISTRY}
-        rows: list[tuple[str, str]] = []
-        for name in self.list_commands(ctx):
-            if name in covered:
-                continue
-            cmd = self.get_command(ctx, name)
-            if cmd is None or cmd.hidden:
-                continue
-            rows.append((name, cmd.get_short_help_str(limit=formatter.width)))
-        if rows:
+        def _rows(names: list[str]) -> list[tuple[str, str]]:
+            result = []
+            for name in names:
+                cmd = self.get_command(ctx, name)
+                if cmd and not cmd.hidden:
+                    result.append((name, cmd.get_short_help_str(limit=formatter.width)))
+            return result
+
+        def _plugin_rows(stage: str) -> list[tuple[str, str]]:
+            return [
+                (p.name, p.group.get_short_help_str(limit=formatter.width))
+                for p in _REGISTRY if p.stage == stage
+            ]
+
+        # Uncategorised commands (e.g. doctor).
+        categorised = (
+            _BUILTIN_COMPONENTS
+            | set(_SHARED_COMPONENTS)
+            | {p.name for p in _REGISTRY}
+        )
+        other = [
+            (name, self.get_command(ctx, name).get_short_help_str(limit=formatter.width))
+            for name in self.list_commands(ctx)
+            if name not in categorised
+            and self.get_command(ctx, name) is not None
+            and not self.get_command(ctx, name).hidden
+        ]
+        if other:
             with formatter.section("Commands"):
-                formatter.write_dl(rows)
-        _STAGE_TITLES = {
-            "single-document": "Single-document extension components",
-            "collection": "Collection-level extension components",
-            "extension": "Extension components",
-        }
-        by_stage: dict[str, list] = {}
-        for p in _REGISTRY:
-            by_stage.setdefault(p.stage, []).append(p)
-        for stage in ("single-document", "collection", "extension"):
-            if stage not in by_stage:
-                continue
-            with formatter.section(_STAGE_TITLES[stage]):
-                formatter.write_dl([
-                    (p.name, p.group.get_short_help_str(limit=formatter.width))
-                    for p in by_stage[stage]
-                ])
+                formatter.write_dl(other)
+
+        shared = _rows(_SHARED_COMPONENTS)
+        if shared:
+            with formatter.section("Shared (single-document and collection-level)"):
+                formatter.write_dl(shared)
+
+        single_doc = _rows(_SINGLE_DOC_COMPONENTS) + _plugin_rows("single-document")
+        if single_doc:
+            with formatter.section("Single-document commands (jj_doc_<name> repository)"):
+                formatter.write_dl(single_doc)
+
+        collection = _rows(_COLLECTION_COMPONENTS) + _plugin_rows("collection")
+        if collection:
+            with formatter.section("Collection-level commands (catalog of repositories)"):
+                formatter.write_dl(collection)
+
+        extension = _plugin_rows("extension")
+        if extension:
+            with formatter.section("Extension components"):
+                formatter.write_dl(extension)
 
 
 @click.group(cls=_JejuneGroup)
 def cli():
     """jejune — jejuneness workflow CLI.
 
-    \b
-    Shared (single-document and collection-level):
-      jejune configuration     Manage the .jejune/ configuration
-      Run `jejune configuration init` first — in a jj_doc_<name> repository
-      for single-document use, or a deployment directory for collection-level.
-
-    \b
-    Single-document commands (jj_doc_<name> repository):
-      jejune neo4j              Manage the Neo4j instance
-      jejune llm                Manage the LLM inference server
-      jejune llm-observability  Manage the LLM observability backend
-      jejune graph              Build and export the knowledge graph
-
-    \b
-    Collection-level commands (catalog of repositories):
-      jejune catalog            Manage the document catalog
-      jejune deployment         Manage deployments
-      jejune pdf-to-markdown    Test the pipeline across the catalog
+    Run `jejune configuration init` first — in a jj_doc_<name> repository
+    for single-document use, or a deployment directory for collection-level.
     """
     load_env_files()
 
