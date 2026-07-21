@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from .configuration import print_config_hint, print_config_status
+from .configuration import print_config_status
 
 _IMAGE = "jejuneness:convert"
 
@@ -39,7 +39,19 @@ def check_config():
 @convert.command("hint-config")
 def hint_config():
     """Show the configuration hint for the convert component."""
-    print_config_hint("convert")
+    val = os.environ.get("CONVERT_DOC_DIR")
+    if not val:
+        click.echo("set CONVERT_DOC_DIR in .jejune/env-config")
+        return
+    ctx_path = Path(val) / "DockerContext"
+    if not ctx_path.is_dir():
+        abs_ctx = ctx_path.resolve()
+        click.echo(
+            f"DockerContext directory not found for CONVERT_DOC_DIR={val}"
+            f" (absolute: {abs_ctx})"
+        )
+        return
+    click.echo(click.style("no configuration required", fg="green"))
 
 
 @convert.command("build")
