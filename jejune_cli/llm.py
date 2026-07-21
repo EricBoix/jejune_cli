@@ -13,6 +13,23 @@ _INFERENCE_TIMEOUT = 120 # seconds — large models can be slow to respond
 DEFAULT_INFERENCE_PATH = "/api/chat"
 
 
+def infer_server_url(model_url: str) -> str:
+    """Derive the OpenWebUI root URL from the Ollama base URL.
+
+    OpenWebUI proxies Ollama at <root>/ollama, so the server root is obtained
+    by stripping the /ollama suffix when present.  For a bare Ollama instance
+    (no proxy) the two URLs are identical.
+
+    Examples:
+        https://host/ollama  →  https://host
+        https://host         →  https://host
+    """
+    stripped = model_url.rstrip("/")
+    if stripped.endswith("/ollama"):
+        return stripped[: -len("/ollama")]
+    return stripped
+
+
 def check_server(url: str) -> tuple[bool, str]:
     """Stage 1: does the server answer at the HTTPS level?"""
     req = urllib.request.Request(url)
@@ -139,24 +156,27 @@ def status(prompt):
     """Test LLM server connectivity and inference capability.
 
     Reads from the environment:\n
-      LLM_SERVER_URL        — OpenWebUI root, for auth and model-list checks
-                              (optional: defaults to LLM_MODEL_URL)\n
-      LLM_MODEL_URL         — Ollama base URL passed to ChatOllama\n
-      LLM_API_KEY           — bearer token\n
-      LLM_MODEL_NAME        — model identifier\n
+      LLM_MODEL_URL          — Ollama base URL passed to ChatOllama\n
+      LLM_API_KEY            — bearer token\n
+      LLM_MODEL_NAME         — model identifier\n
+      LLM_SERVER_URL         — OpenWebUI root for auth/model-list checks
+                               (optional: derived from LLM_MODEL_URL by
+                               stripping the /ollama suffix if present)\n
       LLM_INFERENCE_ENDPOINT — path appended to LLM_MODEL_URL for inference
-                              (optional: defaults to /api/chat)\n
+                               (optional: defaults to /api/chat)\n
     Performs five checks:\n
-      1. GET  <LLM_SERVER_URL>                          — HTTPS-level reachability\n
-      2. GET  <LLM_SERVER_URL>/api/v1/auths/            — API key valid\n
-      3. GET  <LLM_SERVER_URL>/api/models               — configured model exists\n
-      4. POST <LLM_MODEL_URL><LLM_INFERENCE_ENDPOINT>   — inference endpoint accepts POST\n
-      5. POST <LLM_MODEL_URL><LLM_INFERENCE_ENDPOINT>   — inference round-trip succeeds\n
+      1. GET  <server_url>                               — HTTPS-level reachability\n
+      2. GET  <server_url>/api/v1/auths/                 — API key valid\n
+      3. GET  <server_url>/api/models                    — configured model exists\n
+      4. POST <LLM_MODEL_URL><LLM_INFERENCE_ENDPOINT>    — inference endpoint accepts POST\n
+      5. POST <LLM_MODEL_URL><LLM_INFERENCE_ENDPOINT>    — inference round-trip succeeds\n
     """
     model_url      = (os.environ.get("LLM_MODEL_URL") or "").rstrip("/")
     api_key        = os.environ.get("LLM_API_KEY")
     model          = os.environ.get("LLM_MODEL_NAME")
-    server_url     = (os.environ.get("LLM_SERVER_URL") or model_url).rstrip("/")
+    explicit_server = os.environ.get("LLM_SERVER_URL")
+    server_url     = (explicit_server.rstrip("/") if explicit_server
+                      else infer_server_url(model_url))
     inference_path = os.environ.get("LLM_INFERENCE_ENDPOINT", DEFAULT_INFERENCE_PATH)
 
     missing = [n for n, v in [
@@ -165,8 +185,9 @@ def status(prompt):
     if missing:
         raise click.ClickException(f"Missing environment variables: {', '.join(missing)}")
 
-    click.echo(f"LLM_SERVER_URL : {server_url}")
+    server_label = server_url if explicit_server else f"{server_url}  (derived)"
     click.echo(f"LLM_MODEL_URL  : {model_url}")
+    click.echo(f"LLM_SERVER_URL : {server_label}")
     click.echo(f"Model          : {model}")
     click.echo(f"Endpoint       : {inference_path}")
     click.echo(f"Prompt         : {prompt!r}")

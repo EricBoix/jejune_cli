@@ -12,6 +12,7 @@ from .configuration import (
 )
 from .llm import (
     DEFAULT_INFERENCE_PATH as _LLM_DEFAULT_INFERENCE_PATH,
+    infer_server_url as _infer_llm_server_url,
     check_server as _check_llm_server,
     check_auth as _check_llm_auth,
     check_model as _check_llm_model,
@@ -362,7 +363,8 @@ def run_all() -> tuple[
     avail.append(("neo4j", "ok" if running else "warn", msg))
 
     if url and api_key and model:
-        server_url     = (os.environ.get("LLM_SERVER_URL") or url).rstrip("/")
+        explicit = os.environ.get("LLM_SERVER_URL")
+        server_url = explicit.rstrip("/") if explicit else _infer_llm_server_url(url)
         inference_path = os.environ.get("LLM_INFERENCE_ENDPOINT", _LLM_DEFAULT_INFERENCE_PATH)
         passed, msg = _check_llm_server(server_url)
         if passed:
