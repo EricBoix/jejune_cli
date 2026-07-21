@@ -1,6 +1,10 @@
+import base64
+import json
 import os
 import subprocess
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import click
@@ -132,6 +136,95 @@ def status():
         container_text = click.style("not running", fg="yellow")
     click.echo(f"  container   {container_text}")
     click.echo(f"  bolt        bolt://localhost:{port}")
+
+
+@neo4j.command("stats")
+@click.option(
+    "--simple",
+    is_flag=True,
+    default=False,
+    help="Output only total counts as #nodes/#relationships.",
+)
+@click.option(
+    "--assert", "assert_counts",
+    default=None,
+    metavar="NODES/RELATIONSHIPS",
+    help="Assert current counts match NODES/RELATIONSHIPS; exit 1 if not.",
+)
+def stats(simple, assert_counts):
+    """Print a node and relationship summary of the running Neo4j database."""
+    running, _ = container_running()
+    if not running:
+        raise click.ClickException(
+            "neo4j is not running — start it first with `jejune neo4j start`"
+        )
+
+    user     = os.environ.get("NEO4J_USERNAME", "neo4j")
+    password = os.environ.get("NEO4J_PASSWORD", "")
+    token    = base64.b64encode(f"{user}:{password}".encode()).decode()
+
+    payload = json.dumps({"statements": [
+        {"statement": "MATCH (n) RETURN count(n) AS count"},
+        {"statement": "MATCH (n) UNWIND labels(n) AS label "
+                      "RETURN label, count(*) AS count ORDER BY count DESC"},
+        {"statement": "MATCH ()-[r]->() RETURN count(r) AS count"},
+        {"statement": "MATCH ()-[r]->() "
+                      "RETURN type(r) AS type, count(*) AS count ORDER BY count DESC"},
+    ]}).encode()
+
+    req = urllib.request.Request(
+        "http://localhost:7474/db/neo4j/tx/commit",
+        data=payload,
+        headers={"Authorization": f"Basic {token}", "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+    except urllib.error.URLError as e:
+        raise click.ClickException(f"could not reach Neo4j HTTP API: {e.reason}")
+
+    if data.get("errors"):
+        raise click.ClickException(f"Neo4j error: {data['errors'][0]['message']}")
+
+    results               = data["results"]
+    total_nodes           = results[0]["data"][0]["row"][0]
+    nodes_by_label        = [(r["row"][0], r["row"][1]) for r in results[1]["data"]]
+    total_relationships   = results[2]["data"][0]["row"][0]
+    relationships_by_type = [(r["row"][0], r["row"][1]) for r in results[3]["data"]]
+
+    if assert_counts is not None:
+        try:
+            expected_nodes, expected_relationships = (
+                int(x) for x in assert_counts.split("/")
+            )
+        except ValueError:
+            raise click.BadParameter(
+                "must be in the form <int>/<int>", param_hint="'--assert'"
+            )
+        actual = f"{total_nodes}/{total_relationships}"
+        if total_nodes == expected_nodes and total_relationships == expected_relationships:
+            click.echo(f"ok  {actual}")
+        else:
+            raise click.ClickException(
+                f"assertion failed — expected {assert_counts}, got {actual}"
+            )
+        return
+
+    if simple:
+        click.echo(f"{total_nodes}/{total_relationships}")
+        return
+
+    w = max((len(label) for label, _ in nodes_by_label), default=0)
+    w = max(w, max((len(t) for t, _ in relationships_by_type), default=0), len("Relationships"))
+
+    click.echo(f"{'Nodes':<{w}} : {total_nodes:>8}")
+    for label, count in nodes_by_label:
+        click.echo(f"  {label:<{w}} {count:>8}")
+    click.echo()
+    click.echo(f"{'Relationships':<{w}} : {total_relationships:>8}")
+    for rel_type, count in relationships_by_type:
+        click.echo(f"  {rel_type:<{w}} {count:>8}")
 
 
 @neo4j.command("start")
