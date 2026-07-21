@@ -220,7 +220,7 @@ def doctor():
         if msg == "not configured":
             hint = "Refer above to configuration hint"
         elif status == "error":
-            hint = msg
+            hint = _AVAIL_HINTS.get(comp, msg)
         elif msg == "not started":
             hint = _AVAIL_HINTS.get(comp, "")
         else:
