@@ -12,8 +12,9 @@ _PLACEHOLDER = "_CHANGE_ME"
 # "warn" (yellow) = none set — use case not configured, valid.
 # "error" (red)   = partial or placeholder — needs attention.
 CONFIG_GROUPS: dict[str, tuple[list[str], str]] = {
-    "neo4j": (["NEO4J_PASSWORD"],                                  "neo4j, graph dump-turtle, graph extract"),
-    "llm":   (["LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"], "graph extract"),
+    "neo4j":   (["NEO4J_PASSWORD"],                                  "neo4j, graph dump-turtle, graph extract"),
+    "llm":     (["LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"], "graph extract"),
+    "convert": (["CONVERT_DOC_DIR"],                                 "convert build, convert run"),
 }
 
 
@@ -23,6 +24,7 @@ COMPONENT_CONFIG_HINTS: dict[str, str] = {
     "llm":               "edit .jejune/env-secrets",
     "llm-observability": "configure TRACELOOP_BASE_URL in .jejune/env-config",
     "catalog":           "edit .jejune/env-config or .jejune/catalog.yaml",
+    "convert":           "set CONVERT_DOC_DIR in .jejune/env-config",
 }
 
 
@@ -48,6 +50,19 @@ def _catalog_config_status() -> tuple[str, str]:
     return "ok", ""
 
 
+def _convert_config_status() -> tuple[str, str]:
+    """Return (status, raw_msg) for convert configuration."""
+    import os
+    from pathlib import Path as _Path
+    val = os.environ.get("CONVERT_DOC_DIR")
+    if not val or _PLACEHOLDER in val:
+        return "warn", "CONVERT_DOC_DIR not configured"
+    ctx = _Path(val) / "DockerContext"
+    if not ctx.is_dir():
+        return "error", f"DockerContext not found at {ctx}"
+    return "ok", ""
+
+
 def component_config_check(component: str) -> tuple[str, str]:
     """Return (status, hint) for a component's configuration.
 
@@ -63,6 +78,11 @@ def component_config_check(component: str) -> tuple[str, str]:
         if status == "ok":
             return "ok", ""
         return status, get_config_hint("catalog", status, msg)
+    if component == "convert":
+        status, msg = _convert_config_status()
+        if status == "ok":
+            return "ok", ""
+        return status, get_config_hint("convert", status, msg)
     if component not in CONFIG_GROUPS:
         return "ok", ""
     keys, _ = CONFIG_GROUPS[component]

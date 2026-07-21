@@ -4,6 +4,7 @@ import click
 
 from ._env import dot_jejune, load_env_files
 from .catalog import catalog, run_all
+from .convert import convert, convert_configured
 from .plugin import JejunePlugin, _REGISTRY
 from .deployment import deployment
 from .configuration import (
@@ -27,13 +28,14 @@ _COMPONENTS = [
     "catalog",
     "deployment",
     "pdf-to-markdown",
+    "convert",
 ]
 # Frozen at startup — used to distinguish built-ins from loaded plugins in help.
 _BUILTIN_COMPONENTS: frozenset[str] = frozenset(_COMPONENTS)
 
 # Help-section membership for built-in components.
 _SHARED_COMPONENTS = ["configuration"]
-_SINGLE_DOC_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph"]
+_SINGLE_DOC_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert"]
 _COLLECTION_COMPONENTS = ["catalog", "deployment", "pdf-to-markdown"]
 
 
@@ -70,9 +72,18 @@ class _JejuneGroup(click.Group):
     def format_commands(
         self, ctx: click.Context, formatter: click.HelpFormatter
     ) -> None:
+        load_env_files()  # ensure .jejune/env-config is loaded for conditional visibility
+
+        _hidden_unless_configured = {
+            "convert": convert_configured,
+        }
+
         def _rows(names: list[str]) -> list[tuple[str, str]]:
             result = []
             for name in names:
+                guard = _hidden_unless_configured.get(name)
+                if guard is not None and not guard():
+                    continue
                 cmd = self.get_command(ctx, name)
                 if cmd and not cmd.hidden:
                     result.append((f"jejune {name}", cmd.get_short_help_str(limit=formatter.width)))
@@ -307,6 +318,7 @@ cli.add_command(graph)
 cli.add_command(catalog)
 cli.add_command(deployment)
 cli.add_command(pdf_to_markdown)
+cli.add_command(convert)
 cli.add_command(doctor)
 
 
