@@ -36,10 +36,13 @@ def container_running() -> tuple[bool, str]:
     return True, "ok"
 
 
-def _stop_quiet() -> None:
-    """Stop and remove the Neo4j container, ignoring errors."""
-    subprocess.run(["docker", "stop", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
-    subprocess.run(["docker", "rm", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
+def _require_stopped() -> None:
+    """Raise ClickException if the Neo4j container is currently running."""
+    running, _ = container_running()
+    if running:
+        raise click.ClickException(
+            "neo4j is running — stop it first with `jejune neo4j stop`"
+        )
 
 
 @click.group()
@@ -175,7 +178,7 @@ def dump(results_dir, dump_filename):
     """Dump the Neo4j database to RESULTS_DIR/backups/DUMP_FILENAME.
 
     RESULTS_DIR must contain a database/ subdirectory.
-    Neo4j is stopped before dumping (required by neo4j-admin).
+    Requires Neo4j to be stopped first (run `jejune neo4j stop`).
 
     \b
     Warning: credentials are burnt into the dump file.
@@ -186,8 +189,7 @@ def dump(results_dir, dump_filename):
     backups_dir = results_dir / "backups"
     backups_dir.mkdir(parents=True, exist_ok=True)
 
-    click.echo("Stopping Neo4j (required before dump) ...")
-    _stop_quiet()
+    _require_stopped()
 
     click.echo("Dumping database ...")
     _run(
@@ -254,7 +256,8 @@ def dump_turtle(output_dir, filename):
 def restore(results_dir, dump_filename):
     """Restore the Neo4j database from RESULTS_DIR/backups/DUMP_FILENAME.
 
-    Stops Neo4j, wipes the current database directory, then loads the dump.
+    Requires Neo4j to be stopped first (run `jejune neo4j stop`).
+    Wipes the current database directory, then loads the dump.
     The username/password burnt into the dump must match the target instance.
     """
     import shutil
@@ -267,8 +270,7 @@ def restore(results_dir, dump_filename):
     if not dump_path.exists():
         raise click.ClickException(f"Dump file not found: {dump_path}")
 
-    click.echo("Stopping Neo4j (required before restore) ...")
-    _stop_quiet()
+    _require_stopped()
 
     click.echo("Wiping current database ...")
     shutil.rmtree(database_dir, ignore_errors=True)
