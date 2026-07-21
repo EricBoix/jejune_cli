@@ -16,8 +16,8 @@ from .configuration import (
     print_config_status,
 )
 
-_NEO4J_CONTAINER = "jj_neo4j_db"
-_NEO4J_IMAGE = "jejuneness:neo4j_docker"
+_NEO4J_CONTAINER = "jejuneness_neo4j"
+_NEO4J_IMAGE = "jejuneness:neo4j"
 _TTL_IMAGE = "jejuneness:jj_neo4j_to_rdf_ttl"
 
 
@@ -43,6 +43,7 @@ def container_running() -> tuple[bool, str]:
 def _wipe_database(database_dir: Path) -> None:
     """Remove the Neo4j database directory entirely."""
     import shutil
+
     click.echo(f"Wiping {database_dir} ...")
     shutil.rmtree(database_dir, ignore_errors=True)
 
@@ -56,7 +57,9 @@ def _require_stopped() -> None:
         )
 
 
-def _resolve_port_credentials(port: str | None, credentials: str | None) -> tuple[str, str]:
+def _resolve_port_credentials(
+    port: str | None, credentials: str | None
+) -> tuple[str, str]:
     """Resolve port and credentials from explicit args or environment variables."""
     if port is None:
         port = os.environ.get("NEO4J_PORT", "7687")
@@ -75,7 +78,10 @@ def _launch_container(data_dir: Path, port: str, credentials: str) -> None:
     """Build the Neo4j image, start the container, and wait until it is ready."""
     click.echo(f"Building {_NEO4J_IMAGE} ...")
     _run(
-        "docker", "build", "-t", _NEO4J_IMAGE,
+        "docker",
+        "build",
+        "-t",
+        _NEO4J_IMAGE,
         "https://github.com/EricBoix/jejune_neo4j_docker.git",
     )
 
@@ -83,13 +89,20 @@ def _launch_container(data_dir: Path, port: str, credentials: str) -> None:
 
     click.echo(f"Starting Neo4j on bolt port {port} ...")
     _run(
-        "docker", "run",
-        "--rm", "--detach",
-        "--name", _NEO4J_CONTAINER,
-        "--publish", "7474:7474",
-        "--publish", f"{port}:7687",
-        "--env", f"NEO4J_AUTH={credentials}",
-        "-v", f"{data_dir}/database:/data",
+        "docker",
+        "run",
+        "--rm",
+        "--detach",
+        "--name",
+        _NEO4J_CONTAINER,
+        "--publish",
+        "7474:7474",
+        "--publish",
+        f"{port}:7687",
+        "--env",
+        f"NEO4J_AUTH={credentials}",
+        "-v",
+        f"{data_dir}/database:/data",
         _NEO4J_IMAGE,
     )
 
@@ -97,7 +110,8 @@ def _launch_container(data_dir: Path, port: str, credentials: str) -> None:
     while True:
         probe = subprocess.run(
             ["docker", "inspect", "-f", "{{.State.Running}}", _NEO4J_CONTAINER],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         if probe.stdout.strip() == "true":
             break
@@ -153,7 +167,8 @@ def status():
     help="Output only total counts as #nodes/#relationships.",
 )
 @click.option(
-    "--assert", "assert_counts",
+    "--assert",
+    "assert_counts",
     default=None,
     metavar="NODES/RELATIONSHIPS",
     help="Assert current counts match NODES/RELATIONSHIPS; exit 1 if not.",
@@ -166,18 +181,26 @@ def stats(simple, assert_counts):
             "neo4j is not running — start it first with `jejune neo4j start`"
         )
 
-    user     = os.environ.get("NEO4J_USERNAME", "neo4j")
+    user = os.environ.get("NEO4J_USERNAME", "neo4j")
     password = os.environ.get("NEO4J_PASSWORD", "")
-    token    = base64.b64encode(f"{user}:{password}".encode()).decode()
+    token = base64.b64encode(f"{user}:{password}".encode()).decode()
 
-    payload = json.dumps({"statements": [
-        {"statement": "MATCH (n) RETURN count(n) AS count"},
-        {"statement": "MATCH (n) UNWIND labels(n) AS label "
-                      "RETURN label, count(*) AS count ORDER BY count DESC"},
-        {"statement": "MATCH ()-[r]->() RETURN count(r) AS count"},
-        {"statement": "MATCH ()-[r]->() "
-                      "RETURN type(r) AS type, count(*) AS count ORDER BY count DESC"},
-    ]}).encode()
+    payload = json.dumps(
+        {
+            "statements": [
+                {"statement": "MATCH (n) RETURN count(n) AS count"},
+                {
+                    "statement": "MATCH (n) UNWIND labels(n) AS label "
+                    "RETURN label, count(*) AS count ORDER BY count DESC"
+                },
+                {"statement": "MATCH ()-[r]->() RETURN count(r) AS count"},
+                {
+                    "statement": "MATCH ()-[r]->() "
+                    "RETURN type(r) AS type, count(*) AS count ORDER BY count DESC"
+                },
+            ]
+        }
+    ).encode()
 
     req = urllib.request.Request(
         "http://localhost:7474/db/neo4j/tx/commit",
@@ -194,10 +217,10 @@ def stats(simple, assert_counts):
     if data.get("errors"):
         raise click.ClickException(f"Neo4j error: {data['errors'][0]['message']}")
 
-    results               = data["results"]
-    total_nodes           = results[0]["data"][0]["row"][0]
-    nodes_by_label        = [(r["row"][0], r["row"][1]) for r in results[1]["data"]]
-    total_relationships   = results[2]["data"][0]["row"][0]
+    results = data["results"]
+    total_nodes = results[0]["data"][0]["row"][0]
+    nodes_by_label = [(r["row"][0], r["row"][1]) for r in results[1]["data"]]
+    total_relationships = results[2]["data"][0]["row"][0]
     relationships_by_type = [(r["row"][0], r["row"][1]) for r in results[3]["data"]]
 
     if assert_counts is not None:
@@ -210,7 +233,10 @@ def stats(simple, assert_counts):
                 "must be in the form <int>/<int>", param_hint="'--assert'"
             )
         actual = f"{total_nodes}/{total_relationships}"
-        if total_nodes == expected_nodes and total_relationships == expected_relationships:
+        if (
+            total_nodes == expected_nodes
+            and total_relationships == expected_relationships
+        ):
             click.echo(f"ok  {actual}")
         else:
             raise click.ClickException(
@@ -223,7 +249,11 @@ def stats(simple, assert_counts):
         return
 
     w = max((len(label) for label, _ in nodes_by_label), default=0)
-    w = max(w, max((len(t) for t, _ in relationships_by_type), default=0), len("Relationships"))
+    w = max(
+        w,
+        max((len(t) for t, _ in relationships_by_type), default=0),
+        len("Relationships"),
+    )
 
     click.echo(f"{'Nodes':<{w}} : {total_nodes:>8}")
     for label, count in nodes_by_label:
@@ -325,9 +355,7 @@ def dump(results_dir, dump_filename):
 
     existing = backups_dir / "neo4j.dump"
     if existing.exists():
-        raise click.ClickException(
-            f"{existing} already exists — remove it first"
-        )
+        raise click.ClickException(f"{existing} already exists — remove it first")
 
     click.echo("Dumping database ...")
     _run(
