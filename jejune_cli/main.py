@@ -36,7 +36,7 @@ _STATUS_LABEL = {"ok": "ok", "warn": "not configured", "error": "error"}
 
 _AVAIL_HINTS: dict[str, str] = {
     "neo4j": "run `jejune neo4j start --help`",
-    "llm": "check LLM server connectivity",
+    "llm": "run `jejune llm status`",
     "llm-observability": "run `jejune llm-observability start`",
 }
 
