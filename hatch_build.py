@@ -17,3 +17,4 @@ class CustomBuildHook(BuildHookInterface):
         except Exception:
             sha = ""
         Path("jejune_cli/_sha.py").write_text(f'SHA = "{sha}"\n')
+        build_data["artifacts"].append("jejune_cli/_sha.py")
