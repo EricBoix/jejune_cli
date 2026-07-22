@@ -1,4 +1,5 @@
 import importlib.metadata
+import subprocess
 
 import click
 
@@ -134,7 +135,20 @@ class _JejuneGroup(click.Group):
                 formatter.write_dl(extension)
 
 
+def _version_string() -> str:
+    version = importlib.metadata.version("jejune-cli")
+    try:
+        sha = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        return f"{version} ({sha})"
+    except Exception:
+        return version
+
+
 @click.group(cls=_JejuneGroup)
+@click.version_option(version=_version_string(), prog_name="jejune")
 def cli():
     """jejune — jejuneness workflow CLI.
 

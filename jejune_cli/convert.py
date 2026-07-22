@@ -13,7 +13,7 @@ def _doc_dir() -> Path | None:
 
 def _image_name() -> str:
     d = _doc_dir()
-    name = d.name if d else ""
+    name = d.resolve().name if d else ""
     for prefix in ("jejune_doc_", "jj_doc_"):
         if name.startswith(prefix):
             name = name[len(prefix):]
