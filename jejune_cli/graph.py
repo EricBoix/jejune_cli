@@ -7,7 +7,7 @@ from .configuration import print_config_hint, print_config_status
 from .llm import llm_available as _llm_available
 from .neo4j import container_running as _neo4j_running
 
-_BUILD_KG_IMAGE = "jejuneness:extract_knowledge_graph"
+_BUILD_KG_IMAGE = "jejune:extract_knowledge_graph"
 
 _PREFLIGHT_SKIP = {"check-config", "hint-config"}
 

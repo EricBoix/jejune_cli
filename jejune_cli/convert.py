@@ -18,7 +18,7 @@ def _image_name() -> str:
         if name.startswith(prefix):
             name = name[len(prefix):]
             break
-    return f"convert_{name}" if name else "convert"
+    return f"jejune:convert_{name}" if name else "jejune:convert"
 
 
 def convert_configured() -> bool:

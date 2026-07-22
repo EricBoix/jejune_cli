@@ -36,9 +36,9 @@ Run `jejune doctor` at any time to see the health of your workspace.
 | Step | Command | Docker Image | Input | Output |
 | ---- | ------- | ------------ | ----- | ------ |
 | 1a. PDF to Markdown | (external: `jj_doc_some_book`) | — | PDF | `.md` + `.json` |
-| 1b. Launch Neo4j | `jejune neo4j start` | `jejuneness:neo4j_docker` (built from [`jejune_neo4j_docker`](https://github.com/EricBoix/jejune_neo4j_docker)) | — | Neo4j server |
-| 2. Markdown to Neo4j | `jejune graph extract` | `jejuneness:extract_knowledge_graph` (built from [`jejune_extract_knowledge_graph`](https://github.com/EricBoix/jejune_extract_knowledge_graph)) | `.md` + `.json` | Neo4j DB |
-| 3. Neo4j to RDF | `jejune neo4j dump-turtle` | `jejuneness:jj_neo4j_to_rdf_ttl` (built from [`jj_neo4j_to_rdf_ttl`](https://github.com/EricBoix/jj_neo4j_to_rdf_ttl)) | Neo4j DB | `.ttl` |
+| 1b. Launch Neo4j | `jejune neo4j start` | `jejune:neo4j_docker` (built from [`jejune_neo4j_docker`](https://github.com/EricBoix/jejune_neo4j_docker)) | — | Neo4j server |
+| 2. Markdown to Neo4j | `jejune graph extract` | `jejune:extract_knowledge_graph` (built from [`jejune_extract_knowledge_graph`](https://github.com/EricBoix/jejune_extract_knowledge_graph)) | `.md` + `.json` | Neo4j DB |
+| 3. Neo4j to RDF | `jejune neo4j dump-turtle` | `jejune:jj_neo4j_to_rdf_ttl` (built from [`jj_neo4j_to_rdf_ttl`](https://github.com/EricBoix/jj_neo4j_to_rdf_ttl)) | Neo4j DB | `.ttl` |
 | 4. Stop Neo4j | `jejune neo4j stop` | — | — | — |
 
 ---

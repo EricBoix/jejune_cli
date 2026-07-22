@@ -16,9 +16,9 @@ from .configuration import (
     print_config_status,
 )
 
-_NEO4J_CONTAINER = "jejuneness_neo4j"
-_NEO4J_IMAGE = "jejuneness:neo4j"
-_TTL_IMAGE = "jejuneness:jj_neo4j_to_rdf_ttl"
+_NEO4J_CONTAINER = "jejune_neo4j"
+_NEO4J_IMAGE = "jejune:neo4j"
+_TTL_IMAGE = "jejune:neo4j_to_rdf_ttl"
 
 
 def _run(*cmd: str) -> None:

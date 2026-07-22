@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 
-# Variables forwarded to the jejuneness:extract_knowledge_graph Docker
+# Variables forwarded to the jejune:extract_knowledge_graph Docker
 # container.
 EXTRACT_ENV_VARS = [
     "NEO4J_URI",
