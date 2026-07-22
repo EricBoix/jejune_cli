@@ -15,5 +15,7 @@ jejune = "jejune_cli.main:cli"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.hooks.custom]
+
 [tool.hatch.build.targets.wheel]
 packages = ["jejune_cli"]

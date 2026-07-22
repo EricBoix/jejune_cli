@@ -138,6 +138,7 @@ class _JejuneGroup(click.Group):
 
 def _version_string() -> str:
     version = importlib.metadata.version("jejune-cli")
+    # Try live git lookup first (editable installs).
     for candidate in Path(__file__).resolve().parents:
         if (candidate / ".git").is_dir():
             try:
@@ -146,9 +147,18 @@ def _version_string() -> str:
                     capture_output=True, text=True, check=True,
                     cwd=candidate,
                 ).stdout.strip()
-                return f"{version} ({sha})"
+                if sha:
+                    return f"{version} ({sha})"
             except Exception:
-                break
+                pass
+            break
+    # Fall back to SHA captured at build/install time.
+    try:
+        from ._sha import SHA
+        if SHA:
+            return f"{version} ({SHA})"
+    except ImportError:
+        pass
     return version
 
 
