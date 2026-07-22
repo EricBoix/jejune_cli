@@ -283,6 +283,10 @@ def start(data_dir, port, credentials):
     DATA_DIR must be an absolute path.
     Requires NEO4J_USERNAME and NEO4J_PASSWORD (or --credentials USER/PASSWORD).
     """
+    running, _ = container_running()
+    if running:
+        click.echo(click.style("Neo4j is already running — nothing to do.", fg="green"))
+        return
     data_dir = Path(data_dir).resolve()
     port, credentials = _resolve_port_credentials(port, credentials)
     _launch_container(data_dir, port, credentials)
