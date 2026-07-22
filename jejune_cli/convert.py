@@ -20,6 +20,18 @@ def convert_configured() -> bool:
     return d is not None and (d / "DockerContext").is_dir()
 
 
+def image_built() -> tuple[bool, str]:
+    """Return (is_built, message) for the convert Docker image."""
+    result = subprocess.run(
+        ["docker", "image", "inspect", _IMAGE],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return False, "not built"
+    return True, "ok"
+
+
 @click.group(short_help="Convert documents via Docker")
 def convert():
     """Convert documents using a Docker image built from CONVERT_DOC_DIR/DockerContext/.
@@ -79,6 +91,11 @@ def build():
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
 def run_cmd(output_dir, extra_args):
     """Run the converter container, forwarding EXTRA_ARGS to the entrypoint."""
+    built, _ = image_built()
+    if not built:
+        raise click.ClickException(
+            f"Docker image {_IMAGE!r} is not built. Run `jejune convert build` first."
+        )
     out = Path(output_dir).resolve()
     out.mkdir(parents=True, exist_ok=True)
     subprocess.run(

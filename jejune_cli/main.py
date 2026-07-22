@@ -50,6 +50,7 @@ _AVAIL_HINTS: dict[str, str] = {
     "neo4j": "run `jejune neo4j start --help`",
     "llm": "run `jejune llm status`",
     "llm-observability": "run `jejune llm-observability start`",
+    "convert": "run `jejune convert build`",
 }
 
 # Required dependencies: a component is only effective when all its deps are ok.
@@ -262,7 +263,7 @@ def doctor():
             hint = "Refer above to configuration hint"
         elif status == "error":
             hint = _AVAIL_HINTS.get(comp, msg)
-        elif msg == "not started":
+        elif msg in ("not started", "not built"):
             hint = _AVAIL_HINTS.get(comp, "")
         else:
             hint = ""

@@ -19,6 +19,7 @@ from .llm import (
     check_inference_endpoint as _check_llm_inference_endpoint,
     check_inference as _check_llm_inference,
 )
+from .convert import convert_configured as _convert_configured, image_built as _convert_image_built
 from .llm_observability import container_running as _llm_obs_running
 from .neo4j import container_running as _neo4j_running
 
@@ -385,6 +386,10 @@ def run_all() -> tuple[
     else:
         running, msg = _llm_obs_running()
         avail.append(("llm-observability", "ok" if running else "warn", msg))
+
+    if _convert_configured():
+        built, msg = _convert_image_built()
+        avail.append(("convert", "ok" if built else "warn", msg))
 
     from .plugin import _REGISTRY
     for plugin in _REGISTRY:
