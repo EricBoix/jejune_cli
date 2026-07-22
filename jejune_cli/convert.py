@@ -13,7 +13,10 @@ def _doc_dir() -> Path | None:
 
 def _image_name() -> str:
     d = _doc_dir()
-    name = d.resolve().name if d else ""
+    name = ""
+    if d:
+        resolved = d.resolve()
+        name = (resolved.parent.parent if resolved.is_file() else resolved).name
     for prefix in ("jejune_doc_", "jj_doc_"):
         if name.startswith(prefix):
             name = name[len(prefix):]
@@ -22,9 +25,13 @@ def _image_name() -> str:
 
 
 def convert_configured() -> bool:
-    """True when CONVERT_DOC_DIR is set and contains a DockerContext/ directory."""
+    """True when CONVERT_DOC_DIR points to an existing Dockerfile or a directory with DockerContext/."""
     d = _doc_dir()
-    return d is not None and (d / "DockerContext").is_dir()
+    if d is None:
+        return False
+    if d.is_file():
+        return d.exists()
+    return (d / "DockerContext").is_dir()
 
 
 def image_built() -> tuple[bool, str]:
@@ -63,7 +70,14 @@ def hint_config():
     if not val:
         click.echo("set CONVERT_DOC_DIR in .jejune/env-config")
         return
-    ctx_path = Path(val) / "DockerContext"
+    p = Path(val)
+    if p.is_file():
+        if not p.exists():
+            click.echo(f"Dockerfile not found: {p.resolve()}")
+        else:
+            click.echo(click.style("no configuration required", fg="green"))
+        return
+    ctx_path = p / "DockerContext"
     if not ctx_path.is_dir():
         abs_ctx = ctx_path.resolve()
         click.echo(
@@ -76,14 +90,31 @@ def hint_config():
 
 @convert.command("build")
 def build():
-    """Build the converter Docker image from CONVERT_DOC_DIR/DockerContext/."""
+    """Build the converter Docker image.
+
+    If CONVERT_DOC_DIR points to a Dockerfile, uses the project root as build
+    context (docker build -f <Dockerfile> <project-root>) — for private repos
+    whose Dockerfile COPYs local files.  If CONVERT_DOC_DIR points to a
+    directory, uses DockerContext/ as the build context — for public repos
+    whose Dockerfile clones from GitHub.
+    """
     d = _doc_dir()
     if not d:
         raise click.ClickException("CONVERT_DOC_DIR is not set")
-    ctx = d / "DockerContext"
-    if not ctx.is_dir():
-        raise click.ClickException(f"DockerContext not found at {ctx}")
-    subprocess.run(["docker", "build", "-t", _image_name(), str(ctx)], check=True)
+    if d.is_file():
+        dockerfile = d.resolve()
+        context = dockerfile.parent.parent
+        if not dockerfile.exists():
+            raise click.ClickException(f"Dockerfile not found at {dockerfile}")
+    else:
+        ctx = d / "DockerContext"
+        if not ctx.is_dir():
+            raise click.ClickException(f"DockerContext not found at {ctx}")
+        dockerfile, context = ctx / "Dockerfile", ctx
+    subprocess.run(
+        ["docker", "build", "-t", _image_name(), "-f", str(dockerfile), str(context)],
+        check=True,
+    )
 
 
 @convert.command(

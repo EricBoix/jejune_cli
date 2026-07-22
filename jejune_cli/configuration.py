@@ -57,7 +57,12 @@ def _convert_config_status() -> tuple[str, str]:
     val = os.environ.get("CONVERT_DOC_DIR")
     if not val or _PLACEHOLDER in val:
         return "warn", "CONVERT_DOC_DIR not configured"
-    ctx = _Path(val) / "DockerContext"
+    p = _Path(val)
+    if p.is_file():
+        if not p.exists():
+            return "error", f"Dockerfile not found at {p.resolve()}"
+        return "ok", ""
+    ctx = p / "DockerContext"
     if not ctx.is_dir():
         return "error", f"DockerContext not found at {ctx}"
     return "ok", ""
