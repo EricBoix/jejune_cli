@@ -6,12 +6,19 @@ import click
 
 from .configuration import print_config_status
 
-_IMAGE = "jejuneness:convert"
-
-
 def _doc_dir() -> Path | None:
     val = os.environ.get("CONVERT_DOC_DIR")
     return Path(val) if val else None
+
+
+def _image_name() -> str:
+    d = _doc_dir()
+    name = d.name if d else ""
+    for prefix in ("jejune_doc_", "jj_doc_"):
+        if name.startswith(prefix):
+            name = name[len(prefix):]
+            break
+    return f"convert_{name}" if name else "convert"
 
 
 def convert_configured() -> bool:
@@ -22,8 +29,9 @@ def convert_configured() -> bool:
 
 def image_built() -> tuple[bool, str]:
     """Return (is_built, message) for the convert Docker image."""
+    image = _image_name()
     result = subprocess.run(
-        ["docker", "image", "inspect", _IMAGE],
+        ["docker", "image", "inspect", image],
         capture_output=True,
         text=True,
     )
@@ -75,7 +83,7 @@ def build():
     ctx = d / "DockerContext"
     if not ctx.is_dir():
         raise click.ClickException(f"DockerContext not found at {ctx}")
-    subprocess.run(["docker", "build", "-t", _IMAGE, str(ctx)], check=True)
+    subprocess.run(["docker", "build", "-t", _image_name(), str(ctx)], check=True)
 
 
 @convert.command(
@@ -91,10 +99,11 @@ def build():
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
 def run_cmd(output_dir, extra_args):
     """Run the converter container, forwarding EXTRA_ARGS to the entrypoint."""
+    image = _image_name()
     built, _ = image_built()
     if not built:
         raise click.ClickException(
-            f"Docker image {_IMAGE!r} is not built. Run `jejune convert build` first."
+            f"Docker image {image!r} is not built. Run `jejune convert build` first."
         )
     out = Path(output_dir).resolve()
     out.mkdir(parents=True, exist_ok=True)
@@ -102,7 +111,7 @@ def run_cmd(output_dir, extra_args):
         [
             "docker", "run", "--rm",
             "-v", f"{out}:/output",
-            _IMAGE,
+            image,
             "--output_directory", "/output",
             *extra_args,
         ],
