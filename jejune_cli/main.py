@@ -1,5 +1,6 @@
 import importlib.metadata
 import subprocess
+from pathlib import Path
 
 import click
 
@@ -141,6 +142,7 @@ def _version_string() -> str:
         sha = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
             capture_output=True, text=True, check=True,
+            cwd=Path(__file__).parent,
         ).stdout.strip()
         return f"{version} ({sha})"
     except Exception:
