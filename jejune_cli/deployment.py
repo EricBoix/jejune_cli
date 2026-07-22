@@ -32,7 +32,7 @@ def _do_bootstrap(deployments_dir: Path, deploy_name: str) -> None:
 
     (deploy_dir / "secrets.env").write_text(
         "# Per-developer secrets — never commit this file.\n"
-        "JJ_ROOT_DIR=/absolute/path/to/local/clones_CHANGE_ME\n"
+        "JEJUNE_ROOT_DIR=/absolute/path/to/local/clones_CHANGE_ME\n"
         "NEO4J_PASSWORD=your_password_CHANGE_ME\n"
         "LLM_API_KEY=sk-CHANGE_ME\n"
     )
@@ -47,7 +47,7 @@ def _do_bootstrap(deployments_dir: Path, deploy_name: str) -> None:
     click.echo()
     click.echo("Next steps:")
     click.echo(f"  1. Edit {deploy_dir}/catalog.yaml — remove unwanted repos, add private ones")
-    click.echo(f"  2. Fill in {deploy_dir}/secrets.env with your credentials and JJ_ROOT_DIR")
+    click.echo(f"  2. Fill in {deploy_dir}/secrets.env with your credentials and JEJUNE_ROOT_DIR")
     click.echo(
         f"  3. git -C {deployments_dir} add"
         f" deploy_{deploy_name}/catalog.yaml"

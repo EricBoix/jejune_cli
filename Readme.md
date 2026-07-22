@@ -87,7 +87,7 @@ Variables to set in `.jejune/env-secrets`:
 | -------- | ----------- | ------- |
 | `NEO4J_PASSWORD` | all Neo4j commands | Database password |
 | `LLM_MODEL_URL`, `LLM_API_KEY`, `LLM_MODEL_NAME` | `jejune graph extract` | LLM server |
-| `JJ_ROOT_DIR` | catalog & deployment commands | Absolute path to the local directory holding all side-by-side `jj_*` clones |
+| `JEJUNE_ROOT_DIR` | catalog & deployment commands | Absolute path to the local directory holding all side-by-side `jj_*` clones |
 
 **Scaffold files written by `jejune env init` into `.jejune/`:**
 
@@ -95,7 +95,7 @@ Variables to set in `.jejune/env-secrets`:
 | ---- | ---- |
 | `.jejune/catalog.yaml` | Lists known `jj_doc_*` repositories; used by `catalog check` and `pdf-to-markdown test` |
 | `.jejune/env-config` | Non-secret defaults (`NEO4J_PORT`, `NEO4J_URI`, `NEO4J_USERNAME`) |
-| `.jejune/env-secrets` | Created by `init`; fill in credentials and `JJ_ROOT_DIR`; gitignored via `.jejune` |
+| `.jejune/env-secrets` | Created by `init`; fill in credentials and `JEJUNE_ROOT_DIR`; gitignored via `.jejune` |
 
 ```bash
 jejune doctor                          # overall workspace health check
@@ -141,7 +141,7 @@ locally. This separation keeps private repository names out of any public reposi
 See [`Doc/MarkdownRegistryDesignNotes.md`](./Doc/MarkdownRegistryDesignNotes.md) for the
 full design rationale.
 
-`JJ_ROOT_DIR` must be set to the absolute path of the local directory holding all
+`JEJUNE_ROOT_DIR` must be set to the absolute path of the local directory holding all
 side-by-side `jj_*` clones (e.g. `/Users/you/workspace/`). It is machine-specific and
 must not be committed.
 
@@ -159,7 +159,7 @@ This creates `jj_deployments/deploy_my_deployment/` containing:
 | ---- | --------- | ------- |
 | `catalog.yaml` | yes | Active `jj_doc_*` repositories for this deployment |
 | `deployment.env` | yes | Non-secret config (`JJ_CATALOG`, etc.) |
-| `secrets.env` | **no** (gitignored) | `JJ_ROOT_DIR` and per-developer credentials |
+| `secrets.env` | **no** (gitignored) | `JEJUNE_ROOT_DIR` and per-developer credentials |
 
 Edit `catalog.yaml` (add private repos, remove unwanted ones), fill in `secrets.env`, then commit:
 

@@ -57,7 +57,7 @@ def _check_catalog_impl(catalog: Path, root_dir: Path | None) -> list[tuple[str,
         issues: list[str] = []
 
         if root_dir is None:
-            issues.append("JJ_ROOT_DIR not set")
+            issues.append("JEJUNE_ROOT_DIR not set")
         elif not (root_dir / name).is_dir():
             issues.append(f"not cloned under {root_dir}")
 
@@ -107,7 +107,7 @@ def _check_deployment_impl(
         issues: list[str] = []
 
         if root_dir is None:
-            issues.append("JJ_ROOT_DIR not set")
+            issues.append("JEJUNE_ROOT_DIR not set")
         elif not (root_dir / name).is_dir():
             issues.append(f"not cloned under {root_dir}")
 
@@ -131,7 +131,7 @@ def _sync_catalog_impl(
     root_dir: Path,
     do_add: bool,
 ) -> list[tuple[str, bool, str]]:
-    """Scan JJ_ROOT_DIR for jj_doc_* repos and compare against catalog."""
+    """Scan JEJUNE_ROOT_DIR for jj_doc_* repos and compare against catalog."""
     existing: set[str] = set()
     if catalog.exists():
         for doc in yaml.safe_load(catalog.read_text()).get("documents", []):
@@ -215,16 +215,16 @@ def hint_config():
 )
 @click.option(
     "--root-dir",
-    envvar="JJ_ROOT_DIR",
+    envvar="JEJUNE_ROOT_DIR",
     default=None,
     type=click.Path(),
-    help="Directory holding jj_* clones (default: $JJ_ROOT_DIR).",
+    help="Directory holding jj_* clones (default: $JEJUNE_ROOT_DIR).",
 )
 def check(catalog_path, root_dir):
     """Verify catalog.yaml against GitHub visibility and local clones.
 
     For each entry: confirms the public flag matches actual GitHub visibility
-    and that a local clone exists under JJ_ROOT_DIR.
+    and that a local clone exists under JEJUNE_ROOT_DIR.
     Requires the gh CLI to be authenticated.
     """
     cfg_status, hint = component_config_check("catalog")
@@ -255,10 +255,10 @@ def check(catalog_path, root_dir):
 )
 @click.option(
     "--root-dir",
-    envvar="JJ_ROOT_DIR",
+    envvar="JEJUNE_ROOT_DIR",
     default=None,
     type=click.Path(),
-    help="Directory holding jj_* clones (default: $JJ_ROOT_DIR).",
+    help="Directory holding jj_* clones (default: $JEJUNE_ROOT_DIR).",
 )
 @click.option(
     "--add",
@@ -268,13 +268,13 @@ def check(catalog_path, root_dir):
     help="Append missing public repos to catalog.yaml.",
 )
 def sync(catalog_path, root_dir, do_add):
-    """Report public jj_doc_* repos under JJ_ROOT_DIR missing from catalog.yaml.
+    """Report public jj_doc_* repos under JEJUNE_ROOT_DIR missing from catalog.yaml.
 
     With --add, appends missing public repos to the catalog file in place.
     Private repos are flagged as informational only.
     """
     if not root_dir:
-        raise click.ClickException("JJ_ROOT_DIR is not set. Use --root-dir or set the env var.")
+        raise click.ClickException("JEJUNE_ROOT_DIR is not set. Use --root-dir or set the env var.")
 
     cat_path = Path(catalog_path) if catalog_path else dot_jejune() / "catalog.yaml"
     results = _sync_catalog_impl(cat_path, Path(root_dir), do_add)
@@ -291,10 +291,10 @@ def sync(catalog_path, root_dir, do_add):
 @click.argument("deployment_path", type=click.Path(exists=True))
 @click.option(
     "--root-dir",
-    envvar="JJ_ROOT_DIR",
+    envvar="JEJUNE_ROOT_DIR",
     default=None,
     type=click.Path(),
-    help="Directory holding jj_* clones (default: $JJ_ROOT_DIR).",
+    help="Directory holding jj_* clones (default: $JEJUNE_ROOT_DIR).",
 )
 def check_deployment(deployment_path, root_dir):
     """Validate a deployment directory against catalog.yaml.
@@ -349,7 +349,7 @@ def run_all() -> tuple[
     if cat_status != "ok":
         config.append(("catalog", cat_status, cat_msg))
     else:
-        cat_results = _check_catalog_impl(d / "catalog.yaml", Path(os.environ["JJ_ROOT_DIR"]))
+        cat_results = _check_catalog_impl(d / "catalog.yaml", Path(os.environ["JEJUNE_ROOT_DIR"]))
         failed_repos = [n for n, ok, _ in cat_results if not ok]
         config.append((
             "catalog",

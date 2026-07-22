@@ -31,20 +31,20 @@ COMPONENT_CONFIG_HINTS: dict[str, str] = {
 def _catalog_config_status() -> tuple[str, str]:
     """Return (status, raw_msg) for catalog configuration."""
     import os
-    val = os.environ.get("JJ_ROOT_DIR")
+    val = os.environ.get("JEJUNE_ROOT_DIR")
     root_valid = bool(val) and _PLACEHOLDER not in val
     cat_exists = (dot_jejune() / "catalog.yaml").exists()
     if not root_valid and not cat_exists:
         msg = (
-            "JJ_ROOT_DIR not configured; catalog.yaml missing"
+            "JEJUNE_ROOT_DIR not configured; catalog.yaml missing"
             if not val else
-            "JJ_ROOT_DIR has placeholder value; catalog.yaml missing"
+            "JEJUNE_ROOT_DIR has placeholder value; catalog.yaml missing"
         )
         return "error", msg
     if not root_valid:
         if not val:
-            return "warn", "JJ_ROOT_DIR not configured"
-        return "error", "JJ_ROOT_DIR has placeholder value"
+            return "warn", "JEJUNE_ROOT_DIR not configured"
+        return "error", "JEJUNE_ROOT_DIR has placeholder value"
     if not cat_exists:
         return "error", "catalog.yaml missing"
     return "ok", ""
@@ -95,7 +95,7 @@ def component_config_check(component: str) -> tuple[str, str]:
 def get_config_hint(component: str, status: str, message: str) -> str:
     """Return the precise configuration hint given a component's status and message."""
     if component == "catalog" and status != "ok":
-        env_issue = "JJ_ROOT_DIR" in message
+        env_issue = "JEJUNE_ROOT_DIR" in message
         cat_issue = any(k in message for k in ("catalog.yaml", "repo(s)"))
         if env_issue and cat_issue:
             return "edit .jejune/env-config and .jejune/catalog.yaml"

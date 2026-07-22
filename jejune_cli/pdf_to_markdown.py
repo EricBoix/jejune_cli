@@ -36,10 +36,10 @@ def hint_config():
 )
 @click.option(
     "--root-dir",
-    envvar="JJ_ROOT_DIR",
+    envvar="JEJUNE_ROOT_DIR",
     required=True,
     type=click.Path(exists=True),
-    help="Directory holding side-by-side jj_* clones (default: $JJ_ROOT_DIR).",
+    help="Directory holding side-by-side jj_* clones (default: $JEJUNE_ROOT_DIR).",
 )
 @click.option(
     "--repo",
