@@ -4,12 +4,13 @@ import click
 
 from ._env import EXTRACT_ENV_VARS, docker_env_args
 from .configuration import print_config_hint, print_config_status
+from .graph_view import view
 from .llm import llm_available as _llm_available
 from .neo4j import container_running as _neo4j_running
 
 _BUILD_KG_IMAGE = "jejune:extract_knowledge_graph"
 
-_PREFLIGHT_SKIP = {"check-config", "hint-config"}
+_PREFLIGHT_SKIP = {"check-config", "hint-config", "view"}
 
 
 def _preflight() -> None:
@@ -41,6 +42,9 @@ def graph(ctx):
     """Build and export the knowledge graph for the current jj_doc_<name> repository."""
     if ctx.invoked_subcommand not in _PREFLIGHT_SKIP:
         _preflight()
+
+
+graph.add_command(view)
 
 
 @graph.command("check-config")
