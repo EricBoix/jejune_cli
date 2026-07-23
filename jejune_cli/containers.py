@@ -15,6 +15,8 @@ from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
 
+import click
+
 _REGISTRY = Path.home() / ".jejune" / "containers.json"
 _LOCK = Path.home() / ".jejune" / "containers.lock"
 
@@ -113,3 +115,56 @@ def all_entries() -> list[dict]:
 def for_component(component: str) -> list[dict]:
     """Return registry entries for the given component, pruning stale ones."""
     return [e for e in all_entries() if e["component"] == component]
+
+
+def print_containers_table(prefix: str = "  ") -> None:
+    """Print the managed-containers table.
+
+    Called by both `jejune containers list` and `jejune doctor`.
+    """
+    entries = all_entries()
+    if not entries:
+        click.echo(f"{prefix}No containers on record.")
+        return
+    _W_CTR = max(len(e["container"]) for e in entries)
+    _W_COMP = max(len(e["component"]) for e in entries)
+    header = f"{prefix}{'Container':<{_W_CTR}}  {'Component':<{_W_COMP}}  Port    Status"
+    click.echo(header)
+    click.echo(prefix + "─" * (len(header) - len(prefix)))
+    for entry in entries:
+        name = entry["container"]
+        comp = entry["component"]
+        port = str(entry.get("port", ""))
+        running = is_running(name)
+        status_str = click.style("running", fg="green") if running else click.style("stopped", fg="yellow")
+        click.echo(f"{prefix}{name:<{_W_CTR}}  {comp:<{_W_COMP}}  {port:<6}  {status_str}")
+
+
+@click.group("containers", short_help="Manage jejune-managed Docker containers")
+def containers_cli():
+    """Manage Docker containers orchestrated by jejune."""
+
+
+@containers_cli.command("list")
+def containers_list():
+    """List all Docker containers managed by jejune with their status."""
+    entries = all_entries()
+    if not entries:
+        click.echo("No containers on record.")
+        return
+    print_containers_table(prefix="")
+
+
+@containers_cli.command("exit")
+def containers_exit():
+    """Stop all detached containers launched by jejune."""
+    entries = all_entries()
+    if not entries:
+        click.echo("No containers on record.")
+        return
+    for entry in entries:
+        name = entry["container"]
+        click.echo(f"Stopping {name} ...")
+        subprocess.run(["docker", "stop", name], stderr=subprocess.DEVNULL)
+    unregister(*(e["container"] for e in entries))
+    click.echo(click.style("All containers stopped.", fg="green"))

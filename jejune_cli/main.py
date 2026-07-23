@@ -15,6 +15,7 @@ from .configuration import (
     get_config_hint,
 )
 from . import containers
+from .containers import containers_cli
 from .graph import graph
 from .llm import llm
 from .llm_observability import llm_observability
@@ -37,7 +38,7 @@ _COMPONENTS = [
 _BUILTIN_COMPONENTS: frozenset[str] = frozenset(_COMPONENTS)
 
 # Help-section membership for built-in components.
-_SHARED_COMPONENTS = ["configuration"]
+_SHARED_COMPONENTS = ["configuration", "containers"]
 _SINGLE_DOC_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert"]
 _COLLECTION_COMPONENTS = ["catalog", "deployment", "pdf-to-markdown"]
 
@@ -310,21 +311,7 @@ def doctor():
 
     # ── Containers ───────────────────────────────────────────────────
     click.echo("=" * sep)
-    entries = containers.all_entries()
-    if entries:
-        _W_CTR = max(len(e["container"]) for e in entries)
-        _W_COMP = max(len(e["component"]) for e in entries)
-        click.echo(f"  {'Container':<{_W_CTR}}  {'Component':<{_W_COMP}}  Port    Status")
-        click.echo(divider)
-        for entry in entries:
-            name = entry["container"]
-            comp = entry["component"]
-            port = str(entry.get("port", ""))
-            running = containers.is_running(name)
-            status = click.style("running", fg="green") if running else click.style("stopped", fg="yellow")
-            click.echo(f"  {name:<{_W_CTR}}  {comp:<{_W_COMP}}  {port:<6}  {status}")
-    else:
-        click.echo("  No containers on record.")
+    containers.print_containers_table()
     click.echo()
 
     # ── Summary ──────────────────────────────────────────────────────
@@ -360,22 +347,8 @@ def doctor():
                 )
 
 
-@cli.command("exit")
-def exit_cmd():
-    """Stop all detached containers launched by jejune."""
-    entries = containers.all_entries()
-    if not entries:
-        click.echo("No containers on record.")
-        return
-    for entry in entries:
-        name = entry["container"]
-        click.echo(f"Stopping {name} ...")
-        subprocess.run(["docker", "stop", name], stderr=subprocess.DEVNULL)
-    containers.unregister(*(e["container"] for e in entries))
-    click.echo(click.style("All containers stopped.", fg="green"))
-
-
 cli.add_command(configuration)
+cli.add_command(containers_cli)
 cli.add_command(neo4j)
 cli.add_command(llm)
 cli.add_command(llm_observability)
