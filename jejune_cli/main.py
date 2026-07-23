@@ -14,6 +14,7 @@ from .configuration import (
     COMPONENT_CONFIG_HINTS as _CONFIG_HINTS,
     get_config_hint,
 )
+from . import containers
 from .graph import graph
 from .llm import llm
 from .llm_observability import llm_observability
@@ -307,6 +308,25 @@ def doctor():
             f"  {comp:<{_W_SECT}} {_config_label(_effective_status(comp))} {_deps_colored(comp)}"
         )
 
+    # ── Containers ───────────────────────────────────────────────────
+    click.echo("=" * sep)
+    entries = containers.all_entries()
+    if entries:
+        _W_CTR = max(len(e["container"]) for e in entries)
+        _W_COMP = max(len(e["component"]) for e in entries)
+        click.echo(f"  {'Container':<{_W_CTR}}  {'Component':<{_W_COMP}}  Port    Status")
+        click.echo(divider)
+        for entry in entries:
+            name = entry["container"]
+            comp = entry["component"]
+            port = str(entry.get("port", ""))
+            running = containers.is_running(name)
+            status = click.style("running", fg="green") if running else click.style("stopped", fg="yellow")
+            click.echo(f"  {name:<{_W_CTR}}  {comp:<{_W_COMP}}  {port:<6}  {status}")
+    else:
+        click.echo("  No containers on record.")
+    click.echo()
+
     # ── Summary ──────────────────────────────────────────────────────
     click.echo("=" * sep)
     if not failed_config and not failed_avail:
@@ -338,6 +358,21 @@ def doctor():
                 click.echo(
                     f"  {click.style(f'{name:<{_W}}', fg='red')}  {action:<{_WH}}  [{detail}]"
                 )
+
+
+@cli.command("exit")
+def exit_cmd():
+    """Stop all detached containers launched by jejune."""
+    entries = containers.all_entries()
+    if not entries:
+        click.echo("No containers on record.")
+        return
+    for entry in entries:
+        name = entry["container"]
+        click.echo(f"Stopping {name} ...")
+        subprocess.run(["docker", "stop", name], stderr=subprocess.DEVNULL)
+    containers.unregister(*(e["container"] for e in entries))
+    click.echo(click.style("All containers stopped.", fg="green"))
 
 
 cli.add_command(configuration)

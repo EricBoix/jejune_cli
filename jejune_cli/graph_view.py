@@ -1,4 +1,3 @@
-import json
 import os
 import shutil
 import socket
@@ -8,6 +7,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import click
+
+from . import containers
 
 _META_URL = "viewer_url"
 
@@ -27,30 +28,15 @@ class _ViewGroup(click.Group):
 
 _VIEWER_IMAGE = "jejune:kg_graph_viewer"
 _VIEWER_GITHUB = "https://github.com/EricBoix/jejune_kg-graph_viewer.git"
-_VIEWER_STACK = Path.home() / ".jejune" / "viewer_stack.json"
 _VIEWER_DATA = Path.home() / ".jejune" / "viewer_data"
 _VIEWER_NAME_PREFIX = "jejune_kg_viewer_"
+_VIEWER_COMPONENT = "graph-view"
 
 
 def _run(*cmd: str) -> None:
     result = subprocess.run(list(cmd))
     if result.returncode != 0:
         raise SystemExit(result.returncode)
-
-
-def _load_stack() -> list[dict]:
-    if not _VIEWER_STACK.exists():
-        return []
-    return json.loads(_VIEWER_STACK.read_text())
-
-
-def _save_stack(stack: list[dict]) -> None:
-    _VIEWER_STACK.parent.mkdir(parents=True, exist_ok=True)
-    _VIEWER_STACK.write_text(json.dumps(stack, indent=2))
-
-
-def _next_id(stack: list[dict]) -> int:
-    return max((e["id"] for e in stack), default=0) + 1
 
 
 def _free_port(start: int = 8080) -> int:
@@ -62,15 +48,6 @@ def _free_port(start: int = 8080) -> int:
             except OSError:
                 continue
     raise click.ClickException("No free port found in range 8080-9000")
-
-
-def _container_running(name: str) -> bool:
-    result = subprocess.run(
-        ["docker", "inspect", "-f", "{{.State.Running}}", name],
-        capture_output=True,
-        text=True,
-    )
-    return result.returncode == 0 and result.stdout.strip() == "true"
 
 
 def _build_viewer_image() -> None:
@@ -93,8 +70,7 @@ def _build_viewer_image() -> None:
         )
 
 
-def _start_container(viewer_id: int, port: int) -> str:
-    container = f"{_VIEWER_NAME_PREFIX}{viewer_id}"
+def _launch_container(container: str, port: int) -> None:
     _run(
         "docker", "run",
         "--rm", "--detach",
@@ -103,7 +79,6 @@ def _start_container(viewer_id: int, port: int) -> str:
         "-v", f"{_VIEWER_DATA}:/usr/share/nginx/html/data",
         _VIEWER_IMAGE,
     )
-    return container
 
 
 def _open_browser(url: str) -> None:
@@ -166,14 +141,14 @@ def view(ctx, new_server, list_viewers):
 
 
 def _cmd_list() -> None:
-    stack = _load_stack()
-    if not stack:
+    mine = containers.for_component(_VIEWER_COMPONENT)
+    if not mine:
         click.echo("No viewer containers on record.")
         return
-    for entry in stack:
+    for entry in mine:
         name = entry["container"]
         port = entry["port"]
-        running = _container_running(name)
+        running = containers.is_running(name)
         status = click.style("running", fg="green") if running else click.style("stopped", fg="yellow")
         click.echo(f"  id={entry['id']}  {name}  port={port}  {status}")
 
@@ -183,16 +158,18 @@ def _cmd_open(url: str, new_server: bool) -> None:
     _VIEWER_DATA.mkdir(parents=True, exist_ok=True)
     shutil.copy2(local_path, _VIEWER_DATA / local_path.name)
 
-    stack = _load_stack()
-    last = next((e for e in reversed(stack) if _container_running(e["container"])), None)
+    mine = containers.for_component(_VIEWER_COMPONENT)
+    last = next((e for e in reversed(mine) if containers.is_running(e["container"])), None)
 
     if new_server or last is None:
         _build_viewer_image()
-        viewer_id = _next_id(stack)
         port = _free_port()
-        container = _start_container(viewer_id, port)
-        stack.append({"id": viewer_id, "container": container, "port": port})
-        _save_stack(stack)
+        entry = containers.register_with_name(
+            _VIEWER_COMPONENT,
+            lambda eid: f"{_VIEWER_NAME_PREFIX}{eid}",
+            port=port,
+        )
+        _launch_container(entry["container"], port)
         port_used = port
     else:
         port_used = last["port"]
@@ -209,21 +186,21 @@ def view_stop(target):
 
     TARGET is an integer id or 'all'. Defaults to the last container on the stack.
     """
-    stack = _load_stack()
-    if not stack:
+    mine = containers.for_component(_VIEWER_COMPONENT)
+    if not mine:
         click.echo("No viewer containers on record.")
         return
 
     if target == "all":
-        to_stop = stack[:]
+        to_stop = mine
     elif target is None:
-        to_stop = [stack[-1]]
+        to_stop = [mine[-1]]
     else:
         try:
             vid = int(target)
         except ValueError:
             raise click.ClickException(f"Invalid target {target!r}: use an integer id or 'all'")
-        to_stop = [e for e in stack if e["id"] == vid]
+        to_stop = [e for e in mine if e["id"] == vid]
         if not to_stop:
             raise click.ClickException(f"No viewer with id {vid}")
 
@@ -232,5 +209,4 @@ def view_stop(target):
         click.echo(f"Stopping {name} ...")
         subprocess.run(["docker", "stop", name], stderr=subprocess.DEVNULL)
 
-    remaining = [e for e in stack if e not in to_stop]
-    _save_stack(remaining)
+    containers.unregister(*(e["container"] for e in to_stop))

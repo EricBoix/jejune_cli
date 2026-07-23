@@ -9,6 +9,7 @@ from pathlib import Path
 
 import click
 
+from . import containers
 from ._env import TTL_ENV_VARS, docker_env_args
 from .configuration import (
     component_config_check,
@@ -120,6 +121,7 @@ def _launch_container(data_dir: Path, port: str, credentials: str) -> None:
     click.echo()
     click.echo("Waiting for Neo4j to finish initializing (5 s) ...")
     time.sleep(5)
+    containers.register("neo4j", _NEO4J_CONTAINER, port=int(port))
     click.echo(f"Neo4j ready on bolt port {port}.")
 
 
@@ -297,8 +299,8 @@ def stop():
     """Stop and remove the Neo4j Docker container."""
     click.echo(f"Stopping {_NEO4J_CONTAINER} ...")
     subprocess.run(["docker", "stop", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
-    click.echo(f"Removing {_NEO4J_CONTAINER} ...")
     subprocess.run(["docker", "rm", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
+    containers.unregister(_NEO4J_CONTAINER)
     click.echo("Neo4j stopped.")
 
 
@@ -331,6 +333,7 @@ def delete(data_dir, port, credentials):
         click.echo(f"Stopping {_NEO4J_CONTAINER} ...")
         subprocess.run(["docker", "stop", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
         subprocess.run(["docker", "rm", _NEO4J_CONTAINER], stderr=subprocess.DEVNULL)
+        containers.unregister(_NEO4J_CONTAINER)
 
     _wipe_database(database_dir)
 
