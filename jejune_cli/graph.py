@@ -6,11 +6,12 @@ from ._env import EXTRACT_ENV_VARS, docker_env_args
 from .configuration import print_config_hint, print_config_status
 from .graph_view import view
 from .llm import llm_available as _llm_available
+from .llm_observability import container_running as _llm_obs_running
 from .neo4j import container_running as _neo4j_running
 
 _BUILD_KG_IMAGE = "jejune:extract_knowledge_graph"
 
-_PREFLIGHT_SKIP = {"check-config", "hint-config", "view"}
+_PREFLIGHT_SKIP = {"check-config", "hint-config", "status", "view"}
 
 
 def _preflight() -> None:
@@ -45,6 +46,21 @@ def graph(ctx):
 
 
 graph.add_command(view)
+
+
+@graph.command("status")
+def status():
+    """Show dependency availability (neo4j, llm, llm-observability)."""
+    def _label(ok: bool, name: str) -> str:
+        return click.style(name, fg="green" if ok else "red")
+
+    neo4j_ok, _ = _neo4j_running()
+    llm_ok, _ = _llm_available()
+    lo_ok, _ = _llm_obs_running()
+
+    req = f"{_label(neo4j_ok, 'neo4j')}, {_label(llm_ok, 'llm')}"
+    opt = f"({click.style('llm-observability', fg='green' if lo_ok else 'yellow')} optional)"
+    click.echo(f"graph dependencies: {req} {opt}")
 
 
 @graph.command("check-config")
