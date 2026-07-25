@@ -1,0 +1,187 @@
+"""UI deployment commands — attached to the `deployment` group by deployment.py."""
+
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+import click
+import yaml
+
+_TEMPLATES = Path(__file__).parent / "templates"
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _full_catalog_path(deployments_dir: Path) -> Path | None:
+    """Locate full-catalog.yaml in the sibling jejune_catalog repo."""
+    candidate = deployments_dir.parent / "jejune_catalog" / "full-catalog.yaml"
+    return candidate if candidate.exists() else None
+
+
+def _has_private_repos(catalog_path: Path) -> bool:
+    data = yaml.safe_load(catalog_path.read_text()) or {}
+    return any(not doc.get("public", True) for doc in data.get("documents", []))
+
+
+def _docker_compose_content(has_private: bool) -> str:
+    build_secrets = (
+        "      secrets:\n        - catalog\n        - gh_token\n"
+        if has_private else
+        "      secrets:\n        - catalog\n"
+    )
+    gh_secret_def = (
+        "  gh_token:\n    file: \"${GH_TOKEN_FILE:-~/.github_token}\"\n"
+        if has_private else ""
+    )
+    return (
+        "services:\n"
+        "  docs-server:\n"
+        "    build:\n"
+        "      context: ../../jejune_docs_server\n"
+        "      dockerfile: DockerContext/Dockerfile\n"
+        "      additional_contexts:\n"
+        "        catalog_ref: ../../jejune_catalog\n"
+        "      args:\n"
+        "        INCLUDE_PDFS: \"${INCLUDE_PDFS:-false}\"\n"
+        f"{build_secrets}"
+        "    ports:\n"
+        "      - \"${DOCS_SERVER_PORT:-8765}:8765\"\n"
+        "    # --- DEV_MODE: uncomment to read docs from a host volume instead of the baked layer ---\n"
+        "    # environment:\n"
+        "    #   DEV_MODE: \"true\"\n"
+        "    #   DEV_DOCS_MOUNT: /docs-mount\n"
+        "    # volumes:\n"
+        "    #   - ${JEJUNE_ROOT_DIR}:/docs-mount:ro\n"
+        "\n"
+        "  kg-graph-viewer:\n"
+        "    build:\n"
+        "      context: ../../jejune_kg-graph_viewer/DockerContext\n"
+        "    ports:\n"
+        "      - \"${KG_PORT:-8080}:80\"\n"
+        "    depends_on:\n"
+        "      - docs-server\n"
+        "\n"
+        "  markdown-browser:\n"
+        "    build:\n"
+        "      context: ../../jejune_markdown_browser/DockerContext\n"
+        "    ports:\n"
+        "      - \"${MARKDOWN_PORT:-8443}:8443\"\n"
+        "\n"
+        "secrets:\n"
+        "  catalog:\n"
+        "    file: ./catalog.yaml\n"
+        f"{gh_secret_def}"
+    )
+
+
+def _resolve_deploy_dir(deployments_dir: str, name: str) -> Path:
+    return Path(deployments_dir).resolve() / name
+
+
+def _run_compose(deploy_dir: Path, *args: str) -> None:
+    result = subprocess.run(
+        ["docker", "compose", "--env-file", "deployment.env", *args],
+        cwd=deploy_dir,
+    )
+    sys.exit(result.returncode)
+
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+
+@click.command("ui-configure")
+@click.argument("deployments_dir", type=click.Path())
+@click.argument("name")
+def ui_configure(deployments_dir, name):
+    """Scaffold a new UI deployment directory NAME in DEPLOYMENTS_DIR.
+
+    Creates catalog.yaml (seeded from the sibling jejune_docs_server repo's
+    full-catalog.yaml when available), docker-compose.yml, and deployment.env.
+    A .gitignore and secrets.env.template are added only when the catalog
+    contains private repositories.
+    """
+    deployments_dir = Path(deployments_dir).resolve()
+    deploy_dir = deployments_dir / name
+
+    if deploy_dir.exists():
+        click.echo(f"Error: {deploy_dir} already exists.", err=True)
+        sys.exit(1)
+
+    deploy_dir.mkdir(parents=True)
+
+    full_catalog = _full_catalog_path(deployments_dir)
+    if full_catalog:
+        shutil.copy(full_catalog, deploy_dir / "catalog.yaml")
+        click.echo(f"Seeded catalog.yaml from {full_catalog}")
+    else:
+        shutil.copy(_TEMPLATES / "ui-catalog-reference.yaml", deploy_dir / "catalog.yaml")
+        click.echo("Seeded catalog.yaml from built-in template — populate manually.")
+
+    has_private = _has_private_repos(deploy_dir / "catalog.yaml")
+    (deploy_dir / "docker-compose.yml").write_text(_docker_compose_content(has_private))
+    shutil.copy(_TEMPLATES / "ui-deployment.env", deploy_dir / "deployment.env")
+
+    if has_private:
+        (deploy_dir / ".gitignore").write_text("secrets.env\n")
+        (deploy_dir / "secrets.env.template").write_text(
+            "# Copy to secrets.env (gitignored) and fill in:\n"
+            "GH_TOKEN_FILE=~/.github_token\n"
+        )
+
+    click.echo(f"Created {deploy_dir}")
+    click.echo()
+    click.echo("Next steps:")
+    click.echo(f"  1. Review {deploy_dir}/catalog.yaml")
+    click.echo(f"  2. Adjust ports in {deploy_dir}/deployment.env if needed")
+    step = 3
+    if has_private:
+        click.echo(f"  {step}. Copy secrets.env.template → secrets.env and fill in GH_TOKEN_FILE")
+        step += 1
+    click.echo(f"  {step}. Build:  docker compose --env-file deployment.env build")
+    click.echo(f"  {step + 1}. Start:  docker compose --env-file deployment.env up -d")
+
+
+@click.command("ui-list")
+@click.argument("deployments_dir", type=click.Path(exists=True))
+def ui_list(deployments_dir):
+    """List UI deployments (directories with docker-compose.yml) in DEPLOYMENTS_DIR."""
+    root = Path(deployments_dir)
+    dirs = sorted(
+        d for d in root.iterdir()
+        if d.is_dir() and not d.name.startswith("deploy_") and (d / "docker-compose.yml").exists()
+    )
+    if not dirs:
+        click.echo("No UI deployments found.")
+        return
+    for d in dirs:
+        has_catalog = (d / "catalog.yaml").exists()
+        status = "ok" if has_catalog else "missing catalog.yaml"
+        click.echo(f"  {d.name}  [{status}]")
+
+
+@click.command("ui-build")
+@click.argument("deployments_dir", type=click.Path(exists=True))
+@click.argument("name")
+def ui_build(deployments_dir, name):
+    """Build Docker images for the NAME UI deployment in DEPLOYMENTS_DIR."""
+    _run_compose(_resolve_deploy_dir(deployments_dir, name), "build")
+
+
+@click.command("ui-start")
+@click.argument("deployments_dir", type=click.Path(exists=True))
+@click.argument("name")
+def ui_start(deployments_dir, name):
+    """Start the NAME UI deployment in DEPLOYMENTS_DIR (detached)."""
+    _run_compose(_resolve_deploy_dir(deployments_dir, name), "up", "-d")
+
+
+@click.command("ui-stop")
+@click.argument("deployments_dir", type=click.Path(exists=True))
+@click.argument("name")
+def ui_stop(deployments_dir, name):
+    """Stop the NAME UI deployment in DEPLOYMENTS_DIR."""
+    _run_compose(_resolve_deploy_dir(deployments_dir, name), "down")

@@ -102,3 +102,10 @@ def list_deployments(deployments_dir):
         catalog = d / "catalog.yaml"
         status = "ok" if catalog.exists() else "missing catalog.yaml"
         click.echo(f"  {d.name}  [{status}]")
+
+
+# UI deployment commands live in ui_deployment.py; imported here to stay in this group.
+from .ui_deployment import ui_build, ui_configure, ui_list, ui_start, ui_stop  # noqa: E402
+
+for _cmd in (ui_configure, ui_list, ui_build, ui_start, ui_stop):
+    deployment.add_command(_cmd)

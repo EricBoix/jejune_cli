@@ -1,0 +1,4 @@
+# Deployment-specific catalog — subset of full-catalog.yaml.
+# Validated against full-catalog.yaml by build_docs.py at image build time.
+# Remove unwanted documents and add private ones as needed.
+documents: []

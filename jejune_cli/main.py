@@ -5,7 +5,7 @@ from pathlib import Path
 import click
 
 from ._env import dot_jejune, load_env_files
-from .catalog import catalog, run_all
+from .catalog import run_all
 from .convert import convert, convert_configured
 from .plugin import JejunePlugin, _REGISTRY
 from .deployment import deployment
@@ -21,15 +21,17 @@ from .llm import llm
 from .llm_observability import llm_observability
 from .neo4j import neo4j
 from .pdf_to_markdown import pdf_to_markdown
+from .role import detect_role, role_components
+
+_ACTIVE_ROLE, _ACTIVE_ROLE_REASON = detect_role()
+_ACTIVE_COMPONENTS = role_components(_ACTIVE_ROLE)
 
 # Components — drives both `jejune --help` listing and `jejune doctor` output.
-# env is a CLI command but not a component.
 _COMPONENTS = [
     "neo4j",
     "llm",
     "llm-observability",
     "graph",
-    "catalog",
     "deployment",
     "pdf-to-markdown",
     "convert",
@@ -40,7 +42,7 @@ _BUILTIN_COMPONENTS: frozenset[str] = frozenset(_COMPONENTS)
 # Help-section membership for built-in components.
 _SHARED_COMPONENTS = ["configuration", "containers"]
 _SINGLE_DOC_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert"]
-_COLLECTION_COMPONENTS = ["catalog", "deployment", "pdf-to-markdown"]
+_COLLECTION_COMPONENTS = ["deployment", "pdf-to-markdown"]
 
 
 _W_SECT = 17  # len("llm-observability") — recomputed after _load_plugins()
@@ -70,6 +72,11 @@ _COMPONENT_OPTIONAL_DEPS: dict[str, list[str]] = {
 }
 
 
+def _is_visible(name: str) -> bool:
+    """True when name should appear for the active role."""
+    return _ACTIVE_COMPONENTS is None or name in _ACTIVE_COMPONENTS
+
+
 class _JejuneGroup(click.Group):
     def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         formatter.write_usage(ctx.command_path, "[OPTIONS] COMPONENT COMMAND [ARGS]...")
@@ -86,6 +93,8 @@ class _JejuneGroup(click.Group):
         def _rows(names: list[str]) -> list[tuple[str, str]]:
             result = []
             for name in names:
+                if not _is_visible(name):
+                    continue
                 guard = _hidden_unless_configured.get(name)
                 if guard is not None and not guard():
                     continue
@@ -97,10 +106,10 @@ class _JejuneGroup(click.Group):
         def _plugin_rows(stage: str) -> list[tuple[str, str]]:
             return [
                 (f"jejune {p.name}", p.group.get_short_help_str(limit=formatter.width))
-                for p in _REGISTRY if p.stage == stage
+                for p in _REGISTRY if p.stage == stage and _is_visible(p.name)
             ]
 
-        # Uncategorized commands (e.g. doctor).
+        # Uncategorized commands (e.g. doctor, role, init).
         categorized = (
             _BUILTIN_COMPONENTS
             | set(_SHARED_COMPONENTS)
@@ -140,7 +149,6 @@ class _JejuneGroup(click.Group):
 
 def _version_string() -> str:
     version = importlib.metadata.version("jejune-cli")
-    # Try live git lookup first (editable installs).
     for candidate in Path(__file__).resolve().parents:
         if (candidate / ".git").is_dir():
             try:
@@ -154,7 +162,6 @@ def _version_string() -> str:
             except Exception:
                 pass
             break
-    # Fall back to SHA captured at build/install time.
     try:
         from ._sha import SHA
         if SHA:
@@ -169,10 +176,51 @@ def _version_string() -> str:
 def cli():
     """jejune — jejuneness workflow CLI.
 
-    Run `jejune configuration init` first — in a jj_doc_<name> repository
-    for single-document use, or a deployment directory for collection-level.
+    Run `jejune init` first in your working directory to set up the workspace.
     """
     load_env_files()
+
+
+@cli.command()
+def role():
+    """Show the detected role and the reason for it.
+
+    Role is inferred from the current directory. Override with JEJUNE_ROLE env var.
+    """
+    if _ACTIVE_ROLE:
+        click.echo(f"role:   {click.style(_ACTIVE_ROLE, fg='cyan')}")
+    else:
+        click.echo(f"role:   {click.style('(none)', fg='yellow')}")
+    click.echo(f"reason: {_ACTIVE_ROLE_REASON}")
+    if _ACTIVE_COMPONENTS:
+        click.echo(f"shows:  {', '.join(sorted(_ACTIVE_COMPONENTS))}")
+    else:
+        click.echo("shows:  all components")
+
+
+@cli.command()
+@click.argument("name", required=False)
+def init(name):
+    """Initialize the workspace for the detected role.
+
+    \b
+    doc-steward    : creates .jejune/ scaffold (NAME ignored)
+    deployer       : scaffolds a deployment directory named NAME
+    catalog-curator: not yet implemented
+    (no role)      : creates .jejune/ scaffold
+    """
+    from .configuration import init as _steward_init
+    from .ui_deployment import ui_configure
+
+    if _ACTIVE_ROLE == "deployer":
+        if not name:
+            raise click.UsageError("NAME is required for the deployer role.")
+        ui_configure.invoke(click.get_current_context(), deployments_dir=".", name=name)
+    elif _ACTIVE_ROLE == "catalog-curator":
+        click.echo(click.style("Catalog Curator init: not yet implemented.", fg="yellow"))
+    else:
+        ctx = click.get_current_context()
+        ctx.invoke(_steward_init)
 
 
 @cli.command()
@@ -184,25 +232,30 @@ def doctor():
       Availability  — are the component services reachable?\n
 
     Followed by a Components summary showing which commands each enables.
+    Only components relevant to the detected role are shown.
     """
     d = dot_jejune()
-    if not d.is_dir():
+    if _ACTIVE_ROLE in (None, "doc-steward") and not d.is_dir():
         click.echo(
             click.style(
                 f"No .jejune/ directory found in {d.parent}.\n"
-                "Run `jejune configuration init` first to set up the workspace.",
+                "Run `jejune init` first to set up the workspace.",
                 fg="yellow",
             )
         )
         raise SystemExit(1)
 
-    config_results, avail_results = run_all()
+    config_results, avail_results = run_all(components=_ACTIVE_COMPONENTS)
     by_config = {comp: (status, msg) for comp, status, msg in config_results}
     by_avail = {comp: (status, msg) for comp, status, msg in avail_results}
 
-    # Ensure every component appears in the config table, in _COMPONENTS order.
+    visible_components = [c for c in _COMPONENTS if _is_visible(c)]
+    for p in _REGISTRY:
+        if _is_visible(p.name) and p.name not in visible_components:
+            visible_components.append(p.name)
+
     config_results = [
-        (comp,) + by_config.get(comp, ("ok", "ok")) for comp in _COMPONENTS
+        (comp,) + by_config.get(comp, ("ok", "ok")) for comp in visible_components
     ]
 
     failed_config: list[str] = []
@@ -216,14 +269,16 @@ def doctor():
             result += f" ({', '.join(opt)} optional)"
         return result
 
+    all_hints = list(_CONFIG_HINTS.values()) or [""]
+    all_avail_hints = list(_AVAIL_HINTS.values()) or [""]
+    all_deps = [_deps_str(c) for c in _COMPONENT_DEPS] or [""]
+
     _CONFIG_NOTE = (
         "  Config: .jejune/env-config · .jejune/env-secrets · .jejune/catalog.yaml"
     )
-    _W_HINT = max(len("Hint"), max(len(h) for h in _CONFIG_HINTS.values()))
-    _W_DIAG_HINT = max(
-        len("Diagnostic hint"), max(len(h) for h in _AVAIL_HINTS.values())
-    )
-    _W_DEPENDS = max(len("Depends on"), max(len(_deps_str(c)) for c in _COMPONENT_DEPS))
+    _W_HINT = max(len("Hint"), max(len(h) for h in all_hints))
+    _W_DIAG_HINT = max(len("Diagnostic hint"), max(len(h) for h in all_avail_hints))
+    _W_DEPENDS = max(len("Depends on"), max(len(d) for d in all_deps))
     sep = max(
         len(_CONFIG_NOTE),
         2 + _W_SECT + 1 + _W_MSG + 1 + _W_HINT,
@@ -269,10 +324,12 @@ def doctor():
             result += f" ({', '.join(opt_parts)} optional)"
         return result
 
-    click.echo("jejune COMPONENT COMMAND [ARGS]")
+    role_label = f" [{_ACTIVE_ROLE}]" if _ACTIVE_ROLE else ""
+    click.echo(f"jejune doctor{role_label}")
     click.echo("=" * sep)
-    click.echo(_CONFIG_NOTE)
-    click.echo()
+    if _ACTIVE_ROLE in (None, "doc-steward"):
+        click.echo(_CONFIG_NOTE)
+        click.echo()
 
     # ── Configuration ────────────────────────────────────────────────
     click.echo(f"  {'Configuration':<{_W_SECT}} {'Status':<{_W_MSG}} Hint")
@@ -302,12 +359,14 @@ def doctor():
     click.echo()
 
     # ── Components ───────────────────────────────────────────────────
-    click.echo(f"  {'Component':<{_W_SECT}} {'Effective':<{_W_MSG}} Depends on")
-    click.echo(divider)
-    for comp in _COMPONENT_DEPS:
-        click.echo(
-            f"  {comp:<{_W_SECT}} {_config_label(_effective_status(comp))} {_deps_colored(comp)}"
-        )
+    visible_deps = {c: deps for c, deps in _COMPONENT_DEPS.items() if _is_visible(c)}
+    if visible_deps:
+        click.echo(f"  {'Component':<{_W_SECT}} {'Effective':<{_W_MSG}} Depends on")
+        click.echo(divider)
+        for comp in visible_deps:
+            click.echo(
+                f"  {comp:<{_W_SECT}} {_config_label(_effective_status(comp))} {_deps_colored(comp)}"
+            )
 
     # ── Containers ───────────────────────────────────────────────────
     click.echo("=" * sep)
@@ -353,11 +412,12 @@ cli.add_command(neo4j)
 cli.add_command(llm)
 cli.add_command(llm_observability)
 cli.add_command(graph)
-cli.add_command(catalog)
 cli.add_command(deployment)
 cli.add_command(pdf_to_markdown)
 cli.add_command(convert)
 cli.add_command(doctor)
+cli.add_command(role)
+cli.add_command(init)
 
 
 def _load_plugins() -> None:
