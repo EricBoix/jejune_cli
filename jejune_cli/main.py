@@ -258,7 +258,7 @@ def doctor():
     all_deps = [_deps_str(c) for c in _COMPONENT_DEPS] or [""]
 
     _CONFIG_NOTE = (
-        "  Config: .jejune/env-config · .jejune/env-secrets · .jejune/catalog.yaml"
+        "  Configuration files: .jejune/env-config · .jejune/env-secrets · .jejune/catalog.yaml"
     )
     _W_HINT = max(len("Hint"), max(len(h) for h in all_hints))
     _W_DIAG_HINT = max(len("Diagnostic hint"), max(len(h) for h in all_avail_hints))
@@ -311,11 +311,11 @@ def doctor():
     role_label = f" [{_ACTIVE_ROLE}]" if _ACTIVE_ROLE else ""
     click.echo(f"jejune doctor{role_label}")
     click.echo("=" * sep)
-    if _ACTIVE_ROLE in (None, "doc-steward"):
-        click.echo(_CONFIG_NOTE)
-        click.echo()
+    click.echo()
 
     # ── Configuration ────────────────────────────────────────────────
+    if _ACTIVE_ROLE in (None, "doc-steward"):
+        click.echo(_CONFIG_NOTE)
     click.echo(f"  {'Configuration':<{_W_SECT}} {'Status':<{_W_MSG}} Hint")
     click.echo(divider)
     for comp, status, msg in config_results:
