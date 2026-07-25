@@ -46,7 +46,7 @@ _CURATOR_COMPONENTS = ["pdf-to-markdown"]   # + "collection" stage plugins
 _DEPLOYER_COMPONENTS = ["deployment"]       # + "extension" stage plugins
 
 
-_W_SECT = 17  # len("llm-observability") — recomputed after _load_plugins()
+_W_SECT = max(17, len("Component configuration"))  # recomputed after _load_plugins()
 _W_MSG = 16  # "not configured" = 14
 
 _STATUS_RANK = {"error": 2, "warn": 1, "ok": 0}
@@ -245,29 +245,18 @@ def doctor():
     failed_config: list[str] = []
     failed_avail: list[str] = []
 
-    def _deps_str(comp: str) -> str:
-        req = _COMPONENT_DEPS.get(comp, [])
-        opt = _COMPONENT_OPTIONAL_DEPS.get(comp, [])
-        result = ", ".join(req)
-        if opt:
-            result += f" ({', '.join(opt)} optional)"
-        return result
-
     all_hints = list(_CONFIG_HINTS.values()) or [""]
     all_avail_hints = list(_AVAIL_HINTS.values()) or [""]
-    all_deps = [_deps_str(c) for c in _COMPONENT_DEPS] or [""]
 
     _CONFIG_NOTE = (
         "  Configuration files: .jejune/env-config · .jejune/env-secrets · .jejune/catalog.yaml"
     )
     _W_HINT = max(len("Hint"), max(len(h) for h in all_hints))
     _W_DIAG_HINT = max(len("Diagnostic hint"), max(len(h) for h in all_avail_hints))
-    _W_DEPENDS = max(len("Depends on"), max(len(d) for d in all_deps))
     sep = max(
         len(_CONFIG_NOTE),
         2 + _W_SECT + 1 + _W_MSG + 1 + _W_HINT,
         2 + _W_SECT + 1 + _W_MSG + 1 + _W_DIAG_HINT,
-        2 + _W_SECT + 1 + _W_MSG + 1 + _W_DEPENDS,
     )
     divider = "  " + "─" * (sep - 2)
 
@@ -316,7 +305,7 @@ def doctor():
     # ── Configuration ────────────────────────────────────────────────
     if _ACTIVE_ROLE in (None, "doc-steward"):
         click.echo(_CONFIG_NOTE)
-    click.echo(f"  {'Configuration':<{_W_SECT}} {'Status':<{_W_MSG}} Hint")
+    click.echo(f"  {'Component configuration':<{_W_SECT}} {'Status':<{_W_MSG}} Hint")
     click.echo(divider)
     for comp, status, msg in config_results:
         if status == "error":
@@ -325,32 +314,34 @@ def doctor():
         click.echo(f"  {comp:<{_W_SECT}} {_config_label(status)} {hint}")
     click.echo()
 
-    # ── Availability ─────────────────────────────────────────────────
-    click.echo(f"  {'Availability':<{_W_SECT}} {'Status':<{_W_MSG}} Diagnostic hint")
-    click.echo(divider)
-    for comp, status, msg in avail_results:
-        if status == "error":
-            failed_avail.append(comp)
-        if msg == "not configured":
-            hint = "Refer above to configuration hint"
-        elif status == "error":
-            hint = _AVAIL_HINTS.get(comp, msg)
-        elif msg in ("not started", "not built"):
-            hint = _AVAIL_HINTS.get(comp, "")
-        else:
-            hint = ""
-        click.echo(f"  {comp:<{_W_SECT}} {_avail_label(status, msg)} {hint}")
-    click.echo()
+    # ── Component availability (leaf components + dep-based components merged) ──
+    visible_deps = {c for c in _COMPONENT_DEPS if _is_visible(c)}
+    all_visible = [c for c in _COMPONENTS if _is_visible(c)]
+    for p in _REGISTRY:
+        if _is_visible(p.name) and p.name not in all_visible:
+            all_visible.append(p.name)
 
-    # ── Components ───────────────────────────────────────────────────
-    visible_deps = {c: deps for c, deps in _COMPONENT_DEPS.items() if _is_visible(c)}
-    if visible_deps:
-        click.echo(f"  {'Component':<{_W_SECT}} {'Effective':<{_W_MSG}} Depends on")
-        click.echo(divider)
-        for comp in visible_deps:
-            click.echo(
-                f"  {comp:<{_W_SECT}} {_config_label(_effective_status(comp))} {_deps_colored(comp)}"
-            )
+    click.echo(f"  {'Component availability':<{_W_SECT}} {'Status':<{_W_MSG}} Diagnostic hint")
+    click.echo(divider)
+    for comp in all_visible:
+        if comp in visible_deps:
+            eff = _effective_status(comp)
+            if eff == "error":
+                failed_avail.append(comp)
+            click.echo(f"  {comp:<{_W_SECT}} {_config_label(eff)} {_deps_colored(comp)}")
+        elif comp in by_avail:
+            status, msg = by_avail[comp]
+            if status == "error":
+                failed_avail.append(comp)
+            if msg == "not configured":
+                hint = "Refer above to configuration hint"
+            elif status == "error":
+                hint = _AVAIL_HINTS.get(comp, msg)
+            elif msg in ("not started", "not built"):
+                hint = _AVAIL_HINTS.get(comp, "")
+            else:
+                hint = ""
+            click.echo(f"  {comp:<{_W_SECT}} {_avail_label(status, msg)} {hint}")
 
     # ── Containers ───────────────────────────────────────────────────
     click.echo("=" * sep)
@@ -384,7 +375,8 @@ def doctor():
             _WH = max(len(_AVAIL_HINTS.get(n, "investigate")) for n in failed_avail)
             for name in failed_avail:
                 action = _AVAIL_HINTS.get(name, "investigate")
-                detail = by_avail[name][1]
+                # dep-based components (e.g. graph) are not in by_avail
+                detail = by_avail[name][1] if name in by_avail else "dependency failed"
                 click.echo(
                     f"  {click.style(f'{name:<{_W}}', fg='red')}  {action:<{_WH}}  [{detail}]"
                 )
@@ -425,7 +417,7 @@ def _load_plugins() -> None:
         if plugin.config_vars:
             CONFIG_GROUPS[plugin.name] = (plugin.config_vars, plugin.name)
             COMPONENT_CONFIG_HINTS[plugin.name] = plugin.config_hint
-    _W_SECT = max(len(n) for n in _COMPONENTS)
+    _W_SECT = max(len("Component configuration"), max(len(n) for n in _COMPONENTS))
 
 
 _load_plugins()

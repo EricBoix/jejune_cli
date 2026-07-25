@@ -174,17 +174,25 @@ def check():
     Checks os.environ, which already includes values loaded from
     .jejune/env-config and .jejune/env-secrets at startup.
     """
+    _W_COMP = max(len("Component configuration"), max(len(g) for g in CONFIG_GROUPS))
+    _W_STATUS = 26
+    _W_USAGE = max(len("Required by component"), max(len(u) for _, u in CONFIG_GROUPS.values()))
+    divider = "  " + "─" * (_W_COMP + 1 + _W_STATUS + 1 + _W_USAGE)
+
+    click.echo(f"  {'Component configuration':<{_W_COMP}} {'Status':<{_W_STATUS}} Required by component")
+    click.echo(divider)
+
     any_error = False
     for group, (keys, usage) in CONFIG_GROUPS.items():
         status, msg = check_config_group(keys)
         if status == "ok":
-            label = click.style(f"{'ok':<26}", fg="green")
+            label = click.style(f"{'ok':<{_W_STATUS}}", fg="green")
         elif status == "warn":
-            label = click.style(f"{msg:<26}", fg="yellow")
+            label = click.style(f"{msg:<{_W_STATUS}}", fg="yellow")
         else:
-            label = click.style(f"{msg:<26}", fg="red")
+            label = click.style(f"{msg:<{_W_STATUS}}", fg="red")
             any_error = True
-        click.echo(f"  {group:<16} {label} {usage}")
+        click.echo(f"  {group:<{_W_COMP}} {label} {usage}")
 
     if any_error:
         raise SystemExit(1)
