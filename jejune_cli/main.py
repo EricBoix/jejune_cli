@@ -41,8 +41,9 @@ _BUILTIN_COMPONENTS: frozenset[str] = frozenset(_COMPONENTS)
 
 # Help-section membership for built-in components.
 _ALL_ROLES_COMMANDS = ["doctor", "init", "role", "containers"]
-_SINGLE_DOC_COMPONENTS = ["configuration", "neo4j", "llm", "llm-observability", "graph", "convert"]
-_COLLECTION_COMPONENTS = ["deployment", "pdf-to-markdown"]
+_DOC_STEWARD_COMPONENTS = ["configuration", "neo4j", "llm", "llm-observability", "graph", "convert"]
+_CURATOR_COMPONENTS = ["pdf-to-markdown"]   # + "collection" stage plugins
+_DEPLOYER_COMPONENTS = ["deployment"]       # + "extension" stage plugins
 
 
 _W_SECT = 17  # len("llm-observability") — recomputed after _load_plugins()
@@ -100,41 +101,34 @@ class _JejuneGroup(click.Group):
             return None
 
         def _rows(names: list[str]) -> list[tuple[str, str]]:
-            result = []
-            for name in names:
-                if not _is_visible(name):
-                    continue
-                r = _row(name)
-                if r:
-                    result.append(r)
-            return result
+            return [r for name in names if (r := _row(name))]
 
         def _plugin_rows(stage: str) -> list[tuple[str, str]]:
             return [
                 (f"jejune {p.name}", p.group.get_short_help_str(limit=formatter.width))
-                for p in _REGISTRY if p.stage == stage and _is_visible(p.name)
+                for p in _REGISTRY if p.stage == stage
             ]
 
-        # "For all roles" — always shown, regardless of active role.
+        # All sections always shown — section titles communicate the role.
         all_roles = [r for name in _ALL_ROLES_COMMANDS if (r := _row(name))]
         if all_roles:
             with formatter.section("For all roles"):
                 formatter.write_dl(all_roles)
 
-        single_doc = _rows(_SINGLE_DOC_COMPONENTS) + _plugin_rows("single-document")
-        if single_doc:
-            with formatter.section("Single-document commands (doc-steward)"):
-                formatter.write_dl(single_doc)
+        doc_steward = _rows(_DOC_STEWARD_COMPONENTS) + _plugin_rows("single-document")
+        if doc_steward:
+            with formatter.section("Doc-steward commands"):
+                formatter.write_dl(doc_steward)
 
-        collection = _rows(_COLLECTION_COMPONENTS) + _plugin_rows("collection")
-        if collection:
-            with formatter.section("Collection-level commands"):
-                formatter.write_dl(collection)
+        curator = _rows(_CURATOR_COMPONENTS) + _plugin_rows("collection")
+        if curator:
+            with formatter.section("Catalog Curator commands"):
+                formatter.write_dl(curator)
 
-        extension = _plugin_rows("extension")
-        if extension:
-            with formatter.section("Extension components"):
-                formatter.write_dl(extension)
+        deployer = _rows(_DEPLOYER_COMPONENTS) + _plugin_rows("extension")
+        if deployer:
+            with formatter.section("Deployer commands"):
+                formatter.write_dl(deployer)
 
 
 def _version_string() -> str:
@@ -239,7 +233,7 @@ def doctor():
     by_config = {comp: (status, msg) for comp, status, msg in config_results}
     by_avail = {comp: (status, msg) for comp, status, msg in avail_results}
 
-    visible_components = [c for c in _COMPONENTS if _is_visible(c)]
+    visible_components = [c for c in _COMPONENTS if _is_visible(c)]  # doctor stays role-scoped
     for p in _REGISTRY:
         if _is_visible(p.name) and p.name not in visible_components:
             visible_components.append(p.name)
