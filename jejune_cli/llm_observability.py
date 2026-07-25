@@ -31,7 +31,14 @@ def llm_observability():
 
 @llm_observability.command("check-config")
 def check_config():
-    """Check whether the llm-observability component is properly configured."""
+    """Show per-variable configuration detail for the llm-observability component."""
+    from .configuration import print_config_check
+    print_config_check("llm-observability")
+
+
+@llm_observability.command("status-config")
+def status_config():
+    """Show llm-observability configuration status (mirrors the doctor Config Status column)."""
     print_config_status("llm-observability")
 
 
@@ -75,35 +82,52 @@ def stop():
     click.echo("LLM observability stopped.")
 
 
-@llm_observability.command("status")
-def status():
-    """Report the LLM observability container state and endpoint reachability."""
+
+
+@llm_observability.command("check-availability")
+def check_availability():
+    """Show detailed llm-observability availability (container state and endpoint reachability)."""
     cfg_status, hint = component_config_check("llm-observability")
     if cfg_status != "ok":
         click.echo(f"  {click.style('not configured', fg='yellow')}  {hint}")
         return
-
     running, _ = container_running()
     url = os.environ.get("TRACELOOP_BASE_URL", f"http://localhost:{_OTLP_PORT}")
-
-    if running:
-        container_text = click.style("running",    fg="green")
-    else:
-        container_text = click.style("not running", fg="yellow")
-    click.echo(f"  container   {container_text}")
-
     try:
         with urllib.request.urlopen(url, timeout=5):
             reachable = True
     except urllib.error.HTTPError:
-        reachable = True   # server responded — endpoint is up
+        reachable = True
     except urllib.error.URLError:
         reachable = False
+    click.echo(f"  container   {click.style('running', fg='green') if running else click.style('not running', fg='yellow')}")
+    ep_color = "green" if reachable else ("red" if running else "yellow")
+    click.echo(f"  endpoint    {click.style('reachable' if reachable else 'unreachable', fg=ep_color)}  ({url})")
 
-    if reachable:
-        endpoint_text = click.style("reachable",   fg="green")
-    elif running:
-        endpoint_text = click.style("unreachable", fg="red")
+
+@llm_observability.command("status-availability")
+def status_availability():
+    """Show llm-observability availability status (mirrors the doctor Status column)."""
+    cfg_status, _ = component_config_check("llm-observability")
+    if cfg_status != "ok":
+        click.echo(f"llm-observability: {click.style('not configured', fg='yellow')}")
+        return
+    running, msg = container_running()
+    if running:
+        click.echo(f"llm-observability: {click.style('ok', fg='green')}")
     else:
-        endpoint_text = click.style("unreachable", fg="yellow")
-    click.echo(f"  endpoint    {endpoint_text}  ({url})")
+        click.echo(f"llm-observability: {click.style(msg, fg='yellow')}")
+
+
+@llm_observability.command("hint-availability")
+def hint_availability():
+    """Show how to start llm-observability if it is not running."""
+    cfg_status, hint = component_config_check("llm-observability")
+    if cfg_status != "ok":
+        click.echo(hint or "configure TRACELOOP_BASE_URL in .jejune/env-config")
+        return
+    running, _ = container_running()
+    if running:
+        click.echo(click.style("llm-observability is running", fg="green"))
+    else:
+        click.echo("run `jejune llm-observability start`")

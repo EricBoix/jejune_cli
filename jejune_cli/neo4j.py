@@ -13,6 +13,7 @@ from . import containers
 from ._env import TTL_ENV_VARS, docker_env_args
 from .configuration import (
     component_config_check,
+    print_config_check,
     print_config_hint,
     print_config_status,
 )
@@ -132,7 +133,13 @@ def neo4j():
 
 @neo4j.command("check-config")
 def check_config():
-    """Check whether the neo4j component is properly configured."""
+    """Show per-variable configuration detail for the neo4j component."""
+    print_config_check("neo4j")
+
+
+@neo4j.command("status-config")
+def status_config():
+    """Show neo4j configuration status (mirrors the doctor Config Status column)."""
     print_config_status("neo4j")
 
 
@@ -142,23 +149,42 @@ def hint_config():
     print_config_hint("neo4j")
 
 
-@neo4j.command("status")
-def status():
-    """Report the Neo4j container state."""
+
+@neo4j.command("check-availability")
+def check_availability():
+    """Show detailed neo4j availability (container state and bolt endpoint)."""
     cfg_status, hint = component_config_check("neo4j")
     if cfg_status != "ok":
         click.echo(f"  {click.style('not configured', fg='yellow')}  {hint}")
         return
-
     running, _ = container_running()
     port = os.environ.get("NEO4J_PORT", "7687")
-
-    if running:
-        container_text = click.style("running", fg="green")
-    else:
-        container_text = click.style("not running", fg="yellow")
-    click.echo(f"  container   {container_text}")
+    click.echo(f"  container   {click.style('running', fg='green') if running else click.style('not running', fg='yellow')}")
     click.echo(f"  bolt        bolt://localhost:{port}")
+
+
+@neo4j.command("status-availability")
+def status_availability():
+    """Show neo4j availability status (mirrors the doctor Status column)."""
+    cfg_status, _ = component_config_check("neo4j")
+    if cfg_status != "ok":
+        click.echo(f"neo4j: {click.style('not configured', fg='yellow')}")
+        return
+    running, msg = container_running()
+    if running:
+        click.echo(f"neo4j: {click.style('ok', fg='green')}")
+    else:
+        click.echo(f"neo4j: {click.style(msg, fg='yellow')}")
+
+
+@neo4j.command("hint-availability")
+def hint_availability():
+    """Show how to start Neo4j if it is not running."""
+    running, _ = container_running()
+    if running:
+        click.echo(click.style("neo4j is running", fg="green"))
+    else:
+        click.echo("run `jejune neo4j start`")
 
 
 @neo4j.command("stats")

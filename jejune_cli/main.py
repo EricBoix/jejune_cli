@@ -40,7 +40,7 @@ _COMPONENTS = [
 _BUILTIN_COMPONENTS: frozenset[str] = frozenset(_COMPONENTS)
 
 # Help-section membership for built-in components.
-_ALL_ROLES_COMMANDS = ["doctor", "init", "role", "containers"]
+_ALL_ROLES_COMMANDS = ["doctor", "availability", "init", "role", "containers"]
 _DOC_STEWARD_COMPONENTS = ["configuration", "neo4j", "llm", "llm-observability", "graph", "convert"]
 _CURATOR_COMPONENTS = ["pdf-to-markdown"]   # + "collection" stage plugins
 _DEPLOYER_COMPONENTS = ["deployment"]       # + "extension" stage plugins
@@ -382,6 +382,58 @@ def doctor():
                 )
 
 
+@click.group(short_help="Availability checks for jejune components")
+def availability():
+    """Availability checks for jejune components."""
+
+
+@availability.command("summary")
+def _availability_summary():
+    """Display component availability as a four-column table.
+
+    Columns: Component | Status | Check | Hint
+    """
+    _, avail_results = run_all(components=_ACTIVE_COMPONENTS)
+    by_avail = {comp: (status, msg) for comp, status, msg in avail_results}
+
+    all_visible = [c for c in _COMPONENTS if _is_visible(c)]
+    for p in _REGISTRY:
+        if _is_visible(p.name) and p.name not in all_visible:
+            all_visible.append(p.name)
+
+    rows: list[tuple[str, str, str, str]] = []
+    for comp in all_visible:
+        if comp in _COMPONENT_DEPS:
+            req = _COMPONENT_DEPS[comp]
+            worst = max(
+                (by_avail.get(dep, ("ok", ""))[0] for dep in req),
+                key=lambda s: _STATUS_RANK.get(s, 0),
+                default="ok",
+            )
+            rows.append((comp, worst, "deps: " + ", ".join(req), ""))
+        elif comp in by_avail:
+            status, msg = by_avail[comp]
+            hint = _AVAIL_HINTS.get(comp, "") if status != "ok" else ""
+            rows.append((comp, status, msg, hint))
+
+    if not rows:
+        click.echo(click.style("No availability data for the current role.", fg="yellow"))
+        return
+
+    _W_C = max(len("Component"), max(len(r[0]) for r in rows))
+    _W_S = max(len("Status"), max(len(r[1]) for r in rows))
+    _W_K = max(len("Check"), max(len(r[2]) for r in rows))
+
+    _STATUS_FG = {"ok": "green", "warn": "yellow", "error": "red"}
+
+    click.echo(f"  {'Component':<{_W_C}}  {'Status':<{_W_S}}  {'Check':<{_W_K}}  Hint")
+    click.echo("  " + "─" * (_W_C + 2 + _W_S + 2 + _W_K + 2 + len("Hint")))
+
+    for comp, status, check, hint in rows:
+        status_cell = click.style(f"{status:<{_W_S}}", fg=_STATUS_FG.get(status, "white"))
+        click.echo(f"  {comp:<{_W_C}}  {status_cell}  {check:<{_W_K}}  {hint}")
+
+
 cli.add_command(configuration)
 cli.add_command(containers_cli)
 cli.add_command(neo4j)
@@ -391,6 +443,7 @@ cli.add_command(graph)
 cli.add_command(deployment)
 cli.add_command(pdf_to_markdown)
 cli.add_command(convert)
+cli.add_command(availability)
 cli.add_command(doctor)
 cli.add_command(role)
 cli.add_command(init)

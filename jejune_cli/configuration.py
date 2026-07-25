@@ -12,9 +12,10 @@ _PLACEHOLDER = "_CHANGE_ME"
 # "warn" (yellow) = none set — use case not configured, valid.
 # "error" (red)   = partial or placeholder — needs attention.
 CONFIG_GROUPS: dict[str, tuple[list[str], str]] = {
-    "neo4j":   (["NEO4J_PASSWORD"],                                  "neo4j, graph dump-turtle, graph extract"),
-    "llm":     (["LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"], "graph extract"),
-    "convert": (["CONVERT_DOC_DIR"],                                 "convert build, convert run"),
+    "neo4j":            (["NEO4J_PASSWORD"],                                  "neo4j, graph dump-turtle, graph extract"),
+    "llm":              (["LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"], "graph extract"),
+    "llm-observability":(["TRACELOOP_BASE_URL"],                              "graph extract (tracing)"),
+    "convert":          (["CONVERT_DOC_DIR"],                                 "convert build, convert run"),
 }
 
 
@@ -51,10 +52,6 @@ def component_config_check(component: str) -> tuple[str, str]:
     For components with no required env vars the status is always "ok".
     """
     import os
-    if component == "llm-observability":
-        if not os.environ.get("TRACELOOP_BASE_URL"):
-            return "warn", get_config_hint("llm-observability", "warn", "")
-        return "ok", ""
     if component == "convert":
         status, msg = _convert_config_status()
         if status == "ok":
@@ -72,6 +69,29 @@ def component_config_check(component: str) -> tuple[str, str]:
 def get_config_hint(component: str, status: str, message: str) -> str:
     """Return the precise configuration hint given a component's status and message."""
     return COMPONENT_CONFIG_HINTS.get(component, "")
+
+
+def print_config_check(component: str) -> None:
+    """Print detailed per-variable config check for a component."""
+    import os
+    if component not in CONFIG_GROUPS:
+        click.echo(click.style("no configuration required", fg="green"))
+        return
+    keys, _ = CONFIG_GROUPS[component]
+    _W = max(len(k) for k in keys)
+    any_error = False
+    for key in keys:
+        val = os.environ.get(key)
+        if val is None:
+            label = click.style("not set", fg="yellow")
+        elif _PLACEHOLDER in val:
+            label = click.style("placeholder", fg="red")
+            any_error = True
+        else:
+            label = click.style("ok", fg="green")
+        click.echo(f"  {key:<{_W}}  {label}")
+    if any_error:
+        raise SystemExit(1)
 
 
 def print_config_hint(component: str) -> None:
@@ -162,7 +182,7 @@ def init():
     click.echo("Next step: edit .jejune/env-secrets with your credentials.")
 
 
-@configuration.command("check")
+@configuration.command("summary")
 def check():
     """Verify configuration variables by component group.
 
@@ -174,16 +194,25 @@ def check():
     Checks os.environ, which already includes values loaded from
     .jejune/env-config and .jejune/env-secrets at startup.
     """
-    _W_COMP = max(len("Component configuration"), max(len(g) for g in CONFIG_GROUPS))
+    from .role import detect_role, role_components
+    role, _ = detect_role()
+    visible = role_components(role)
+    groups = {g: v for g, v in CONFIG_GROUPS.items() if visible is None or g in visible}
+
+    if not groups:
+        click.echo(click.style("no configuration required for the current role", fg="green"))
+        return
+
+    _W_COMP = max(len("Component configuration"), max(len(g) for g in groups))
     _W_STATUS = 26
-    _W_USAGE = max(len("Required by component"), max(len(u) for _, u in CONFIG_GROUPS.values()))
+    _W_USAGE = max(len("Required by component"), max(len(u) for _, u in groups.values()))
     divider = "  " + "─" * (_W_COMP + 1 + _W_STATUS + 1 + _W_USAGE)
 
     click.echo(f"  {'Component configuration':<{_W_COMP}} {'Status':<{_W_STATUS}} Required by component")
     click.echo(divider)
 
     any_error = False
-    for group, (keys, usage) in CONFIG_GROUPS.items():
+    for group, (keys, usage) in groups.items():
         status, msg = check_config_group(keys)
         if status == "ok":
             label = click.style(f"{'ok':<{_W_STATUS}}", fg="green")

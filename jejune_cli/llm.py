@@ -154,7 +154,14 @@ def llm():
 
 @llm.command("check-config")
 def check_config():
-    """Check whether the llm component is properly configured."""
+    """Show per-variable configuration detail for the llm component."""
+    from .configuration import print_config_check
+    print_config_check("llm")
+
+
+@llm.command("status-config")
+def status_config():
+    """Show llm configuration status (mirrors the doctor Config Status column)."""
     print_config_status("llm")
 
 
@@ -164,67 +171,95 @@ def hint_config():
     print_config_hint("llm")
 
 
-@llm.command("status")
-@click.option(
-    "--prompt",
-    default=_TEST_PROMPT,
-    show_default=True,
-    help="Prompt sent to the LLM for the inference round-trip test.",
-)
-def status(prompt):
-    """Test LLM server connectivity and inference capability.
 
-    Reads from the environment:\n
-      LLM_MODEL_URL          — Ollama base URL passed to ChatOllama\n
-      LLM_API_KEY            — bearer token\n
-      LLM_MODEL_NAME         — model identifier\n
-      LLM_SERVER_URL         — OpenWebUI root for auth/model-list checks
-                               (optional: derived from LLM_MODEL_URL by
-                               stripping the /ollama suffix if present)\n
-      LLM_INFERENCE_ENDPOINT — path appended to LLM_MODEL_URL for inference
-                               (optional: defaults to /api/chat)\n
-    Performs five checks:\n
-      1. GET  <server_url>                               — HTTPS-level reachability\n
-      2. GET  <server_url>/api/v1/auths/                 — API key valid\n
-      3. GET  <server_url>/api/models                    — configured model exists\n
-      4. POST <LLM_MODEL_URL><LLM_INFERENCE_ENDPOINT>    — inference endpoint accepts POST\n
-      5. POST <LLM_MODEL_URL><LLM_INFERENCE_ENDPOINT>    — inference round-trip succeeds\n
-    """
+
+@llm.command("check-availability")
+@click.option("--prompt", default=_TEST_PROMPT, show_default=True,
+              help="Prompt sent to the LLM for the inference round-trip test.")
+def check_availability(prompt):
+    """Show detailed llm availability (five-stage connectivity and inference check)."""
     model_url      = (os.environ.get("LLM_MODEL_URL") or "").rstrip("/")
     api_key        = os.environ.get("LLM_API_KEY")
     model          = os.environ.get("LLM_MODEL_NAME")
     explicit_server = os.environ.get("LLM_SERVER_URL")
-    server_url     = (explicit_server.rstrip("/") if explicit_server
-                      else infer_server_url(model_url))
+    server_url     = (explicit_server.rstrip("/") if explicit_server else infer_server_url(model_url))
     inference_path = os.environ.get("LLM_INFERENCE_ENDPOINT", DEFAULT_INFERENCE_PATH)
-
     missing = [n for n, v in [
         ("LLM_MODEL_URL", model_url), ("LLM_API_KEY", api_key), ("LLM_MODEL_NAME", model)
     ] if not v]
     if missing:
-        raise click.ClickException(f"Missing environment variables: {', '.join(missing)}")
-
-    server_label = server_url if explicit_server else f"{server_url}  (derived)"
-    click.echo(f"LLM_MODEL_URL  : {model_url}")
-    click.echo(f"LLM_SERVER_URL : {server_label}")
-    click.echo(f"Model          : {model}")
-    click.echo(f"Endpoint       : {inference_path}")
-    click.echo(f"Prompt         : {prompt!r}")
-    click.echo()
-
+        raise click.ClickException(f"Missing: {', '.join(missing)}")
     steps = [
-        ("HTTPS connectivity",      lambda: check_server(server_url)),
-        ("API key",                  lambda: check_auth(server_url, api_key)),
-        ("Model exists on server",   lambda: check_model(server_url, api_key, model)),
-        ("Inference endpoint",       lambda: check_inference_endpoint(model_url, api_key, inference_path)),
-        ("Inference round-trip",     lambda: check_inference(model_url, api_key, model, inference_path, prompt)),
+        ("HTTPS connectivity",    lambda: check_server(server_url)),
+        ("API key",               lambda: check_auth(server_url, api_key)),
+        ("Model exists",          lambda: check_model(server_url, api_key, model)),
+        ("Inference endpoint",    lambda: check_inference_endpoint(model_url, api_key, inference_path)),
+        ("Inference round-trip",  lambda: check_inference(model_url, api_key, model, inference_path, prompt)),
     ]
-    n = len(steps)
     for i, (label, fn) in enumerate(steps, 1):
-        click.echo(f"  [{i}/{n}] {label}... ", nl=False)
+        click.echo(f"  [{i}/{len(steps)}] {label}... ", nl=False)
         passed, msg = fn()
-        if passed:
-            click.echo(click.style("ok", fg="green"))
-        else:
-            click.echo(click.style(f"FAILED — {msg}", fg="red"))
+        click.echo(click.style("ok", fg="green") if passed else click.style(f"FAILED — {msg}", fg="red"))
+        if not passed:
             raise SystemExit(1)
+
+
+@llm.command("status-availability")
+def status_availability():
+    """Show llm availability status (mirrors the doctor Status column)."""
+    url     = (os.environ.get("LLM_MODEL_URL") or "").rstrip("/")
+    api_key = os.environ.get("LLM_API_KEY") or ""
+    model   = os.environ.get("LLM_MODEL_NAME") or ""
+    if not url or not api_key or not model:
+        click.echo(f"llm: {click.style('not configured', fg='yellow')}")
+        return
+    explicit = os.environ.get("LLM_SERVER_URL")
+    server_url = explicit.rstrip("/") if explicit else infer_server_url(url)
+    inference_path = os.environ.get("LLM_INFERENCE_ENDPOINT", DEFAULT_INFERENCE_PATH)
+    for fn in (
+        lambda: check_server(server_url),
+        lambda: check_auth(server_url, api_key),
+        lambda: check_model(server_url, api_key, model),
+        lambda: check_inference_endpoint(url, api_key, inference_path),
+        lambda: check_inference(url, api_key, model, inference_path),
+    ):
+        passed, _ = fn()
+        if not passed:
+            click.echo(f"llm: {click.style('error', fg='red')}")
+            return
+    click.echo(f"llm: {click.style('ok', fg='green')}")
+
+
+@llm.command("hint-availability")
+def hint_availability():
+    """Show how to fix the first failing LLM availability stage."""
+    import os as _os
+    url      = (_os.environ.get("LLM_MODEL_URL") or "").rstrip("/")
+    api_key  = _os.environ.get("LLM_API_KEY") or ""
+    model    = _os.environ.get("LLM_MODEL_NAME") or ""
+    explicit = _os.environ.get("LLM_SERVER_URL")
+    server_url = explicit.rstrip("/") if explicit else (infer_server_url(url) if url else "")
+    inference_path = _os.environ.get("LLM_INFERENCE_ENDPOINT", DEFAULT_INFERENCE_PATH)
+
+    if not url or not api_key or not model:
+        click.echo("edit .jejune/env-secrets: set LLM_MODEL_URL, LLM_API_KEY, LLM_MODEL_NAME")
+        return
+
+    stages = [
+        (lambda: check_server(server_url),
+         "verify LLM_MODEL_URL / LLM_SERVER_URL is reachable from this host"),
+        (lambda: check_auth(server_url, api_key),
+         "verify LLM_API_KEY in .jejune/env-secrets"),
+        (lambda: check_model(server_url, api_key, model),
+         "verify LLM_MODEL_NAME matches a model available on the server"),
+        (lambda: check_inference_endpoint(url, api_key, inference_path),
+         "verify LLM_INFERENCE_ENDPOINT (default /api/chat)"),
+        (lambda: check_inference(url, api_key, model, inference_path),
+         "check LLM server logs or try a different model"),
+    ]
+    for fn, hint in stages:
+        passed, _ = fn()
+        if not passed:
+            click.echo(hint)
+            return
+    click.echo(click.style("all LLM checks pass", fg="green"))

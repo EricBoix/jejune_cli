@@ -239,10 +239,7 @@ def run_all(
         status, msg = check_config_group(keys)
         config.append((group, status, msg))
 
-    if _visible("llm-observability"):
-        from .configuration import component_config_check
-        lo_status, _ = component_config_check("llm-observability")
-        config.append(("llm-observability", lo_status, "ok" if lo_status == "ok" else "not configured"))
+    # llm-observability config is now in CONFIG_GROUPS and handled by the loop above
 
     if _visible("neo4j"):
         running, msg = _neo4j_running()

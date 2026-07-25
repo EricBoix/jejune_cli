@@ -64,7 +64,14 @@ def deployment():
 
 @deployment.command("check-config")
 def check_config():
-    """Check whether the deployment component is properly configured."""
+    """Show per-variable configuration detail for the deployment component."""
+    from .configuration import print_config_check
+    print_config_check("deployment")
+
+
+@deployment.command("status-config")
+def status_config():
+    """Show deployment configuration status (mirrors the doctor Config Status column)."""
     print_config_status("deployment")
 
 

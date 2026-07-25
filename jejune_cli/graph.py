@@ -11,7 +11,16 @@ from .neo4j import container_running as _neo4j_running
 
 _BUILD_KG_IMAGE = "jejune:extract_knowledge_graph"
 
-_PREFLIGHT_SKIP = {"check-config", "hint-config", "status", "view"}
+_PREFLIGHT_SKIP = {
+    "check-availability", "status-availability", "hint-availability",
+    "check-config", "status-config", "hint-config",
+    "view",
+}
+
+_DEP_HINTS = {
+    "neo4j": "run `jejune neo4j start`",
+    "llm":   "run `jejune llm status`",
+}
 
 
 def _preflight() -> None:
@@ -48,24 +57,56 @@ def graph(ctx):
 graph.add_command(view)
 
 
-@graph.command("status")
-def status():
-    """Show dependency availability (neo4j, llm, llm-observability)."""
-    def _label(ok: bool, name: str) -> str:
-        return click.style(name, fg="green" if ok else "red")
-
+@graph.command("check-availability")
+def check_availability():
+    """Show detailed graph dependency status (colored per dependency)."""
+    def _lbl(ok: bool, name: str, fg_bad: str = "red") -> str:
+        return click.style(name, fg="green" if ok else fg_bad)
     neo4j_ok, _ = _neo4j_running()
     llm_ok, _ = _llm_available()
     lo_ok, _ = _llm_obs_running()
+    req = f"{_lbl(neo4j_ok, 'neo4j')}, {_lbl(llm_ok, 'llm')}"
+    opt = f"({_lbl(lo_ok, 'llm-observability', fg_bad='yellow')} optional)"
+    click.echo(f"graph: {req} {opt}")
 
-    req = f"{_label(neo4j_ok, 'neo4j')}, {_label(llm_ok, 'llm')}"
-    opt = f"({click.style('llm-observability', fg='green' if lo_ok else 'yellow')} optional)"
-    click.echo(f"graph dependencies: {req} {opt}")
+
+@graph.command("status-availability")
+def status_availability():
+    """Show graph availability status (mirrors the doctor Status column)."""
+    neo4j_ok, _ = _neo4j_running()
+    llm_ok, _ = _llm_available()
+    if neo4j_ok and llm_ok:
+        click.echo(f"graph: {click.style('ok', fg='green')}")
+    else:
+        click.echo(f"graph: {click.style('dependency failed', fg='red')}")
+
+
+@graph.command("hint-availability")
+def hint_availability():
+    """Show how to fix unavailable graph dependencies."""
+    neo4j_ok, _ = _neo4j_running()
+    llm_ok, _ = _llm_available()
+
+    dep_status = {"neo4j": neo4j_ok, "llm": llm_ok}
+    failing = [dep for dep, ok in dep_status.items() if not ok]
+
+    if not failing:
+        click.echo(click.style("all graph dependencies are available", fg="green"))
+        return
+    for dep in failing:
+        click.echo(_DEP_HINTS[dep])
 
 
 @graph.command("check-config")
 def check_config():
-    """Check whether the graph component is properly configured."""
+    """Show per-variable configuration detail for the graph component."""
+    from .configuration import print_config_check
+    print_config_check("graph")
+
+
+@graph.command("status-config")
+def status_config():
+    """Show graph configuration status (mirrors the doctor Config Status column)."""
     print_config_status("graph")
 
 

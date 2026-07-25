@@ -59,7 +59,14 @@ def convert():
 
 @convert.command("check-config")
 def check_config():
-    """Check whether the convert component is properly configured."""
+    """Show per-variable configuration detail for the convert component."""
+    from .configuration import print_config_check
+    print_config_check("convert")
+
+
+@convert.command("status-config")
+def status_config():
+    """Show convert configuration status (mirrors the doctor Config Status column)."""
     print_config_status("convert")
 
 
@@ -86,6 +93,36 @@ def hint_config():
         )
         return
     click.echo(click.style("no configuration required", fg="green"))
+
+
+@convert.command("check-availability")
+def check_availability():
+    """Show detailed convert availability (image name and build status)."""
+    built, msg = image_built()
+    image = _image_name()
+    label = click.style("built", fg="green") if built else click.style(msg, fg="yellow")
+    click.echo(f"  image   {image}")
+    click.echo(f"  status  {label}")
+
+
+@convert.command("status-availability")
+def status_availability():
+    """Show convert availability status (mirrors the doctor Status column)."""
+    built, msg = image_built()
+    if built:
+        click.echo(f"convert: {click.style('ok', fg='green')}")
+    else:
+        click.echo(f"convert: {click.style(msg, fg='yellow')}")
+
+
+@convert.command("hint-availability")
+def hint_availability():
+    """Show how to build the convert image if it is not built."""
+    built, _ = image_built()
+    if built:
+        click.echo(click.style("convert image is built", fg="green"))
+    else:
+        click.echo("run `jejune convert build`")
 
 
 @convert.command("build")
