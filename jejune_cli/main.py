@@ -165,12 +165,15 @@ def cli():
     load_env_files()
 
 
-@cli.command()
-def role():
-    """Show the detected role and the reason for it.
+@click.group(invoke_without_command=True, short_help="Show or list roles")
+@click.pass_context
+def role(ctx):
+    """Show the detected role, or use a subcommand.
 
     Role is inferred from the current directory. Override with JEJUNE_ROLE env var.
     """
+    if ctx.invoked_subcommand is not None:
+        return
     if _ACTIVE_ROLE:
         click.echo(f"role:   {click.style(_ACTIVE_ROLE, fg='cyan')}")
     else:
@@ -180,6 +183,15 @@ def role():
         click.echo(f"shows:  {', '.join(sorted(_ACTIVE_COMPONENTS))}")
     else:
         click.echo("shows:  all components")
+
+
+@role.command("list")
+def role_list():
+    """List all known roles with their detection indicator."""
+    from .role import ROLES, _ROLE_REASON
+    _W = max(len(r) for r in ROLES)
+    for r in ROLES:
+        click.echo(f"  {r:<{_W}}  {_ROLE_REASON.get(r, '')}")
 
 
 @cli.command()
@@ -249,70 +261,64 @@ def doctor():
     avail_rows = _build_avail_rows(avail_results, visible_components)
     failed_avail = [comp for comp, status, _, _ in avail_rows if status == "error"]
 
-    all_hints = list(_CONFIG_HINTS.values()) or [""]
-    all_avail_hints = list(_AVAIL_HINTS.values()) or [""]
     _CONFIG_NOTE = (
         "  Configuration files: .jejune/env-config · .jejune/env-secrets · .jejune/catalog.yaml"
     )
-    _W_HINT = max(len("Hint"), max(len(h) for h in all_hints))
-    _W_DIAG_HINT = max(len("Diagnostic hint"), max(len(h) for h in all_avail_hints))
-    sep = max(
+    all_hints = list(_CONFIG_HINTS.values()) or [""]
+    all_avail_hints = list(_AVAIL_HINTS.values()) or [""]
+    _W = max(
         len(_CONFIG_NOTE),
-        2 + _W_SECT + 1 + _W_MSG + 1 + _W_HINT,
-        2 + _W_SECT + 1 + _W_MSG + 1 + _W_DIAG_HINT,
+        2 + _W_SECT + 2 + _W_MSG + 2 + max(len(h) for h in all_hints + all_avail_hints),
+        88,
     )
 
     role_label = f" [{_ACTIVE_ROLE}]" if _ACTIVE_ROLE else ""
     click.echo(f"jejune doctor{role_label}")
-    click.echo("=" * sep)
-    click.echo()
 
     # ── Configuration ────────────────────────────────────────────────
-    if _ACTIVE_ROLE in (None, "doc-steward"):
-        click.echo(_CONFIG_NOTE)
-    print_config_table(config_rows)
+    click.echo(_section_sep("Configuration", _W))
+    click.echo()
+    note = _CONFIG_NOTE if _ACTIVE_ROLE in (None, "doc-steward") else None
+    print_config_table(config_rows, note=note)
     click.echo()
 
     # ── Availability ─────────────────────────────────────────────────
+    click.echo(_section_sep("Availability", _W))
     _print_avail_table(avail_rows, comp_header="Component availability", hint_header="Diagnostic hint")
 
     # ── Containers ───────────────────────────────────────────────────
-    click.echo("=" * sep)
+    click.echo(_section_sep("Containers", _W))
     containers.print_containers_table()
-    click.echo()
 
-    # ── Summary ──────────────────────────────────────────────────────
-    click.echo("=" * sep)
-    if not failed_config and not failed_avail:
-        click.echo(click.style("Your jejune workspace looks healthy.", fg="green"))
-    else:
+    # ── Issues ───────────────────────────────────────────────────────
+    if failed_config or failed_avail:
+        click.echo()
+        click.echo(_section_sep("Issues", _W))
         if failed_config:
             click.echo(click.style("Configuration issues:", fg="red"))
             click.echo()
-            _W = max(len(n) for n in failed_config)
-            _WH = max(
-                len(get_config_hint(n, "error", by_config[n][1])) for n in failed_config
-            )
+            _WN = max(len(n) for n in failed_config)
+            _WH = max(len(get_config_hint(n, "error", by_config[n][1])) for n in failed_config)
             for name in failed_config:
                 detail = by_config[name][1]
                 action = get_config_hint(name, "error", detail)
-                click.echo(
-                    f"  {click.style(f'{name:<{_W}}', fg='red')}  {action:<{_WH}}  [{detail}]"
-                )
+                click.echo(f"  {click.style(f'{name:<{_WN}}', fg='red')}  {action:<{_WH}}  [{detail}]")
         if failed_avail:
             if failed_config:
                 click.echo()
             click.echo(click.style("Availability issues:", fg="red"))
             click.echo()
-            _W = max(len(n) for n in failed_avail)
+            _WN = max(len(n) for n in failed_avail)
             _WH = max(len(_AVAIL_HINTS.get(n, "investigate")) for n in failed_avail)
             for name in failed_avail:
                 action = _AVAIL_HINTS.get(name, "investigate")
-                # dep-based components (e.g. graph) are not in by_avail
                 detail = by_avail[name][1] if name in by_avail else "dependency failed"
-                click.echo(
-                    f"  {click.style(f'{name:<{_W}}', fg='red')}  {action:<{_WH}}  [{detail}]"
-                )
+                click.echo(f"  {click.style(f'{name:<{_WN}}', fg='red')}  {action:<{_WH}}  [{detail}]")
+
+
+def _section_sep(title: str, width: int) -> str:
+    prefix = f"====== {title} "
+    return prefix + "=" * max(2, width - len(prefix))
 
 
 def _build_avail_rows(
@@ -328,7 +334,15 @@ def _build_avail_rows(
             if status == "ok":
                 rows.append((comp, status, "", ""))
             else:
-                rows.append((comp, status, msg, _AVAIL_HINTS.get(comp, "")))
+                hint = _AVAIL_HINTS.get(comp, "")
+                if not hint:
+                    deps = _COMPONENT_DEPS.get(comp, [])
+                    for dep in sorted(deps, key=lambda d: _STATUS_RANK.get(by_avail.get(d, ("ok",))[0], 0), reverse=True):
+                        if by_avail.get(dep, ("ok",))[0] != "ok":
+                            hint = _AVAIL_HINTS.get(dep, "")
+                            if hint:
+                                break
+                rows.append((comp, status, msg, hint))
         elif comp in _COMPONENT_DEPS:
             req = _COMPONENT_DEPS[comp]
             worst = max(

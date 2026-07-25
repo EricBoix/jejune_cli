@@ -38,19 +38,27 @@ _STATUS_DISPLAY: dict[str, tuple[str, str]] = {
 def print_config_table(
     rows: list[tuple[str, str, str, str]],
     hint_header: str = "Hint",
+    note: str | None = None,
 ) -> None:
-    """Render Component configuration | Status | Check | <hint_header> table."""
+    """Render Component configuration | Status | Check | <hint_header> table.
+
+    When *note* is given a bottom divider is added followed by the note line.
+    """
     if not rows:
         return
     _W_C = max(len("Component configuration"), max(len(r[0]) for r in rows))
     _W_S = max(len("Status"), max(len(_STATUS_DISPLAY.get(r[1], (r[1], ""))[0]) for r in rows))
     _W_K = max(len("Check"), max(len(r[2]) for r in rows))
     _W_H = max(len(hint_header), max(len(r[3]) for r in rows))
+    divider = "  " + "─" * (_W_C + 2 + _W_S + 2 + _W_K + 2 + _W_H)
     click.echo(f"  {'Component configuration':<{_W_C}}  {'Status':<{_W_S}}  {'Check':<{_W_K}}  {hint_header}")
-    click.echo("  " + "─" * (_W_C + 2 + _W_S + 2 + _W_K + 2 + _W_H))
+    click.echo(divider)
     for comp, status, check, hint in rows:
         text, fg = _STATUS_DISPLAY.get(status, (status, "white"))
         click.echo(f"  {comp:<{_W_C}}  {click.style(f'{text:<{_W_S}}', fg=fg)}  {check:<{_W_K}}  {hint}")
+    if note is not None:
+        click.echo(divider)
+        click.echo(note)
 
 
 def _convert_config_status() -> tuple[str, str]:

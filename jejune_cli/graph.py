@@ -72,17 +72,12 @@ graph.add_command(view)
 
 @graph.command("check-availability")
 def check_availability():
-    """Show detailed graph dependency status (colored per dependency)."""
-    deps = _graph_dep_statuses()
+    """Show graph availability status with optional-dep detail."""
+    ok, msg = graph_available()
+    status = click.style("ok", fg="green") if ok else click.style(msg, fg="red")
     lo_ok, _ = _llm_obs_running()
-
-    def _lbl(ok: bool, name: str, detail: str = "", fg_bad: str = "red") -> str:
-        colored = click.style(name, fg="green" if ok else fg_bad)
-        return f"{colored}: {detail}" if not ok and detail else colored
-
-    req = ", ".join(_lbl(ok, dep, msg) for dep, (ok, msg) in deps.items())
-    opt = f"({_lbl(lo_ok, 'llm-observability', fg_bad='yellow')} optional)"
-    click.echo(f"graph: {req} {opt}")
+    opt = click.style("llm-observability", fg="green" if lo_ok else "yellow")
+    click.echo(f"graph: {status}  ({opt} optional)")
 
 
 @graph.command("status-availability")
