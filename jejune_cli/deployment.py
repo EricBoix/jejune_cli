@@ -71,7 +71,7 @@ def check_config():
 
 @deployment.command("status-config")
 def status_config():
-    """Show deployment configuration status (mirrors the doctor Config Status column)."""
+    """Show deployment configuration status."""
     print_config_status("deployment")
 
 

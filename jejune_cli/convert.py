@@ -66,7 +66,7 @@ def check_config():
 
 @convert.command("status-config")
 def status_config():
-    """Show convert configuration status (mirrors the doctor Config Status column)."""
+    """Show convert configuration status."""
     print_config_status("convert")
 
 
@@ -107,7 +107,7 @@ def check_availability():
 
 @convert.command("status-availability")
 def status_availability():
-    """Show convert availability status (mirrors the doctor Status column)."""
+    """Show convert availability status."""
     built, msg = image_built()
     if built:
         click.echo(f"convert: {click.style('ok', fg='green')}")

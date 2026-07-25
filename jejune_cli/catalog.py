@@ -5,17 +5,7 @@ from pathlib import Path
 import yaml
 
 from ._env import dot_jejune  # noqa: F401 — re-exported for jejune_catalog plugin
-from .llm import (
-    DEFAULT_INFERENCE_PATH as _LLM_DEFAULT_INFERENCE_PATH,
-    infer_server_url as _infer_llm_server_url,
-    check_server as _check_llm_server,
-    check_auth as _check_llm_auth,
-    check_model as _check_llm_model,
-    check_inference_endpoint as _check_llm_inference_endpoint,
-    check_inference as _check_llm_inference,
-)
 from .convert import convert_configured as _convert_configured, image_built as _convert_image_built
-from .llm_observability import container_running as _llm_obs_running
 from .neo4j import container_running as _neo4j_running
 
 
@@ -246,34 +236,20 @@ def run_all(
         avail.append(("neo4j", "ok" if running else "warn", msg))
 
     if _visible("llm"):
-        url = (os.environ.get("LLM_MODEL_URL") or "").rstrip("/")
-        api_key = os.environ.get("LLM_API_KEY")
-        model = os.environ.get("LLM_MODEL_NAME")
-        if url and api_key and model:
-            explicit = os.environ.get("LLM_SERVER_URL")
-            server_url = explicit.rstrip("/") if explicit else _infer_llm_server_url(url)
-            inference_path = os.environ.get("LLM_INFERENCE_ENDPOINT", _LLM_DEFAULT_INFERENCE_PATH)
-            passed, msg = _check_llm_server(server_url)
-            if passed:
-                passed, msg = _check_llm_auth(server_url, api_key)
-            if passed:
-                passed, msg = _check_llm_model(server_url, api_key, model)
-            if passed:
-                passed, msg = _check_llm_inference_endpoint(url, api_key, inference_path)
-            if passed:
-                passed, msg = _check_llm_inference(url, api_key, model, inference_path)
-            avail.append(("llm", "ok" if passed else "error", msg))
-        else:
-            avail.append(("llm", "warn", "skipped"))
+        from .llm import llm_check_availability as _llm_check
+        ok, msg = _llm_check()
+        status = "ok" if ok else ("warn" if msg == "not configured" else "error")
+        avail.append(("llm", status, msg))
 
     if _visible("llm-observability"):
-        from .configuration import component_config_check as _ccc
-        lo_cfg_status, _ = _ccc("llm-observability")
-        if lo_cfg_status != "ok":
-            avail.append(("llm-observability", "warn", "not configured"))
-        else:
-            running, msg = _llm_obs_running()
-            avail.append(("llm-observability", "ok" if running else "warn", msg))
+        from .llm_observability import llm_observability_available as _lo_available
+        ok, msg = _lo_available()
+        avail.append(("llm-observability", "ok" if ok else "warn", msg))
+
+    if _visible("graph"):
+        from .graph import graph_available as _graph_available
+        ok, msg = _graph_available()
+        avail.append(("graph", "ok" if ok else "error", msg))
 
     if _visible("convert") and _convert_configured():
         built, msg = _convert_image_built()

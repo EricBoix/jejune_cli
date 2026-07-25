@@ -139,7 +139,7 @@ def check_config():
 
 @neo4j.command("status-config")
 def status_config():
-    """Show neo4j configuration status (mirrors the doctor Config Status column)."""
+    """Show neo4j configuration status."""
     print_config_status("neo4j")
 
 
@@ -165,7 +165,7 @@ def check_availability():
 
 @neo4j.command("status-availability")
 def status_availability():
-    """Show neo4j availability status (mirrors the doctor Status column)."""
+    """Show neo4j availability status."""
     cfg_status, _ = component_config_check("neo4j")
     if cfg_status != "ok":
         click.echo(f"neo4j: {click.style('not configured', fg='yellow')}")

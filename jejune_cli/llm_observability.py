@@ -24,6 +24,15 @@ def container_running() -> tuple[bool, str]:
     return True, "ok"
 
 
+def llm_observability_available() -> tuple[bool, str]:
+    """Config-guard + container check; consumed by catalog.run_all() and *-availability commands."""
+    from .configuration import component_config_check
+    cfg_status, _ = component_config_check("llm-observability")
+    if cfg_status != "ok":
+        return False, "not configured"
+    return container_running()
+
+
 @click.group("llm-observability", short_help="Manage the LLM observability backend")
 def llm_observability():
     """Manage the LLM observability backend (OTLP trace receiver)."""
@@ -38,7 +47,7 @@ def check_config():
 
 @llm_observability.command("status-config")
 def status_config():
-    """Show llm-observability configuration status (mirrors the doctor Config Status column)."""
+    """Show llm-observability configuration status."""
     print_config_status("llm-observability")
 
 
@@ -87,11 +96,12 @@ def stop():
 @llm_observability.command("check-availability")
 def check_availability():
     """Show detailed llm-observability availability (container state and endpoint reachability)."""
-    cfg_status, hint = component_config_check("llm-observability")
-    if cfg_status != "ok":
+    ok, msg = llm_observability_available()
+    if msg == "not configured":
+        _, hint = component_config_check("llm-observability")
         click.echo(f"  {click.style('not configured', fg='yellow')}  {hint}")
         return
-    running, _ = container_running()
+    running = ok
     url = os.environ.get("TRACELOOP_BASE_URL", f"http://localhost:{_OTLP_PORT}")
     try:
         with urllib.request.urlopen(url, timeout=5):
@@ -107,14 +117,12 @@ def check_availability():
 
 @llm_observability.command("status-availability")
 def status_availability():
-    """Show llm-observability availability status (mirrors the doctor Status column)."""
-    cfg_status, _ = component_config_check("llm-observability")
-    if cfg_status != "ok":
-        click.echo(f"llm-observability: {click.style('not configured', fg='yellow')}")
-        return
-    running, msg = container_running()
-    if running:
+    """Show llm-observability availability status."""
+    ok, msg = llm_observability_available()
+    if ok:
         click.echo(f"llm-observability: {click.style('ok', fg='green')}")
+    elif msg == "not configured":
+        click.echo(f"llm-observability: {click.style('not configured', fg='yellow')}")
     else:
         click.echo(f"llm-observability: {click.style(msg, fg='yellow')}")
 
@@ -122,12 +130,11 @@ def status_availability():
 @llm_observability.command("hint-availability")
 def hint_availability():
     """Show how to start llm-observability if it is not running."""
-    cfg_status, hint = component_config_check("llm-observability")
-    if cfg_status != "ok":
-        click.echo(hint or "configure TRACELOOP_BASE_URL in .jejune/env-config")
-        return
-    running, _ = container_running()
-    if running:
+    ok, msg = llm_observability_available()
+    if ok:
         click.echo(click.style("llm-observability is running", fg="green"))
+    elif msg == "not configured":
+        _, hint = component_config_check("llm-observability")
+        click.echo(hint or "configure TRACELOOP_BASE_URL in .jejune/env-config")
     else:
         click.echo("run `jejune llm-observability start`")

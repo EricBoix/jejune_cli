@@ -46,6 +46,19 @@ def _run(*cmd: str) -> None:
         raise SystemExit(result.returncode)
 
 
+def _graph_dep_statuses() -> dict[str, tuple[bool, str]]:
+    """Run required-dep checks once; shared by graph_available and *-availability commands."""
+    return {"neo4j": _neo4j_running(), "llm": _llm_available()}
+
+
+def graph_available() -> tuple[bool, str]:
+    """Return (ok, msg) for graph availability; consumed by catalog.run_all()."""
+    deps = _graph_dep_statuses()
+    if all(ok for ok, _ in deps.values()):
+        return True, "ok"
+    return False, "; ".join(f"{dep}: {msg}" for dep, (ok, msg) in deps.items() if not ok)
+
+
 @click.group(short_help="Build and export the knowledge graph")
 @click.pass_context
 def graph(ctx):
@@ -60,36 +73,30 @@ graph.add_command(view)
 @graph.command("check-availability")
 def check_availability():
     """Show detailed graph dependency status (colored per dependency)."""
-    def _lbl(ok: bool, name: str, fg_bad: str = "red") -> str:
-        return click.style(name, fg="green" if ok else fg_bad)
-    neo4j_ok, _ = _neo4j_running()
-    llm_ok, _ = _llm_available()
+    deps = _graph_dep_statuses()
     lo_ok, _ = _llm_obs_running()
-    req = f"{_lbl(neo4j_ok, 'neo4j')}, {_lbl(llm_ok, 'llm')}"
+
+    def _lbl(ok: bool, name: str, detail: str = "", fg_bad: str = "red") -> str:
+        colored = click.style(name, fg="green" if ok else fg_bad)
+        return f"{colored}: {detail}" if not ok and detail else colored
+
+    req = ", ".join(_lbl(ok, dep, msg) for dep, (ok, msg) in deps.items())
     opt = f"({_lbl(lo_ok, 'llm-observability', fg_bad='yellow')} optional)"
     click.echo(f"graph: {req} {opt}")
 
 
 @graph.command("status-availability")
 def status_availability():
-    """Show graph availability status (mirrors the doctor Status column)."""
-    neo4j_ok, _ = _neo4j_running()
-    llm_ok, _ = _llm_available()
-    if neo4j_ok and llm_ok:
-        click.echo(f"graph: {click.style('ok', fg='green')}")
-    else:
-        click.echo(f"graph: {click.style('dependency failed', fg='red')}")
+    """Show graph availability status."""
+    ok, _ = graph_available()
+    click.echo(f"graph: {click.style('ok', fg='green') if ok else click.style('error', fg='red')}")
 
 
 @graph.command("hint-availability")
 def hint_availability():
     """Show how to fix unavailable graph dependencies."""
-    neo4j_ok, _ = _neo4j_running()
-    llm_ok, _ = _llm_available()
-
-    dep_status = {"neo4j": neo4j_ok, "llm": llm_ok}
-    failing = [dep for dep, ok in dep_status.items() if not ok]
-
+    deps = _graph_dep_statuses()
+    failing = [dep for dep, (ok, _) in deps.items() if not ok]
     if not failing:
         click.echo(click.style("all graph dependencies are available", fg="green"))
         return
@@ -106,7 +113,7 @@ def check_config():
 
 @graph.command("status-config")
 def status_config():
-    """Show graph configuration status (mirrors the doctor Config Status column)."""
+    """Show graph configuration status."""
     print_config_status("graph")
 
 

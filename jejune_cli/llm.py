@@ -147,6 +147,38 @@ def llm_available() -> tuple[bool, str]:
     return check_auth(server_url, api_key)
 
 
+def _llm_check_context() -> tuple[str, str, str, str, str] | None:
+    """Resolve check parameters from env vars; return None when not fully configured."""
+    url = (os.environ.get("LLM_MODEL_URL") or "").rstrip("/")
+    api_key = os.environ.get("LLM_API_KEY") or ""
+    model = os.environ.get("LLM_MODEL_NAME") or ""
+    if not url or not api_key or not model:
+        return None
+    explicit = os.environ.get("LLM_SERVER_URL")
+    server_url = explicit.rstrip("/") if explicit else infer_server_url(url)
+    inference_path = os.environ.get("LLM_INFERENCE_ENDPOINT", DEFAULT_INFERENCE_PATH)
+    return url, api_key, model, server_url, inference_path
+
+
+def llm_check_availability() -> tuple[bool, str]:
+    """Full 5-step availability check; consumed by catalog.run_all() and *-availability commands."""
+    ctx = _llm_check_context()
+    if ctx is None:
+        return False, "not configured"
+    url, api_key, model, server_url, inference_path = ctx
+    for fn in (
+        lambda: check_server(server_url),
+        lambda: check_auth(server_url, api_key),
+        lambda: check_model(server_url, api_key, model),
+        lambda: check_inference_endpoint(url, api_key, inference_path),
+        lambda: check_inference(url, api_key, model, inference_path),
+    ):
+        passed, msg = fn()
+        if not passed:
+            return False, msg
+    return True, "ok"
+
+
 @click.group(short_help="Manage the LLM inference server")
 def llm():
     """Manage the LLM inference server."""
@@ -161,7 +193,7 @@ def check_config():
 
 @llm.command("status-config")
 def status_config():
-    """Show llm configuration status (mirrors the doctor Config Status column)."""
+    """Show llm configuration status."""
     print_config_status("llm")
 
 
@@ -178,23 +210,18 @@ def hint_config():
               help="Prompt sent to the LLM for the inference round-trip test.")
 def check_availability(prompt):
     """Show detailed llm availability (five-stage connectivity and inference check)."""
-    model_url      = (os.environ.get("LLM_MODEL_URL") or "").rstrip("/")
-    api_key        = os.environ.get("LLM_API_KEY")
-    model          = os.environ.get("LLM_MODEL_NAME")
-    explicit_server = os.environ.get("LLM_SERVER_URL")
-    server_url     = (explicit_server.rstrip("/") if explicit_server else infer_server_url(model_url))
-    inference_path = os.environ.get("LLM_INFERENCE_ENDPOINT", DEFAULT_INFERENCE_PATH)
-    missing = [n for n, v in [
-        ("LLM_MODEL_URL", model_url), ("LLM_API_KEY", api_key), ("LLM_MODEL_NAME", model)
-    ] if not v]
-    if missing:
+    ctx = _llm_check_context()
+    if ctx is None:
+        missing = [n for n in ("LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME")
+                   if not os.environ.get(n)]
         raise click.ClickException(f"Missing: {', '.join(missing)}")
+    url, api_key, model, server_url, inference_path = ctx
     steps = [
         ("HTTPS connectivity",    lambda: check_server(server_url)),
         ("API key",               lambda: check_auth(server_url, api_key)),
         ("Model exists",          lambda: check_model(server_url, api_key, model)),
-        ("Inference endpoint",    lambda: check_inference_endpoint(model_url, api_key, inference_path)),
-        ("Inference round-trip",  lambda: check_inference(model_url, api_key, model, inference_path, prompt)),
+        ("Inference endpoint",    lambda: check_inference_endpoint(url, api_key, inference_path)),
+        ("Inference round-trip",  lambda: check_inference(url, api_key, model, inference_path, prompt)),
     ]
     for i, (label, fn) in enumerate(steps, 1):
         click.echo(f"  [{i}/{len(steps)}] {label}... ", nl=False)
@@ -206,45 +233,24 @@ def check_availability(prompt):
 
 @llm.command("status-availability")
 def status_availability():
-    """Show llm availability status (mirrors the doctor Status column)."""
-    url     = (os.environ.get("LLM_MODEL_URL") or "").rstrip("/")
-    api_key = os.environ.get("LLM_API_KEY") or ""
-    model   = os.environ.get("LLM_MODEL_NAME") or ""
-    if not url or not api_key or not model:
+    """Show llm availability status."""
+    ok, msg = llm_check_availability()
+    if ok:
+        click.echo(f"llm: {click.style('ok', fg='green')}")
+    elif msg == "not configured":
         click.echo(f"llm: {click.style('not configured', fg='yellow')}")
-        return
-    explicit = os.environ.get("LLM_SERVER_URL")
-    server_url = explicit.rstrip("/") if explicit else infer_server_url(url)
-    inference_path = os.environ.get("LLM_INFERENCE_ENDPOINT", DEFAULT_INFERENCE_PATH)
-    for fn in (
-        lambda: check_server(server_url),
-        lambda: check_auth(server_url, api_key),
-        lambda: check_model(server_url, api_key, model),
-        lambda: check_inference_endpoint(url, api_key, inference_path),
-        lambda: check_inference(url, api_key, model, inference_path),
-    ):
-        passed, _ = fn()
-        if not passed:
-            click.echo(f"llm: {click.style('error', fg='red')}")
-            return
-    click.echo(f"llm: {click.style('ok', fg='green')}")
+    else:
+        click.echo(f"llm: {click.style('error', fg='red')}")
 
 
 @llm.command("hint-availability")
 def hint_availability():
     """Show how to fix the first failing LLM availability stage."""
-    import os as _os
-    url      = (_os.environ.get("LLM_MODEL_URL") or "").rstrip("/")
-    api_key  = _os.environ.get("LLM_API_KEY") or ""
-    model    = _os.environ.get("LLM_MODEL_NAME") or ""
-    explicit = _os.environ.get("LLM_SERVER_URL")
-    server_url = explicit.rstrip("/") if explicit else (infer_server_url(url) if url else "")
-    inference_path = _os.environ.get("LLM_INFERENCE_ENDPOINT", DEFAULT_INFERENCE_PATH)
-
-    if not url or not api_key or not model:
+    ctx = _llm_check_context()
+    if ctx is None:
         click.echo("edit .jejune/env-secrets: set LLM_MODEL_URL, LLM_API_KEY, LLM_MODEL_NAME")
         return
-
+    url, api_key, model, server_url, inference_path = ctx
     stages = [
         (lambda: check_server(server_url),
          "verify LLM_MODEL_URL / LLM_SERVER_URL is reachable from this host"),

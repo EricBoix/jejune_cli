@@ -13,6 +13,7 @@ from .configuration import (
     configuration,
     COMPONENT_CONFIG_HINTS as _CONFIG_HINTS,
     get_config_hint,
+    print_config_table,
 )
 from . import containers
 from .containers import containers_cli
@@ -40,8 +41,8 @@ _COMPONENTS = [
 _BUILTIN_COMPONENTS: frozenset[str] = frozenset(_COMPONENTS)
 
 # Help-section membership for built-in components.
-_ALL_ROLES_COMMANDS = ["doctor", "availability", "init", "role", "containers"]
-_DOC_STEWARD_COMPONENTS = ["configuration", "neo4j", "llm", "llm-observability", "graph", "convert"]
+_ALL_ROLES_COMMANDS = ["doctor", "configuration", "init", "role", "containers"]
+_DOC_STEWARD_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert"]
 _CURATOR_COMPONENTS = ["pdf-to-markdown"]   # + "collection" stage plugins
 _DEPLOYER_COMPONENTS = ["deployment"]       # + "extension" stage plugins
 
@@ -50,7 +51,6 @@ _W_SECT = max(17, len("Component configuration"))  # recomputed after _load_plug
 _W_MSG = 16  # "not configured" = 14
 
 _STATUS_RANK = {"error": 2, "warn": 1, "ok": 0}
-_STATUS_LABEL = {"ok": "ok", "warn": "not configured", "error": "error"}
 
 
 _AVAIL_HINTS: dict[str, str] = {
@@ -233,21 +233,24 @@ def doctor():
     by_config = {comp: (status, msg) for comp, status, msg in config_results}
     by_avail = {comp: (status, msg) for comp, status, msg in avail_results}
 
-    visible_components = [c for c in _COMPONENTS if _is_visible(c)]  # doctor stays role-scoped
+    visible_components = [c for c in _COMPONENTS if _is_visible(c)]
     for p in _REGISTRY:
         if _is_visible(p.name) and p.name not in visible_components:
             visible_components.append(p.name)
 
-    config_results = [
-        (comp,) + by_config.get(comp, ("ok", "ok")) for comp in visible_components
+    config_rows: list[tuple[str, str, str, str]] = [
+        (comp, status, msg if status == "error" else "", "" if status == "ok" else get_config_hint(comp, status, msg))
+        for comp, (status, msg) in [
+            (c, by_config.get(c, ("ok", "ok"))) for c in visible_components
+        ]
     ]
+    failed_config = [comp for comp, status, _, _ in config_rows if status == "error"]
 
-    failed_config: list[str] = []
-    failed_avail: list[str] = []
+    avail_rows = _build_avail_rows(avail_results, visible_components)
+    failed_avail = [comp for comp, status, _, _ in avail_rows if status == "error"]
 
     all_hints = list(_CONFIG_HINTS.values()) or [""]
     all_avail_hints = list(_AVAIL_HINTS.values()) or [""]
-
     _CONFIG_NOTE = (
         "  Configuration files: .jejune/env-config · .jejune/env-secrets · .jejune/catalog.yaml"
     )
@@ -258,44 +261,6 @@ def doctor():
         2 + _W_SECT + 1 + _W_MSG + 1 + _W_HINT,
         2 + _W_SECT + 1 + _W_MSG + 1 + _W_DIAG_HINT,
     )
-    divider = "  " + "─" * (sep - 2)
-
-    def _config_label(status: str) -> str:
-        text = _STATUS_LABEL[status]
-        fg = {"ok": "green", "warn": "yellow", "error": "red"}[status]
-        return click.style(f"{text:<{_W_MSG}}", fg=fg)
-
-    def _avail_label(status: str, msg: str) -> str:
-        text = "error" if status == "error" else msg
-        fg = {"ok": "green", "warn": "yellow", "error": "red"}[status]
-        return click.style(f"{text:<{_W_MSG}}", fg=fg)
-
-    def _comp_status(comp: str) -> str:
-        cs = by_config.get(comp, ("ok", ""))[0]
-        av = by_avail.get(comp, ("ok", ""))[0]
-        return max(cs, av, key=lambda s: _STATUS_RANK.get(s, 0))
-
-    def _effective_status(comp: str) -> str:
-        statuses = [_comp_status(comp)] + [
-            _comp_status(dep) for dep in _COMPONENT_DEPS.get(comp, [])
-        ]
-        return max(statuses, key=lambda s: _STATUS_RANK.get(s, 0))
-
-    def _deps_colored(comp: str) -> str:
-        req = _COMPONENT_DEPS.get(comp, [])
-        opt = _COMPONENT_OPTIONAL_DEPS.get(comp, [])
-        req_parts = [
-            click.style(dep, fg="green" if _comp_status(dep) == "ok" else "red")
-            for dep in req
-        ]
-        result = ", ".join(req_parts)
-        if opt:
-            opt_parts = [
-                click.style(dep, fg="green" if _comp_status(dep) == "ok" else "yellow")
-                for dep in opt
-            ]
-            result += f" ({', '.join(opt_parts)} optional)"
-        return result
 
     role_label = f" [{_ACTIVE_ROLE}]" if _ACTIVE_ROLE else ""
     click.echo(f"jejune doctor{role_label}")
@@ -305,43 +270,11 @@ def doctor():
     # ── Configuration ────────────────────────────────────────────────
     if _ACTIVE_ROLE in (None, "doc-steward"):
         click.echo(_CONFIG_NOTE)
-    click.echo(f"  {'Component configuration':<{_W_SECT}} {'Status':<{_W_MSG}} Hint")
-    click.echo(divider)
-    for comp, status, msg in config_results:
-        if status == "error":
-            failed_config.append(comp)
-        hint = "" if status == "ok" else get_config_hint(comp, status, msg)
-        click.echo(f"  {comp:<{_W_SECT}} {_config_label(status)} {hint}")
+    print_config_table(config_rows)
     click.echo()
 
-    # ── Component availability (leaf components + dep-based components merged) ──
-    visible_deps = {c for c in _COMPONENT_DEPS if _is_visible(c)}
-    all_visible = [c for c in _COMPONENTS if _is_visible(c)]
-    for p in _REGISTRY:
-        if _is_visible(p.name) and p.name not in all_visible:
-            all_visible.append(p.name)
-
-    click.echo(f"  {'Component availability':<{_W_SECT}} {'Status':<{_W_MSG}} Diagnostic hint")
-    click.echo(divider)
-    for comp in all_visible:
-        if comp in visible_deps:
-            eff = _effective_status(comp)
-            if eff == "error":
-                failed_avail.append(comp)
-            click.echo(f"  {comp:<{_W_SECT}} {_config_label(eff)} {_deps_colored(comp)}")
-        elif comp in by_avail:
-            status, msg = by_avail[comp]
-            if status == "error":
-                failed_avail.append(comp)
-            if msg == "not configured":
-                hint = "Refer above to configuration hint"
-            elif status == "error":
-                hint = _AVAIL_HINTS.get(comp, msg)
-            elif msg in ("not started", "not built"):
-                hint = _AVAIL_HINTS.get(comp, "")
-            else:
-                hint = ""
-            click.echo(f"  {comp:<{_W_SECT}} {_avail_label(status, msg)} {hint}")
+    # ── Availability ─────────────────────────────────────────────────
+    _print_avail_table(avail_rows, comp_header="Component availability", hint_header="Diagnostic hint")
 
     # ── Containers ───────────────────────────────────────────────────
     click.echo("=" * sep)
@@ -382,59 +315,117 @@ def doctor():
                 )
 
 
-@click.group(short_help="Availability checks for jejune components")
-def availability():
-    """Availability checks for jejune components."""
-
-
-@availability.command("summary")
-def _availability_summary():
-    """Display component availability as a four-column table.
-
-    Columns: Component | Status | Check | Hint
-    """
-    _, avail_results = run_all(components=_ACTIVE_COMPONENTS)
+def _build_avail_rows(
+    avail_results: list[tuple[str, str, str]],
+    all_visible: list[str],
+) -> list[tuple[str, str, str, str]]:
+    """Build (comp, status, check, hint) rows for the availability table."""
     by_avail = {comp: (status, msg) for comp, status, msg in avail_results}
-
-    all_visible = [c for c in _COMPONENTS if _is_visible(c)]
-    for p in _REGISTRY:
-        if _is_visible(p.name) and p.name not in all_visible:
-            all_visible.append(p.name)
-
     rows: list[tuple[str, str, str, str]] = []
     for comp in all_visible:
-        if comp in _COMPONENT_DEPS:
+        if comp in by_avail:
+            status, msg = by_avail[comp]
+            if status == "ok":
+                rows.append((comp, status, "", ""))
+            else:
+                rows.append((comp, status, msg, _AVAIL_HINTS.get(comp, "")))
+        elif comp in _COMPONENT_DEPS:
             req = _COMPONENT_DEPS[comp]
             worst = max(
                 (by_avail.get(dep, ("ok", ""))[0] for dep in req),
                 key=lambda s: _STATUS_RANK.get(s, 0),
                 default="ok",
             )
-            rows.append((comp, worst, "deps: " + ", ".join(req), ""))
-        elif comp in by_avail:
-            status, msg = by_avail[comp]
-            hint = _AVAIL_HINTS.get(comp, "") if status != "ok" else ""
-            rows.append((comp, status, msg, hint))
+            failing = [dep for dep in req if by_avail.get(dep, ("ok", ""))[0] != "ok"]
+            check = "" if worst == "ok" else "deps: " + ", ".join(failing)
+            rows.append((comp, worst, check, ""))
+    return rows
 
+
+def _print_avail_table(
+    rows: list[tuple[str, str, str, str]],
+    comp_header: str = "Component",
+    hint_header: str = "Hint",
+) -> None:
+    """Render Component | Status | Check | <hint_header> availability table."""
     if not rows:
-        click.echo(click.style("No availability data for the current role.", fg="yellow"))
         return
-
-    _W_C = max(len("Component"), max(len(r[0]) for r in rows))
+    _W_C = max(len(comp_header), max(len(r[0]) for r in rows))
     _W_S = max(len("Status"), max(len(r[1]) for r in rows))
     _W_K = max(len("Check"), max(len(r[2]) for r in rows))
-
+    _W_H = max(len(hint_header), max(len(r[3]) for r in rows))
     _STATUS_FG = {"ok": "green", "warn": "yellow", "error": "red"}
-
-    click.echo(f"  {'Component':<{_W_C}}  {'Status':<{_W_S}}  {'Check':<{_W_K}}  Hint")
-    click.echo("  " + "─" * (_W_C + 2 + _W_S + 2 + _W_K + 2 + len("Hint")))
-
+    click.echo(f"  {comp_header:<{_W_C}}  {'Status':<{_W_S}}  {'Check':<{_W_K}}  {hint_header}")
+    click.echo("  " + "─" * (_W_C + 2 + _W_S + 2 + _W_K + 2 + _W_H))
     for comp, status, check, hint in rows:
         status_cell = click.style(f"{status:<{_W_S}}", fg=_STATUS_FG.get(status, "white"))
         click.echo(f"  {comp:<{_W_C}}  {status_cell}  {check:<{_W_K}}  {hint}")
 
 
+def _avail_all_visible() -> list[str]:
+    result = [c for c in _COMPONENTS if _is_visible(c)]
+    for p in _REGISTRY:
+        if _is_visible(p.name) and p.name not in result:
+            result.append(p.name)
+    return result
+
+
+@click.command("check-availability")
+def _config_check_availability():
+    """Cross-component availability check (Component | Status | Check | Hint)."""
+    _, avail_results = run_all(components=_ACTIVE_COMPONENTS)
+    rows = _build_avail_rows(avail_results, _avail_all_visible())
+    if not rows:
+        click.echo(click.style("No availability data for the current role.", fg="yellow"))
+        return
+    _print_avail_table(rows)
+
+
+@click.command("status-availability")
+def _config_status_availability():
+    """Per-component availability status (Component | Status)."""
+    _, avail_results = run_all(components=_ACTIVE_COMPONENTS)
+    rows = _build_avail_rows(avail_results, _avail_all_visible())
+    if not rows:
+        click.echo(click.style("No availability data for the current role.", fg="yellow"))
+        return
+    _W_C = max(len("Component"), max(len(r[0]) for r in rows))
+    _W_S = max(len("Status"), max(len(r[1]) for r in rows))
+    _STATUS_FG = {"ok": "green", "warn": "yellow", "error": "red"}
+    click.echo(f"  {'Component':<{_W_C}}  Status")
+    click.echo("  " + "─" * (_W_C + 2 + _W_S))
+    for comp, status, _, _ in rows:
+        click.echo(f"  {comp:<{_W_C}}  {click.style(status, fg=_STATUS_FG.get(status, 'white'))}")
+
+
+@click.command("hint-availability")
+def _config_hint_availability():
+    """Availability hints for non-ok components (Component | Hint)."""
+    _, avail_results = run_all(components=_ACTIVE_COMPONENTS)
+    rows = [(comp, hint) for comp, _, _, hint in _build_avail_rows(avail_results, _avail_all_visible()) if hint]
+    if not rows:
+        click.echo(click.style("All components available.", fg="green"))
+        return
+    _W_C = max(len("Component"), max(len(r[0]) for r in rows))
+    _W_H = max(len("Hint"), max(len(r[1]) for r in rows))
+    click.echo(f"  {'Component':<{_W_C}}  Hint")
+    click.echo("  " + "─" * (_W_C + 2 + _W_H))
+    for comp, hint in rows:
+        click.echo(f"  {comp:<{_W_C}}  {hint}")
+
+
+@click.group(short_help="Availability checks for jejune components")
+def availability():
+    """Availability checks for jejune components."""
+
+
+availability.add_command(_config_check_availability, "summary")
+
+
 cli.add_command(configuration)
+configuration.add_command(_config_check_availability)
+configuration.add_command(_config_status_availability)
+configuration.add_command(_config_hint_availability)
 cli.add_command(containers_cli)
 cli.add_command(neo4j)
 cli.add_command(llm)
