@@ -11,7 +11,7 @@ from pathlib import Path
 ROLES = ("doc-steward", "catalog-curator", "deployer")
 
 _ROLE_COMPONENTS: dict[str, frozenset[str]] = {
-    "doc-steward":     frozenset({"neo4j", "llm", "llm-observability", "graph", "convert"}),
+    "doc-steward":     frozenset({"configuration", "neo4j", "llm", "llm-observability", "graph", "convert"}),
     "catalog-curator": frozenset({"catalog"}),
     # "deployment" = built-in; UI service names come from installed check/ plugins.
     "deployer":        frozenset({"deployment", "docs-server", "kg-viewer", "md-browser"}),

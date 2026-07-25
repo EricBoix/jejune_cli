@@ -40,8 +40,8 @@ _COMPONENTS = [
 _BUILTIN_COMPONENTS: frozenset[str] = frozenset(_COMPONENTS)
 
 # Help-section membership for built-in components.
-_SHARED_COMPONENTS = ["configuration", "containers"]
-_SINGLE_DOC_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert"]
+_ALL_ROLES_COMMANDS = ["doctor", "init", "role", "containers"]
+_SINGLE_DOC_COMPONENTS = ["configuration", "neo4j", "llm", "llm-observability", "graph", "convert"]
 _COLLECTION_COMPONENTS = ["deployment", "pdf-to-markdown"]
 
 
@@ -90,17 +90,23 @@ class _JejuneGroup(click.Group):
             "convert": convert_configured,
         }
 
+        def _row(name: str) -> tuple[str, str] | None:
+            guard = _hidden_unless_configured.get(name)
+            if guard is not None and not guard():
+                return None
+            cmd = self.get_command(ctx, name)
+            if cmd and not cmd.hidden:
+                return (f"jejune {name}", cmd.get_short_help_str(limit=formatter.width))
+            return None
+
         def _rows(names: list[str]) -> list[tuple[str, str]]:
             result = []
             for name in names:
                 if not _is_visible(name):
                     continue
-                guard = _hidden_unless_configured.get(name)
-                if guard is not None and not guard():
-                    continue
-                cmd = self.get_command(ctx, name)
-                if cmd and not cmd.hidden:
-                    result.append((f"jejune {name}", cmd.get_short_help_str(limit=formatter.width)))
+                r = _row(name)
+                if r:
+                    result.append(r)
             return result
 
         def _plugin_rows(stage: str) -> list[tuple[str, str]]:
@@ -109,36 +115,20 @@ class _JejuneGroup(click.Group):
                 for p in _REGISTRY if p.stage == stage and _is_visible(p.name)
             ]
 
-        # Uncategorized commands (e.g. doctor, role, init).
-        categorized = (
-            _BUILTIN_COMPONENTS
-            | set(_SHARED_COMPONENTS)
-            | {p.name for p in _REGISTRY}
-        )
-        other = [
-            (name, self.get_command(ctx, name).get_short_help_str(limit=formatter.width))
-            for name in self.list_commands(ctx)
-            if name not in categorized
-            and self.get_command(ctx, name) is not None
-            and not self.get_command(ctx, name).hidden
-        ]
-        if other:
-            with formatter.section("Commands"):
-                formatter.write_dl(other)
-
-        shared = _rows(_SHARED_COMPONENTS)
-        if shared:
-            with formatter.section("Shared (single-document and collection-level)"):
-                formatter.write_dl(shared)
+        # "For all roles" — always shown, regardless of active role.
+        all_roles = [r for name in _ALL_ROLES_COMMANDS if (r := _row(name))]
+        if all_roles:
+            with formatter.section("For all roles"):
+                formatter.write_dl(all_roles)
 
         single_doc = _rows(_SINGLE_DOC_COMPONENTS) + _plugin_rows("single-document")
         if single_doc:
-            with formatter.section("Single-document commands (jj_doc_<name> repository)"):
+            with formatter.section("Single-document commands (doc-steward)"):
                 formatter.write_dl(single_doc)
 
         collection = _rows(_COLLECTION_COMPONENTS) + _plugin_rows("collection")
         if collection:
-            with formatter.section("Collection-level commands (catalog of repositories)"):
+            with formatter.section("Collection-level commands"):
                 formatter.write_dl(collection)
 
         extension = _plugin_rows("extension")
