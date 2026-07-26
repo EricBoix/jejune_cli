@@ -1,32 +1,36 @@
-import shutil
+"""Shared configuration utilities and the `jejune configuration` command group."""
+
+import os
 from pathlib import Path
 
 import click
 
-from ._env import dot_jejune
+from .configuration_doc_steward import (
+    CONFIG_GROUPS as _DS_CONFIG_GROUPS,
+    COMPONENT_CONFIG_HINTS as _DS_HINTS,
+    init,
+)
+from .configuration_catalog_curator import (
+    CONFIG_GROUPS as _CC_CONFIG_GROUPS,
+    COMPONENT_CONFIG_HINTS as _CC_HINTS,
+)
+from .configuration_deployer import (
+    CONFIG_GROUPS as _DEP_CONFIG_GROUPS,
+    COMPONENT_CONFIG_HINTS as _DEP_HINTS,
+)
 
-_TEMPLATES = Path(__file__).parent / "templates" / "doc-steward"
-_PLACEHOLDER = "_CHANGE_ME"
-
-# Config groups: name → (env vars, components that require them).
-# "warn" (yellow) = none set — use case not configured, valid.
-# "error" (red)   = partial or placeholder — needs attention.
 CONFIG_GROUPS: dict[str, tuple[list[str], str]] = {
-    "neo4j":            (["NEO4J_PASSWORD"],                                  "neo4j, graph dump-turtle, graph extract"),
-    "llm":              (["LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"], "graph extract"),
-    "llm-observability":(["TRACELOOP_BASE_URL"],                              "graph extract (tracing)"),
-    "convert":          (["CONVERT_DOC_DIR"],                                 "convert build, convert run"),
+    **_DS_CONFIG_GROUPS,
+    **_CC_CONFIG_GROUPS,
+    **_DEP_CONFIG_GROUPS,
 }
-
-
-# Hints shown when a component's configuration is incomplete.
 COMPONENT_CONFIG_HINTS: dict[str, str] = {
-    "neo4j":             "edit .jejune/env-secrets or .jejune/env-config",
-    "llm":               "edit .jejune/env-secrets",
-    "llm-observability": "configure TRACELOOP_BASE_URL in .jejune/env-config",
-    "convert":           "set CONVERT_DOC_DIR in .jejune/env-config",
+    **_DS_HINTS,
+    **_CC_HINTS,
+    **_DEP_HINTS,
 }
 
+_PLACEHOLDER = "_CHANGE_ME"
 
 _STATUS_DISPLAY: dict[str, tuple[str, str]] = {
     "ok":    ("ok",             "green"),
@@ -63,12 +67,10 @@ def print_config_table(
 
 def _convert_config_status() -> tuple[str, str]:
     """Return (status, raw_msg) for convert configuration."""
-    import os
-    from pathlib import Path as _Path
     val = os.environ.get("CONVERT_DOC_DIR")
     if not val or _PLACEHOLDER in val:
         return "warn", "CONVERT_DOC_DIR not configured"
-    p = _Path(val)
+    p = Path(val)
     if p.is_file():
         if not p.exists():
             return "error", f"Dockerfile not found at {p.resolve()}"
@@ -84,13 +86,12 @@ def component_config_check(component: str) -> tuple[str, str]:
 
     For components with no required env vars the status is always "ok".
     """
-    import os
     if component == "convert":
         status, msg = _convert_config_status()
         if status == "ok":
             return "ok", ""
         if status == "error":
-            return status, msg  # specific: "DockerContext not found at <path>"
+            return status, msg
         return status, get_config_hint("convert", status, msg)
     if component not in CONFIG_GROUPS:
         return "ok", ""
@@ -99,14 +100,13 @@ def component_config_check(component: str) -> tuple[str, str]:
     return status, get_config_hint(component, status, msg)
 
 
-def get_config_hint(component: str, status: str, message: str) -> str:
-    """Return the precise configuration hint given a component's status and message."""
+def get_config_hint(component: str, status: str, message: str) -> str:  # noqa: ARG001
+    """Return the configuration hint for a component given its status."""
     return COMPONENT_CONFIG_HINTS.get(component, "")
 
 
 def print_config_check(component: str) -> None:
     """Print detailed per-variable config check for a component."""
-    import os
     if component not in CONFIG_GROUPS:
         click.echo(click.style("no configuration required", fg="green"))
         return
@@ -154,7 +154,6 @@ def check_config_group(keys: list[str]) -> tuple[str, str]:
     status is "ok", "warn" (none set — use case not configured), or "error"
     (partial or placeholder values present).
     """
-    import os
     states: list[tuple[str, str]] = []
     for key in keys:
         val = os.environ.get(key)
@@ -178,41 +177,7 @@ def configuration():
     """Manage the .jejune/ configuration (env-config, env-secrets, catalog.yaml)."""
 
 
-@configuration.command("init")
-def init():
-    """Write jejune scaffold files into .jejune/ in the current directory.
-
-    Creates .jejune/env-config, .jejune/env-secrets, and
-    .jejune/catalog.yaml from built-in templates.
-    Adds .jejune to .gitignore so the whole directory stays local by default.
-    """
-    d = dot_jejune()
-    d.mkdir(exist_ok=True)
-
-    created = []
-    skipped = []
-    for fname in ("env-config", "env-secrets", "catalog.yaml"):
-        dst = d / fname
-        if dst.exists():
-            skipped.append(fname)
-        else:
-            shutil.copy2(_TEMPLATES / fname, dst)
-            created.append(fname)
-
-    for f in created:
-        click.echo(click.style(f"  created  .jejune/{f}", fg="green"))
-    for f in skipped:
-        click.echo(click.style(f"  skipped  .jejune/{f} (already exists)", fg="yellow"))
-
-    gitignore = Path.cwd() / ".gitignore"
-    entry = ".jejune\n"
-    if not gitignore.exists() or ".jejune" not in gitignore.read_text().splitlines():
-        with gitignore.open("a") as fh:
-            fh.write(entry)
-        click.echo(click.style("  updated  .gitignore (.jejune)", fg="green"))
-
-    click.echo()
-    click.echo("Next step: edit .jejune/env-secrets with your credentials.")
+configuration.add_command(init)
 
 
 @configuration.command("check-config")

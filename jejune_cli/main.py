@@ -205,17 +205,16 @@ def init(name):
     catalog-curator: not yet implemented
     (no role)      : creates .jejune/ scaffold
     """
-    from .configuration import init as _steward_init
-    from .ui_deployment import ui_configure
+    from .configuration_doc_steward import init as _steward_init
+    from .configuration_catalog_curator import init as _curator_init
+    from .configuration_deployer import init as _deployer_init
 
+    ctx = click.get_current_context()
     if _ACTIVE_ROLE == "deployer":
-        if not name:
-            raise click.UsageError("NAME is required for the deployer role.")
-        ui_configure.invoke(click.get_current_context(), deployments_dir=".", name=name)
+        ctx.invoke(_deployer_init, name=name)
     elif _ACTIVE_ROLE == "catalog-curator":
-        click.echo(click.style("Catalog Curator init: not yet implemented.", fg="yellow"))
+        ctx.invoke(_curator_init)
     else:
-        ctx = click.get_current_context()
         ctx.invoke(_steward_init)
 
 
