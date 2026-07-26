@@ -5,7 +5,7 @@ import click
 
 from ._env import dot_jejune
 
-_TEMPLATES = Path(__file__).parent / "templates"
+_TEMPLATES = Path(__file__).parent / "templates" / "doc-steward"
 _PLACEHOLDER = "_CHANGE_ME"
 
 # Config groups: name → (env vars, components that require them).

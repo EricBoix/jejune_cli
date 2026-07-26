@@ -8,12 +8,14 @@ from ._env import dot_jejune
 from .configuration import print_config_hint, print_config_status
 
 _TEMPLATES = Path(__file__).parent / "templates"
+_T_DEPLOYER = _TEMPLATES / "deployer"
+_T_DOC_STEWARD = _TEMPLATES / "doc-steward"
 
 
 def _catalog_ref() -> Path:
-    """Return the catalog-reference.yaml to use: local .jejune/ if present, else built-in template."""
+    """Return the catalog seed: local .jejune/ if present, else built-in template."""
     local = dot_jejune() / "catalog.yaml"
-    return local if local.exists() else _TEMPLATES / "catalog.yaml"
+    return local if local.exists() else _T_DOC_STEWARD / "catalog.yaml"
 
 
 def _do_bootstrap(deployments_dir: Path, deploy_name: str) -> None:
@@ -27,13 +29,8 @@ def _do_bootstrap(deployments_dir: Path, deploy_name: str) -> None:
     deploy_dir.mkdir(parents=True)
 
     shutil.copy(_catalog_ref(), deploy_dir / "catalog.yaml")
-
-    (deploy_dir / "deployment.env").write_text("JJ_CATALOG=./catalog.yaml\n")
-
-    (deploy_dir / "secrets.env").write_text(
-        "# Per-developer secrets — never commit this file.\n"
-        "JEJUNE_ROOT_DIR=/absolute/path/to/local/clones_CHANGE_ME\n"
-    )
+    shutil.copy(_T_DEPLOYER / "deployment.env", deploy_dir / "deployment.env")
+    shutil.copy(_T_DEPLOYER / "secrets.env", deploy_dir / "secrets.env")
 
     gitignore = deployments_dir / ".gitignore"
     entry = "**/secrets.env\n"

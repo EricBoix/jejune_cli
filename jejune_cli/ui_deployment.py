@@ -9,6 +9,7 @@ import click
 import yaml
 
 _TEMPLATES = Path(__file__).parent / "templates"
+_T_UI = _TEMPLATES / "ui-deployer"
 
 
 # ---------------------------------------------------------------------------
@@ -118,19 +119,16 @@ def ui_configure(deployments_dir, name):
         shutil.copy(full_catalog, deploy_dir / "catalog.yaml")
         click.echo(f"Seeded catalog.yaml from {full_catalog}")
     else:
-        shutil.copy(_TEMPLATES / "ui-catalog-reference.yaml", deploy_dir / "catalog.yaml")
+        shutil.copy(_T_UI / "catalog.yaml", deploy_dir / "catalog.yaml")
         click.echo("Seeded catalog.yaml from built-in template — populate manually.")
 
     has_private = _has_private_repos(deploy_dir / "catalog.yaml")
     (deploy_dir / "docker-compose.yml").write_text(_docker_compose_content(has_private))
-    shutil.copy(_TEMPLATES / "ui-deployment.env", deploy_dir / "deployment.env")
+    shutil.copy(_T_UI / "deployment.env", deploy_dir / "deployment.env")
 
     if has_private:
         (deploy_dir / ".gitignore").write_text("secrets.env\n")
-        (deploy_dir / "secrets.env.template").write_text(
-            "# Copy to secrets.env (gitignored) and fill in:\n"
-            "GH_TOKEN_FILE=~/.github_token\n"
-        )
+        shutil.copy(_T_UI / "secrets.env.template", deploy_dir / "secrets.env.template")
 
     click.echo(f"Created {deploy_dir}")
     click.echo()
