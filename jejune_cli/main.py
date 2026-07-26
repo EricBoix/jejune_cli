@@ -14,6 +14,7 @@ from .configuration import (
     COMPONENT_CONFIG_HINTS as _CONFIG_HINTS,
     get_config_hint,
     print_config_table,
+    print_two_col_table,
 )
 from . import containers
 from .containers import containers_cli
@@ -51,6 +52,7 @@ _W_SECT = max(17, len("Component configuration"))  # recomputed after _load_plug
 _W_MSG = 16  # "not configured" = 14
 
 _STATUS_RANK = {"error": 2, "warn": 1, "ok": 0}
+_STATUS_FG = {"ok": "green", "warn": "yellow", "error": "red"}
 
 
 _AVAIL_HINTS: dict[str, str] = {
@@ -344,7 +346,6 @@ def _print_avail_table(
     _W_S = max(len("Status"), max(len(r[1]) for r in rows))
     _W_K = max(len("Check"), max(len(r[2]) for r in rows))
     _W_H = max(len(hint_header), max(len(r[3]) for r in rows))
-    _STATUS_FG = {"ok": "green", "warn": "yellow", "error": "red"}
     click.echo(f"  {comp_header:<{_W_C}}  {'Status':<{_W_S}}  {'Check':<{_W_K}}  {hint_header}")
     click.echo("  " + "─" * (_W_C + 2 + _W_S + 2 + _W_K + 2 + _W_H))
     for comp, status, check, hint in rows:
@@ -362,46 +363,37 @@ def _avail_all_visible() -> list[str]:
 
 @click.command("check-availability")
 def _config_check_availability():
-    """Cross-component availability check (Component | Status | Check | Hint)."""
+    """Per-component availability diagnostic."""
     _, avail_results = run_all(components=_ACTIVE_COMPONENTS)
     rows = _build_avail_rows(avail_results, _avail_all_visible())
     if not rows:
         click.echo(click.style("No availability data for the current role.", fg="yellow"))
         return
-    _print_avail_table(rows)
+    styled = [(click.style(comp, fg=_STATUS_FG.get(status, "white")), check) for comp, status, check, _ in rows]
+    print_two_col_table(styled, "Component", "Check")
 
 
 @click.command("status-availability")
 def _config_status_availability():
-    """Per-component availability status (Component | Status)."""
+    """Per-component availability status."""
     _, avail_results = run_all(components=_ACTIVE_COMPONENTS)
     rows = _build_avail_rows(avail_results, _avail_all_visible())
     if not rows:
         click.echo(click.style("No availability data for the current role.", fg="yellow"))
         return
-    _W_C = max(len("Component"), max(len(r[0]) for r in rows))
-    _W_S = max(len("Status"), max(len(r[1]) for r in rows))
-    _STATUS_FG = {"ok": "green", "warn": "yellow", "error": "red"}
-    click.echo(f"  {'Component':<{_W_C}}  Status")
-    click.echo("  " + "─" * (_W_C + 2 + _W_S))
-    for comp, status, _, _ in rows:
-        click.echo(f"  {comp:<{_W_C}}  {click.style(status, fg=_STATUS_FG.get(status, 'white'))}")
+    styled = [(comp, click.style(status, fg=_STATUS_FG.get(status, "white"))) for comp, status, _, _ in rows]
+    print_two_col_table(styled, "Component", "Status")
 
 
 @click.command("hint-availability")
 def _config_hint_availability():
-    """Availability hints for non-ok components (Component | Hint)."""
+    """Availability hints for non-ok components."""
     _, avail_results = run_all(components=_ACTIVE_COMPONENTS)
     rows = [(comp, hint) for comp, _, _, hint in _build_avail_rows(avail_results, _avail_all_visible()) if hint]
     if not rows:
         click.echo(click.style("All components available.", fg="green"))
         return
-    _W_C = max(len("Component"), max(len(r[0]) for r in rows))
-    _W_H = max(len("Hint"), max(len(r[1]) for r in rows))
-    click.echo(f"  {'Component':<{_W_C}}  Hint")
-    click.echo("  " + "─" * (_W_C + 2 + _W_H))
-    for comp, hint in rows:
-        click.echo(f"  {comp:<{_W_C}}  {hint}")
+    print_two_col_table(rows, "Component", "Hint")
 
 
 @click.group(short_help="Availability checks for jejune components")

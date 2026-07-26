@@ -67,6 +67,17 @@ def print_config_table(
         click.echo(note)
 
 
+def print_two_col_table(rows: list[tuple[str, str]], col1: str, col2: str) -> None:
+    """Render a two-column table; rows may contain pre-styled strings."""
+    _W_C = max(len(col1), max(len(click.unstyle(r[0])) for r in rows))
+    _W_V = max(len(col2), max(len(click.unstyle(r[1])) for r in rows))
+    click.echo(f"  {col1:<{_W_C}}  {col2}")
+    click.echo("  " + "─" * (_W_C + 2 + _W_V))
+    for c, v in rows:
+        pad = " " * (_W_C - len(click.unstyle(c)))
+        click.echo(f"  {c}{pad}  {v}")
+
+
 def _convert_config_status() -> tuple[str, str]:
     """Return (status, raw_msg) for convert configuration."""
     val = os.environ.get("CONVERT_DOC_DIR")
@@ -276,24 +287,22 @@ def _role_groups() -> dict:
 
 @configuration.command("status-config")
 def configuration_status():
-    """Per-component configuration status (Component | Status)."""
+    """Per-component configuration status."""
     groups = _role_groups()
     if not groups:
         click.echo(click.style("no configuration required for the current role", fg="green"))
         return
-    rows = [(group, check_config_group(keys)[0]) for group, (keys, _) in groups.items()]
-    _W_C = max(len("Component configuration"), max(len(r[0]) for r in rows))
-    _W_S = max(len("Status"), max(len(_STATUS_DISPLAY.get(r[1], (r[1], ""))[0]) for r in rows))
-    click.echo(f"  {'Component configuration':<{_W_C}}  Status")
-    click.echo("  " + "─" * (_W_C + 2 + _W_S))
-    for comp, st in rows:
-        text, fg = _STATUS_DISPLAY.get(st, (st, "white"))
-        click.echo(f"  {comp:<{_W_C}}  {click.style(text, fg=fg)}")
+    styled = [
+        (comp, click.style(text, fg=fg))
+        for comp, st in [(g, check_config_group(keys)[0]) for g, (keys, _) in groups.items()]
+        for text, fg in [_STATUS_DISPLAY.get(st, (st, "white"))]
+    ]
+    print_two_col_table(styled, "Component configuration", "Status")
 
 
 @configuration.command("hint-config")
 def configuration_hint():
-    """Configuration hints for non-ok components (Component | Hint)."""
+    """Configuration hints for non-ok components."""
     groups = _role_groups()
     items = [(group, check_config_group(keys)[0]) for group, (keys, _) in groups.items()]
     rows = [(comp, COMPONENT_CONFIG_HINTS.get(comp, "")) for comp, status in items if status != "ok"]
@@ -301,9 +310,4 @@ def configuration_hint():
     if not rows:
         click.echo(click.style("all components configured", fg="green"))
         return
-    _W_C = max(len("Component configuration"), max(len(r[0]) for r in rows))
-    _W_H = max(len("Hint"), max(len(r[1]) for r in rows))
-    click.echo(f"  {'Component configuration':<{_W_C}}  Hint")
-    click.echo("  " + "─" * (_W_C + 2 + _W_H))
-    for comp, hint in rows:
-        click.echo(f"  {comp:<{_W_C}}  {hint}")
+    print_two_col_table(rows, "Component configuration", "Hint")
