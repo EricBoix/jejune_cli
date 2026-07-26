@@ -1,5 +1,6 @@
 """UI deployment commands — attached to the `deployment` group by deployment.py."""
 
+import os
 import shutil
 import subprocess
 import sys
@@ -83,9 +84,13 @@ def _resolve_deploy_dir(deployments_dir: str, name: str) -> Path:
 
 
 def _run_compose(deploy_dir: Path, *args: str) -> None:
+    env = os.environ.copy()
+    if root_dir := env.get("JEJUNE_ROOT_DIR"):
+        env["JEJUNE_ROOT_DIR"] = str(Path(root_dir).resolve())
     result = subprocess.run(
         ["docker", "compose", "--env-file", "deployment.env", *args],
         cwd=deploy_dir,
+        env=env,
     )
     sys.exit(result.returncode)
 

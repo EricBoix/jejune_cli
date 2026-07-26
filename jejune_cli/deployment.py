@@ -42,7 +42,7 @@ def _do_bootstrap(deployments_dir: Path, deploy_name: str) -> None:
     click.echo()
     click.echo("Next steps:")
     click.echo(f"  1. Edit {deploy_dir}/catalog.yaml — remove unwanted repos, add private ones")
-    click.echo(f"  2. Fill in {deploy_dir}/secrets.env with your credentials and JEJUNE_ROOT_DIR")
+    click.echo(f"  2. Fill in {deploy_dir}/deployment.env — set JEJUNE_ROOT_DIR and any credentials in secrets.env")
     click.echo(
         f"  3. git -C {deployments_dir} add"
         f" deploy_{deploy_name}/catalog.yaml"
