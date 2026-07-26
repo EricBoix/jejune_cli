@@ -39,7 +39,7 @@ def hint_config():
     envvar="JEJUNE_ROOT_DIR",
     required=True,
     type=click.Path(exists=True),
-    help="Directory holding side-by-side jj_* clones (default: $JEJUNE_ROOT_DIR).",
+    help="Directory holding side-by-side jejune_* clones (default: $JEJUNE_ROOT_DIR).",
 )
 @click.option(
     "--repo",
@@ -53,7 +53,7 @@ def hint_config():
     help="Clone or pull each repository before running tests.",
 )
 def test_cmd(catalog, root_dir, repo, pull):
-    """Run each jj_doc_* Convert/test_main.py suite listed in the catalog.
+    """Run each jejune_doc_* Convert/test_main.py suite listed in the catalog.
 
     Repositories are expected under ROOT_DIR/<name>/.
     Each suite runs inside its own venv (created automatically if absent).
@@ -97,7 +97,11 @@ def test_cmd(catalog, root_dir, repo, pull):
                 subprocess.run(["git", "-C", str(root), "clone", url], check=True)
 
         if not convert_dir.exists():
-            click.echo(click.style(f"  Convert/ not found in {repo_dir} — skipping.", fg="yellow"))
+            click.echo(
+                click.style(
+                    f"  Convert/ not found in {repo_dir} — skipping.", fg="yellow"
+                )
+            )
             failures.append(name)
             continue
 

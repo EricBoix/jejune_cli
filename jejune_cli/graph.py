@@ -62,7 +62,7 @@ def graph_available() -> tuple[bool, str]:
 @click.group(short_help="Build and export the knowledge graph")
 @click.pass_context
 def graph(ctx):
-    """Build and export the knowledge graph for the current jj_doc_<name> repository."""
+    """Build and export the knowledge graph for the current jejune_doc_<name> repository."""
     if ctx.invoked_subcommand not in _PREFLIGHT_SKIP:
         _preflight()
 
@@ -124,7 +124,7 @@ def hint_config():
 def extract(doc_dir, extra_args):
     """Run the Markdown → Neo4j knowledge-graph extraction for DOC_DIR.
 
-    DOC_DIR is the root of a jj_doc_<name> repository.
+    DOC_DIR is the root of a jejune_doc_<name> repository.
     EXTRA_ARGS are filenames and flags forwarded verbatim to the extractor,
     e.g. file1.md file2.md or --load_markdown_document file.md.
 

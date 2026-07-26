@@ -128,7 +128,7 @@ def _launch_container(data_dir: Path, port: str, credentials: str) -> None:
 
 @click.group(short_help="Manage the Neo4j instance")
 def neo4j():
-    """Manage the Neo4j instance for the current jj_doc_<name> repository."""
+    """Manage the Neo4j instance for the current jejune_doc_<name> repository."""
 
 
 @neo4j.command("check-config")

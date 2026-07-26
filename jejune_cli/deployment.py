@@ -13,7 +13,7 @@ _TEMPLATES = Path(__file__).parent / "templates"
 def _catalog_ref() -> Path:
     """Return the catalog-reference.yaml to use: local .jejune/ if present, else built-in template."""
     local = dot_jejune() / "catalog.yaml"
-    return local if local.exists() else _TEMPLATES / "catalog-reference.yaml"
+    return local if local.exists() else _TEMPLATES / "catalog.yaml"
 
 
 def _do_bootstrap(deployments_dir: Path, deploy_name: str) -> None:
@@ -33,8 +33,6 @@ def _do_bootstrap(deployments_dir: Path, deploy_name: str) -> None:
     (deploy_dir / "secrets.env").write_text(
         "# Per-developer secrets — never commit this file.\n"
         "JEJUNE_ROOT_DIR=/absolute/path/to/local/clones_CHANGE_ME\n"
-        "NEO4J_PASSWORD=your_password_CHANGE_ME\n"
-        "LLM_API_KEY=sk-CHANGE_ME\n"
     )
 
     gitignore = deployments_dir / ".gitignore"
@@ -59,7 +57,7 @@ def _do_bootstrap(deployments_dir: Path, deploy_name: str) -> None:
 
 @click.group(short_help="Manage deployments")
 def deployment():
-    """Manage deployments — collections of active jj_doc_* repositories (collection-level)."""
+    """Manage deployments — collections of active jejune_doc_* repositories (collection-level)."""
 
 
 @deployment.command("check-config")
@@ -87,13 +85,13 @@ def hint_config():
 def configure_deployment(deployments_dir, deploy_name):
     """Create a new deployment directory from scaffold files.
 
-    DEPLOYMENTS_DIR is the path to the jj_deployments repository.
+    DEPLOYMENTS_DIR is the directory in which to create the deployment folder.
     DEPLOY_NAME is the short name for the deployment (creates deploy_DEPLOY_NAME/).
 
     The deployment catalog is seeded from .jejune/catalog.yaml in the
     current directory if present, otherwise from the built-in template.
     """
-    _do_bootstrap(Path(deployments_dir).resolve(), deploy_name)
+    _do_bootstrap(Path(deployments_dir), deploy_name)
 
 
 @deployment.command("list")

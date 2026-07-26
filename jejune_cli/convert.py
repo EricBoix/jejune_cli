@@ -17,7 +17,7 @@ def _image_name() -> str:
     if d:
         resolved = d.resolve()
         name = (resolved.parent.parent if resolved.is_file() else resolved).name
-    for prefix in ("jejune_doc_", "jj_doc_"):
+    for prefix in ("jejune_doc_",):
         if name.startswith(prefix):
             name = name[len(prefix):]
             break

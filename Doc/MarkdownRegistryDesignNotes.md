@@ -14,12 +14,12 @@
 ## Context and initial use-case
 
 The jejuneness project processes a set of source documents (books, articles, talk transcripts)
-collected in dedicated `jj_doc_*` repositories. The global treatment pipeline goes:
+collected in dedicated `jejune_doc_*` repositories. The global treatment pipeline goes:
 
-1. Each `jj_doc_*` repo contains the source material and a `Convert/` subdirectory with
+1. Each `jejune_doc_*` repo contains the source material and a `Convert/` subdirectory with
    document-specific preprocessing scripts.
 2. The `jj_workflow_shell` pipeline (a chain of Docker container invocations) processes each
-   `jj_doc_*` repo and writes a knowledge graph as an RDF/Turtle file into the repo's
+   `jejune_doc_*` repo and writes a knowledge graph as an RDF/Turtle file into the repo's
    `result_data/` subdirectory.
 
 The resulting set of RDF/Turtle files are consumed by downstream tools e.g.
@@ -32,7 +32,7 @@ The resulting set of RDF/Turtle files are consumed by downstream tools e.g.
 
 This leads to three transversal problems that span all components and cannot be solved locally within any single repo:
 
-1. **Registry** — a canonical, machine-readable list of all `jj_doc_*` repositories, shared
+1. **Registry** — a canonical, machine-readable list of all `jejune_doc_*` repositories, shared
    by `jj_workflow_shell` (pipeline orchestration), `jj_vis_net_viewer` (visualisation), and
    `jj_markdown_browser` (source display).
 
@@ -49,10 +49,10 @@ This leads to three transversal problems that span all components and cannot be 
 Raised during elaboration:
 
 1. **Multiple simultaneous deployments** — e.g. a *public* deployment (only open-source
-   `jj_doc_*` repos) and a *full* deployment (public + private repos) may coexist on the same
+   `jejune_doc_*` repos) and a *full* deployment (public + private repos) may coexist on the same
    machine or be used by different team members.
 
-1. **Access control** — private `jj_doc_*` repository names must never appear in any
+1. **Access control** — private `jejune_doc_*` repository names must never appear in any
    publicly committed file.
 
 1. **Team sharing** — deployment configurations must be shareable among authorized team
@@ -67,14 +67,14 @@ Raised during elaboration:
 
 ### Concerning the registry requirement: Solution A — static catalog and URI convention
 
-A `catalog.yaml` file lists all `jj_doc_*` repositories. URI resolution is a pure string
+A `catalog.yaml` file lists all `jejune_doc_*` repositories. URI resolution is a pure string
 transformation: no service needs to be running. `jj_markdown_browser`'s Docker `run` command
-mounts each `jj_doc_*` output directory at a predictable container path derived from the repo
+mounts each `jejune_doc_*` output directory at a predictable container path derived from the repo
 name.
 
 ### Concerning the registry requirement: Solution B — REST registry service
 
-A `jj_doc_registry` REST API (hosted inside `jj_workflow_shell`) accepts registration calls
+A `jejune_doc_registry` REST API (hosted inside `jj_workflow_shell`) accepts registration calls
 from the pipeline and answers resolution queries from `jj_markdown_browser`.
 
 ### Comparison of registry solutions
@@ -85,7 +85,7 @@ from the pipeline and answers resolution queries from `jj_markdown_browser`.
 | URI resolution | String transformation | HTTP round-trip |
 | Offline use | Full | Blocked if service unreachable |
 | Clone-path config | Per-machine `.env` | Centralized (registry stores paths set at registration time) |
-| Adding a new `jj_doc_*` | Manual catalog edit | Automatic (`POST /register` from pipeline) |
+| Adding a new `jejune_doc_*` | Manual catalog edit | Automatic (`POST /register` from pipeline) |
 | State richness | Repo list only | Can track run history, errors, versions |
 | Implementation cost | ~50-line YAML + launcher script | REST API + persistence + lifecycle management |
 | Failure blast radius | Parse error | Total outage |
@@ -107,10 +107,10 @@ Three sub-options were evaluated for managing per-deployment catalogs:
 | Dedicated `jj_deployments` repo | One subdirectory per deployment, each with its own complete `catalog.yaml` | **Retained**: self-contained, auditable, no merge logic, team-shareable under access control |
 
 The `jj_deployments` repo must be **private** so that deployment catalogs listing private
-`jj_doc_*` repos remain confidential.
+`jejune_doc_*` repos remain confidential.
 
 **Role of `jj_workflow_shell/catalog-reference.yaml`** — this committed file lists all
-*public* `jj_doc_*` repositories and serves exclusively as a scaffold when creating a new
+*public* `jejune_doc_*` repositories and serves exclusively as a scaffold when creating a new
 deployment. It is never read by any tool at runtime. This follows the existing
 `jj_workflow_shell/env-reference` pattern.
 
@@ -122,7 +122,7 @@ deployment. It is never read by any tool at runtime. This follows the existing
 | ---------- | ---------- | ---- |
 | `jj_workflow_shell` | public | Pipeline utilities; hosts `catalog-reference.yaml` and `env-reference` as deployment scaffolds |
 | `jj_deployments` | **private** | One subdirectory per deployment; authoritative runtime catalogs and non-secret config |
-| `jj_doc_*` | public or private | Source documents; `Convert/` preprocessing; `result_data/` Turtle output |
+| `jejune_doc_*` | public or private | Source documents; `Convert/` preprocessing; `result_data/` Turtle output |
 | `jj_markdown_browser` | public | Docker-based markdown viewer; reads deployment catalog to mount volumes |
 | `jj_vis_net_viewer` | public | Turtle visualiser; reads deployment catalog |
 
@@ -145,7 +145,7 @@ deployment. It is never read by any tool at runtime. This follows the existing
 │       ├── catalog.yaml                   # public + private repos
 │       ├── deployment.env
 │       └── secrets.env
-└── jj_doc_*/
+└── jejune_doc_*/
     ├── Convert/
     └── result_data/
 ```
@@ -158,13 +158,13 @@ deployment. It is never read by any tool at runtime. This follows the existing
 # Reference catalog — copy to a jj_deployments/deploy_*/catalog.yaml and customise.
 # This file is never read at runtime.
 documents:
-  - name: jj_doc_Collecting_Gold_Dust
-    url: https://github.com/EricBoix/jj_doc_Collecting_Gold_Dust
+  - name: jejune_doc_Collecting_Gold_Dust
+    url: https://github.com/EricBoix/jejune_doc_Collecting_Gold_Dust
     public: true
-  - name: jj_doc_Zen_Flesh_Zen_Bones
-    url: https://github.com/EricBoix/jj_doc_Zen_Flesh_Zen_Bones
+  - name: jejune_doc_Zen_Flesh_Zen_Bones
+    url: https://github.com/EricBoix/jejune_doc_Zen_Flesh_Zen_Bones
     public: true
-  # add new public jj_doc_* repos here as they are created
+  # add new public jejune_doc_* repos here as they are created
 ```
 
 **`jj_deployments/deploy_AA/catalog.yaml`** — authoritative runtime catalog for that
@@ -172,11 +172,11 @@ deployment (private repos may be added freely since `jj_deployments` is private)
 
 ```yaml
 documents:
-  - name: jj_doc_Collecting_Gold_Dust
-    url: https://github.com/EricBoix/jj_doc_Collecting_Gold_Dust
+  - name: jejune_doc_Collecting_Gold_Dust
+    url: https://github.com/EricBoix/jejune_doc_Collecting_Gold_Dust
     public: true
-  - name: jj_doc_Rob_Burbea               # private — only in deploy_full
-    url: https://github.com/EricBoix/jj_doc_Rob_Burbea
+  - name: jejune_doc_Rob_Burbea               # private — only in deploy_full
+    url: https://github.com/EricBoix/jejune_doc_Rob_Burbea
     public: false
 ```
 
@@ -212,7 +212,7 @@ jejuneness:doc/<repo-name>/<repo-relative-path>#L<start_line>-<end_line>
 Example:
 
 ```text
-jejuneness:doc/jj_doc_Collecting_Gold_Dust/result_data/CollectingGoldDust.md#L42-L55
+jejuneness:doc/jejune_doc_Collecting_Gold_Dust/result_data/CollectingGoldDust.md#L42-L55
 ```
 
 The `<repo-name>` segment maps directly to a catalog entry. The `jj_workflow_shell` pipeline
@@ -228,7 +228,7 @@ jejuneness:doc/<repo-name>/<path>#L<s>-<e>
 
 ### Working process
 
-**Adding a new public `jj_doc_*` repository:**
+**Adding a new public `jejune_doc_*` repository:**
 
 1. Update `jj_workflow_shell/catalog-reference.yaml` with the new entry.
 2. Each deployment adopts the new repo by adding the same entry to its own `catalog.yaml`
@@ -272,8 +272,8 @@ mounting each repo's `result_data/` at `/config/<repo-name>/` inside the contain
 ```bash
 # jj_markdown_browser/run.sh <path-to-deployment-dir>
 docker run -d \
-  -v <workspace>/jj_doc_Collecting_Gold_Dust/result_data:/config/jj_doc_Collecting_Gold_Dust \
-  -v <workspace>/jj_doc_Rob_Burbea/result_data:/config/jj_doc_Rob_Burbea \
+  -v <workspace>/jejune_doc_Collecting_Gold_Dust/result_data:/config/jejune_doc_Collecting_Gold_Dust \
+  -v <workspace>/jejune_doc_Rob_Burbea/result_data:/config/jejune_doc_Rob_Burbea \
   -p 8443:8443 jejuneness:code-server-uri-opener
 ```
 

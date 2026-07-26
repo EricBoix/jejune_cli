@@ -144,7 +144,7 @@ def _sync_catalog_impl(
     root_dir: Path,
     do_add: bool,
 ) -> list[tuple[str, bool, str]]:
-    """Scan JEJUNE_ROOT_DIR for jj_doc_* repos and compare against catalog."""
+    """Scan JEJUNE_ROOT_DIR for jejune_doc_* repos and compare against catalog."""
     import click
     existing: set[str] = set()
     if catalog.exists():
@@ -154,7 +154,7 @@ def _sync_catalog_impl(
     results: list[tuple[str, bool, str]] = []
     to_add: list[tuple[str, str]] = []
 
-    for repo_dir in sorted(root_dir.glob("jj_doc_*")):
+    for repo_dir in sorted(root_dir.glob("jejune_doc_*")):
         if not repo_dir.is_dir():
             continue
         name = repo_dir.name
