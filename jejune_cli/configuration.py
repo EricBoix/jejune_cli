@@ -174,7 +174,31 @@ def check_config_group(keys: list[str]) -> tuple[str, str]:
     return "error", "; ".join(issues)
 
 
-@click.group(short_help="Manage the .jejune/ configuration")
+_ROLE_SUBGROUP_NAMES = frozenset({"doc-steward", "deployer", "catalog-curator"})
+
+
+class _ConfigurationGroup(click.Group):
+    def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        regular: list[tuple[str, str]] = []
+        roles: list[tuple[str, str]] = []
+        for name in self.list_commands(ctx):
+            cmd = self.get_command(ctx, name)
+            if cmd is None or getattr(cmd, "hidden", False):
+                continue
+            entry = (name, cmd.get_short_help_str(limit=formatter.width))
+            if name in _ROLE_SUBGROUP_NAMES:
+                roles.append(entry)
+            else:
+                regular.append(entry)
+        if regular:
+            with formatter.section("Commands"):
+                formatter.write_dl(regular)
+        if roles:
+            with formatter.section("Workspace initialisation  (jejune configuration ROLE init)"):
+                formatter.write_dl(roles)
+
+
+@click.group(cls=_ConfigurationGroup, short_help="Manage the .jejune/ configuration")
 def configuration():
     """Manage the .jejune/ configuration (env-config, env-secrets, catalog.yaml)."""
 
