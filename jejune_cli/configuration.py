@@ -8,15 +8,17 @@ import click
 from .configuration_doc_steward import (
     CONFIG_GROUPS as _DS_CONFIG_GROUPS,
     COMPONENT_CONFIG_HINTS as _DS_HINTS,
-    init,
+    init as _doc_steward_init,
 )
 from .configuration_catalog_curator import (
     CONFIG_GROUPS as _CC_CONFIG_GROUPS,
     COMPONENT_CONFIG_HINTS as _CC_HINTS,
+    init as _curator_init,
 )
 from .configuration_deployer import (
     CONFIG_GROUPS as _DEP_CONFIG_GROUPS,
     COMPONENT_CONFIG_HINTS as _DEP_HINTS,
+    init as _deployer_init,
 )
 
 CONFIG_GROUPS: dict[str, tuple[list[str], str]] = {
@@ -177,7 +179,33 @@ def configuration():
     """Manage the .jejune/ configuration (env-config, env-secrets, catalog.yaml)."""
 
 
-configuration.add_command(init)
+@click.group("doc-steward", short_help="Doc-steward role workspace")
+def _doc_steward_group():
+    """Initialise and inspect the doc-steward workspace."""
+
+
+_doc_steward_group.add_command(_doc_steward_init, "init")
+
+
+@click.group("deployer", short_help="Deployer role workspace")
+def _deployer_group():
+    """Initialise and inspect the deployer workspace."""
+
+
+_deployer_group.add_command(_deployer_init, "init")
+
+
+@click.group("catalog-curator", short_help="Catalog-curator role workspace")
+def _curator_group():
+    """Initialise and inspect the catalog-curator workspace."""
+
+
+_curator_group.add_command(_curator_init, "init")
+
+
+configuration.add_command(_doc_steward_group)
+configuration.add_command(_deployer_group)
+configuration.add_command(_curator_group)
 
 
 @configuration.command("check-config")

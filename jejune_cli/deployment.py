@@ -1,55 +1,8 @@
-import shutil
-import sys
 from pathlib import Path
 
 import click
 
-from ._env import dot_jejune
 from .configuration import print_config_hint, print_config_status
-
-_TEMPLATES = Path(__file__).parent / "templates"
-_T_DEPLOYER = _TEMPLATES / "deployer"
-_T_DOC_STEWARD = _TEMPLATES / "doc-steward"
-
-
-def _catalog_ref() -> Path:
-    """Return the catalog seed: local .jejune/ if present, else built-in template."""
-    local = dot_jejune() / "catalog.yaml"
-    return local if local.exists() else _T_DOC_STEWARD / "catalog.yaml"
-
-
-def _do_bootstrap(deployments_dir: Path, deploy_name: str) -> None:
-    """Core logic for `jejune deployment configure`."""
-    deploy_dir = deployments_dir / f"deploy_{deploy_name}"
-
-    if deploy_dir.exists():
-        click.echo(f"Error: {deploy_dir} already exists.", err=True)
-        sys.exit(1)
-
-    deploy_dir.mkdir(parents=True)
-
-    shutil.copy(_catalog_ref(), deploy_dir / "catalog.yaml")
-    shutil.copy(_T_DEPLOYER / "deployment.env", deploy_dir / "deployment.env")
-    shutil.copy(_T_DEPLOYER / "secrets.env", deploy_dir / "secrets.env")
-
-    gitignore = deployments_dir / ".gitignore"
-    entry = "**/secrets.env\n"
-    if not gitignore.exists() or entry.strip() not in gitignore.read_text().splitlines():
-        with gitignore.open("a") as f:
-            f.write(entry)
-
-    click.echo(f"Created {deploy_dir}")
-    click.echo()
-    click.echo("Next steps:")
-    click.echo(f"  1. Edit {deploy_dir}/catalog.yaml — remove unwanted repos, add private ones")
-    click.echo(f"  2. Fill in {deploy_dir}/deployment.env — set JEJUNE_ROOT_DIR and any credentials in secrets.env")
-    click.echo(
-        f"  3. git -C {deployments_dir} add"
-        f" deploy_{deploy_name}/catalog.yaml"
-        f" deploy_{deploy_name}/deployment.env"
-        f" .gitignore"
-    )
-    click.echo(f"  4. git -C {deployments_dir} commit -m 'Add deploy_{deploy_name} deployment'")
 
 
 @click.group(short_help="Manage deployments")
@@ -75,20 +28,6 @@ def hint_config():
     """Show the configuration hint for the deployment component."""
     print_config_hint("deployment")
 
-
-@deployment.command("configure")
-@click.argument("deployments_dir", type=click.Path())
-@click.argument("deploy_name")
-def configure_deployment(deployments_dir, deploy_name):
-    """Create a new deployment directory from scaffold files.
-
-    DEPLOYMENTS_DIR is the directory in which to create the deployment folder.
-    DEPLOY_NAME is the short name for the deployment (creates deploy_DEPLOY_NAME/).
-
-    The deployment catalog is seeded from .jejune/catalog.yaml in the
-    current directory if present, otherwise from the built-in template.
-    """
-    _do_bootstrap(Path(deployments_dir), deploy_name)
 
 
 @deployment.command("list")

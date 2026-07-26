@@ -41,7 +41,7 @@ _COMPONENTS = [
 _BUILTIN_COMPONENTS: frozenset[str] = frozenset(_COMPONENTS)
 
 # Help-section membership for built-in components.
-_ALL_ROLES_COMMANDS = ["doctor", "configuration", "init", "role", "containers"]
+_ALL_ROLES_COMMANDS = ["doctor", "configuration", "role", "containers"]
 _DOC_STEWARD_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert"]
 _CURATOR_COMPONENTS = ["pdf-to-markdown"]   # + "collection" stage plugins
 _DEPLOYER_COMPONENTS = ["deployment"]       # + "extension" stage plugins
@@ -160,7 +160,7 @@ def _version_string() -> str:
 def cli():
     """jejune — jejuneness workflow CLI.
 
-    Run `jejune init` first in your working directory to set up the workspace.
+    Run `jejune configuration <role> init` to set up a new workspace.
     """
     load_env_files()
 
@@ -194,29 +194,6 @@ def role_list():
         click.echo(f"  {r:<{_W}}  {_ROLE_REASON.get(r, '')}")
 
 
-@cli.command()
-@click.argument("name", required=False)
-def init(name):
-    """Initialize the workspace for the detected role.
-
-    \b
-    doc-steward    : creates .jejune/ scaffold (NAME ignored)
-    deployer       : scaffolds a deployment directory named NAME
-    catalog-curator: not yet implemented
-    (no role)      : creates .jejune/ scaffold
-    """
-    from .configuration_doc_steward import init as _steward_init
-    from .configuration_catalog_curator import init as _curator_init
-    from .configuration_deployer import init as _deployer_init
-
-    ctx = click.get_current_context()
-    if _ACTIVE_ROLE == "deployer":
-        ctx.invoke(_deployer_init, name=name)
-    elif _ACTIVE_ROLE == "catalog-curator":
-        ctx.invoke(_curator_init)
-    else:
-        ctx.invoke(_steward_init)
-
 
 @cli.command()
 def doctor():
@@ -234,7 +211,7 @@ def doctor():
         click.echo(
             click.style(
                 f"No .jejune/ directory found in {d.parent}.\n"
-                "Run `jejune init` first to set up the workspace.",
+                "Run `jejune configuration doc-steward init` to set up the workspace.",
                 fg="yellow",
             )
         )
@@ -450,7 +427,6 @@ cli.add_command(convert)
 cli.add_command(availability)
 cli.add_command(doctor)
 cli.add_command(role)
-cli.add_command(init)
 
 
 def _load_plugins() -> None:
