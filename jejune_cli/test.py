@@ -71,10 +71,10 @@ def _check_doc_yaml(
 @click.command("test")
 @click.option(
     "--catalog",
-    envvar="JJ_CATALOG",
+    envvar="JEJUNE_CATALOG",
     default=None,
     type=click.Path(),
-    help="Path to a catalog.yaml (default: $JJ_CATALOG, then .jejune/catalog.yaml).",
+    help="Path to a catalog.yaml (default: $JEJUNE_CATALOG, then .jejune/catalog.yaml).",
 )
 @click.option(
     "--root-dir",
@@ -89,7 +89,8 @@ def _check_doc_yaml(
     help="Operate on this repository only (by name).",
 )
 @click.option(
-    "--verbose", "-v",
+    "--verbose",
+    "-v",
     is_flag=True,
     default=False,
     help="Print referenced files for each document.",
@@ -108,14 +109,18 @@ def test_cmd(catalog, root_dir, repo, verbose):
         default = dot_jejune() / "catalog.yaml"
         if not default.exists():
             raise click.ClickException(
-                "No catalog specified. Set $JJ_CATALOG, use --catalog, "
+                "No catalog specified. Set $JEJUNE_CATALOG, use --catalog, "
                 "or run `jejune configure init` to create .jejune/catalog.yaml."
             )
         catalog = str(default)
 
     root = Path(root_dir) if root_dir else None
     if root is not None and not root.exists():
-        source = "$JEJUNE_ROOT_DIR" if os.environ.get("JEJUNE_ROOT_DIR") == root_dir else "--root-dir"
+        source = (
+            "$JEJUNE_ROOT_DIR"
+            if os.environ.get("JEJUNE_ROOT_DIR") == root_dir
+            else "--root-dir"
+        )
         raise click.ClickException(f"ROOT_DIR ({source}) does not exist: {root}")
 
     docs = yaml.safe_load(Path(catalog).read_text())["documents"]

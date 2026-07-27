@@ -1,6 +1,6 @@
 # Catalog of known jejune_doc_* repositories.
 # Used by `jejune configure check-catalog`, `jejune configure sync-catalog`,
-# and `jejune build test` (when $JJ_CATALOG is not set).
+# and `jejune build test` (when $JEJUNE_CATALOG is not set).
 # Copy to jejune_deployments/deploy_*/catalog.yaml and customise for deployment scenarios.
 documents:
   - name: jejune_doc_Collecting_Gold_Dust

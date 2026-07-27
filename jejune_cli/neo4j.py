@@ -10,6 +10,7 @@ from pathlib import Path
 import click
 
 from . import containers
+from ._ecosystem import ECOSYSTEM_REPO_BASE
 from ._env import TTL_ENV_VARS, docker_env_args
 from .configuration import (
     component_config_check,
@@ -84,7 +85,7 @@ def _launch_container(data_dir: Path, port: str, credentials: str) -> None:
         "build",
         "-t",
         _NEO4J_IMAGE,
-        "https://github.com/EricBoix/jejune_neo4j_docker.git",
+        f"{ECOSYSTEM_REPO_BASE}/jejune_neo4j_docker.git",
     )
 
     (data_dir / "database").mkdir(parents=True, exist_ok=True)
@@ -149,7 +150,6 @@ def hint_config():
     print_config_hint("neo4j")
 
 
-
 @neo4j.command("check-availability")
 def check_availability():
     """Show detailed neo4j availability (container state and bolt endpoint)."""
@@ -159,7 +159,9 @@ def check_availability():
         return
     running, _ = container_running()
     port = os.environ.get("NEO4J_PORT", "7687")
-    click.echo(f"  container   {click.style('running', fg='green') if running else click.style('not running', fg='yellow')}")
+    click.echo(
+        f"  container   {click.style('running', fg='green') if running else click.style('not running', fg='yellow')}"
+    )
     click.echo(f"  bolt        bolt://localhost:{port}")
 
 
@@ -430,7 +432,7 @@ def dump_turtle(output_dir, filename):
         "build",
         "-t",
         _TTL_IMAGE,
-        "https://github.com/EricBoix/jj_neo4j_to_rdf_ttl.git#:DockerContext",
+        f"{ECOSYSTEM_REPO_BASE}/jejune_neo4j_to_rdf_ttl.git#:DockerContext",
     )
 
     click.echo(f"Exporting to {output_dir / filename} ...")

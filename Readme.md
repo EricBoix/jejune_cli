@@ -236,7 +236,7 @@ This creates `jejune_deployments/deploy_my_deployment/` containing:
 | File | Committed | Purpose |
 | ---- | --------- | ------- |
 | `catalog.yaml` | yes | Active `jejune_doc_*` repositories for this deployment |
-| `deployment.env` | yes | Non-secret config (`JJ_CATALOG`, etc.) |
+| `deployment.env` | yes | Non-secret config (`JEJUNE_CATALOG`, etc.) |
 | `secrets.env` | **no** (gitignored) | `JEJUNE_ROOT_DIR` and per-developer credentials |
 
 Edit `catalog.yaml` (add private repos, remove unwanted ones), fill in

@@ -11,8 +11,11 @@ dependencies = [
 [project.scripts]
 jejune = "jejune_cli.main:cli"
 
+[tool.jejune]
+ecosystem-repo-base = "https://github.com/EricBoix"
+
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "tomli ; python_version < '3.11'"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.hooks.custom]

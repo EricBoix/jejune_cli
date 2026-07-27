@@ -134,7 +134,7 @@ deployment. It is never read by any tool at runtime. This follows the existing
 │   ├── catalog-reference.yaml             # scaffold only — never read at runtime
 │   ├── env-reference                      # existing secrets scaffold
 │   └── Testing/
-│       └── Makefile                       # reads JJ_CATALOG env var (fails fast if unset)
+│       └── Makefile                       # reads JEJUNE_CATALOG env var (fails fast if unset)
 ├── jj_deployments/                        # private repo
 │   ├── .gitignore                         # **/secrets.env
 │   ├── deploy_public/
@@ -183,7 +183,7 @@ documents:
 **`jj_deployments/deploy_AA/deployment.env`** — committed, non-secret deployment config:
 
 ```bash
-JJ_CATALOG=./catalog.yaml
+JEJUNE_CATALOG=./catalog.yaml
 JJ_DOCS_ROOT=../../          # path to workspace root relative to this deploy dir
 NEO4J_VERSION=5.x
 ```
