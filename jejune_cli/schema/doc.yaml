@@ -1,0 +1,13 @@
+# Schema for doc.yaml files in jejune_doc_* repositories.
+required_fields:
+  title: string
+  authors: list
+  year: integer
+  keywords: list
+optional_fields:
+  isbn: string
+file_fields:  # values are repo-relative paths; checked for existence by jejune test
+  - pdf_file
+  - markdown_file
+  - sentences_file
+  - turtle_file

@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import click
@@ -8,6 +9,11 @@ import yaml
 from ._env import dot_jejune
 
 _TMP_PATTERN = ".jejune/tmp/"
+_SCHEMA_PATH = Path(__file__).parent / "schema" / "doc.yaml"
+
+
+def _load_doc_schema() -> dict:
+    return yaml.safe_load(_SCHEMA_PATH.read_text())
 
 
 def _ensure_gitignored() -> None:
@@ -26,6 +32,32 @@ def _tmp_dir() -> Path:
     tmp.mkdir(parents=True, exist_ok=True)
     _ensure_gitignored()
     return tmp
+
+
+def _check_doc_yaml(repo_dir: Path) -> list[str]:
+    """Return a list of error strings for doc.yaml in repo_dir (empty = all ok)."""
+    doc_yaml = repo_dir / "doc.yaml"
+    if not doc_yaml.exists():
+        return [f"doc.yaml missing (see {_SCHEMA_PATH} for the expected format)"]
+
+    schema = _load_doc_schema()
+    data = yaml.safe_load(doc_yaml.read_text()) or {}
+    errors: list[str] = []
+
+    for field in schema.get("required_fields", {}):
+        if field not in data:
+            errors.append(f"required field {field!r} missing")
+
+    for key in schema.get("file_fields", []):
+        rel = data.get(key)
+        if rel is None:
+            continue
+        if not (repo_dir / rel).exists():
+            errors.append(f"{key}: {rel!r} not found")
+
+    if errors:
+        errors.append(f"see {_SCHEMA_PATH} for the expected format")
+    return errors
 
 
 @click.command("test")
@@ -49,11 +81,14 @@ def _tmp_dir() -> Path:
     help="Operate on this repository only (by name).",
 )
 def test_cmd(catalog, root_dir, repo):
-    """List jejune_doc_* repositories found in the catalog.
+    """Validate jejune_doc_* repositories found in the catalog.
 
     Repositories are expected under ROOT_DIR/<name>/. Missing repositories
     (or all when ROOT_DIR is unset) are cloned into .jejune/tmp/ which is
     gitignored automatically.
+
+    For each repository, doc.yaml is parsed and every file it references is
+    checked for existence. Exits with a non-zero status if any check fails.
     """
     if catalog is None:
         default = dot_jejune() / "catalog.yaml"
@@ -77,6 +112,7 @@ def test_cmd(catalog, root_dir, repo):
             raise click.ClickException(f"Repository '{repo}' not found in catalog.")
 
     tmp: Path | None = None
+    all_ok = True
 
     for doc in docs:
         name = doc["name"]
@@ -91,8 +127,18 @@ def test_cmd(catalog, root_dir, repo):
                 click.echo(f"Cloning {name} ...")
                 subprocess.run(["git", "clone", url, str(repo_dir)], check=True)
 
-        present = click.style("present", fg="green") if repo_dir.exists() else click.style("missing", fg="yellow")
-        click.echo(f"  {name:<40}  {present}")
+        errors = _check_doc_yaml(repo_dir)
+        if errors:
+            all_ok = False
+            click.echo(f"  {name:<40}  {click.style('FAIL', fg='red')}")
+            for err in errors:
+                click.echo(f"      {click.style(err, fg='red')}")
+        else:
+            click.echo(f"  {name:<40}  {click.style('ok', fg='green')}")
 
     click.echo()
-    click.echo(click.style(f"{len(docs)} repo(s).", fg="green"))
+    if all_ok:
+        click.echo(click.style(f"{len(docs)} repo(s) — all ok.", fg="green"))
+    else:
+        click.echo(click.style(f"{len(docs)} repo(s) — some checks failed.", fg="red"))
+        sys.exit(1)
