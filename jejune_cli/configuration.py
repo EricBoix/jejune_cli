@@ -188,8 +188,31 @@ def check_config_group(keys: list[str]) -> tuple[str, str]:
 _ROLE_SUBGROUP_NAMES = frozenset({"doc-steward", "deployer", "catalog-curator"})
 
 
+_ROLE_CTX_KEY = "_jejune_configuration_role"
+
+
 class _ConfigurationGroup(click.Group):
+    def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        from .role import detect_role, ROLES
+        active_role, _ = detect_role()
+        ctx.meta[_ROLE_CTX_KEY] = active_role
+
+        if active_role in ROLES:
+            formatter.write_usage(
+                ctx.command_path,
+                " ".join(self.collect_usage_pieces(ctx)),
+                prefix=f"Usage [{active_role}]: ",
+            )
+            self.format_help_text(ctx, formatter)
+            self.format_options(ctx, formatter)  # calls format_commands internally
+            self.format_epilog(ctx, formatter)
+        else:
+            self.format_commands(ctx, formatter)
+
     def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        from .role import ROLES
+        active_role = ctx.meta.get(_ROLE_CTX_KEY)
+
         regular: list[tuple[str, str]] = []
         roles: list[tuple[str, str]] = []
         for name in self.list_commands(ctx):
@@ -201,12 +224,22 @@ class _ConfigurationGroup(click.Group):
                 roles.append(entry)
             else:
                 regular.append(entry)
-        if regular:
+
+        if regular and active_role in ROLES:
             with formatter.section("Commands"):
                 formatter.write_dl(regular)
-        if roles:
-            with formatter.section("Workspace initialisation  (jejune configuration ROLE init)"):
-                formatter.write_dl(roles)
+
+        if roles and active_role not in ROLES:
+            formatter.write_paragraph()
+            formatter.write_usage(
+                "jejune configuration",
+                "ROLE init",
+                prefix="Usage [all roles]: ",
+            )
+            with formatter.indentation():
+                formatter.write_text("Set jejune role and initialise workspace accordingly.")
+                with formatter.section("Roles"):
+                    formatter.write_dl(roles)
 
 
 @click.group(cls=_ConfigurationGroup, short_help="Manage the .jejune/ configuration")

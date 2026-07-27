@@ -110,7 +110,7 @@ def ui_configure(deployments_dir, name):
     A .gitignore and secrets.env.template are added only when the catalog
     contains private repositories.
     """
-    deployments_dir = Path(deployments_dir).resolve()
+    deployments_dir = Path(deployments_dir)
     deploy_dir = deployments_dir / name
 
     if deploy_dir.exists():
@@ -118,6 +118,10 @@ def ui_configure(deployments_dir, name):
         sys.exit(1)
 
     deploy_dir.mkdir(parents=True)
+    dot_jejune = deploy_dir / ".jejune"
+    dot_jejune.mkdir()
+    shutil.copy(_T_UI / "role", dot_jejune / "role")
+    (dot_jejune / "origin").write_text(f"{deploy_dir}\n")
 
     full_catalog = _full_catalog_path(deployments_dir)
     if full_catalog:

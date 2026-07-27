@@ -40,7 +40,7 @@ def init():
 
     created = []
     skipped = []
-    for fname in ("env-config", "env-secrets", "catalog.yaml"):
+    for fname in ("env-config", "env-secrets", "catalog.yaml", "role"):
         dst = d / fname
         if dst.exists():
             skipped.append(fname)

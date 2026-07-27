@@ -32,6 +32,11 @@ def detect_role() -> tuple[str | None, str]:
             return override, f"JEJUNE_ROLE={override}"
         return None, f"JEJUNE_ROLE={override!r} is not a known role (ignored)"
     cwd = Path.cwd()
+    role_file = cwd / ".jejune" / "role"
+    if role_file.is_file():
+        role = role_file.read_text().strip()
+        if role in ROLES:
+            return role, ".jejune/role"
     if (cwd / "docker-compose.yml").exists():
         return "deployer", _ROLE_REASON["deployer"]
     if (cwd / ".jejune").is_dir():
