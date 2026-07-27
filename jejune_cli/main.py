@@ -23,7 +23,7 @@ from .llm import llm
 from .llm_observability import llm_observability
 from .neo4j import neo4j
 from .pdf_to_markdown import pdf_to_markdown
-from .role import detect_role, role_components, ROLE_SECTION_TITLE
+from .role import detect_role, role_components, ROLES, ROLE_SECTION_TITLE
 
 _ACTIVE_ROLE, _ACTIVE_ROLE_REASON = detect_role()
 _ACTIVE_COMPONENTS = role_components(_ACTIVE_ROLE)
@@ -90,7 +90,8 @@ def _is_visible(name: str) -> bool:
 
 class _JejuneGroup(click.Group):
     def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        formatter.write_usage(ctx.command_path, "[OPTIONS] COMPONENT COMMAND [ARGS]...")
+        prefix = f"Usage [{_ACTIVE_ROLE}]: " if _ACTIVE_ROLE in ROLES else "Usage: "
+        formatter.write_usage(ctx.command_path, "[OPTIONS] COMPONENT COMMAND [ARGS]...", prefix=prefix)
 
     def format_commands(
         self, ctx: click.Context, formatter: click.HelpFormatter
@@ -120,6 +121,8 @@ class _JejuneGroup(click.Group):
             ]
 
         for role_name, commands, plugin_stage in _ROLE_HELP_SECTIONS:
+            if _ACTIVE_ROLE in ROLES and role_name not in ("all", _ACTIVE_ROLE):
+                continue
             rows = _rows(commands)
             if plugin_stage:
                 rows += _plugin_rows(plugin_stage)
