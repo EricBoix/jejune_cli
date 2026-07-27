@@ -10,7 +10,7 @@ import click
 import yaml
 
 _TEMPLATES = Path(__file__).parent / "templates"
-_T_UI = _TEMPLATES / "ui-deployer"
+_T_UI = _TEMPLATES / "deployer" / "ui-deployment"
 
 
 # ---------------------------------------------------------------------------
