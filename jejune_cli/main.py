@@ -5,7 +5,7 @@ from pathlib import Path
 import click
 
 from ._env import dot_jejune, load_env_files
-from .catalog import run_all
+from .catalog import run_all, catalog as catalog_cmd
 from .convert import convert, convert_configured
 from .plugin import JejunePlugin, _REGISTRY
 from .deployment import deployment
@@ -45,7 +45,7 @@ _BUILTIN_COMPONENTS: frozenset[str] = frozenset(_COMPONENTS)
 # Help-section membership for built-in components.
 _ALL_ROLES_COMMANDS = ["doctor", "configuration", "role", "containers"]
 _DOC_STEWARD_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert"]
-_CURATOR_COMPONENTS = ["test"]   # + "collection" stage plugins
+_CURATOR_COMPONENTS = ["catalog", "test"]   # + "collection" stage plugins
 _DEPLOYER_COMPONENTS = ["deployment", "build"]  # + "extension" stage plugins
 
 # Ordered sections for `jejune --help`, keyed by role name from ROLE_SECTION_TITLE.
@@ -414,6 +414,7 @@ cli.add_command(llm_observability)
 cli.add_command(graph)
 cli.add_command(deployment)
 cli.add_command(build)
+cli.add_command(catalog_cmd)
 cli.add_command(test_cmd)
 cli.add_command(convert)
 cli.add_command(availability)

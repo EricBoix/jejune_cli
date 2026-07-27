@@ -1,12 +1,39 @@
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
+import click
 import yaml
 
 from ._env import dot_jejune  # noqa: F401 — re-exported for jejune_catalog plugin
 from .convert import convert_configured as _convert_configured, image_built as _convert_image_built
 from .neo4j import container_running as _neo4j_running
+
+_TEMPLATES = Path(__file__).parent / "templates"
+_TRIVIAL_CATALOG = _TEMPLATES / "catalog-curator" / "trivial-catalog.yaml"
+
+
+@click.group(short_help="Catalog utilities")
+def catalog():
+    """Catalog utilities for catalog-curator workspaces."""
+
+
+@catalog.command("sample")
+def catalog_sample():
+    """Copy the built-in catalog template to catalog.yml in the current directory."""
+    target = Path.cwd() / "catalog.yml"
+    if target.exists():
+        click.echo(
+            click.style(
+                f"Warning: {target} already exists — not overwriting.",
+                fg="yellow",
+            ),
+            err=True,
+        )
+        return
+    shutil.copy(_TRIVIAL_CATALOG, target)
+    click.echo(f"Created {target}")
 
 
 # ---------------------------------------------------------------------------

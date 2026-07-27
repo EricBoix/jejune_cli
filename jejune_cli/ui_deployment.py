@@ -128,7 +128,7 @@ def ui_configure(deployments_dir, name):
         shutil.copy(full_catalog, deploy_dir / "catalog.yaml")
         click.echo(f"Seeded catalog.yaml from {full_catalog}")
     else:
-        shutil.copy(_T_UI / "catalog.yaml", deploy_dir / "catalog.yaml")
+        shutil.copy(_TEMPLATES / "catalog-curator" / "trivial-catalog.yaml", deploy_dir / "catalog.yaml")
         click.echo("Seeded catalog.yaml from built-in template — populate manually.")
 
     has_private = _has_private_repos(deploy_dir / "catalog.yaml")
