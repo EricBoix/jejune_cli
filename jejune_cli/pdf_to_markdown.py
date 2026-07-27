@@ -26,7 +26,7 @@ def hint_config():
     print_config_hint("pdf-to-markdown")
 
 
-@pdf_to_markdown.command("test")
+@click.command("test")
 @click.option(
     "--catalog",
     envvar="JJ_CATALOG",

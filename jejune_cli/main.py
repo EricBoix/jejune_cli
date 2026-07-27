@@ -23,7 +23,7 @@ from .graph import graph
 from .llm import llm
 from .llm_observability import llm_observability
 from .neo4j import neo4j
-from .pdf_to_markdown import pdf_to_markdown
+from .pdf_to_markdown import pdf_to_markdown, test_cmd
 from .role import detect_role, role_components, ROLES, ROLE_SECTION_TITLE
 
 _ACTIVE_ROLE, _ACTIVE_ROLE_REASON = detect_role()
@@ -36,7 +36,7 @@ _COMPONENTS = [
     "llm-observability",
     "graph",
     "deployment",
-    "pdf-to-markdown",
+    "test",
     "convert",
 ]
 # Frozen at startup — used to distinguish built-ins from loaded plugins in help.
@@ -45,7 +45,7 @@ _BUILTIN_COMPONENTS: frozenset[str] = frozenset(_COMPONENTS)
 # Help-section membership for built-in components.
 _ALL_ROLES_COMMANDS = ["doctor", "configuration", "role", "containers"]
 _DOC_STEWARD_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert"]
-_CURATOR_COMPONENTS = ["pdf-to-markdown"]   # + "collection" stage plugins
+_CURATOR_COMPONENTS = ["test"]   # + "collection" stage plugins
 _DEPLOYER_COMPONENTS = ["deployment", "build"]  # + "extension" stage plugins
 
 # Ordered sections for `jejune --help`, keyed by role name from ROLE_SECTION_TITLE.
@@ -75,7 +75,7 @@ _AVAIL_HINTS: dict[str, str] = {
 _COMPONENT_DEPS: dict[str, list[str]] = {
     "graph": ["neo4j", "llm"],
     "deployment": ["catalog"],
-    "pdf-to-markdown": ["catalog"],
+    "test": ["catalog"],
 }
 
 # Optional dependencies: enhance a component but do not affect its effective status.
@@ -415,6 +415,7 @@ cli.add_command(graph)
 cli.add_command(deployment)
 cli.add_command(build)
 cli.add_command(pdf_to_markdown)
+cli.add_command(test_cmd)
 cli.add_command(convert)
 cli.add_command(availability)
 cli.add_command(doctor)
