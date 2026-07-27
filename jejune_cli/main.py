@@ -23,7 +23,7 @@ from .graph import graph
 from .llm import llm
 from .llm_observability import llm_observability
 from .neo4j import neo4j
-from .pdf_to_markdown import pdf_to_markdown, test_cmd
+from .test import test_cmd
 from .role import detect_role, role_components, ROLES, ROLE_SECTION_TITLE
 
 _ACTIVE_ROLE, _ACTIVE_ROLE_REASON = detect_role()
@@ -414,7 +414,6 @@ cli.add_command(llm_observability)
 cli.add_command(graph)
 cli.add_command(deployment)
 cli.add_command(build)
-cli.add_command(pdf_to_markdown)
 cli.add_command(test_cmd)
 cli.add_command(convert)
 cli.add_command(availability)
