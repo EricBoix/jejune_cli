@@ -170,12 +170,25 @@ def ui_list(deployments_dir):
         click.echo(f"  {d.name}  [{status}]")
 
 
+def _deployment_dir(deploy_dir_name: str | None) -> Path:
+    """Resolve DEPLOY_DIR_NAME, defaulting to CWD when it is a deployment directory."""
+    if deploy_dir_name is not None:
+        return Path(deploy_dir_name)
+    from .role import detect_role
+    role, _ = detect_role()
+    if role == "deployer":
+        return Path(".")
+    raise click.UsageError(
+        "DEPLOY_DIR_NAME required: current directory is not a deployment directory."
+    )
+
+
 @click.command("build")
-@click.argument("deployments_dir", type=click.Path(exists=True))
-@click.argument("name")
-def build(deployments_dir, name):
+@click.argument("deploy_dir_name", required=False, metavar="DEPLOY_DIR_NAME",
+                type=click.Path(exists=True, file_okay=False))
+def build(deploy_dir_name: str | None) -> None:
     """Build Docker images for a UI deployment."""
-    _run_compose(_resolve_deploy_dir(deployments_dir, name), "build")
+    _run_compose(_deployment_dir(deploy_dir_name), "build")
 
 
 @click.command("ui-start")
