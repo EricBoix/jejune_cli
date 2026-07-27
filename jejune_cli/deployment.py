@@ -2,31 +2,10 @@ from pathlib import Path
 
 import click
 
-from .configuration import print_config_hint, print_config_status
-
 
 @click.group(short_help="Manage deployments")
 def deployment():
     """Manage deployments — collections of active jejune_doc_* repositories (collection-level)."""
-
-
-@deployment.command("check-config", hidden=True)
-def check_config():
-    """Show per-variable configuration detail for the deployment component."""
-    from .configuration import print_config_check
-    print_config_check("deployment")
-
-
-@deployment.command("status-config", hidden=True)
-def status_config():
-    """Show deployment configuration status."""
-    print_config_status("deployment")
-
-
-@deployment.command("hint-config", hidden=True)
-def hint_config():
-    """Show the configuration hint for the deployment component."""
-    print_config_hint("deployment")
 
 
 
