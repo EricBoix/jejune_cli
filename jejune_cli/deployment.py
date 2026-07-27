@@ -10,20 +10,20 @@ def deployment():
     """Manage deployments — collections of active jejune_doc_* repositories (collection-level)."""
 
 
-@deployment.command("check-config")
+@deployment.command("check-config", hidden=True)
 def check_config():
     """Show per-variable configuration detail for the deployment component."""
     from .configuration import print_config_check
     print_config_check("deployment")
 
 
-@deployment.command("status-config")
+@deployment.command("status-config", hidden=True)
 def status_config():
     """Show deployment configuration status."""
     print_config_status("deployment")
 
 
-@deployment.command("hint-config")
+@deployment.command("hint-config", hidden=True)
 def hint_config():
     """Show the configuration hint for the deployment component."""
     print_config_hint("deployment")
@@ -46,7 +46,7 @@ def list_deployments(deployments_dir):
 
 
 # UI deployment commands live in ui_deployment.py; imported here to stay in this group.
-from .ui_deployment import ui_build, ui_configure, ui_list, ui_start, ui_stop  # noqa: E402
+from .ui_deployment import ui_configure, ui_list, ui_start, ui_stop  # noqa: E402
 
-for _cmd in (ui_configure, ui_list, ui_build, ui_start, ui_stop):
+for _cmd in (ui_configure, ui_list, ui_start, ui_stop):
     deployment.add_command(_cmd)

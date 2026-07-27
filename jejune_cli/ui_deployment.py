@@ -170,11 +170,11 @@ def ui_list(deployments_dir):
         click.echo(f"  {d.name}  [{status}]")
 
 
-@click.command("ui-build")
+@click.command("build")
 @click.argument("deployments_dir", type=click.Path(exists=True))
 @click.argument("name")
-def ui_build(deployments_dir, name):
-    """Build Docker images for the NAME UI deployment in DEPLOYMENTS_DIR."""
+def build(deployments_dir, name):
+    """Build Docker images for a UI deployment."""
     _run_compose(_resolve_deploy_dir(deployments_dir, name), "build")
 
 

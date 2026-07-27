@@ -9,6 +9,7 @@ from .catalog import run_all
 from .convert import convert, convert_configured
 from .plugin import JejunePlugin, _REGISTRY
 from .deployment import deployment
+from .ui_deployment import build
 from .configuration import (
     configuration,
     COMPONENT_CONFIG_HINTS as _CONFIG_HINTS,
@@ -45,7 +46,7 @@ _BUILTIN_COMPONENTS: frozenset[str] = frozenset(_COMPONENTS)
 _ALL_ROLES_COMMANDS = ["doctor", "configuration", "role", "containers"]
 _DOC_STEWARD_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert"]
 _CURATOR_COMPONENTS = ["pdf-to-markdown"]   # + "collection" stage plugins
-_DEPLOYER_COMPONENTS = ["deployment"]       # + "extension" stage plugins
+_DEPLOYER_COMPONENTS = ["deployment", "build"]  # + "extension" stage plugins
 
 # Ordered sections for `jejune --help`, keyed by role name from ROLE_SECTION_TITLE.
 _ROLE_HELP_SECTIONS: list[tuple[str, list[str], str | None]] = [
@@ -412,6 +413,7 @@ cli.add_command(llm)
 cli.add_command(llm_observability)
 cli.add_command(graph)
 cli.add_command(deployment)
+cli.add_command(build)
 cli.add_command(pdf_to_markdown)
 cli.add_command(convert)
 cli.add_command(availability)
