@@ -9,18 +9,29 @@ import os
 from pathlib import Path
 
 ROLES = ("doc-steward", "catalog-curator", "deployer")
+_DISPLAY_ROLES = ("all",) + ROLES
 
 _ROLE_COMPONENTS: dict[str, frozenset[str]] = {
-    "doc-steward":     frozenset({"configuration", "neo4j", "llm", "llm-observability", "graph", "convert"}),
+    "doc-steward": frozenset(
+        {"configuration", "neo4j", "llm", "llm-observability", "graph", "convert"}
+    ),
     "catalog-curator": frozenset({"catalog"}),
     # "deployment" = built-in; UI service names come from installed check/ plugins.
-    "deployer":        frozenset({"deployment", "docs-server", "kg-viewer", "md-browser"}),
+    "deployer": frozenset({"deployment", "docs-server", "kg-viewer", "md-browser"}),
 }
 
 _ROLE_REASON: dict[str, str] = {
-    "doc-steward":     ".jejune/ directory detected",
+    "all": "commands available regardless of role",
+    "doc-steward": ".jejune/ directory detected",
     "catalog-curator": "full-catalog.yaml detected",
-    "deployer":        "docker-compose.yml detected",
+    "deployer": "docker-compose.yml detected",
+}
+
+ROLE_SECTION_TITLE: dict[str, str] = {
+    "all": "All roles commands",
+    "doc-steward": "Doc-steward commands",
+    "catalog-curator": "Catalog-curator commands",
+    "deployer": "Deployer commands",
 }
 
 

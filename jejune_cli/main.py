@@ -23,7 +23,7 @@ from .llm import llm
 from .llm_observability import llm_observability
 from .neo4j import neo4j
 from .pdf_to_markdown import pdf_to_markdown
-from .role import detect_role, role_components
+from .role import detect_role, role_components, ROLE_SECTION_TITLE
 
 _ACTIVE_ROLE, _ACTIVE_ROLE_REASON = detect_role()
 _ACTIVE_COMPONENTS = role_components(_ACTIVE_ROLE)
@@ -46,6 +46,14 @@ _ALL_ROLES_COMMANDS = ["doctor", "configuration", "role", "containers"]
 _DOC_STEWARD_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert"]
 _CURATOR_COMPONENTS = ["pdf-to-markdown"]   # + "collection" stage plugins
 _DEPLOYER_COMPONENTS = ["deployment"]       # + "extension" stage plugins
+
+# Ordered sections for `jejune --help`, keyed by role name from ROLE_SECTION_TITLE.
+_ROLE_HELP_SECTIONS: list[tuple[str, list[str], str | None]] = [
+    ("all",             _ALL_ROLES_COMMANDS,     None),
+    ("doc-steward",     _DOC_STEWARD_COMPONENTS, "single-document"),
+    ("catalog-curator", _CURATOR_COMPONENTS,     "collection"),
+    ("deployer",        _DEPLOYER_COMPONENTS,    "extension"),
+]
 
 
 _W_SECT = max(17, len("Component configuration"))  # recomputed after _load_plugins()
@@ -111,26 +119,13 @@ class _JejuneGroup(click.Group):
                 for p in _REGISTRY if p.stage == stage
             ]
 
-        # All sections always shown — section titles communicate the role.
-        all_roles = [r for name in _ALL_ROLES_COMMANDS if (r := _row(name))]
-        if all_roles:
-            with formatter.section("For all roles"):
-                formatter.write_dl(all_roles)
-
-        doc_steward = _rows(_DOC_STEWARD_COMPONENTS) + _plugin_rows("single-document")
-        if doc_steward:
-            with formatter.section("Doc-steward commands"):
-                formatter.write_dl(doc_steward)
-
-        curator = _rows(_CURATOR_COMPONENTS) + _plugin_rows("collection")
-        if curator:
-            with formatter.section("Catalog Curator commands"):
-                formatter.write_dl(curator)
-
-        deployer = _rows(_DEPLOYER_COMPONENTS) + _plugin_rows("extension")
-        if deployer:
-            with formatter.section("Deployer commands"):
-                formatter.write_dl(deployer)
+        for role_name, commands, plugin_stage in _ROLE_HELP_SECTIONS:
+            rows = _rows(commands)
+            if plugin_stage:
+                rows += _plugin_rows(plugin_stage)
+            if rows:
+                with formatter.section(ROLE_SECTION_TITLE[role_name]):
+                    formatter.write_dl(rows)
 
 
 def _version_string() -> str:
@@ -190,9 +185,9 @@ def role(ctx):
 @role.command("list")
 def role_list():
     """List all known roles with their detection indicator."""
-    from .role import ROLES, _ROLE_REASON
-    _W = max(len(r) for r in ROLES)
-    for r in ROLES:
+    from .role import _DISPLAY_ROLES, _ROLE_REASON
+    _W = max(len(r) for r in _DISPLAY_ROLES)
+    for r in _DISPLAY_ROLES:
         click.echo(f"  {r:<{_W}}  {_ROLE_REASON.get(r, '')}")
 
 
