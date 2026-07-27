@@ -1,5 +1,4 @@
 import subprocess
-import sys
 from pathlib import Path
 
 import click
@@ -26,19 +25,18 @@ from ._env import dot_jejune
 @click.option(
     "--repo",
     default=None,
-    help="Run tests for this repository only (by name).",
+    help="Operate on this repository only (by name).",
 )
 @click.option(
     "--pull/--no-pull",
     default=True,
     show_default=True,
-    help="Clone or pull each repository before running tests.",
+    help="Clone or pull each repository.",
 )
 def test_cmd(catalog, root_dir, repo, pull):
-    """Run each jejune_doc_* Convert/test_main.py suite listed in the catalog.
+    """Clone or pull each jejune_doc_* repository listed in the catalog.
 
     Repositories are expected under ROOT_DIR/<name>/.
-    Each suite runs inside its own venv (created automatically if absent).
     """
     if catalog is None:
         default = dot_jejune() / "catalog.yaml"
@@ -57,13 +55,10 @@ def test_cmd(catalog, root_dir, repo, pull):
         if not docs:
             raise click.ClickException(f"Repository '{repo}' not found in catalog.")
 
-    failures: list[str] = []
-
     for doc in docs:
         name = doc["name"]
         url = doc["url"]
         repo_dir = root / name
-        convert_dir = repo_dir / "Convert"
 
         click.echo()
         click.echo(f"{'=' * 60}")
@@ -78,45 +73,5 @@ def test_cmd(catalog, root_dir, repo, pull):
                 click.echo(f"Cloning {name} ...")
                 subprocess.run(["git", "-C", str(root), "clone", url], check=True)
 
-        if not convert_dir.exists():
-            click.echo(
-                click.style(
-                    f"  Convert/ not found in {repo_dir} — skipping.", fg="yellow"
-                )
-            )
-            failures.append(name)
-            continue
-
-        venv_dir = convert_dir / "venv"
-        if not venv_dir.exists():
-            click.echo("Creating venv ...")
-            subprocess.run([sys.executable, "-m", "venv", str(venv_dir)], check=True)
-
-        python = venv_dir / "bin" / "python3"
-
-        click.echo("Installing requirements ...")
-        req_args = []
-        for req in ("requirements.txt", "requirements-dev.txt"):
-            if (convert_dir / req).exists():
-                req_args += ["-r", req]
-        if req_args:
-            subprocess.run(
-                [str(python), "-m", "pip", "install", "-q"] + req_args,
-                cwd=convert_dir,
-                check=True,
-            )
-
-        click.echo("Running tests ...")
-        result = subprocess.run(
-            [str(python), "-m", "pytest", "test_main.py", "-v"],
-            cwd=convert_dir,
-        )
-        if result.returncode != 0:
-            failures.append(name)
-
     click.echo()
-    if failures:
-        click.echo(click.style(f"FAILED: {', '.join(failures)}", fg="red"))
-        raise SystemExit(1)
-    else:
-        click.echo(click.style(f"All {len(docs)} suite(s) passed.", fg="green"))
+    click.echo(click.style(f"Done ({len(docs)} repo(s)).", fg="green"))
