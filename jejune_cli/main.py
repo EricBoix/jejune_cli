@@ -24,7 +24,7 @@ from .llm import llm
 from .llm_observability import llm_observability
 from .neo4j import neo4j
 from .test import test_cmd
-from .role import detect_role, role_components, ROLES, ROLE_SECTION_TITLE
+from .role import detect_role, role_components, ROLES, ROLE_SECTION_TITLE, _ROLE_INCLUDES
 
 _ACTIVE_ROLE, _ACTIVE_ROLE_REASON = detect_role()
 _ACTIVE_COMPONENTS = role_components(_ACTIVE_ROLE)
@@ -121,8 +121,9 @@ class _JejuneGroup(click.Group):
                 for p in _REGISTRY if p.stage == stage
             ]
 
+        _included = set(_ROLE_INCLUDES.get(_ACTIVE_ROLE, ()))
         for role_name, commands, plugin_stage in _ROLE_HELP_SECTIONS:
-            if _ACTIVE_ROLE in ROLES and role_name not in ("all", _ACTIVE_ROLE):
+            if _ACTIVE_ROLE in ROLES and role_name not in {"all", _ACTIVE_ROLE} | _included:
                 continue
             rows = _rows(commands)
             if plugin_stage:

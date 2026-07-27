@@ -20,6 +20,10 @@ _ROLE_COMPONENTS: dict[str, frozenset[str]] = {
     "deployer": frozenset({"deployment", "docs-server", "kg-viewer", "md-browser"}),
 }
 
+_ROLE_INCLUDES: dict[str, tuple[str, ...]] = {
+    "deployer": ("catalog-curator",),
+}
+
 _ROLE_REASON: dict[str, str] = {
     "all": "commands available regardless of role",
     "doc-steward": ".jejune/ directory detected",
@@ -59,4 +63,9 @@ def detect_role() -> tuple[str | None, str]:
 
 def role_components(role: str | None) -> frozenset[str] | None:
     """Component filter for the role, or None (show everything)."""
-    return _ROLE_COMPONENTS.get(role) if role else None
+    if not role:
+        return None
+    own = _ROLE_COMPONENTS.get(role, frozenset())
+    for parent in _ROLE_INCLUDES.get(role, ()):
+        own = own | _ROLE_COMPONENTS.get(parent, frozenset())
+    return own or None
