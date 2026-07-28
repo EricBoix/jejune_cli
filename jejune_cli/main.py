@@ -23,6 +23,7 @@ from .graph import graph
 from .llm import llm
 from .llm_observability import llm_observability
 from .neo4j import neo4j
+from .configuration_deployer import init as _deployer_init
 from .role import detect_role, role_components, ROLES, ROLE_SECTION_TITLE, _ROLE_INCLUDES
 
 _ACTIVE_ROLE, _ACTIVE_ROLE_REASON = detect_role()
@@ -125,6 +126,11 @@ class _JejuneGroup(click.Group):
             rows = _rows(commands)
             if plugin_stage:
                 rows += _plugin_rows(plugin_stage)
+            rows += [
+                (f"jejune {grp.name} {name}", f"alias for: jejune {canonical}")
+                for grp, name, _, canonical, alias_role in _ALIASES
+                if alias_role == role_name and _is_visible(grp.name)
+            ]
             if rows:
                 with formatter.section(ROLE_SECTION_TITLE[role_name]):
                     formatter.write_dl(rows)
@@ -417,6 +423,14 @@ cli.add_command(convert)
 cli.add_command(availability)
 cli.add_command(doctor)
 cli.add_command(role)
+
+# Developer-defined aliases: (target_group, alias_name, source_command, canonical_path, role_section)
+# role_section must match a key in _ROLE_HELP_SECTIONS so the alias appears in the right section.
+_ALIASES: list[tuple[click.Group, str, click.BaseCommand, str, str]] = [
+    (deployment, "init", _deployer_init, "configuration deployer init", "deployer"),
+]
+for _alias_group, _alias_name, _alias_cmd, _, _ in _ALIASES:
+    _alias_group.add_command(_alias_cmd, _alias_name)
 
 
 def _load_plugins() -> None:
