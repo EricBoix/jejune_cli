@@ -126,11 +126,6 @@ class _JejuneGroup(click.Group):
             rows = _rows(commands)
             if plugin_stage:
                 rows += _plugin_rows(plugin_stage)
-            rows += [
-                (f"jejune {grp.name} {name}", f"alias for: jejune {canonical}")
-                for grp, name, _, canonical, alias_role in _ALIASES
-                if alias_role == role_name and _is_visible(grp.name)
-            ]
             if rows:
                 with formatter.section(ROLE_SECTION_TITLE[role_name]):
                     formatter.write_dl(rows)
