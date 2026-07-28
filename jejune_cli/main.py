@@ -25,7 +25,7 @@ from .llm import llm
 from .llm_observability import llm_observability
 from .neo4j import neo4j
 from .configuration_deployer import init as _deployer_init
-from .role import detect_role, role_components, ROLES, ROLE_SECTION_TITLE, _ROLE_INCLUDES
+from .role import detect_role, role_components, ROLES, ROLE_SECTION_TITLE, _ROLE_INCLUDES, build_hierarchy_lines
 
 _ACTIVE_ROLE, _ACTIVE_ROLE_REASON = detect_role()
 _ACTIVE_COMPONENTS = role_components(_ACTIVE_ROLE)
@@ -200,6 +200,12 @@ def role_list():
     for r in _DISPLAY_ROLES:
         click.echo(f"  {r:<{_W}}  {_ROLE_REASON.get(r, '')}")
 
+
+@role.command("hierarchy")
+def role_hierarchy():
+    """Display the role inheritance hierarchy as a UML inheritance diagram."""
+    for line in build_hierarchy_lines():
+        click.echo(line)
 
 
 @cli.command()
