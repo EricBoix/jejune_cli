@@ -226,7 +226,7 @@ def up(deploy_dir_name: str | None) -> None:
     _containers.unregister(*container_names)
     for cname in container_names:
         _containers.register(deploy_name, cname)
-    _run_compose(deploy_dir, "up", "-d")
+    _run_compose(deploy_dir, "--project-name", f"jejune-{deploy_name}", "up", "-d")
 
 
 @click.command("ui-stop")
