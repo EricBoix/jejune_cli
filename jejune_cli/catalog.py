@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import click
@@ -9,6 +10,7 @@ import yaml
 from ._env import dot_jejune  # noqa: F401 — re-exported for jejune_catalog plugin
 from .convert import convert_configured as _convert_configured, image_built as _convert_image_built
 from .neo4j import container_running as _neo4j_running
+from .test import _check_doc_yaml, _tmp_dir
 
 _TEMPLATES = Path(__file__).parent / "templates"
 _TRIVIAL_CATALOG = _TEMPLATES / "catalog-curator" / "trivial-catalog.yaml"
@@ -17,6 +19,107 @@ _TRIVIAL_CATALOG = _TEMPLATES / "catalog-curator" / "trivial-catalog.yaml"
 @click.group(short_help="Catalog utilities")
 def catalog():
     """Catalog utilities for catalog-curator workspaces."""
+
+
+@catalog.command("test")
+@click.argument("catalog_file", required=False, default=None)
+@click.option(
+    "--root-dir",
+    envvar="JEJUNE_ROOT_DIR",
+    default=None,
+    type=click.Path(),
+    help="Directory holding side-by-side jejune_* clones (default: $JEJUNE_ROOT_DIR).",
+)
+@click.option(
+    "--repo",
+    default=None,
+    help="Operate on this repository only (by name).",
+)
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    default=False,
+    help="Print referenced files for each document.",
+)
+def catalog_test(catalog_file, root_dir, repo, verbose):
+    """Validate jejune_doc_* repositories found in the catalog.
+
+    CATALOG_FILE defaults to $JEJUNE_CATALOG, then .jejune/catalog.yaml.
+
+    Repositories are expected under ROOT_DIR/<name>/. Missing repositories
+    (or all when ROOT_DIR is unset) are cloned into .jejune/tmp/ which is
+    gitignored automatically.
+
+    For each repository, doc.yaml is parsed and every file it references is
+    checked for existence. Exits with a non-zero status if any check fails.
+    """
+    if catalog_file is None:
+        catalog_file = os.environ.get("JEJUNE_CATALOG")
+    if catalog_file is None:
+        default = dot_jejune() / "catalog.yaml"
+        if not default.exists():
+            raise click.ClickException(
+                "No catalog specified. Set $JEJUNE_CATALOG, pass CATALOG_FILE, "
+                "or run `jejune configure init` to create .jejune/catalog.yaml."
+            )
+        catalog_file = str(default)
+
+    root = Path(root_dir) if root_dir else None
+    if root is not None and not root.exists():
+        source = (
+            "$JEJUNE_ROOT_DIR"
+            if os.environ.get("JEJUNE_ROOT_DIR") == root_dir
+            else "--root-dir"
+        )
+        raise click.ClickException(f"ROOT_DIR ({source}) does not exist: {root}")
+
+    docs = yaml.safe_load(Path(catalog_file).read_text())["documents"]
+
+    if repo:
+        docs = [d for d in docs if d["name"] == repo]
+        if not docs:
+            raise click.ClickException(f"Repository '{repo}' not found in catalog.")
+
+    tmp: Path | None = None
+    all_ok = True
+
+    for doc in docs:
+        name = doc["name"]
+        url = doc["url"]
+
+        repo_dir = root / name if root is not None else None
+        if repo_dir is None or not repo_dir.exists():
+            if tmp is None:
+                tmp = _tmp_dir()
+            repo_dir = tmp / name
+            if not repo_dir.exists():
+                click.echo(f"Cloning {name} ...")
+                subprocess.run(["git", "clone", url, str(repo_dir)], check=True)
+
+        cloned_label = click.style("cloned", fg="green")
+        errors, file_refs = _check_doc_yaml(repo_dir)
+        if errors:
+            all_ok = False
+            doc_label = click.style("invalid", fg="red")
+            click.echo(f"  {name:<40}  {cloned_label} / {doc_label}")
+            if verbose:
+                for err in errors:
+                    click.echo(f"      {click.style(err, fg='red')}")
+        else:
+            doc_label = click.style("valid", fg="green")
+            click.echo(f"  {name:<40}  {cloned_label} / {doc_label}")
+            if verbose:
+                key_width = max((len(k) for k, _ in file_refs), default=0)
+                for key, rel in file_refs:
+                    click.echo(f"      {key:<{key_width}}  {rel}")
+
+    click.echo()
+    if all_ok:
+        click.echo(click.style(f"{len(docs)} repo(s) — all ok.", fg="green"))
+    else:
+        click.echo(click.style(f"{len(docs)} repo(s) — some checks failed.", fg="red"))
+        sys.exit(1)
 
 
 @catalog.command("sample")
