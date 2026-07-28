@@ -9,7 +9,7 @@ from .catalog import run_all, catalog as catalog_cmd
 from .convert import convert, convert_configured
 from .plugin import JejunePlugin, _REGISTRY
 from .deployment import deployment
-from .ui_deployment import build
+from .ui_deployment import build as _build_cmd
 from .configuration import (
     configuration,
     COMPONENT_CONFIG_HINTS as _CONFIG_HINTS,
@@ -45,7 +45,7 @@ _BUILTIN_COMPONENTS: frozenset[str] = frozenset(_COMPONENTS)
 _ALL_ROLES_COMMANDS = ["doctor", "configuration", "role", "containers"]
 _DOC_STEWARD_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert"]
 _CURATOR_COMPONENTS = ["catalog"]   # + "collection" stage plugins
-_DEPLOYER_COMPONENTS = ["deployment", "build"]  # + "extension" stage plugins
+_DEPLOYER_COMPONENTS = ["deployment"]  # + "extension" stage plugins
 
 # Ordered sections for `jejune --help`, keyed by role name from ROLE_SECTION_TITLE.
 _ROLE_HELP_SECTIONS: list[tuple[str, list[str], str | None]] = [
@@ -412,7 +412,6 @@ cli.add_command(llm)
 cli.add_command(llm_observability)
 cli.add_command(graph)
 cli.add_command(deployment)
-cli.add_command(build)
 cli.add_command(catalog_cmd)
 cli.add_command(convert)
 cli.add_command(availability)
@@ -423,9 +422,31 @@ cli.add_command(role)
 # role_section must match a key in _ROLE_HELP_SECTIONS so the alias appears in the right section.
 _ALIASES: list[tuple[click.Group, str, click.BaseCommand, str, str]] = [
     (deployment, "init", _deployer_init, "configuration deployer init", "deployer"),
+    (cli, "build", _build_cmd, "deployment build", "deployer"),
 ]
-for _alias_group, _alias_name, _alias_cmd, _, _ in _ALIASES:
-    _alias_group.add_command(_alias_cmd, _alias_name)
+class _AliasShim(click.BaseCommand):
+    """Proxy that delegates execution to a wrapped command but annotates itself as an alias."""
+
+    def __init__(self, wrapped: click.BaseCommand, canonical: str) -> None:
+        super().__init__(name=wrapped.name)
+        self._wrapped = wrapped
+        self._canonical = canonical
+
+    def get_short_help_str(self, limit: int = 150) -> str:
+        return f"alias for: jejune {self._canonical}"
+
+    def make_context(self, info_name, args, parent=None, **extra):
+        return self._wrapped.make_context(info_name, args, parent=parent, **extra)
+
+    def invoke(self, ctx: click.Context):
+        return self._wrapped.invoke(ctx)
+
+    def get_help(self, ctx: click.Context) -> str:
+        return self._wrapped.get_help(ctx)
+
+
+for _alias_group, _alias_name, _alias_cmd, _alias_canonical, _ in _ALIASES:
+    _alias_group.add_command(_AliasShim(_alias_cmd, _alias_canonical), _alias_name)
 
 
 def _load_plugins() -> None:
