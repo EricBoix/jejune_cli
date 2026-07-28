@@ -37,6 +37,8 @@ def load_env_files(
     """Load .jejune/env-config then .jejune/env-secrets; existing env vars always take precedence."""
     d = dot_jejune()
     _load(config_file or d / "env-config")
+    for extra in sorted(d.glob("*-env-config")):
+        _load(extra)
     _load(secrets_file or d / "env-secrets")
 
 

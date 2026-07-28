@@ -49,7 +49,7 @@ def detect_role() -> tuple[str | None, str]:
     cwd = Path.cwd()
     role_file = cwd / ".jejune" / "role"
     if role_file.is_file():
-        role = role_file.read_text().strip()
+        role = role_file.read_text().strip().split(",")[0].strip()
         if role in ROLES:
             return role, ".jejune/role"
     if (cwd / "docker-compose.yml").exists():
