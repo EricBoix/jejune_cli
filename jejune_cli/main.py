@@ -32,13 +32,13 @@ _ACTIVE_COMPONENTS = role_components(_ACTIVE_ROLE)
 
 # Components — drives both `jejune --help` listing and `jejune doctor` output.
 _COMPONENTS = [
+    "ecosystem",
     "neo4j",
     "llm",
     "llm-observability",
     "graph",
     "deployment",
     "convert",
-    "developer",
 ]
 # Frozen at startup — used to distinguish built-ins from loaded plugins in help.
 _BUILTIN_COMPONENTS: frozenset[str] = frozenset(_COMPONENTS)

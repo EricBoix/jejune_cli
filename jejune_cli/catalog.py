@@ -388,10 +388,10 @@ def run_all(
         built, msg = _convert_image_built()
         avail.append(("convert", "ok" if built else "warn", msg))
 
-    if _visible("developer"):
+    if _visible("ecosystem"):
         from .ecosystem import check_developer_avail
         ok, msg = check_developer_avail()
-        avail.append(("developer", "ok" if ok else "warn", msg))
+        avail.append(("ecosystem", "ok" if ok else "warn", msg))
 
     for plugin in _REGISTRY:
         if not _visible(plugin.name):

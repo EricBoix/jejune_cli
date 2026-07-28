@@ -12,7 +12,7 @@ ROLES = ("doc-steward", "catalog-curator", "deployer", "developer")
 _DISPLAY_ROLES = ("all",) + ROLES
 
 _ROLE_COMPONENTS: dict[str, frozenset[str]] = {
-    "developer": frozenset({"ecosystem", "developer"}),
+    "developer": frozenset({"ecosystem"}),
     "doc-steward": frozenset(
         {"configuration", "neo4j", "llm", "llm-observability", "graph", "convert"}
     ),
