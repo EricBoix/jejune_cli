@@ -20,7 +20,7 @@ from .configuration_deployer import (
     COMPONENT_CONFIG_HINTS as _DEP_HINTS,
     init as _deployer_init,
 )
-from .configuration_developer import (
+from .configuration_contributor import (
     CONFIG_GROUPS as _DEV_CONFIG_GROUPS,
     COMPONENT_CONFIG_HINTS as _DEV_HINTS,
 )

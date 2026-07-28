@@ -30,7 +30,7 @@ DOC_STEWARD_REPOS: list[tuple[str, str | None, str | None]] = [
 ]
 
 _ROLE_REPOS: dict[str, list[tuple[str, str | None, str | None]]] = {
-    "developer":       [],
+    "contributor":     [],
     "deployer":        DEPLOYER_REPOS,
     "catalog-curator": CURATOR_REPOS,
     "doc-steward":     DOC_STEWARD_REPOS,
@@ -121,7 +121,7 @@ def check_network(url: str = REPO_ROOT_DIR, timeout: int = 5) -> bool:
         return False
 
 
-def check_developer_avail() -> tuple[bool, str]:
+def check_contributor_avail() -> tuple[bool, str]:
     """Check git availability and network reachability of REPO_ROOT_DIR."""
     git_ok = check_git()
     net_ok = check_network()

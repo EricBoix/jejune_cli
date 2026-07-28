@@ -1,4 +1,4 @@
-"""Developer role: configuration data."""
+"""Contributor role: configuration data."""
 
 CONFIG_GROUPS: dict[str, tuple[list[str], str]] = {
     "ecosystem": (["JEJUNE_ROOT_DIR"], "ecosystem root"),

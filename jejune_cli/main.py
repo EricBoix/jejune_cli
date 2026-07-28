@@ -44,14 +44,14 @@ _COMPONENTS = [
 _BUILTIN_COMPONENTS: frozenset[str] = frozenset(_COMPONENTS)
 
 # Help-section membership for built-in components.
-_ALL_ROLES_COMMANDS = ["doctor", "configuration", "role", "containers", "ecosystem"]
+_CONTRIBUTOR_COMMANDS = ["doctor", "configuration", "role", "containers", "ecosystem"]
 _DOC_STEWARD_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert"]
 _CURATOR_COMPONENTS = ["catalog"]   # + "collection" stage plugins
 _DEPLOYER_COMPONENTS = ["deployment"]  # + "extension" stage plugins
 
 # Ordered sections for `jejune --help`, keyed by role name from ROLE_SECTION_TITLE.
 _ROLE_HELP_SECTIONS: list[tuple[str, list[str], str | None]] = [
-    ("all",             _ALL_ROLES_COMMANDS,     None),
+    ("contributor",     _CONTRIBUTOR_COMMANDS,   None),
     ("doc-steward",     _DOC_STEWARD_COMPONENTS, "single-document"),
     ("catalog-curator", _CURATOR_COMPONENTS,     "collection"),
     ("deployer",        _DEPLOYER_COMPONENTS,    "extension"),
@@ -123,7 +123,7 @@ class _JejuneGroup(click.Group):
 
         _included = set(_ROLE_INCLUDES.get(_ACTIVE_ROLE, ()))
         for role_name, commands, plugin_stage in _ROLE_HELP_SECTIONS:
-            if _ACTIVE_ROLE in ROLES and role_name not in {"all", _ACTIVE_ROLE} | _included:
+            if _ACTIVE_ROLE in ROLES and role_name not in {_ACTIVE_ROLE} | _included:
                 continue
             rows = _rows(commands)
             if plugin_stage:

@@ -389,8 +389,8 @@ def run_all(
         avail.append(("convert", "ok" if built else "warn", msg))
 
     if _visible("ecosystem"):
-        from .ecosystem import check_developer_avail
-        ok, msg = check_developer_avail()
+        from .ecosystem import check_contributor_avail
+        ok, msg = check_contributor_avail()
         avail.append(("ecosystem", "ok" if ok else "warn", msg))
 
     for plugin in _REGISTRY:
