@@ -175,10 +175,10 @@ def ui_configure(deployments_dir, name):
     click.echo(f"  {step + 1}. Start:  docker compose --env-file deployment.env up -d")
 
 
-@click.command("ui-list")
+@click.command("list")
 @click.argument("deployments_dir", type=click.Path(exists=True))
 def ui_list(deployments_dir):
-    """List UI deployments (directories with docker-compose.yml) in DEPLOYMENTS_DIR."""
+    """List deployments (directories with docker-compose.yml) in DEPLOYMENTS_DIR."""
     root = Path(deployments_dir)
     dirs = sorted(
         d for d in root.iterdir()
