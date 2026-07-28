@@ -210,10 +210,10 @@ def build(deploy_dir_name: str | None) -> None:
     _run_compose(_deployment_dir(deploy_dir_name), "build")
 
 
-@click.command("ui-start")
+@click.command("up")
 @click.argument("deployments_dir", type=click.Path(exists=True))
 @click.argument("name")
-def ui_start(deployments_dir, name):
+def up(deployments_dir, name):
     """Start the NAME UI deployment in DEPLOYMENTS_DIR (detached)."""
     _run_compose(_resolve_deploy_dir(deployments_dir, name), "up", "-d")
 
