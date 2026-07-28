@@ -25,7 +25,7 @@ def list_deployments(deployments_dir):
 
 
 # UI deployment commands live in ui_deployment.py; imported here to stay in this group.
-from .ui_deployment import ui_configure, ui_list, up, ui_stop, build  # noqa: E402, F401
+from .ui_deployment import ui_configure, ui_list, up, down, build  # noqa: E402, F401
 
-for _cmd in (ui_list, up, ui_stop, build):
+for _cmd in (ui_list, up, down, build):
     deployment.add_command(_cmd)

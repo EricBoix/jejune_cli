@@ -10,7 +10,7 @@ from .convert import convert, convert_configured
 from .plugin import JejunePlugin, _REGISTRY
 from .deployment import deployment
 from .ecosystem import ecosystem
-from .ui_deployment import build as _build_cmd, up as _up_cmd
+from .ui_deployment import build as _build_cmd, up as _up_cmd, down as _down_cmd
 from .configuration import (
     configuration,
     COMPONENT_CONFIG_HINTS as _CONFIG_HINTS,
@@ -432,6 +432,7 @@ _ALIASES: list[tuple[click.Group, str, click.BaseCommand, str, str]] = [
     (deployment, "init",  _deployer_init, "configuration deployer init", "deployer"),
     (cli,        "build", _build_cmd,     "deployment build",            "deployer"),
     (cli,        "up",    _up_cmd,        "deployment up",               "deployer"),
+    (cli,        "down",  _down_cmd,      "deployment down",             "deployer"),
 ]
 class _AliasShim(click.BaseCommand):
     """Proxy that delegates execution to a wrapped command but annotates itself as an alias."""

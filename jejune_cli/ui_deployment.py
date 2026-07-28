@@ -229,9 +229,9 @@ def up(deploy_dir_name: str | None) -> None:
     _run_compose(deploy_dir, "--project-name", f"jejune-{deploy_name}", "up", "-d")
 
 
-@click.command("ui-stop")
-@click.argument("deployments_dir", type=click.Path(exists=True))
-@click.argument("name")
-def ui_stop(deployments_dir, name):
-    """Stop the NAME UI deployment in DEPLOYMENTS_DIR."""
-    _run_compose(_resolve_deploy_dir(deployments_dir, name), "down")
+@click.command("down")
+@click.argument("deploy_dir_name", required=False, metavar="DEPLOY_DIR_NAME",
+                type=click.Path(exists=True, file_okay=False))
+def down(deploy_dir_name: str | None) -> None:
+    """Stop a UI deployment."""
+    _run_compose(_deployment_dir(deploy_dir_name), "down")
