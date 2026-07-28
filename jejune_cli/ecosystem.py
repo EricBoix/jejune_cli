@@ -17,7 +17,7 @@ from ._ecosystem import REPO_ROOT_DIR
 
 DEPLOYER_REPOS: list[tuple[str, str | None, str | None]] = [
     ("jejune_docs_server",      "DockerContext", "DOCS_SERVER_CONTEXT"),
-    ("jejune_kg-graph_viewer",  "DockerContext", "KG_GRAPH_VIEWER_CONTEXT"),
+    ("jejune_kg-graph_viewer",  None,            "KG_GRAPH_VIEWER_CONTEXT"),
     ("jejune_markdown_browser", "DockerContext", "MARKDOWN_BROWSER_CONTEXT"),
 ]
 CURATOR_REPOS: list[tuple[str, str | None, str | None]] = [
@@ -190,16 +190,16 @@ def ecosystem_status() -> None:
     for name, _, _ in repos:
         tier, path = repo_status(name, root_dir, tmp_dir)
         if tier == "root":
-            clone_display = f"[JEJUNE_ROOT_DIR]/{name}"
+            clone_display, remote_display = "[JEJUNE_ROOT_DIR]", ""
         elif tier == "tmp":
-            clone_display = path  # .jejune/tmp/name — no standard env var abbreviation
+            clone_display, remote_display = "[.jejune/tmp]", ""
         else:
-            clone_display = ""
+            clone_display, remote_display = "", "[REPO_ROOT_DIR]"
         rows.append((
             name,
             "found" if tier in ("root", "tmp") else "not found",
             clone_display,
-            f"[REPO_ROOT_DIR]/{name}",
+            remote_display,
         ))
 
     _W_N = max(len("Component"),       max(len(r[0]) for r in rows))

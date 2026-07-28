@@ -59,6 +59,7 @@ def _docker_compose_content(has_private: bool) -> str:
         "  kg-graph-viewer:\n"
         "    build:\n"
         "      context: ${KG_GRAPH_VIEWER_CONTEXT}\n"
+        "      dockerfile: DockerContext/Dockerfile\n"
         "    ports:\n"
         "      - \"${KG_PORT:-8080}:80\"\n"
         "    depends_on:\n"
