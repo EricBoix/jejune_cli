@@ -8,6 +8,7 @@ import click
 from ._env import dot_jejune
 
 _TEMPLATES = Path(__file__).parent / "templates" / "doc-steward"
+_ECOSYSTEM_TEMPLATE = Path(__file__).parent / "templates" / "ecosystem" / "env-config"
 
 # Config groups: name → (env vars, components that require them).
 # "warn" (yellow) = none set — use case not configured, valid.
@@ -31,8 +32,8 @@ COMPONENT_CONFIG_HINTS: dict[str, str] = {
 def init():
     """Write jejune scaffold files into .jejune/ in the current directory.
 
-    Creates .jejune/env-config, .jejune/env-secrets, and
-    .jejune/catalog.yaml from built-in templates.
+    Creates .jejune/env-config, .jejune/env-secrets, .jejune/catalog.yaml,
+    and .jejune/ecosystem-env-config from built-in templates.
     Adds .jejune to .gitignore so the whole directory stays local by default.
     """
     d = dot_jejune()
@@ -47,6 +48,13 @@ def init():
         else:
             shutil.copy2(_TEMPLATES / fname, dst)
             created.append(fname)
+
+    eco_dst = d / "ecosystem-env-config"
+    if eco_dst.exists():
+        skipped.append("ecosystem-env-config")
+    else:
+        shutil.copy2(_ECOSYSTEM_TEMPLATE, eco_dst)
+        created.append("ecosystem-env-config")
 
     for f in created:
         click.echo(click.style(f"  created  .jejune/{f}", fg="green"))

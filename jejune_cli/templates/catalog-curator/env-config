@@ -1,7 +1,0 @@
-# Non-secret defaults — safe to commit and share across developers.
-# Variables set in the environment take precedence over these.
-
-### Catalog workspace layout (optional)
-# Absolute path to the local directory holding all side-by-side jejune_* clones.
-# When unset, missing repositories are cloned automatically into .jejune/tmp/.
-# JEJUNE_ROOT_DIR=/absolute/path/to/local/clones

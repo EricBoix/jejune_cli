@@ -1,0 +1,8 @@
+# Ecosystem-level defaults — transversal to all roles; safe to commit.
+# Variables set in the environment take precedence over these.
+
+# Path to the local directory holding all side-by-side jejune_* clones.
+# Relative paths are resolved from the directory where jejune is invoked
+# possibly making it fragile; prefer absolute.
+# When unset, missing repositories are cloned automatically into .jejune/tmp/.
+JEJUNE_ROOT_DIR=/path/to/local/clones_CHANGE_ME
