@@ -20,16 +20,22 @@ from .configuration_deployer import (
     COMPONENT_CONFIG_HINTS as _DEP_HINTS,
     init as _deployer_init,
 )
+from .configuration_developer import (
+    CONFIG_GROUPS as _DEV_CONFIG_GROUPS,
+    COMPONENT_CONFIG_HINTS as _DEV_HINTS,
+)
 
 CONFIG_GROUPS: dict[str, tuple[list[str], str]] = {
     **_DS_CONFIG_GROUPS,
     **_CC_CONFIG_GROUPS,
     **_DEP_CONFIG_GROUPS,
+    **_DEV_CONFIG_GROUPS,
 }
 COMPONENT_CONFIG_HINTS: dict[str, str] = {
     **_DS_HINTS,
     **_CC_HINTS,
     **_DEP_HINTS,
+    **_DEV_HINTS,
 }
 
 _PLACEHOLDER = "_CHANGE_ME"

@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 import click
 
 from . import containers
-from ._ecosystem import ECOSYSTEM_REPO_BASE
+from ._ecosystem import REPO_ROOT_DIR
 
 _META_URL = "viewer_url"
 
@@ -28,7 +28,7 @@ class _ViewGroup(click.Group):
 
 
 _VIEWER_IMAGE = "jejune:kg_graph_viewer"
-_VIEWER_GITHUB = f"{ECOSYSTEM_REPO_BASE}/jejune_kg-graph_viewer.git"
+_VIEWER_GITHUB = f"{REPO_ROOT_DIR}/jejune_kg-graph_viewer.git"
 _VIEWER_DATA = Path.home() / ".jejune" / "viewer_data"
 _VIEWER_NAME_PREFIX = "jejune_kg_viewer_"
 _VIEWER_COMPONENT = "graph-view"

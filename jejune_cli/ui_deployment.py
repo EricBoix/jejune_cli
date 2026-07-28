@@ -42,10 +42,8 @@ def _docker_compose_content(has_private: bool) -> str:
         "services:\n"
         "  docs-server:\n"
         "    build:\n"
-        "      context: ../../jejune_docs_server\n"
-        "      dockerfile: DockerContext/Dockerfile\n"
-        "      additional_contexts:\n"
-        "        catalog_ref: ../../jejune_catalog\n"
+        "      context: ${DOCS_SERVER_CONTEXT}\n"
+        "      dockerfile: Dockerfile\n"
         "      args:\n"
         "        INCLUDE_PDFS: \"${INCLUDE_PDFS:-false}\"\n"
         f"{build_secrets}"
@@ -60,7 +58,7 @@ def _docker_compose_content(has_private: bool) -> str:
         "\n"
         "  kg-graph-viewer:\n"
         "    build:\n"
-        "      context: ../../jejune_kg-graph_viewer/DockerContext\n"
+        "      context: ${KG_GRAPH_VIEWER_CONTEXT}\n"
         "    ports:\n"
         "      - \"${KG_PORT:-8080}:80\"\n"
         "    depends_on:\n"
@@ -68,7 +66,7 @@ def _docker_compose_content(has_private: bool) -> str:
         "\n"
         "  markdown-browser:\n"
         "    build:\n"
-        "      context: ../../jejune_markdown_browser/DockerContext\n"
+        "      context: ${MARKDOWN_BROWSER_CONTEXT}\n"
         "    ports:\n"
         "      - \"${MARKDOWN_PORT:-8443}:8443\"\n"
         "\n"
@@ -84,9 +82,22 @@ def _resolve_deploy_dir(deployments_dir: str, name: str) -> Path:
 
 
 def _run_compose(deploy_dir: Path, *args: str) -> None:
+    from .ecosystem import DEPLOYER_REPOS, resolve
+
     env = os.environ.copy()
-    if root_dir := env.get("JEJUNE_ROOT_DIR"):
-        env["JEJUNE_ROOT_DIR"] = str(Path(root_dir).resolve())
+    raw_root = env.get("JEJUNE_ROOT_DIR")
+    root_dir = Path(raw_root).resolve() if raw_root else None
+    if root_dir:
+        env["JEJUNE_ROOT_DIR"] = str(root_dir)
+
+    tmp_dir = deploy_dir.resolve() / ".jejune" / "tmp"
+    if not tmp_dir.is_dir():
+        tmp_dir = None
+
+    for name, subpath, key in DEPLOYER_REPOS:
+        if key:
+            env[key] = resolve(name, root_dir, tmp_dir, subpath)
+
     result = subprocess.run(
         ["docker", "compose", "--env-file", "deployment.env", *args],
         cwd=deploy_dir,

@@ -1,1 +1,1 @@
-ECOSYSTEM_REPO_BASE = "https://github.com/EricBoix"
+REPO_ROOT_DIR = "https://github.com/EricBoix"

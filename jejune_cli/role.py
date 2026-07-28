@@ -8,10 +8,11 @@ the JEJUNE_ROLE env var overrides auto-detection.
 import os
 from pathlib import Path
 
-ROLES = ("doc-steward", "catalog-curator", "deployer")
+ROLES = ("doc-steward", "catalog-curator", "deployer", "developer")
 _DISPLAY_ROLES = ("all",) + ROLES
 
 _ROLE_COMPONENTS: dict[str, frozenset[str]] = {
+    "developer": frozenset({"ecosystem", "developer"}),
     "doc-steward": frozenset(
         {"configuration", "neo4j", "llm", "llm-observability", "graph", "convert"}
     ),
@@ -21,11 +22,14 @@ _ROLE_COMPONENTS: dict[str, frozenset[str]] = {
 }
 
 _ROLE_INCLUDES: dict[str, tuple[str, ...]] = {
-    "deployer": ("catalog-curator",),
+    "deployer":        ("catalog-curator", "developer"),
+    "catalog-curator": ("developer",),
+    "doc-steward":     ("developer",),
 }
 
 _ROLE_REASON: dict[str, str] = {
     "all": "commands available regardless of role",
+    "developer": "base role inherited by all other roles",
     "doc-steward": ".jejune/ directory detected",
     "catalog-curator": "full-catalog.yaml detected",
     "deployer": "docker-compose.yml detected",
@@ -33,6 +37,7 @@ _ROLE_REASON: dict[str, str] = {
 
 ROLE_SECTION_TITLE: dict[str, str] = {
     "all": "All roles commands",
+    "developer": "Developer commands",
     "doc-steward": "Doc-steward commands",
     "catalog-curator": "Catalog-curator commands",
     "deployer": "Deployer commands",

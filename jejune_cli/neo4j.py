@@ -10,7 +10,7 @@ from pathlib import Path
 import click
 
 from . import containers
-from ._ecosystem import ECOSYSTEM_REPO_BASE
+from ._ecosystem import REPO_ROOT_DIR
 from ._env import TTL_ENV_VARS, docker_env_args
 from .configuration import (
     component_config_check,
@@ -85,7 +85,7 @@ def _launch_container(data_dir: Path, port: str, credentials: str) -> None:
         "build",
         "-t",
         _NEO4J_IMAGE,
-        f"{ECOSYSTEM_REPO_BASE}/jejune_neo4j_docker.git",
+        f"{REPO_ROOT_DIR}/jejune_neo4j_docker.git",
     )
 
     (data_dir / "database").mkdir(parents=True, exist_ok=True)
@@ -432,7 +432,7 @@ def dump_turtle(output_dir, filename):
         "build",
         "-t",
         _TTL_IMAGE,
-        f"{ECOSYSTEM_REPO_BASE}/jejune_neo4j_to_rdf_ttl.git#:DockerContext",
+        f"{REPO_ROOT_DIR}/jejune_neo4j_to_rdf_ttl.git#:DockerContext",
     )
 
     click.echo(f"Exporting to {output_dir / filename} ...")

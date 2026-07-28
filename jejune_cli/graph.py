@@ -2,7 +2,7 @@ from pathlib import Path
 
 import click
 
-from ._ecosystem import ECOSYSTEM_REPO_BASE
+from ._ecosystem import REPO_ROOT_DIR
 from ._env import EXTRACT_ENV_VARS, docker_env_args
 from .configuration import print_config_hint, print_config_status
 from .graph_view import view
@@ -140,7 +140,7 @@ def extract(doc_dir, extra_args):
         "build",
         "-t",
         _BUILD_KG_IMAGE,
-        f"{ECOSYSTEM_REPO_BASE}/jejune_extract_knowledge_graph.git#:DockerContext",
+        f"{REPO_ROOT_DIR}/jejune_extract_knowledge_graph.git#:DockerContext",
     )
 
     click.echo("Running extraction ...")

@@ -9,6 +9,7 @@ from .catalog import run_all, catalog as catalog_cmd
 from .convert import convert, convert_configured
 from .plugin import JejunePlugin, _REGISTRY
 from .deployment import deployment
+from .ecosystem import ecosystem
 from .ui_deployment import build as _build_cmd
 from .configuration import (
     configuration,
@@ -37,12 +38,13 @@ _COMPONENTS = [
     "graph",
     "deployment",
     "convert",
+    "developer",
 ]
 # Frozen at startup — used to distinguish built-ins from loaded plugins in help.
 _BUILTIN_COMPONENTS: frozenset[str] = frozenset(_COMPONENTS)
 
 # Help-section membership for built-in components.
-_ALL_ROLES_COMMANDS = ["doctor", "configuration", "role", "containers"]
+_ALL_ROLES_COMMANDS = ["doctor", "configuration", "role", "containers", "ecosystem"]
 _DOC_STEWARD_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert"]
 _CURATOR_COMPONENTS = ["catalog"]   # + "collection" stage plugins
 _DEPLOYER_COMPONENTS = ["deployment"]  # + "extension" stage plugins
@@ -417,6 +419,7 @@ cli.add_command(llm)
 cli.add_command(llm_observability)
 cli.add_command(graph)
 cli.add_command(deployment)
+cli.add_command(ecosystem)
 cli.add_command(catalog_cmd)
 cli.add_command(convert)
 cli.add_command(availability)

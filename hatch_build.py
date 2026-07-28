@@ -30,6 +30,6 @@ class CustomBuildHook(BuildHookInterface):
             pyproject = tomllib.load(f)
         base = pyproject["tool"]["jejune"]["ecosystem-repo-base"]
         Path("jejune_cli/_ecosystem.py").write_text(
-            f'ECOSYSTEM_REPO_BASE = "{base}"\n'
+            f'REPO_ROOT_DIR = "{base}"\n'
         )
         build_data["artifacts"].append("jejune_cli/_ecosystem.py")
