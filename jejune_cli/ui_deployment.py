@@ -28,7 +28,7 @@ def _has_private_repos(catalog_path: Path) -> bool:
     return any(not doc.get("public", True) for doc in data.get("documents", []))
 
 
-def _docker_compose_content(has_private: bool) -> str:
+def _docker_compose_content(has_private: bool, name: str) -> str:
     build_secrets = (
         "      secrets:\n        - catalog\n        - gh_token\n"
         if has_private else
@@ -41,6 +41,7 @@ def _docker_compose_content(has_private: bool) -> str:
     return (
         "services:\n"
         "  docs-server:\n"
+        f"    image: jejune:{name}-docs-server\n"
         "    build:\n"
         "      context: ${DOCS_SERVER_CONTEXT}\n"
         "      dockerfile: Dockerfile\n"
@@ -57,6 +58,7 @@ def _docker_compose_content(has_private: bool) -> str:
         "    #   - ${JEJUNE_ROOT_DIR}:/docs-mount:ro\n"
         "\n"
         "  kg-graph-viewer:\n"
+        f"    image: jejune:{name}-kg-graph-viewer\n"
         "    build:\n"
         "      context: ${KG_GRAPH_VIEWER_CONTEXT}\n"
         "      dockerfile: DockerContext/Dockerfile\n"
@@ -66,6 +68,7 @@ def _docker_compose_content(has_private: bool) -> str:
         "      - docs-server\n"
         "\n"
         "  markdown-browser:\n"
+        f"    image: jejune:{name}-markdown-browser\n"
         "    build:\n"
         "      context: ${MARKDOWN_BROWSER_CONTEXT}\n"
         "    ports:\n"
@@ -148,7 +151,7 @@ def ui_configure(deployments_dir, name):
         click.echo("Seeded catalog.yaml from built-in template — populate manually.")
 
     has_private = _has_private_repos(deploy_dir / "catalog.yaml")
-    (deploy_dir / "docker-compose.yml").write_text(_docker_compose_content(has_private))
+    (deploy_dir / "docker-compose.yml").write_text(_docker_compose_content(has_private, name))
     shutil.copy(_T_UI / "deployment.env", deploy_dir / "deployment.env")
 
     if has_private:
