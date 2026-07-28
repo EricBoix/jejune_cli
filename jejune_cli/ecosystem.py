@@ -186,16 +186,30 @@ def ecosystem_status() -> None:
         click.echo(click.style("  No repositories required for the current role.", fg="yellow"))
         return
 
-    _W_N = max(len(r[0]) for r in repos)
-    _TIER_LABEL: dict[str, str] = {"root": "root", "tmp": "tmp ", "remote": "–   "}
-    _TIER_FG:    dict[str, str] = {"root": "green", "tmp": "yellow", "remote": "white"}
-
+    rows: list[tuple[str, str, str, str]] = []
     for name, _, _ in repos:
-        tier, path_or_url = repo_status(name, root_dir, tmp_dir)
-        label = click.style(_TIER_LABEL[tier], fg=_TIER_FG[tier])
-        if tier == "tmp":
-            remote_url = f"{REPO_ROOT_DIR}/{name}"
-            click.echo(f"  {name:<{_W_N}}  {label}  {path_or_url}")
-            click.echo(f"  {'':<{_W_N}}        {remote_url}")
+        tier, path = repo_status(name, root_dir, tmp_dir)
+        if tier == "root":
+            clone_display = f"[JEJUNE_ROOT_DIR]/{name}"
+        elif tier == "tmp":
+            clone_display = path  # .jejune/tmp/name — no standard env var abbreviation
         else:
-            click.echo(f"  {name:<{_W_N}}  {label}  {path_or_url}")
+            clone_display = ""
+        rows.append((
+            name,
+            "found" if tier in ("root", "tmp") else "not found",
+            clone_display,
+            f"[REPO_ROOT_DIR]/{name}",
+        ))
+
+    _W_N = max(len("Component"),       max(len(r[0]) for r in rows))
+    _W_S = max(len("Status"),          max(len(r[1]) for r in rows))
+    _W_C = max(len("Clone directory"), max(len(r[2]) for r in rows))
+    _W_R = max(len("Remote repo"),     max(len(r[3]) for r in rows))
+    _STATUS_FG = {"found": "green", "not found": "yellow"}
+
+    click.echo(f"  {'Component':<{_W_N}}  {'Status':<{_W_S}}  {'Clone directory':<{_W_C}}  Remote repo")
+    click.echo("  " + "─" * (_W_N + 2 + _W_S + 2 + _W_C + 2 + _W_R))
+    for name, status, clone_dir, remote_url in rows:
+        status_cell = click.style(f"{status:<{_W_S}}", fg=_STATUS_FG.get(status, "white"))
+        click.echo(f"  {name:<{_W_N}}  {status_cell}  {clone_dir:<{_W_C}}  {remote_url}")
