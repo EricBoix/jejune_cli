@@ -12,6 +12,8 @@ import yaml
 _TEMPLATES = Path(__file__).parent / "templates"
 _T_UI = _TEMPLATES / "deployer" / "ui-deployment"
 
+_UI_SERVICES = ("docs-server", "kg-graph-viewer", "markdown-browser")
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -39,6 +41,8 @@ def _docker_compose_content(has_private: bool, name: str) -> str:
         if has_private else ""
     )
     return (
+        f"name: jejune-{name}\n"
+        "\n"
         "services:\n"
         "  docs-server:\n"
         f"    image: jejune:{name}-docs-server\n"
@@ -215,7 +219,14 @@ def build(deploy_dir_name: str | None) -> None:
                 type=click.Path(exists=True, file_okay=False))
 def up(deploy_dir_name: str | None) -> None:
     """Start a UI deployment in detached mode."""
-    _run_compose(_deployment_dir(deploy_dir_name), "up", "-d")
+    from . import containers as _containers
+    deploy_dir = _deployment_dir(deploy_dir_name)
+    deploy_name = deploy_dir.resolve().name
+    container_names = [f"jejune-{deploy_name}-{svc}-1" for svc in _UI_SERVICES]
+    _containers.unregister(*container_names)
+    for cname in container_names:
+        _containers.register(deploy_name, cname)
+    _run_compose(deploy_dir, "up", "-d")
 
 
 @click.command("ui-stop")
