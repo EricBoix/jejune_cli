@@ -127,8 +127,8 @@ def catalog_test(catalog_file, root_dir, repo, verbose):
 
 @catalog.command("sample")
 def catalog_sample():
-    """Copy the built-in catalog template to catalog.yml in the current directory."""
-    target = Path.cwd() / "catalog.yml"
+    """Copy the built-in catalog template to catalog.yaml in the current directory."""
+    target = Path.cwd() / "catalog.yaml"
     if target.exists():
         click.echo(
             click.style(
