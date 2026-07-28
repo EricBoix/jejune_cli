@@ -74,7 +74,10 @@ def catalog_test(catalog_file, root_dir, repo, verbose):
         )
         raise click.ClickException(f"ROOT_DIR ({source}) does not exist: {root}")
 
-    docs = yaml.safe_load(Path(catalog_file).read_text())["documents"]
+    catalog_path = Path(catalog_file)
+    if not catalog_path.exists():
+        raise click.ClickException(f"Catalog file not found: {catalog_file}")
+    docs = yaml.safe_load(catalog_path.read_text())["documents"]
 
     if repo:
         docs = [d for d in docs if d["name"] == repo]
