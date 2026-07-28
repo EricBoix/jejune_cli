@@ -211,11 +211,11 @@ def build(deploy_dir_name: str | None) -> None:
 
 
 @click.command("up")
-@click.argument("deployments_dir", type=click.Path(exists=True))
-@click.argument("name")
-def up(deployments_dir, name):
-    """Start the NAME UI deployment in DEPLOYMENTS_DIR (detached)."""
-    _run_compose(_resolve_deploy_dir(deployments_dir, name), "up", "-d")
+@click.argument("deploy_dir_name", required=False, metavar="DEPLOY_DIR_NAME",
+                type=click.Path(exists=True, file_okay=False))
+def up(deploy_dir_name: str | None) -> None:
+    """Start a UI deployment in detached mode."""
+    _run_compose(_deployment_dir(deploy_dir_name), "up", "-d")
 
 
 @click.command("ui-stop")
