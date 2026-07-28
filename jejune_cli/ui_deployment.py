@@ -140,10 +140,6 @@ def ui_configure(deployments_dir, name):
     dot_jejune = deploy_dir / ".jejune"
     dot_jejune.mkdir()
     shutil.copy(_T_UI / "role", dot_jejune / "role")
-    shutil.copy(
-        _TEMPLATES / "catalog-curator" / "env-config",
-        dot_jejune / "catalog-curator-env-config",
-    )
     (dot_jejune / "origin").write_text(f"{deploy_dir}\n")
 
     full_catalog = _full_catalog_path(deployments_dir)
