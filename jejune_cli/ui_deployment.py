@@ -221,7 +221,7 @@ def up(deploy_dir_name: str | None) -> None:
     """Start a UI deployment in detached mode."""
     from . import containers as _containers
     deploy_dir = _deployment_dir(deploy_dir_name)
-    deploy_name = deploy_dir.resolve().name
+    deploy_name = deploy_dir.resolve().name.lower()
     container_names = [f"jejune-{deploy_name}-{svc}-1" for svc in _UI_SERVICES]
     _containers.unregister(*container_names)
     for cname in container_names:
