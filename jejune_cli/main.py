@@ -98,7 +98,12 @@ def _is_visible(name: str) -> bool:
 class _JejuneGroup(click.Group):
     def invoke(self, ctx: click.Context) -> object:
         cmd_name = ctx.protected_args[0] if ctx.protected_args else None
-        result = super().invoke(ctx)
+        try:
+            result = super().invoke(ctx)
+        except SystemExit as exc:
+            if exc.code == 0 and cmd_name != "next":
+                print_next_steps()
+            raise
         if cmd_name != "next":
             print_next_steps()
         return result
@@ -340,7 +345,8 @@ def next_cmd(ctx):
         return
     click.echo("Suggested next steps:")
     for s in steps:
-        suffix = f"  →  {s.command}" if s.command else ""
+        cmd = s.resolved_command()
+        suffix = f"  →  {cmd}" if cmd else ""
         click.echo(f"  • {s.label}{suffix}")
 
 

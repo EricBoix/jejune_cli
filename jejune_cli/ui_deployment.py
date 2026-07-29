@@ -49,6 +49,18 @@ def _deploy_images_present() -> bool:
     return not _deploy_images_missing()
 
 
+def _docs_server_url() -> str:
+    port = "8765"
+    env_file = Path(".") / "deployment.env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("DOCS_SERVER_PORT="):
+                port = line.split("=", 1)[1].strip()
+                break
+    return f"http://localhost:{port}"
+
+
 register_heuristic(HeuristicStep(
     label="Build deployment", command="jejune build", order=10,
     conditions=[_is_deployer_cwd, _deploy_images_missing],
@@ -59,6 +71,12 @@ register_heuristic(HeuristicStep(
     label="Start deployment", command="jejune up", order=20,
     conditions=[_is_deployer_cwd, _deploy_images_present],
     anti_conditions=[_deploy_containers_running],
+), roles={"deployer"})
+
+register_heuristic(HeuristicStep(
+    label="Browse docs server", command=_docs_server_url, order=25,
+    conditions=[_is_deployer_cwd, _deploy_containers_running],
+    anti_conditions=[],
 ), roles={"deployer"})
 
 register_heuristic(HeuristicStep(

@@ -12,10 +12,13 @@ import click
 @dataclass
 class HeuristicStep:
     label: str
-    command: str | None
+    command: str | None | Callable[[], str | None]
     order: int
     conditions: list[Callable[[], bool]] = field(default_factory=list)
     anti_conditions: list[Callable[[], bool]] = field(default_factory=list)
+
+    def resolved_command(self) -> str | None:
+        return self.command() if callable(self.command) else self.command
 
 
 _REGISTRY: list[HeuristicStep] = []
@@ -98,7 +101,8 @@ def print_next_steps(cwd: Path | None = None) -> None:
     else:
         click.echo("Next steps:")
     for s in steps:
-        suffix = f"  →  {s.command}" if s.command else ""
+        cmd = s.resolved_command()
+        suffix = f"  →  {cmd}" if cmd else ""
         click.echo(f"  • {s.label}{suffix}")
 
 
