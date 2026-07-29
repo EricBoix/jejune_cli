@@ -35,6 +35,8 @@ services:
       context: ${MARKDOWN_BROWSER_CONTEXT}
     ports:
       - "${MARKDOWN_PORT:-8443}:8443"
+    environment:
+      DOCS_SERVER_INTERNAL_URL: "http://docs-server:8765"
 
 secrets:
   catalog:
