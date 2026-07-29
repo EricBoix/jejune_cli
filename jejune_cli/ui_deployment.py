@@ -131,8 +131,8 @@ def ui_configure(deployments_dir, name):
     if has_private:
         click.echo(f"  {step}. Copy secrets.env.template → secrets.env and fill in GH_TOKEN_FILE")
         step += 1
-    click.echo(f"  {step}. Build:  docker compose --env-file deployment.env build")
-    click.echo(f"  {step + 1}. Start:  docker compose --env-file deployment.env up -d")
+    click.echo(f"  {step}. Build:  jejune build")
+    click.echo(f"  {step + 1}. Start:  jejune up")
 
 
 @click.command("list")
