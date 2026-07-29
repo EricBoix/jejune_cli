@@ -1,0 +1,41 @@
+name: jejune-{{NAME}}
+
+services:
+  docs-server:
+    image: jejune:{{NAME}}-docs-server
+    build:
+      context: ${DOCS_SERVER_CONTEXT}
+      dockerfile: Dockerfile
+      args:
+        INCLUDE_PDFS: "${INCLUDE_PDFS:-false}"
+{{BUILD_SECRETS}}    ports:
+      - "${DOCS_SERVER_PORT:-8765}:8765"
+    environment:
+      KG_GRAPH_VIEWER_URL: "http://localhost:${KG_PORT:-8080}"
+    # --- DEV_MODE: extend environment block and uncomment volume ---
+    #   DEV_MODE: "true"
+    #   DEV_DOCS_MOUNT: /docs-mount
+    # volumes:
+    #   - ${JEJUNE_ROOT_DIR}:/docs-mount:ro
+
+  kg-graph-viewer:
+    image: jejune:{{NAME}}-kg-graph-viewer
+    build:
+      context: ${KG_GRAPH_VIEWER_CONTEXT}
+      dockerfile: DockerContext/Dockerfile
+    ports:
+      - "${KG_PORT:-8080}:80"
+    depends_on:
+      - docs-server
+
+  markdown-browser:
+    image: jejune:{{NAME}}-markdown-browser
+    build:
+      context: ${MARKDOWN_BROWSER_CONTEXT}
+    ports:
+      - "${MARKDOWN_PORT:-8443}:8443"
+
+secrets:
+  catalog:
+    file: ./catalog.yaml
+{{GH_SECRET_DEF}}

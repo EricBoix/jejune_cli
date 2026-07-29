@@ -40,48 +40,12 @@ def _docker_compose_content(has_private: bool, name: str) -> str:
         "  gh_token:\n    file: \"${GH_TOKEN_FILE:-~/.github_token}\"\n"
         if has_private else ""
     )
+    template = (_T_UI / "docker-compose.yml").read_text()
     return (
-        f"name: jejune-{name}\n"
-        "\n"
-        "services:\n"
-        "  docs-server:\n"
-        f"    image: jejune:{name}-docs-server\n"
-        "    build:\n"
-        "      context: ${DOCS_SERVER_CONTEXT}\n"
-        "      dockerfile: Dockerfile\n"
-        "      args:\n"
-        "        INCLUDE_PDFS: \"${INCLUDE_PDFS:-false}\"\n"
-        f"{build_secrets}"
-        "    ports:\n"
-        "      - \"${DOCS_SERVER_PORT:-8765}:8765\"\n"
-        "    # --- DEV_MODE: uncomment to read docs from a host volume instead of the baked layer ---\n"
-        "    # environment:\n"
-        "    #   DEV_MODE: \"true\"\n"
-        "    #   DEV_DOCS_MOUNT: /docs-mount\n"
-        "    # volumes:\n"
-        "    #   - ${JEJUNE_ROOT_DIR}:/docs-mount:ro\n"
-        "\n"
-        "  kg-graph-viewer:\n"
-        f"    image: jejune:{name}-kg-graph-viewer\n"
-        "    build:\n"
-        "      context: ${KG_GRAPH_VIEWER_CONTEXT}\n"
-        "      dockerfile: DockerContext/Dockerfile\n"
-        "    ports:\n"
-        "      - \"${KG_PORT:-8080}:80\"\n"
-        "    depends_on:\n"
-        "      - docs-server\n"
-        "\n"
-        "  markdown-browser:\n"
-        f"    image: jejune:{name}-markdown-browser\n"
-        "    build:\n"
-        "      context: ${MARKDOWN_BROWSER_CONTEXT}\n"
-        "    ports:\n"
-        "      - \"${MARKDOWN_PORT:-8443}:8443\"\n"
-        "\n"
-        "secrets:\n"
-        "  catalog:\n"
-        "    file: ./catalog.yaml\n"
-        f"{gh_secret_def}"
+        template
+        .replace("{{NAME}}", name)
+        .replace("{{BUILD_SECRETS}}", build_secrets)
+        .replace("{{GH_SECRET_DEF}}", gh_secret_def)
     )
 
 
