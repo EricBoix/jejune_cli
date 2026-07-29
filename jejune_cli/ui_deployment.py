@@ -80,7 +80,7 @@ register_heuristic(HeuristicStep(
 ), roles={"deployer"})
 
 register_heuristic(HeuristicStep(
-    label="Deployment running — stop with", command="jejune down", order=30,
+    label="Deployment running stop", command="jejune down", order=30,
     conditions=[_is_deployer_cwd, _deploy_containers_running],
     anti_conditions=[],
 ), roles={"deployer"})

@@ -72,18 +72,22 @@ def _load_providers() -> None:
     from . import catalog        # noqa: F401
 
 
+def _step_viable(s: HeuristicStep) -> bool:
+    return callable(s.command) or s.command is None or command_viable(s.command)
+
+
 def evaluate(cwd: Path | None = None) -> list[HeuristicStep]:
     _load_providers()
     if cwd is None:
         return sorted(
-            (s for s in _REGISTRY if _matches(s) and (s.command is None or command_viable(s.command))),
+            (s for s in _REGISTRY if _matches(s) and _step_viable(s)),
             key=lambda s: s.order,
         )
     old = os.getcwd()
     try:
         os.chdir(cwd)
         return sorted(
-            (s for s in _REGISTRY if _matches(s) and (s.command is None or command_viable(s.command))),
+            (s for s in _REGISTRY if _matches(s) and _step_viable(s)),
             key=lambda s: s.order,
         )
     finally:
