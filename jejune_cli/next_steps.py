@@ -1,7 +1,9 @@
-"""Static and heuristic next-step guidance for jejune CLI commands."""
+"""Heuristic next-step guidance for jejune CLI commands."""
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Callable
 
 import click
@@ -16,23 +18,24 @@ class HeuristicStep:
     anti_conditions: list[Callable[[], bool]] = field(default_factory=list)
 
 
-_STATIC_REGISTRY: dict[str, list[str]] = {}
 _REGISTRY: list[HeuristicStep] = []
 _ROLES_WITH_HEURISTICS: set[str] = set()
+_PRECONDITIONS: dict[str, Callable[[], bool]] = {}
 
 
-def register_static(cmd_path: str, hints: list[str]) -> None:
-    _STATIC_REGISTRY[cmd_path] = hints
+def register_command_precondition(command: str, check: Callable[[], bool]) -> None:
+    _PRECONDITIONS[command] = check
 
 
-def echo_next_steps(cmd_path: str, hints: list[str] | None = None) -> None:
-    steps = hints if hints is not None else _STATIC_REGISTRY.get(cmd_path, [])
-    if not steps:
-        return
-    click.echo()
-    click.echo("Next steps:")
-    for i, hint in enumerate(steps, 1):
-        click.echo(f"  {i}. {hint}")
+def command_viable(command: str) -> bool:
+    """Return True if no precondition is registered or the registered check passes."""
+    check = _PRECONDITIONS.get(command)
+    if check is None:
+        return True
+    try:
+        return bool(check())
+    except Exception:
+        return False
 
 
 def register_heuristic(step: HeuristicStep, roles: set[str]) -> None:
@@ -66,33 +69,68 @@ def _load_providers() -> None:
     from . import catalog        # noqa: F401
 
 
-def evaluate() -> list[HeuristicStep]:
+def evaluate(cwd: Path | None = None) -> list[HeuristicStep]:
     _load_providers()
-    return sorted((s for s in _REGISTRY if _matches(s)), key=lambda s: s.order)
+    if cwd is None:
+        return sorted(
+            (s for s in _REGISTRY if _matches(s) and (s.command is None or command_viable(s.command))),
+            key=lambda s: s.order,
+        )
+    old = os.getcwd()
+    try:
+        os.chdir(cwd)
+        return sorted(
+            (s for s in _REGISTRY if _matches(s) and (s.command is None or command_viable(s.command))),
+            key=lambda s: s.order,
+        )
+    finally:
+        os.chdir(old)
 
 
-def evaluate_state() -> list[tuple[HeuristicStep, list[tuple[str, bool]], list[tuple[str, bool]]]]:
-    """Return per-heuristic condition evaluation for diagnostics.
+def print_next_steps(cwd: Path | None = None) -> None:
+    """Evaluate and print heuristic next steps. Silent if none apply."""
+    steps = evaluate(cwd)
+    if not steps:
+        return
+    click.echo()
+    if cwd is not None and cwd.resolve() != Path.cwd().resolve():
+        click.echo(f"Next steps (from {cwd.name}/):")
+    else:
+        click.echo("Next steps:")
+    for s in steps:
+        suffix = f"  →  {s.command}" if s.command else ""
+        click.echo(f"  • {s.label}{suffix}")
 
-    Each entry is (step, conditions_results, anti_conditions_results) where
-    each result is (callable_name, bool_value).
-    """
+
+def evaluate_state(cwd: Path | None = None) -> list[tuple[HeuristicStep, list[tuple[str, bool]], list[tuple[str, bool]]]]:
+    """Return per-heuristic condition evaluation for diagnostics."""
     _load_providers()
-    result = []
-    for step in sorted(_REGISTRY, key=lambda s: s.order):
-        cond_results: list[tuple[str, bool]] = []
-        for fn in step.conditions:
-            try:
-                val = fn()
-            except Exception:
-                val = False
-            cond_results.append((fn.__name__, val))
-        anti_results: list[tuple[str, bool]] = []
-        for fn in step.anti_conditions:
-            try:
-                val = fn()
-            except Exception:
-                val = False
-            anti_results.append((fn.__name__, val))
-        result.append((step, cond_results, anti_results))
-    return result
+
+    def _run() -> list[tuple[HeuristicStep, list[tuple[str, bool]], list[tuple[str, bool]]]]:
+        result = []
+        for step in sorted(_REGISTRY, key=lambda s: s.order):
+            cond_results: list[tuple[str, bool]] = []
+            for fn in step.conditions:
+                try:
+                    val = fn()
+                except Exception:
+                    val = False
+                cond_results.append((fn.__name__, val))
+            anti_results: list[tuple[str, bool]] = []
+            for fn in step.anti_conditions:
+                try:
+                    val = fn()
+                except Exception:
+                    val = False
+                anti_results.append((fn.__name__, val))
+            result.append((step, cond_results, anti_results))
+        return result
+
+    if cwd is None:
+        return _run()
+    old = os.getcwd()
+    try:
+        os.chdir(cwd)
+        return _run()
+    finally:
+        os.chdir(old)

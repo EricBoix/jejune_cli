@@ -6,12 +6,7 @@ from pathlib import Path
 import click
 
 from ._env import dot_jejune
-from .next_steps import echo_next_steps, register_static
-
-register_static("configuration catalog-curator init", [
-    "Optionally set JEJUNE_ROOT_DIR in .jejune/ecosystem-env-config"
-    " to point to your local clones directory",
-])
+from .next_steps import print_next_steps
 
 _TEMPLATES = Path(__file__).parent / "templates" / "catalog-curator"
 _ECOSYSTEM_TEMPLATE = Path(__file__).parent / "templates" / "ecosystem" / "env-config"
@@ -58,4 +53,4 @@ def init() -> None:
             fh.write(".jejune\n")
         click.echo(click.style("  updated  .gitignore (.jejune)", fg="green"))
 
-    echo_next_steps("configuration catalog-curator init")
+    print_next_steps()

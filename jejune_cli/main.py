@@ -25,11 +25,16 @@ from .llm import llm
 from .llm_observability import llm_observability
 from .neo4j import neo4j
 from .configuration_deployer import init as _deployer_init
-from .next_steps import has_heuristics_for_role
+from .next_steps import has_heuristics_for_role, command_viable, register_command_precondition
 from .role import detect_role, role_components, ROLES, ROLE_SECTION_TITLE, _ROLE_INCLUDES, build_hierarchy_lines
 
 _ACTIVE_ROLE, _ACTIVE_ROLE_REASON = detect_role()
 _ACTIVE_COMPONENTS = role_components(_ACTIVE_ROLE)
+
+register_command_precondition(
+    "jejune doctor",
+    lambda: not (_ACTIVE_ROLE in (None, "doc-steward") and not dot_jejune().is_dir()),
+)
 
 # Components — drives both `jejune --help` listing and `jejune doctor` output.
 _COMPONENTS = [
@@ -316,7 +321,15 @@ def next_cmd(ctx):
     from .next_steps import evaluate
     steps = evaluate()
     if not steps:
-        click.echo("No next steps detected. Run `jejune doctor` for system status.")
+        if command_viable("jejune doctor"):
+            click.echo("No next steps detected. Run `jejune doctor` for system status.")
+        elif _ACTIVE_ROLE in (None, "doc-steward") and not dot_jejune().is_dir():
+            click.echo(
+                "No next steps detected. "
+                "Run `jejune configuration doc-steward init` to set up the workspace."
+            )
+        else:
+            click.echo("No next steps detected.")
         return
     click.echo("Suggested next steps:")
     for s in steps:

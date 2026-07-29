@@ -13,6 +13,7 @@ services:
     environment:
       KG_GRAPH_VIEWER_URL: "http://localhost:${KG_PORT:-8080}"
       MARKDOWN_BROWSER_URL: "http://localhost:${MARKDOWN_PORT:-8443}"
+      MARKDOWN_BROWSER_TRIGGER_URL: "http://localhost:${MARKDOWN_TRIGGER_PORT:-8444}"
     # --- DEV_MODE: extend environment block and uncomment volume ---
     #   DEV_MODE: "true"
     #   DEV_DOCS_MOUNT: /docs-mount
@@ -35,6 +36,7 @@ services:
       context: ${MARKDOWN_BROWSER_CONTEXT}
     ports:
       - "${MARKDOWN_PORT:-8443}:8443"
+      - "${MARKDOWN_TRIGGER_PORT:-8444}:8085"
     environment:
       DOCS_SERVER_INTERNAL_URL: "http://docs-server:8765"
 

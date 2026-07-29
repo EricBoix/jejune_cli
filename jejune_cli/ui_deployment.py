@@ -9,7 +9,7 @@ from pathlib import Path
 import click
 import yaml
 
-from .next_steps import HeuristicStep, echo_next_steps, register_heuristic
+from .next_steps import HeuristicStep, print_next_steps, register_command_precondition, register_heuristic
 
 _TEMPLATES = Path(__file__).parent / "templates"
 _T_UI = _TEMPLATES / "deployer" / "ui-deployment"
@@ -66,6 +66,10 @@ register_heuristic(HeuristicStep(
     conditions=[_is_deployer_cwd, _deploy_containers_running],
     anti_conditions=[],
 ), roles={"deployer"})
+
+register_command_precondition("jejune build", _is_deployer_cwd)
+register_command_precondition("jejune up",    _is_deployer_cwd)
+register_command_precondition("jejune down",  _is_deployer_cwd)
 
 
 # ---------------------------------------------------------------------------
@@ -176,14 +180,7 @@ def ui_configure(deployments_dir, name):
         shutil.copy(_T_UI / "secrets.env.template", deploy_dir / "secrets.env.template")
 
     click.echo(f"Created {deploy_dir}")
-    hints = [
-        f"Review {deploy_dir}/catalog.yaml",
-        f"Adjust ports in {deploy_dir}/deployment.env if needed",
-    ]
-    if has_private:
-        hints.append("Copy secrets.env.template → secrets.env and fill in GH_TOKEN_FILE")
-    hints += ["Build:  jejune build", "Start:  jejune up"]
-    echo_next_steps("deployment init", hints=hints)
+    print_next_steps(cwd=deploy_dir)
 
 
 @click.command("list")
