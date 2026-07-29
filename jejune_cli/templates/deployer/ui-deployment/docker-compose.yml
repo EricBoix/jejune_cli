@@ -12,6 +12,7 @@ services:
       - "${DOCS_SERVER_PORT:-8765}:8765"
     environment:
       KG_GRAPH_VIEWER_URL: "http://localhost:${KG_PORT:-8080}"
+      MARKDOWN_BROWSER_URL: "http://localhost:${MARKDOWN_PORT:-8443}"
     # --- DEV_MODE: extend environment block and uncomment volume ---
     #   DEV_MODE: "true"
     #   DEV_DOCS_MOUNT: /docs-mount
