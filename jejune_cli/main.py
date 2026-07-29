@@ -25,7 +25,7 @@ from .llm import llm
 from .llm_observability import llm_observability
 from .neo4j import neo4j
 from .configuration_deployer import init as _deployer_init
-from .next_steps import has_heuristics_for_role, command_viable, register_command_precondition
+from .next_steps import has_heuristics_for_role, command_viable, register_command_precondition, print_next_steps
 from .role import detect_role, role_components, ROLES, ROLE_SECTION_TITLE, _ROLE_INCLUDES, build_hierarchy_lines
 
 _ACTIVE_ROLE, _ACTIVE_ROLE_REASON = detect_role()
@@ -96,6 +96,13 @@ def _is_visible(name: str) -> bool:
 
 
 class _JejuneGroup(click.Group):
+    def invoke(self, ctx: click.Context) -> object:
+        cmd_name = ctx.protected_args[0] if ctx.protected_args else None
+        result = super().invoke(ctx)
+        if cmd_name != "next":
+            print_next_steps()
+        return result
+
     def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         prefix = f"Usage [{_ACTIVE_ROLE}]: " if _ACTIVE_ROLE in ROLES else "Usage: "
         formatter.write_usage(ctx.command_path, "[OPTIONS] COMPONENT COMMAND [ARGS]...", prefix=prefix)
