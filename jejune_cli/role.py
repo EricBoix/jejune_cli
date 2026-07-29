@@ -49,7 +49,10 @@ def detect_role() -> tuple[str | None, str]:
         if override in ROLES:
             return override, f"JEJUNE_ROLE={override}"
         return None, f"JEJUNE_ROLE={override!r} is not a known role (ignored)"
-    cwd = Path.cwd()
+    try:
+        cwd = Path.cwd()
+    except FileNotFoundError:
+        return None, "current directory is inaccessible"
     role_file = cwd / ".jejune" / "role"
     if role_file.is_file():
         role = role_file.read_text().strip().split(",")[0].strip()
