@@ -97,7 +97,7 @@ def _is_visible(name: str) -> bool:
 
 class _JejuneGroup(click.Group):
     def invoke(self, ctx: click.Context) -> object:
-        cmd_name = ctx.protected_args[0] if ctx.protected_args else None
+        cmd_name = ctx._protected_args[0] if ctx._protected_args else None
         try:
             result = super().invoke(ctx)
         except SystemExit as exc:
