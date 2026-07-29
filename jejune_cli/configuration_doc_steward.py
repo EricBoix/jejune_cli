@@ -6,6 +6,11 @@ from pathlib import Path
 import click
 
 from ._env import dot_jejune
+from .next_steps import echo_next_steps, register_static
+
+register_static("configuration doc-steward init", [
+    "Edit .jejune/env-secrets with your credentials",
+])
 
 _TEMPLATES = Path(__file__).parent / "templates" / "doc-steward"
 _ECOSYSTEM_TEMPLATE = Path(__file__).parent / "templates" / "ecosystem" / "env-config"
@@ -68,5 +73,4 @@ def init():
             fh.write(entry)
         click.echo(click.style("  updated  .gitignore (.jejune)", fg="green"))
 
-    click.echo()
-    click.echo("Next step: edit .jejune/env-secrets with your credentials.")
+    echo_next_steps("configuration doc-steward init")

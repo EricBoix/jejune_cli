@@ -25,6 +25,7 @@ from .llm import llm
 from .llm_observability import llm_observability
 from .neo4j import neo4j
 from .configuration_deployer import init as _deployer_init
+from .next_steps import has_heuristics_for_role
 from .role import detect_role, role_components, ROLES, ROLE_SECTION_TITLE, _ROLE_INCLUDES, build_hierarchy_lines
 
 _ACTIVE_ROLE, _ACTIVE_ROLE_REASON = detect_role()
@@ -44,7 +45,7 @@ _COMPONENTS = [
 _BUILTIN_COMPONENTS: frozenset[str] = frozenset(_COMPONENTS)
 
 # Help-section membership for built-in components.
-_CONTRIBUTOR_COMMANDS = ["doctor", "configuration", "role", "containers", "ecosystem"]
+_CONTRIBUTOR_COMMANDS = ["doctor", "configuration", "role", "containers", "ecosystem", "next"]
 _DOC_STEWARD_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert"]
 _CURATOR_COMPONENTS = ["catalog"]   # + "collection" stage plugins
 _DEPLOYER_COMPONENTS = ["deployment"]  # + "extension" stage plugins
@@ -101,6 +102,7 @@ class _JejuneGroup(click.Group):
 
         _hidden_unless_configured = {
             "convert": convert_configured,
+            "next": lambda: has_heuristics_for_role(_ACTIVE_ROLE),
         }
 
         def _row(name: str) -> tuple[str, str] | None:
@@ -303,6 +305,48 @@ def doctor():
                 action = _AVAIL_HINTS.get(name, "investigate")
                 detail = by_avail[name][1] if name in by_avail else "dependency failed"
                 click.echo(f"  {click.style(f'{name:<{_WN}}', fg='red')}  {action:<{_WH}}  [{detail}]")
+
+
+@click.group("next", invoke_without_command=True, short_help="Show suggested next actions given the current context.")
+@click.pass_context
+def next_cmd(ctx):
+    """Show suggested next actions given the current context."""
+    if ctx.invoked_subcommand is not None:
+        return
+    from .next_steps import evaluate
+    steps = evaluate()
+    if not steps:
+        click.echo("No next steps detected. Run `jejune doctor` for system status.")
+        return
+    click.echo("Suggested next steps:")
+    for s in steps:
+        suffix = f"  →  {s.command}" if s.command else ""
+        click.echo(f"  • {s.label}{suffix}")
+
+
+@next_cmd.command("state")
+def next_state_cmd():
+    """Show condition evaluation for all registered heuristic rules."""
+    from .next_steps import evaluate_state
+    entries = evaluate_state()
+    if not entries:
+        click.echo("No heuristic rules registered.")
+        return
+    for step, cond_results, anti_results in entries:
+        active = all(v for _, v in cond_results) and not any(v for _, v in anti_results)
+        status = click.style("active", fg="green") if active else click.style("blocked", fg="yellow")
+        click.echo(f"  {step.label}  [order {step.order}]  {status}")
+        for name, val in cond_results:
+            mark = click.style("✓", fg="green") if val else click.style("✗", fg="red")
+            click.echo(f"    {mark} {name}")
+        for name, val in anti_results:
+            mark = click.style("✓", fg="red") if val else click.style("✗", fg="green")
+            suffix = "  (blocking)" if val else "  (not blocking)"
+            click.echo(f"    anti: {mark} {name}{suffix}")
+        click.echo()
+
+
+cli.add_command(next_cmd, "next")
 
 
 def _section_sep(title: str, width: int) -> str:

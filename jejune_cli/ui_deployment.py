@@ -9,10 +9,63 @@ from pathlib import Path
 import click
 import yaml
 
+from .next_steps import HeuristicStep, echo_next_steps, register_heuristic
+
 _TEMPLATES = Path(__file__).parent / "templates"
 _T_UI = _TEMPLATES / "deployer" / "ui-deployment"
 
 _UI_SERVICES = ("docs-server", "kg-graph-viewer", "markdown-browser")
+
+
+# ---------------------------------------------------------------------------
+# Heuristic conditions for `jejune next`
+# ---------------------------------------------------------------------------
+
+def _is_deployer_cwd() -> bool:
+    from .role import detect_role
+    role, _ = detect_role()
+    return role == "deployer"
+
+
+def _deploy_images_missing() -> bool:
+    name = Path(".").resolve().name  # preserve case — matches {{NAME}} in docker-compose.yml image tags
+    for svc in _UI_SERVICES:
+        r = subprocess.run(
+            ["docker", "image", "inspect", f"jejune:{name}-{svc}"],
+            capture_output=True,
+        )
+        if r.returncode != 0:
+            return True
+    return False
+
+
+def _deploy_containers_running() -> bool:
+    from . import containers as _c
+    name = Path(".").resolve().name.lower()
+    return all(_c.is_running(f"jejune-{name}-{svc}-1") for svc in _UI_SERVICES)
+
+
+def _deploy_images_present() -> bool:
+    return not _deploy_images_missing()
+
+
+register_heuristic(HeuristicStep(
+    label="Build deployment", command="jejune build", order=10,
+    conditions=[_is_deployer_cwd, _deploy_images_missing],
+    anti_conditions=[],
+), roles={"deployer"})
+
+register_heuristic(HeuristicStep(
+    label="Start deployment", command="jejune up", order=20,
+    conditions=[_is_deployer_cwd, _deploy_images_present],
+    anti_conditions=[_deploy_containers_running],
+), roles={"deployer"})
+
+register_heuristic(HeuristicStep(
+    label="Deployment running — stop with", command="jejune down", order=30,
+    conditions=[_is_deployer_cwd, _deploy_containers_running],
+    anti_conditions=[],
+), roles={"deployer"})
 
 
 # ---------------------------------------------------------------------------
@@ -123,16 +176,14 @@ def ui_configure(deployments_dir, name):
         shutil.copy(_T_UI / "secrets.env.template", deploy_dir / "secrets.env.template")
 
     click.echo(f"Created {deploy_dir}")
-    click.echo()
-    click.echo("Next steps:")
-    click.echo(f"  1. Review {deploy_dir}/catalog.yaml")
-    click.echo(f"  2. Adjust ports in {deploy_dir}/deployment.env if needed")
-    step = 3
+    hints = [
+        f"Review {deploy_dir}/catalog.yaml",
+        f"Adjust ports in {deploy_dir}/deployment.env if needed",
+    ]
     if has_private:
-        click.echo(f"  {step}. Copy secrets.env.template → secrets.env and fill in GH_TOKEN_FILE")
-        step += 1
-    click.echo(f"  {step}. Build:  jejune build")
-    click.echo(f"  {step + 1}. Start:  jejune up")
+        hints.append("Copy secrets.env.template → secrets.env and fill in GH_TOKEN_FILE")
+    hints += ["Build:  jejune build", "Start:  jejune up"]
+    echo_next_steps("deployment init", hints=hints)
 
 
 @click.command("list")
