@@ -240,6 +240,11 @@ def _deployment_dir(deploy_dir_name: str | None) -> Path:
               help="Do not use cache when building images.")
 def build(deploy_dir_name: str | None, no_cache: bool) -> None:
     """Build Docker images for a UI deployment."""
+    if no_cache:
+        # --no-cache on `docker compose build` only skips the image-layer cache.
+        # BuildKit keeps a separate source cache for git context fetches; prune it
+        # first so that "load git source" steps are also re-executed from scratch.
+        subprocess.run(["docker", "builder", "prune", "--force"], check=True)
     extra = ["--no-cache"] if no_cache else []
     _run_compose(_deployment_dir(deploy_dir_name), "build", *extra)
 
