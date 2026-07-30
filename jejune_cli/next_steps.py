@@ -13,16 +13,17 @@ import click
 class HeuristicStep:
     label: str
     command: str | None | Callable[[], str | None]
-    order: int
+    order: int = 0
     conditions: list[Callable[[], bool]] = field(default_factory=list)
     anti_conditions: list[Callable[[], bool]] = field(default_factory=list)
+    roles: frozenset[str | None] = field(default_factory=frozenset)
 
     def resolved_command(self) -> str | None:
         return self.command() if callable(self.command) else self.command
 
 
 _REGISTRY: list[HeuristicStep] = []
-_ROLES_WITH_HEURISTICS: set[str] = set()
+_ROLES_WITH_HEURISTICS: set[str | None] = set()
 _PRECONDITIONS: dict[str, Callable[[], bool]] = {}
 
 
@@ -41,7 +42,8 @@ def command_viable(command: str) -> bool:
         return False
 
 
-def register_heuristic(step: HeuristicStep, roles: set[str]) -> None:
+def register_heuristic(step: HeuristicStep, roles: set[str | None]) -> None:
+    step.roles = frozenset(roles)
     _REGISTRY.append(step)
     _ROLES_WITH_HEURISTICS.update(roles)
 
@@ -76,19 +78,39 @@ def _step_viable(s: HeuristicStep) -> bool:
     return callable(s.command) or s.command is None or command_viable(s.command)
 
 
+def _role_specificity(step: HeuristicStep, active_role: str | None) -> int:
+    """Number of roles beyond the active role. Lower = more specific = sorted first."""
+    return len(step.roles - {None, active_role})
+
+
+def _condition_count(step: HeuristicStep) -> int:
+    """Total number of conditions + anti-conditions. Higher = more specific = sorted first."""
+    return len(step.conditions) + len(step.anti_conditions)
+
+
+def _sort_key(step: HeuristicStep, active_role: str | None) -> tuple:
+    return (_role_specificity(step, active_role), -_condition_count(step), step.order)
+
+
 def evaluate(cwd: Path | None = None) -> list[HeuristicStep]:
     _load_providers()
+    from .role import detect_role
+    active_role, _ = detect_role()
+
+    def _key(s: HeuristicStep) -> tuple:
+        return _sort_key(s, active_role)
+
     if cwd is None:
         return sorted(
             (s for s in _REGISTRY if _matches(s) and _step_viable(s)),
-            key=lambda s: s.order,
+            key=_key,
         )
     old = os.getcwd()
     try:
         os.chdir(cwd)
         return sorted(
             (s for s in _REGISTRY if _matches(s) and _step_viable(s)),
-            key=lambda s: s.order,
+            key=_key,
         )
     finally:
         os.chdir(old)
@@ -113,10 +135,12 @@ def print_next_steps(cwd: Path | None = None) -> None:
 def evaluate_state(cwd: Path | None = None) -> list[tuple[HeuristicStep, list[tuple[str, bool]], list[tuple[str, bool]]]]:
     """Return per-heuristic condition evaluation for diagnostics."""
     _load_providers()
+    from .role import detect_role
+    active_role, _ = detect_role()
 
     def _run() -> list[tuple[HeuristicStep, list[tuple[str, bool]], list[tuple[str, bool]]]]:
         result = []
-        for step in sorted(_REGISTRY, key=lambda s: s.order):
+        for step in sorted(_REGISTRY, key=lambda s: _sort_key(s, active_role)):
             cond_results: list[tuple[str, bool]] = []
             for fn in step.conditions:
                 try:

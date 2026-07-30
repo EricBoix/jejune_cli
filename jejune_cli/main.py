@@ -1,4 +1,5 @@
 import importlib.metadata
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -25,8 +26,10 @@ from .llm import llm
 from .llm_observability import llm_observability
 from .neo4j import neo4j
 from .configuration_deployer import init as _deployer_init
-from .next_steps import has_heuristics_for_role, command_viable, register_command_precondition, print_next_steps
+from .next_steps import has_heuristics_for_role, command_viable, register_command_precondition, print_next_steps, HeuristicStep, register_heuristic
 from .role import detect_role, role_components, ROLES, ROLE_SECTION_TITLE, _ROLE_INCLUDES, build_hierarchy_lines
+
+_T_ROLE_TEMPLATES = Path(__file__).parent / "templates"
 
 _ACTIVE_ROLE, _ACTIVE_ROLE_REASON = detect_role()
 _ACTIVE_COMPONENTS = role_components(_ACTIVE_ROLE)
@@ -215,9 +218,34 @@ def role(ctx):
 def role_list():
     """List all known roles with their detection indicator."""
     from .role import _DISPLAY_ROLES, _ROLE_REASON
+    stored = None
+    role_file = dot_jejune() / "role"
+    if role_file.is_file():
+        stored = role_file.read_text().strip().split(",")[0].strip()
     _W = max(len(r) for r in _DISPLAY_ROLES)
     for r in _DISPLAY_ROLES:
-        click.echo(f"  {r:<{_W}}  {_ROLE_REASON.get(r, '')}")
+        mark = click.style("✓", fg="green") + " " if r == stored else "  "
+        click.echo(f"  {mark}{r:<{_W}}  {_ROLE_REASON.get(r, '')}")
+
+
+@role.command("set")
+@click.argument("role_name", metavar="ROLE", type=click.Choice(list(ROLES)))
+def role_set(role_name):
+    """Set the role for the current directory."""
+    d = dot_jejune()
+    d.mkdir(exist_ok=True)
+    role_file = d / "role"
+    if role_file.is_file():
+        other = [p for p in d.iterdir() if p.name != "role"]
+        if other:
+            current = role_file.read_text().strip().split(",")[0].strip()
+            click.echo(
+                f"Current role ({current}) is determined by current working directory.",
+                err=True,
+            )
+            raise SystemExit(1)
+    shutil.copy(_T_ROLE_TEMPLATES / role_name / "role", d / "role")
+    click.echo(f"Role set to {click.style(role_name, fg='cyan')}.")
 
 
 @role.command("hierarchy")
@@ -560,3 +588,27 @@ def _load_plugins() -> None:
 
 
 _load_plugins()
+
+
+def _is_role_set() -> bool:
+    """True when role is explicitly set via a valid .jejune/role file."""
+    _, reason = detect_role()
+    return reason == ".jejune/role"
+
+
+def _role_not_set() -> bool:
+    return not _is_role_set()
+
+
+register_heuristic(HeuristicStep(
+    label="Check the role",
+    command="jejune role",
+), roles={None, *ROLES})
+
+register_heuristic(HeuristicStep(
+    label="Set a role",
+    command="jejune role set <chosen_role>",
+    conditions=[_role_not_set],
+), roles={None, *ROLES})
+
+register_command_precondition("jejune role set", _role_not_set)

@@ -68,7 +68,7 @@ register_heuristic(HeuristicStep(
 ), roles={"deployer"})
 
 register_heuristic(HeuristicStep(
-    label="Start deployment", command="jejune up", order=20,
+    label="Start deployment", command="jejune up",
     conditions=[_is_deployer_cwd, _deploy_images_present],
     anti_conditions=[_deploy_containers_running],
 ), roles={"deployer"})
@@ -236,9 +236,12 @@ def _deployment_dir(deploy_dir_name: str | None) -> Path:
 @click.command("build")
 @click.argument("deploy_dir_name", required=False, metavar="DEPLOY_DIR_NAME",
                 type=click.Path(exists=True, file_okay=False))
-def build(deploy_dir_name: str | None) -> None:
+@click.option("--no-cache", is_flag=True, default=False,
+              help="Do not use cache when building images.")
+def build(deploy_dir_name: str | None, no_cache: bool) -> None:
     """Build Docker images for a UI deployment."""
-    _run_compose(_deployment_dir(deploy_dir_name), "build")
+    extra = ["--no-cache"] if no_cache else []
+    _run_compose(_deployment_dir(deploy_dir_name), "build", *extra)
 
 
 @click.command("up")
