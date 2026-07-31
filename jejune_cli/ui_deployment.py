@@ -9,6 +9,10 @@ from pathlib import Path
 import click
 import yaml
 
+from .deployer_extensions import (
+    _DEPLOYER_CHECK_PACKAGES,
+    _extensions_installed,
+)
 from .next_steps import HeuristicStep, print_next_steps, register_command_precondition, register_heuristic
 
 _TEMPLATES = Path(__file__).parent / "templates"
@@ -49,6 +53,21 @@ def _deploy_images_present() -> bool:
     return not _deploy_images_missing()
 
 
+def _check_ui_services() -> list[tuple[str, bool, str]]:
+    from .plugin import _REGISTRY
+    plugins = {p.name: p for p in _REGISTRY}
+    results = []
+    for _, _, name in _DEPLOYER_CHECK_PACKAGES:
+        p = plugins.get(name)
+        ok, msg = p.check_availability() if (p and p.check_availability) else (False, "not installed")
+        results.append((name, ok, msg))
+    return results
+
+
+def _deploy_services_available() -> bool:
+    return _extensions_installed() and all(ok for _, ok, _ in _check_ui_services())
+
+
 def _docs_server_url() -> str:
     port = "8765"
     env_file = Path(".") / "deployment.env"
@@ -68,19 +87,32 @@ register_heuristic(HeuristicStep(
 ), roles={"deployer"})
 
 register_heuristic(HeuristicStep(
-    label="Start deployment", command="jejune up",
+    label="Start deployment", command="jejune up", order=20,
     conditions=[_is_deployer_cwd, _deploy_images_present],
     anti_conditions=[_deploy_containers_running],
 ), roles={"deployer"})
 
 register_heuristic(HeuristicStep(
-    label="Browse docs server", command=_docs_server_url, order=25,
+    label="Install deployer CLI extensions",
+    command="jejune deployment extensions install", order=22,
     conditions=[_is_deployer_cwd, _deploy_containers_running],
+    anti_conditions=[_extensions_installed],
+), roles={"deployer"})
+
+register_heuristic(HeuristicStep(
+    label="Check deployment status", command="jejune deployment status", order=25,
+    conditions=[_is_deployer_cwd, _deploy_containers_running, _extensions_installed],
+    anti_conditions=[_deploy_services_available],
+), roles={"deployer"})
+
+register_heuristic(HeuristicStep(
+    label="Browse docs server", command=_docs_server_url, order=30,
+    conditions=[_is_deployer_cwd, _deploy_containers_running, _deploy_services_available],
     anti_conditions=[],
 ), roles={"deployer"})
 
 register_heuristic(HeuristicStep(
-    label="Deployment running stop", command="jejune down", order=30,
+    label="Deployment running stop", command="jejune down", order=35,
     conditions=[_is_deployer_cwd, _deploy_containers_running],
     anti_conditions=[],
 ), roles={"deployer"})
@@ -88,6 +120,14 @@ register_heuristic(HeuristicStep(
 register_command_precondition("jejune build", _is_deployer_cwd)
 register_command_precondition("jejune up",    _is_deployer_cwd)
 register_command_precondition("jejune down",  _is_deployer_cwd)
+register_command_precondition(
+    "jejune deployment status",
+    lambda: _is_deployer_cwd() and _extensions_installed(),
+)
+register_command_precondition(
+    "jejune deployment extensions install",
+    lambda: _is_deployer_cwd() and not _extensions_installed(),
+)
 
 
 # ---------------------------------------------------------------------------
@@ -156,6 +196,23 @@ def _run_compose(deploy_dir: Path, *args: str) -> None:
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
+
+@click.command("status")
+@click.argument("deploy_dir_name", required=False, metavar="DEPLOY_DIR_NAME",
+                type=click.Path(exists=True, file_okay=False))
+def status(deploy_dir_name: str | None) -> None:
+    """Show HTTP availability of the three UI deployment services."""
+    _deployment_dir(deploy_dir_name)
+    if not _extensions_installed():
+        click.echo(click.style("Check extensions not installed.", fg="red"), err=True)
+        click.echo("Run: jejune deployment extensions install", err=True)
+        raise SystemExit(1)
+    results = _check_ui_services()
+    _W = max(len(n) for n, *_ in results)
+    for name, ok, msg in results:
+        label = click.style("ok", fg="green") if ok else click.style("error", fg="red")
+        click.echo(f"  {name:<{_W}}  {label}  {msg}")
+
 
 @click.command("ui-configure")
 @click.argument("deployments_dir", type=click.Path())

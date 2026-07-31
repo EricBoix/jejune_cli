@@ -1,4 +1,5 @@
 # Proper names
 Burbea
 # Ad-hoc/lingo/technical/specific (non) terms
+plantuml
 

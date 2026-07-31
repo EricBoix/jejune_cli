@@ -39,6 +39,13 @@ jejune pdf-to-markdown   # test the pipeline across the catalog
 jejune deployment        # manage deployments
 ```
 
+### Activity Diagram
+
+![Workflow](./Doc/workflow.png)
+
+Note: above image was generated from [workflow.puml](./Doc/workflow.puml) with
+`brew install plantuml` and `plantuml -t png workflow.puml` (run from the `Doc/` directory).
+
 ### Pipeline summary
 
 | Step | Command | Docker Image | Input | Output |
