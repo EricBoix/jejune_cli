@@ -14,10 +14,11 @@ from .deployer_extensions import (
     _DEPLOYER_CHECK_PACKAGES,
     _extensions_installed,
 )
-from .next_steps import HeuristicStep, print_next_steps, register_command_precondition, register_heuristic
+from .next_steps import HeuristicStep, print_next_steps, register_heuristic
 
 _TEMPLATES = Path(__file__).parent / "templates"
 _T_UI = _TEMPLATES / "deployer" / "ui-deployment"
+_TRIVIAL_CATALOG = _TEMPLATES / "catalog-curator" / "trivial-catalog.yaml"
 
 _UI_SERVICES = ("docs-server", "kg-graph-viewer", "markdown-browser")
 
@@ -30,6 +31,28 @@ def _is_deployer_cwd() -> bool:
     from .role import detect_role
     role, _ = detect_role()
     return role == "deployer"
+
+
+def _deploy_catalog_needs_configuration() -> bool:
+    """True when catalog.yaml is still the unedited trivial template."""
+    catalog = Path(".") / "catalog.yaml"
+    if not catalog.exists() or not _TRIVIAL_CATALOG.exists():
+        return False
+    return catalog.read_text() == _TRIVIAL_CATALOG.read_text()
+
+
+def _deploy_env_is_default() -> bool:
+    """True when deployment.env still matches the scaffold template."""
+    env_file = Path(".") / "deployment.env"
+    template = _T_UI / "deployment.env"
+    if not env_file.exists() or not template.exists():
+        return False
+    return env_file.read_text() == template.read_text()
+
+
+def _deploy_config_is_default() -> bool:
+    """True when catalog.yaml or deployment.env is still at template defaults."""
+    return _deploy_catalog_needs_configuration() or _deploy_env_is_default()
 
 
 def _deploy_images_missing() -> bool:
@@ -49,9 +72,6 @@ def _deploy_containers_running() -> bool:
     name = Path(".").resolve().name.lower()
     return all(_c.is_running(f"jejune-{name}-{svc}-1") for svc in _UI_SERVICES)
 
-
-def _deploy_images_present() -> bool:
-    return not _deploy_images_missing()
 
 
 def _check_ui_services() -> list[tuple[str, bool, str]]:
@@ -82,6 +102,13 @@ def _docs_server_url() -> str:
 
 
 register_heuristic(HeuristicStep(
+    label="Configure deployment: using the default configuration",
+    command="deployer edits config files", order=5,
+    conditions=[_is_deployer_cwd, _deploy_config_is_default],
+    anti_conditions=[],
+), roles={"deployer"})
+
+register_heuristic(HeuristicStep(
     label="Build deployment", command="jejune build", order=10,
     conditions=[_is_deployer_cwd, _deploy_images_missing],
     anti_conditions=[],
@@ -89,8 +116,8 @@ register_heuristic(HeuristicStep(
 
 register_heuristic(HeuristicStep(
     label="Start deployment", command="jejune up", order=20,
-    conditions=[_is_deployer_cwd, _deploy_images_present],
-    anti_conditions=[_deploy_containers_running],
+    conditions=[_is_deployer_cwd],
+    anti_conditions=[_deploy_images_missing, _deploy_containers_running],
 ), roles={"deployer"})
 
 register_heuristic(HeuristicStep(
@@ -107,7 +134,8 @@ register_heuristic(HeuristicStep(
 ), roles={"deployer"})
 
 register_heuristic(HeuristicStep(
-    label="Browse docs server", command=_docs_server_url, order=30,
+    label="Browse docs server",
+    command=lambda: f"web-browse UI at {_docs_server_url()}", order=30,
     conditions=[_is_deployer_cwd, _deploy_containers_running, _deploy_services_available],
     anti_conditions=[],
 ), roles={"deployer"})
@@ -118,17 +146,6 @@ register_heuristic(HeuristicStep(
     anti_conditions=[],
 ), roles={"deployer"})
 
-register_command_precondition("jejune build", _is_deployer_cwd)
-register_command_precondition("jejune up",    _is_deployer_cwd)
-register_command_precondition("jejune down",  _is_deployer_cwd)
-register_command_precondition(
-    "jejune deployment status",
-    lambda: _is_deployer_cwd() and _extensions_installed(),
-)
-register_command_precondition(
-    "jejune deployment extensions install",
-    lambda: _is_deployer_cwd() and not _extensions_installed(),
-)
 
 
 # ---------------------------------------------------------------------------

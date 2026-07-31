@@ -400,24 +400,74 @@ def next_cmd(ctx):
 
 
 @next_cmd.command("state")
-def next_state_cmd():
+@click.option("--list-preconditions", is_flag=True, default=False,
+              help="List all registered command preconditions with their current status.")
+def next_state_cmd(list_preconditions: bool) -> None:
     """Show condition evaluation for all registered heuristic rules."""
-    from .next_steps import evaluate_state
+    from .next_steps import evaluate_state, _PRECONDITIONS
+
+    if list_preconditions:
+        from .next_steps import evaluate_state, _PRECONDITIONS
+
+        # Collect unique condition functions across all registered heuristics.
+        cond_fns: dict[str, bool] = {}  # fn_name -> evaluated value
+        anti_fns: dict[str, bool] = {}  # fn_name -> evaluated value
+
+        for _, cond_results, anti_results in evaluate_state():
+            for name, val in cond_results:
+                cond_fns.setdefault(name, val)
+            for name, val in anti_results:
+                anti_fns.setdefault(name, val)
+
+        all_fn_names = sorted(set(cond_fns) | set(anti_fns))
+        if all_fn_names:
+            click.echo("Heuristic condition functions:")
+            for name in all_fn_names:
+                if name in cond_fns:
+                    val = cond_fns[name]
+                    mark = click.style("✓", fg="green") if val else click.style("✗", fg="red")
+                    click.echo(f"  {mark} {name}")
+                if name in anti_fns and name not in cond_fns:
+                    val = anti_fns[name]
+                    mark = click.style("✓", fg="red") if val else click.style("✗", fg="green")
+                    suffix = "  (blocking)" if val else "  (not blocking)"
+                    click.echo(f"  anti: {mark} {name}{suffix}")
+
+        # Command preconditions (command → viable/blocked).
+        if _PRECONDITIONS:
+            if all_fn_names:
+                click.echo()
+            click.echo("Command preconditions:")
+            _W = max(len(cmd) for cmd in _PRECONDITIONS)
+            for cmd in sorted(_PRECONDITIONS):
+                try:
+                    viable = _PRECONDITIONS[cmd]()
+                except Exception:
+                    viable = False
+                mark = click.style("viable", fg="green") if viable else click.style("blocked", fg="red")
+                click.echo(f"  {cmd:<{_W}}  {mark}")
+
+        if not all_fn_names and not _PRECONDITIONS:
+            click.echo("No preconditions registered.")
+        return
+
     entries = evaluate_state()
     if not entries:
         click.echo("No heuristic rules registered.")
         return
     for step, cond_results, anti_results in entries:
         active = all(v for _, v in cond_results) and not any(v for _, v in anti_results)
-        status = click.style("active", fg="green") if active else click.style("blocked", fg="yellow")
-        click.echo(f"  {step.label}  [order {step.order}]  {status}")
+        mark = click.style("✓", fg="green") if active else click.style("✗", fg="red")
+        cmd = step.resolved_command()
+        cmd_hint = f"  ({cmd})" if cmd else ""
+        click.echo(f"  {mark} {step.label}{cmd_hint}  [order {step.order}]")
         for name, val in cond_results:
-            mark = click.style("✓", fg="green") if val else click.style("✗", fg="red")
-            click.echo(f"    {mark} {name}")
+            cmark = click.style("✓", fg="green") if val else click.style("✗", fg="red")
+            click.echo(f"       {cmark} {name}")
         for name, val in anti_results:
-            mark = click.style("✓", fg="red") if val else click.style("✗", fg="green")
+            amark = click.style("✓", fg="red") if val else click.style("✗", fg="green")
             suffix = "  (blocking)" if val else "  (not blocking)"
-            click.echo(f"    anti: {mark} {name}{suffix}")
+            click.echo(f"       anti: {amark} {name}{suffix}")
         click.echo()
 
 
@@ -632,4 +682,3 @@ register_heuristic(HeuristicStep(
     conditions=[_role_not_set],
 ), roles={None, *ROLES})
 
-register_command_precondition("jejune role set", _role_not_set)
