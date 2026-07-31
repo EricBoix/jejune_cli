@@ -39,12 +39,16 @@ def load_env_files(
     config_file: Path | None = None,
     secrets_file: Path | None = None,
 ) -> None:
-    """Load .jejune/env-config then .jejune/env-secrets; existing env vars always take precedence."""
+    """Load .jejune/env-config then .jejune/env-secrets; existing env vars always take precedence.
+
+    Also loads deployment.env from CWD when present (deployer role).
+    """
     d = dot_jejune()
     _load(config_file or d / "env-config")
     for extra in sorted(d.glob("*-env-config")):
         _load(extra)
     _load(secrets_file or d / "env-secrets")
+    _load(Path.cwd() / "deployment.env")
 
 
 def _load(path: Path) -> None:

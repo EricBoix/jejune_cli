@@ -66,7 +66,6 @@ def _check_ui_services() -> list[tuple[str, bool, str]]:
 
 
 def _deploy_services_available() -> bool:
-    load_deployment_env(Path("."))
     return _extensions_installed() and all(ok for _, ok, _ in _check_ui_services())
 
 
