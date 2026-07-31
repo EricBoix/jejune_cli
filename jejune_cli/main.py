@@ -79,6 +79,9 @@ _AVAIL_HINTS: dict[str, str] = {
     "llm": "run `jejune llm status`",
     "llm-observability": "run `jejune llm-observability start`",
     "convert": "run `jejune convert build`",
+    "docs-server": "run `jejune deployment extensions install`",
+    "kg-viewer":   "run `jejune deployment extensions install`",
+    "md-browser":  "run `jejune deployment extensions install`",
 }
 
 # Required dependencies: a component is only effective when all its deps are ok.
@@ -278,6 +281,20 @@ def doctor():
         raise SystemExit(1)
 
     config_results, avail_results = run_all(components=_ACTIVE_COMPONENTS)
+
+    # Show placeholder rows for expected components not covered by built-ins or
+    # registered plugins (e.g. deployer check extensions not yet installed).
+    _plugin_names = {p.name for p in _REGISTRY}
+    if _ACTIVE_COMPONENTS is not None:
+        _seen_config = {c for c, _, _ in config_results}
+        _seen_avail  = {c for c, _, _ in avail_results}
+        for name in sorted(_ACTIVE_COMPONENTS - _BUILTIN_COMPONENTS):
+            if name not in _plugin_names:
+                if name not in _seen_config:
+                    config_results.append((name, "warn", "extension not installed"))
+                if name not in _seen_avail:
+                    avail_results.append((name, "warn", "extension not installed"))
+
     by_config = {comp: (status, msg) for comp, status, msg in config_results}
     by_avail = {comp: (status, msg) for comp, status, msg in avail_results}
 
@@ -285,6 +302,10 @@ def doctor():
     for p in _REGISTRY:
         if _is_visible(p.name) and p.name not in visible_components:
             visible_components.append(p.name)
+    # Ensure expected-but-uninstalled extension names are shown in the tables.
+    for name in sorted(_ACTIVE_COMPONENTS - _BUILTIN_COMPONENTS) if _ACTIVE_COMPONENTS else []:
+        if name not in visible_components:
+            visible_components.append(name)
 
     config_rows: list[tuple[str, str, str, str]] = [
         (comp, status, msg if status == "error" else "", "" if status == "ok" else get_config_hint(comp, status, msg))
