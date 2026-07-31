@@ -1,6 +1,8 @@
 """Deployer CLI check-extension management — `jejune deployment extensions`."""
 
+import importlib.metadata
 import subprocess
+import sys
 from pathlib import Path
 
 import click
@@ -16,8 +18,12 @@ _PLUGIN_NAMES: frozenset[str] = frozenset(t[2] for t in _DEPLOYER_CHECK_PACKAGES
 
 
 def _extensions_installed() -> bool:
-    from .plugin import _REGISTRY
-    installed = {p.name for p in _REGISTRY}
+    """Return True when all three check extensions are installed on disk.
+
+    Reads importlib.metadata directly so it reflects packages installed
+    mid-process (e.g. by _do_extensions_install), not just the startup snapshot.
+    """
+    installed = {ep.name for ep in importlib.metadata.entry_points(group="jejune.plugins")}
     return _PLUGIN_NAMES.issubset(installed)
 
 
@@ -33,8 +39,7 @@ def deployer_extensions(ctx: click.Context) -> None:
 @deployer_extensions.command("status")
 def extensions_status() -> None:
     """Show which check extensions are installed."""
-    from .plugin import _REGISTRY
-    installed = {p.name for p in _REGISTRY}
+    installed = {ep.name for ep in importlib.metadata.entry_points(group="jejune.plugins")}
     for _, _, plugin_name in _DEPLOYER_CHECK_PACKAGES:
         ok = plugin_name in installed
         label = click.style("installed", fg="green") if ok else click.style("missing", fg="red")
@@ -55,9 +60,9 @@ def _do_extensions_install() -> None:
         tier, base = repo_status(repo_name, root_dir, tmp_dir)
         if tier == "remote":
             git_url = f"git+{REPO_ROOT_DIR}/{repo_name}.git#subdirectory={check_subpath}"
-            cmd = ["uv", "pip", "install", git_url]
+            cmd = ["uv", "pip", "install", "--python", sys.executable, git_url]
         else:
-            cmd = ["uv", "pip", "install", "-e", str(Path(base) / check_subpath)]
+            cmd = ["uv", "pip", "install", "--python", sys.executable, "-e", str(Path(base) / check_subpath)]
         result = subprocess.run(cmd)
         label = (
             click.style("installed", fg="green")

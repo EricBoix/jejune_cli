@@ -30,6 +30,11 @@ def dot_jejune(cwd: Path | None = None) -> Path:
     return (cwd or Path.cwd()) / _DOT_JEJUNE
 
 
+def load_deployment_env(deploy_dir: Path) -> None:
+    """Load deployment.env from deploy_dir into the process environment."""
+    _load(deploy_dir / "deployment.env")
+
+
 def load_env_files(
     config_file: Path | None = None,
     secrets_file: Path | None = None,

@@ -9,6 +9,7 @@ from pathlib import Path
 import click
 import yaml
 
+from ._env import load_deployment_env
 from .deployer_extensions import (
     _DEPLOYER_CHECK_PACKAGES,
     _extensions_installed,
@@ -65,6 +66,7 @@ def _check_ui_services() -> list[tuple[str, bool, str]]:
 
 
 def _deploy_services_available() -> bool:
+    load_deployment_env(Path("."))
     return _extensions_installed() and all(ok for _, ok, _ in _check_ui_services())
 
 
@@ -201,15 +203,23 @@ def _run_compose(deploy_dir: Path, *args: str) -> None:
                 type=click.Path(exists=True, file_okay=False))
 def status(deploy_dir_name: str | None) -> None:
     """Show HTTP availability of the three UI deployment services."""
-    _deployment_dir(deploy_dir_name)
+    deploy_dir = _deployment_dir(deploy_dir_name)
+    load_deployment_env(deploy_dir)
     if not _extensions_installed():
         click.echo(click.style("Check extensions not installed.", fg="red"), err=True)
         click.echo("Run: jejune deployment extensions install", err=True)
         raise SystemExit(1)
     results = _check_ui_services()
+    from .plugin import _REGISTRY
+    plugin_port = {
+        p.name: os.environ.get(p.config_vars[0], "?")
+        for p in _REGISTRY if p.config_vars
+    }
     _W = max(len(n) for n, *_ in results)
     for name, ok, msg in results:
         label = click.style("ok", fg="green") if ok else click.style("error", fg="red")
+        if not ok:
+            msg = f"{msg} on port {plugin_port.get(name, '?')}"
         click.echo(f"  {name:<{_W}}  {label}  {msg}")
 
 
