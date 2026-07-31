@@ -168,18 +168,13 @@ def _resolve_deploy_dir(deployments_dir: str, name: str) -> Path:
     return Path(deployments_dir).resolve() / name
 
 
-def _run_compose(deploy_dir: Path, *args: str) -> None:
-    from .ecosystem import DEPLOYER_REPOS, resolve
+def _compose_returncode(deploy_dir: Path, *args: str) -> int:
+    from .ecosystem import DEPLOYER_REPOS, resolve, resolve_dirs
 
     env = os.environ.copy()
-    raw_root = env.get("JEJUNE_ROOT_DIR")
-    root_dir = Path(raw_root).resolve() if raw_root else None
+    root_dir, tmp_dir = resolve_dirs(deploy_dir)
     if root_dir:
         env["JEJUNE_ROOT_DIR"] = str(root_dir)
-
-    tmp_dir = deploy_dir.resolve() / ".jejune" / "tmp"
-    if not tmp_dir.is_dir():
-        tmp_dir = None
 
     for name, subpath, key in DEPLOYER_REPOS:
         if key:
@@ -190,7 +185,11 @@ def _run_compose(deploy_dir: Path, *args: str) -> None:
         cwd=deploy_dir,
         env=env,
     )
-    sys.exit(result.returncode)
+    return result.returncode
+
+
+def _run_compose(deploy_dir: Path, *args: str) -> None:
+    sys.exit(_compose_returncode(deploy_dir, *args))
 
 
 # ---------------------------------------------------------------------------
@@ -312,13 +311,18 @@ def build(deploy_dir_name: str | None, no_cache: bool) -> None:
 def up(deploy_dir_name: str | None) -> None:
     """Start a UI deployment in detached mode."""
     from . import containers as _containers
+    from .deployer_extensions import _do_extensions_install
     deploy_dir = _deployment_dir(deploy_dir_name)
     deploy_name = deploy_dir.resolve().name.lower()
     container_names = [f"jejune-{deploy_name}-{svc}-1" for svc in _UI_SERVICES]
     _containers.unregister(*container_names)
     for cname in container_names:
         _containers.register(deploy_name, cname)
-    _run_compose(deploy_dir, "--project-name", f"jejune-{deploy_name}", "up", "-d")
+    rc = _compose_returncode(deploy_dir, "--project-name", f"jejune-{deploy_name}", "up", "-d")
+    if rc == 0 and not _extensions_installed():
+        click.echo("\nInstalling deployer CLI extensions...")
+        _do_extensions_install()
+    sys.exit(rc)
 
 
 @click.command("down")

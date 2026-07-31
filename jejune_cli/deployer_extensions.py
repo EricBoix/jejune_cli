@@ -1,6 +1,5 @@
 """Deployer CLI check-extension management — `jejune deployment extensions`."""
 
-import os
 import subprocess
 from pathlib import Path
 
@@ -42,31 +41,33 @@ def extensions_status() -> None:
         click.echo(f"  {plugin_name}: {label}")
 
 
-@deployer_extensions.command("install")
-def extensions_install() -> None:
-    """Install the three deployer check extensions from local clones."""
-    from .ecosystem import repo_status
-    from ._env import dot_jejune
+def _do_extensions_install() -> None:
+    """Install the three deployer check extensions.
 
-    raw_root = os.environ.get("JEJUNE_ROOT_DIR")
-    root_dir = Path(raw_root).resolve() if raw_root else None
-    tmp_dir = dot_jejune() / "tmp"
-    tmp_dir = tmp_dir if tmp_dir.is_dir() else None
+    Uses a local editable install when the repo is available via JEJUNE_ROOT_DIR
+    or .jejune/tmp; falls back to installing directly from the git remote.
+    """
+    from .ecosystem import REPO_ROOT_DIR, repo_status, resolve_dirs
+
+    root_dir, tmp_dir = resolve_dirs()
 
     for repo_name, check_subpath, plugin_name in _DEPLOYER_CHECK_PACKAGES:
         tier, base = repo_status(repo_name, root_dir, tmp_dir)
         if tier == "remote":
-            click.echo(
-                click.style(f"  {plugin_name}: cannot install — ", fg="yellow")
-                + f"clone {repo_name} to JEJUNE_ROOT_DIR first",
-                err=True,
-            )
-            continue
-        pkg_path = Path(base) / check_subpath
-        result = subprocess.run(["uv", "pip", "install", "-e", str(pkg_path)])
+            git_url = f"git+{REPO_ROOT_DIR}/{repo_name}.git#subdirectory={check_subpath}"
+            cmd = ["uv", "pip", "install", git_url]
+        else:
+            cmd = ["uv", "pip", "install", "-e", str(Path(base) / check_subpath)]
+        result = subprocess.run(cmd)
         label = (
             click.style("installed", fg="green")
             if result.returncode == 0
             else click.style("failed", fg="red")
         )
         click.echo(f"  {plugin_name}: {label}")
+
+
+@deployer_extensions.command("install")
+def extensions_install() -> None:
+    """Install the three deployer check extensions (local clone or git remote)."""
+    _do_extensions_install()

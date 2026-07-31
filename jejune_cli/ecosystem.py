@@ -80,6 +80,18 @@ def resolve(
     return url
 
 
+def resolve_dirs(deploy_dir: Path | None = None) -> tuple[Path | None, Path | None]:
+    """Return (root_dir, tmp_dir) from env and filesystem.
+
+    tmp_dir is looked up relative to deploy_dir when provided, otherwise CWD.
+    """
+    from ._env import dot_jejune
+    raw_root = os.environ.get("JEJUNE_ROOT_DIR")
+    root_dir = Path(raw_root).resolve() if raw_root else None
+    tmp = dot_jejune(deploy_dir) / "tmp"
+    return root_dir, tmp if tmp.is_dir() else None
+
+
 def repos_for_role(role: str | None) -> list[tuple[str, str | None, str | None]]:
     """Return the repo list for role, including transitively included roles."""
     from .role import _ROLE_INCLUDES
@@ -151,15 +163,10 @@ def ecosystem(ctx: click.Context) -> None:
 def ecosystem_status() -> None:
     """List required repositories and their local/remote resolution status."""
     from .role import detect_role
-    from ._env import dot_jejune
 
     role, _ = detect_role()
 
-    raw_root = os.environ.get("JEJUNE_ROOT_DIR")
-    root_dir = Path(raw_root).resolve() if raw_root else None
-    tmp_dir = dot_jejune() / "tmp"
-    if not tmp_dir.is_dir():
-        tmp_dir = None
+    root_dir, tmp_dir = resolve_dirs()
 
     role_label = f"  [{role}]" if role else ""
     click.echo(f"jejune ecosystem{role_label}")
