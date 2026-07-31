@@ -7,6 +7,8 @@ from pathlib import Path
 
 import click
 
+from .next_steps import register_precondition
+
 _DEPLOYER_CHECK_PACKAGES: list[tuple[str, str, str]] = [
     # (repo_name,               check_subpath, plugin_name)
     ("jejune_docs_server",      "check",       "docs-server"),
@@ -25,6 +27,9 @@ def _extensions_installed() -> bool:
     """
     installed = {ep.name for ep in importlib.metadata.entry_points(group="jejune.plugins")}
     return _PLUGIN_NAMES.issubset(installed)
+
+
+register_precondition("deployer extensions installed", _extensions_installed)
 
 
 @click.group("extensions", invoke_without_command=True,

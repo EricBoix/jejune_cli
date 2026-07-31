@@ -25,10 +25,15 @@ class HeuristicStep:
 _REGISTRY: list[HeuristicStep] = []
 _ROLES_WITH_HEURISTICS: set[str | None] = set()
 _PRECONDITIONS: dict[str, Callable[[], bool]] = {}
+_NAMED_PRECONDITIONS: dict[str, Callable[[], bool]] = {}
 
 
 def register_command_precondition(command: str, check: Callable[[], bool]) -> None:
     _PRECONDITIONS[command] = check
+
+
+def register_precondition(name: str, check: Callable[[], bool]) -> None:
+    _NAMED_PRECONDITIONS[name] = check
 
 
 def command_viable(command: str) -> bool:

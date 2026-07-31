@@ -26,7 +26,7 @@ from .llm import llm
 from .llm_observability import llm_observability
 from .neo4j import neo4j
 from .configuration_deployer import init as _deployer_init
-from .next_steps import has_heuristics_for_role, command_viable, register_command_precondition, print_next_steps, HeuristicStep, register_heuristic
+from .next_steps import has_heuristics_for_role, command_viable, register_command_precondition, register_precondition, print_next_steps, HeuristicStep, register_heuristic
 from .role import detect_role, role_components, ROLES, ROLE_SECTION_TITLE, _ROLE_INCLUDES, build_hierarchy_lines
 
 _T_ROLE_TEMPLATES = Path(__file__).parent / "templates"
@@ -34,10 +34,12 @@ _T_ROLE_TEMPLATES = Path(__file__).parent / "templates"
 _ACTIVE_ROLE, _ACTIVE_ROLE_REASON = detect_role()
 _ACTIVE_COMPONENTS = role_components(_ACTIVE_ROLE)
 
-register_command_precondition(
-    "jejune doctor",
-    lambda: not (_ACTIVE_ROLE in (None, "doc-steward") and not dot_jejune().is_dir()),
-)
+def _doctor_viable() -> bool:
+    return not (_ACTIVE_ROLE in (None, "doc-steward") and not dot_jejune().is_dir())
+
+
+register_command_precondition("jejune doctor", _doctor_viable)
+register_precondition("workspace initialized", _doctor_viable)
 
 # Components — drives both `jejune --help` listing and `jejune doctor` output.
 _COMPONENTS = [
@@ -401,41 +403,25 @@ def next_cmd(ctx):
 
 @next_cmd.command("state")
 @click.option("--list-preconditions", is_flag=True, default=False,
-              help="List all registered command preconditions with their current status.")
+              help="List all registered preconditions with their current status.")
 def next_state_cmd(list_preconditions: bool) -> None:
     """Show condition evaluation for all registered heuristic rules."""
-    from .next_steps import evaluate_state, _PRECONDITIONS
+    from .next_steps import evaluate_state, _PRECONDITIONS, _NAMED_PRECONDITIONS
 
     if list_preconditions:
-        from .next_steps import evaluate_state, _PRECONDITIONS
+        if _NAMED_PRECONDITIONS:
+            click.echo("Preconditions:")
+            _W = max(len(n) for n in _NAMED_PRECONDITIONS)
+            for name in sorted(_NAMED_PRECONDITIONS):
+                try:
+                    val = _NAMED_PRECONDITIONS[name]()
+                except Exception:
+                    val = False
+                mark = click.style("✓", fg="green") if val else click.style("✗", fg="red")
+                click.echo(f"  {mark} {name:<{_W}}")
 
-        # Collect unique condition functions across all registered heuristics.
-        cond_fns: dict[str, bool] = {}  # fn_name -> evaluated value
-        anti_fns: dict[str, bool] = {}  # fn_name -> evaluated value
-
-        for _, cond_results, anti_results in evaluate_state():
-            for name, val in cond_results:
-                cond_fns.setdefault(name, val)
-            for name, val in anti_results:
-                anti_fns.setdefault(name, val)
-
-        all_fn_names = sorted(set(cond_fns) | set(anti_fns))
-        if all_fn_names:
-            click.echo("Heuristic condition functions:")
-            for name in all_fn_names:
-                if name in cond_fns:
-                    val = cond_fns[name]
-                    mark = click.style("✓", fg="green") if val else click.style("✗", fg="red")
-                    click.echo(f"  {mark} {name}")
-                if name in anti_fns and name not in cond_fns:
-                    val = anti_fns[name]
-                    mark = click.style("✓", fg="red") if val else click.style("✗", fg="green")
-                    suffix = "  (blocking)" if val else "  (not blocking)"
-                    click.echo(f"  anti: {mark} {name}{suffix}")
-
-        # Command preconditions (command → viable/blocked).
         if _PRECONDITIONS:
-            if all_fn_names:
+            if _NAMED_PRECONDITIONS:
                 click.echo()
             click.echo("Command preconditions:")
             _W = max(len(cmd) for cmd in _PRECONDITIONS)
@@ -447,7 +433,7 @@ def next_state_cmd(list_preconditions: bool) -> None:
                 mark = click.style("viable", fg="green") if viable else click.style("blocked", fg="red")
                 click.echo(f"  {cmd:<{_W}}  {mark}")
 
-        if not all_fn_names and not _PRECONDITIONS:
+        if not _NAMED_PRECONDITIONS and not _PRECONDITIONS:
             click.echo("No preconditions registered.")
         return
 
@@ -669,6 +655,9 @@ def _is_role_set() -> bool:
 
 def _role_not_set() -> bool:
     return not _is_role_set()
+
+
+register_precondition("role set", _is_role_set)
 
 
 register_heuristic(HeuristicStep(

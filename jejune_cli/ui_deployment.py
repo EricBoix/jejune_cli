@@ -14,7 +14,8 @@ from .deployer_extensions import (
     _DEPLOYER_CHECK_PACKAGES,
     _extensions_installed,
 )
-from .next_steps import HeuristicStep, print_next_steps, register_heuristic
+from .ecosystem import check_docker, check_uv
+from .next_steps import HeuristicStep, print_next_steps, register_heuristic, register_precondition
 
 _TEMPLATES = Path(__file__).parent / "templates"
 _T_UI = _TEMPLATES / "deployer" / "ui-deployment"
@@ -89,6 +90,13 @@ def _deploy_services_available() -> bool:
     return _extensions_installed() and all(ok for _, ok, _ in _check_ui_services())
 
 
+register_precondition("deployer role detected",        _is_deployer_cwd)
+register_precondition("deployment config is default",  _deploy_config_is_default)
+register_precondition("deployment images missing",     _deploy_images_missing)
+register_precondition("deployment containers running", _deploy_containers_running)
+register_precondition("deployment services available", _deploy_services_available)
+
+
 def _docs_server_url() -> str:
     port = "8765"
     env_file = Path(".") / "deployment.env"
@@ -102,6 +110,13 @@ def _docs_server_url() -> str:
 
 
 register_heuristic(HeuristicStep(
+    label="Install docker desktop",
+    command=None, order=2,
+    conditions=[_is_deployer_cwd],
+    anti_conditions=[check_docker],
+), roles={"deployer"})
+
+register_heuristic(HeuristicStep(
     label="Configure deployment: using the default configuration",
     command="deployer edits config files", order=5,
     conditions=[_is_deployer_cwd, _deploy_config_is_default],
@@ -110,26 +125,26 @@ register_heuristic(HeuristicStep(
 
 register_heuristic(HeuristicStep(
     label="Build deployment", command="jejune build", order=10,
-    conditions=[_is_deployer_cwd, _deploy_images_missing],
+    conditions=[_is_deployer_cwd, check_docker, _deploy_images_missing],
     anti_conditions=[],
 ), roles={"deployer"})
 
 register_heuristic(HeuristicStep(
     label="Start deployment", command="jejune up", order=20,
-    conditions=[_is_deployer_cwd],
+    conditions=[_is_deployer_cwd, check_docker],
     anti_conditions=[_deploy_images_missing, _deploy_containers_running],
 ), roles={"deployer"})
 
 register_heuristic(HeuristicStep(
     label="Install deployer CLI extensions",
     command="jejune deployment extensions install", order=22,
-    conditions=[_is_deployer_cwd, _deploy_containers_running],
+    conditions=[_is_deployer_cwd, check_uv, _deploy_containers_running],
     anti_conditions=[_extensions_installed],
 ), roles={"deployer"})
 
 register_heuristic(HeuristicStep(
     label="Check deployment status", command="jejune deployment status", order=25,
-    conditions=[_is_deployer_cwd, _deploy_containers_running, _extensions_installed],
+    conditions=[_is_deployer_cwd, check_uv, _deploy_containers_running, _extensions_installed],
     anti_conditions=[_deploy_services_available],
 ), roles={"deployer"})
 
@@ -142,7 +157,7 @@ register_heuristic(HeuristicStep(
 
 register_heuristic(HeuristicStep(
     label="Deployment running stop", command="jejune down", order=35,
-    conditions=[_is_deployer_cwd, _deploy_containers_running],
+    conditions=[_is_deployer_cwd, check_docker, _deploy_containers_running],
     anti_conditions=[],
 ), roles={"deployer"})
 

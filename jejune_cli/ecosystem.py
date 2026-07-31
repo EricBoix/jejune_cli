@@ -9,6 +9,7 @@ from typing import Literal
 import click
 
 from ._ecosystem import REPO_ROOT_DIR
+from .next_steps import register_precondition
 
 # ---------------------------------------------------------------------------
 # Per-role repository tables
@@ -115,10 +116,25 @@ def repos_for_role(role: str | None) -> list[tuple[str, str | None, str | None]]
 def check_git() -> bool:
     """Return True if git is available on PATH."""
     try:
-        subprocess.run(
-            ["git", "--version"],
-            capture_output=True, check=True,
-        )
+        subprocess.run(["git", "--version"], capture_output=True, check=True)
+        return True
+    except Exception:
+        return False
+
+
+def check_docker() -> bool:
+    """Return True if docker is available on PATH."""
+    try:
+        subprocess.run(["docker", "info"], capture_output=True, check=True)
+        return True
+    except Exception:
+        return False
+
+
+def check_uv() -> bool:
+    """Return True if uv is available on PATH."""
+    try:
+        subprocess.run(["uv", "--version"], capture_output=True, check=True)
         return True
     except Exception:
         return False
@@ -145,6 +161,12 @@ def check_contributor_avail() -> tuple[bool, str]:
     if not net_ok:
         parts.append(f"{REPO_ROOT_DIR} not reachable")
     return False, "; ".join(parts)
+
+
+register_precondition("docker available",  check_docker)
+register_precondition("git available",     check_git)
+register_precondition("github accessible", check_network)
+register_precondition("uv available",      check_uv)
 
 
 # ---------------------------------------------------------------------------
