@@ -26,6 +26,7 @@ _REGISTRY: list[HeuristicStep] = []
 _ROLES_WITH_HEURISTICS: set[str | None] = set()
 _PRECONDITIONS: dict[str, Callable[[], bool]] = {}
 _NAMED_PRECONDITIONS: dict[str, Callable[[], bool]] = {}
+_ROLE_ORDERINGS: dict[str | None, dict[str, int]] = {}
 _next_steps_printed: bool = False
 
 
@@ -46,6 +47,10 @@ def command_viable(command: str) -> bool:
         return bool(check())
     except Exception:
         return False
+
+
+def register_role_ordering(role: str | None, ordering: dict[str, int]) -> None:
+    _ROLE_ORDERINGS[role] = ordering
 
 
 def register_heuristic(step: HeuristicStep, roles: set[str | None]) -> None:
@@ -103,29 +108,38 @@ def _sort_key(
     return (rule3, _role_specificity(step, active_role), -_condition_count(step), step.order)
 
 
+def _effective_ordering(
+    active_role: str | None,
+    ordering: dict[str, int] | None,
+) -> dict[str, int] | None:
+    """Explicit ordering overrides role ordering; role ordering is the fallback."""
+    return ordering if ordering is not None else _ROLE_ORDERINGS.get(active_role)
+
+
 def evaluate(
     cwd: Path | None = None,
     ordering: dict[str, int] | None = None,
 ) -> list[HeuristicStep]:
     _load_providers()
     from .role import detect_role
-    active_role, _ = detect_role()
 
-    def _key(s: HeuristicStep) -> tuple:
-        return _sort_key(s, active_role, ordering)
-
-    if cwd is None:
+    def _sorted(active_role: str | None) -> list[HeuristicStep]:
+        eff = _effective_ordering(active_role, ordering)
+        def _key(s: HeuristicStep) -> tuple:
+            return _sort_key(s, active_role, eff)
         return sorted(
             (s for s in _REGISTRY if _matches(s) and _step_viable(s)),
             key=_key,
         )
+
+    if cwd is None:
+        active_role, _ = detect_role()
+        return _sorted(active_role)
     old = os.getcwd()
     try:
         os.chdir(cwd)
-        return sorted(
-            (s for s in _REGISTRY if _matches(s) and _step_viable(s)),
-            key=_key,
-        )
+        active_role, _ = detect_role()
+        return _sorted(active_role)
     finally:
         os.chdir(old)
 

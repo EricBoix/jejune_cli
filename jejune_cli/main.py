@@ -27,12 +27,13 @@ from .llm_observability import llm_observability
 from .neo4j import neo4j
 from .configuration_deployer import init as _deployer_init
 from .next_steps import has_heuristics_for_role, command_viable, register_command_precondition, register_precondition, print_next_steps, HeuristicStep, register_heuristic
-from .role import detect_role, role_components, ROLES, ROLE_SECTION_TITLE, _ROLE_INCLUDES, build_hierarchy_lines
+from .role import detect_role, detect_roles, role_components, ROLES, ROLE_SECTION_TITLE, _ROLE_INCLUDES, build_hierarchy_lines
 
 _T_ROLE_TEMPLATES = Path(__file__).parent / "templates"
 
 _ACTIVE_ROLE, _ACTIVE_ROLE_REASON = detect_role()
-_ACTIVE_COMPONENTS = role_components(_ACTIVE_ROLE)
+_ACTIVE_ROLES: list[str] = detect_roles()
+_ACTIVE_COMPONENTS = role_components(_ACTIVE_ROLES)
 
 def _doctor_viable() -> bool:
     return not (_ACTIVE_ROLE in (None, "doc-steward") and not dot_jejune().is_dir())
@@ -208,8 +209,8 @@ def role(ctx):
     """
     if ctx.invoked_subcommand is not None:
         return
-    if _ACTIVE_ROLE:
-        click.echo(f"role:   {click.style(_ACTIVE_ROLE, fg='cyan')}")
+    if _ACTIVE_ROLES:
+        click.echo(f"role:   {click.style(', '.join(_ACTIVE_ROLES), fg='cyan')}")
     else:
         click.echo(f"role:   {click.style('(none)', fg='yellow')}")
     click.echo(f"reason: {_ACTIVE_ROLE_REASON}")

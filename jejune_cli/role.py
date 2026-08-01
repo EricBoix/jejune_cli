@@ -42,6 +42,23 @@ ROLE_SECTION_TITLE: dict[str, str] = {
 }
 
 
+def detect_roles() -> list[str]:
+    """Return all valid roles listed in .jejune/role (or the single detected role)."""
+    override = os.environ.get("JEJUNE_ROLE")
+    if override:
+        return [override] if override in ROLES else []
+    try:
+        cwd = Path.cwd()
+    except FileNotFoundError:
+        return []
+    role_file = cwd / ".jejune" / "role"
+    if role_file.is_file():
+        return [r.strip() for r in role_file.read_text().strip().split(",")
+                if r.strip() in ROLES]
+    primary, _ = detect_role()
+    return [primary] if primary else []
+
+
 def detect_role() -> tuple[str | None, str]:
     """Return (role, reason). Override with JEJUNE_ROLE env var."""
     override = os.environ.get("JEJUNE_ROLE")
@@ -195,11 +212,15 @@ def build_hierarchy_lines() -> list[str]:
     return output
 
 
-def role_components(role: str | None) -> frozenset[str] | None:
-    """Component filter for the role, or None (show everything)."""
+def role_components(role: str | list[str] | None) -> frozenset[str] | None:
+    """Component filter for the role(s), or None (show everything)."""
     if not role:
         return None
-    own = _ROLE_COMPONENTS.get(role, frozenset())
-    for parent in _ROLE_INCLUDES.get(role, ()):
-        own = own | _ROLE_COMPONENTS.get(parent, frozenset())
-    return own or None
+    roles = [role] if isinstance(role, str) else role
+    result: frozenset[str] = frozenset()
+    for r in roles:
+        own = _ROLE_COMPONENTS.get(r, frozenset())
+        for parent in _ROLE_INCLUDES.get(r, ()):
+            own = own | _ROLE_COMPONENTS.get(parent, frozenset())
+        result = result | own
+    return result or None

@@ -15,7 +15,7 @@ from .deployer_extensions import (
     _extensions_installed,
 )
 from .ecosystem import check_docker, check_uv
-from .next_steps import HeuristicStep, print_next_steps, register_heuristic, register_precondition
+from .next_steps import HeuristicStep, print_next_steps, register_heuristic, register_precondition, register_role_ordering
 
 _TEMPLATES = Path(__file__).parent / "templates"
 _T_UI = _TEMPLATES / "deployer" / "ui-deployment"
@@ -161,6 +161,9 @@ register_heuristic(HeuristicStep(
     anti_conditions=[],
 ), roles={"deployer"})
 
+register_role_ordering("deployer", {
+    "Configure deployment: using the default configuration": -1,
+})
 
 
 # ---------------------------------------------------------------------------
@@ -296,10 +299,7 @@ def ui_configure(deployments_dir, name):
         shutil.copy(_T_UI / "secrets.env.template", deploy_dir / "secrets.env.template")
 
     click.echo(f"Created {deploy_dir}")
-    print_next_steps(
-        cwd=deploy_dir,
-        ordering={"Configure deployment: using the default configuration": -1},
-    )
+    print_next_steps(cwd=deploy_dir)
 
 
 @click.command("list")
