@@ -26,6 +26,7 @@ _REGISTRY: list[HeuristicStep] = []
 _ROLES_WITH_HEURISTICS: set[str | None] = set()
 _PRECONDITIONS: dict[str, Callable[[], bool]] = {}
 _NAMED_PRECONDITIONS: dict[str, Callable[[], bool]] = {}
+_next_steps_printed: bool = False
 
 
 def register_command_precondition(command: str, check: Callable[[], bool]) -> None:
@@ -93,17 +94,25 @@ def _condition_count(step: HeuristicStep) -> int:
     return len(step.conditions) + len(step.anti_conditions)
 
 
-def _sort_key(step: HeuristicStep, active_role: str | None) -> tuple:
-    return (_role_specificity(step, active_role), -_condition_count(step), step.order)
+def _sort_key(
+    step: HeuristicStep,
+    active_role: str | None,
+    ordering: dict[str, int] | None,
+) -> tuple:
+    rule3 = ordering.get(step.label, 0) if ordering else 0
+    return (rule3, _role_specificity(step, active_role), -_condition_count(step), step.order)
 
 
-def evaluate(cwd: Path | None = None) -> list[HeuristicStep]:
+def evaluate(
+    cwd: Path | None = None,
+    ordering: dict[str, int] | None = None,
+) -> list[HeuristicStep]:
     _load_providers()
     from .role import detect_role
     active_role, _ = detect_role()
 
     def _key(s: HeuristicStep) -> tuple:
-        return _sort_key(s, active_role)
+        return _sort_key(s, active_role, ordering)
 
     if cwd is None:
         return sorted(
@@ -121,11 +130,18 @@ def evaluate(cwd: Path | None = None) -> list[HeuristicStep]:
         os.chdir(old)
 
 
-def print_next_steps(cwd: Path | None = None) -> None:
+def print_next_steps(
+    cwd: Path | None = None,
+    ordering: dict[str, int] | None = None,
+) -> None:
     """Evaluate and print heuristic next steps. Silent if none apply."""
-    steps = evaluate(cwd)
+    global _next_steps_printed
+    if _next_steps_printed:
+        return
+    steps = evaluate(cwd, ordering=ordering)
     if not steps:
         return
+    _next_steps_printed = True
     click.echo()
     if cwd is not None and cwd.resolve() != Path.cwd().resolve():
         click.echo(f"Next steps (from {cwd.name}/):")

@@ -296,7 +296,10 @@ def ui_configure(deployments_dir, name):
         shutil.copy(_T_UI / "secrets.env.template", deploy_dir / "secrets.env.template")
 
     click.echo(f"Created {deploy_dir}")
-    print_next_steps(cwd=deploy_dir)
+    print_next_steps(
+        cwd=deploy_dir,
+        ordering={"Configure deployment: using the default configuration": -1},
+    )
 
 
 @click.command("list")
