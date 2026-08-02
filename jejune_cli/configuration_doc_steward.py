@@ -34,8 +34,8 @@ COMPONENT_CONFIG_HINTS: dict[str, str] = {
 def init():
     """Write jejune scaffold files into .jejune/ in the current directory.
 
-    Creates .jejune/env-config, .jejune/env-secrets, .jejune/catalog.yaml,
-    and .jejune/ecosystem-env-config from built-in templates.
+    Creates .jejune/env-config, .jejune/env-secrets, and .jejune/ecosystem-env-config
+    from built-in templates.
     Adds .jejune to .gitignore so the whole directory stays local by default.
     """
     d = dot_jejune()
@@ -43,7 +43,7 @@ def init():
 
     created = []
     skipped = []
-    for fname in ("env-config", "env-secrets", "catalog.yaml", "role"):
+    for fname in ("env-config", "env-secrets", "role"):
         dst = d / fname
         if dst.exists():
             skipped.append(fname)

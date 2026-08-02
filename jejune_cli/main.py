@@ -326,7 +326,7 @@ def doctor():
     failed_avail = [comp for comp, status, _, _ in avail_rows if status == "error"]
 
     _CONFIG_NOTE = (
-        "  Configuration files: .jejune/env-config · .jejune/env-secrets · .jejune/catalog.yaml"
+        "  Configuration files: .jejune/env-config · .jejune/env-secrets"
     )
     all_hints = list(_CONFIG_HINTS.values()) or [""]
     all_avail_hints = list(_AVAIL_HINTS.values()) or [""]

@@ -250,7 +250,7 @@ class _ConfigurationGroup(click.Group):
 
 @click.group(cls=_ConfigurationGroup, short_help="Manage the .jejune/ configuration")
 def configuration():
-    """Manage the .jejune/ configuration (env-config, env-secrets, catalog.yaml)."""
+    """Manage the .jejune/ configuration (env-config, env-secrets)."""
 
 
 @click.group("doc-steward", short_help="Doc-steward role workspace")

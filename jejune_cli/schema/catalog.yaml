@@ -1,4 +1,4 @@
-# Schema for doc.yaml files in jejune_doc_* repositories.
+# Schema for catalog.yaml files in jejune_doc_* repositories.
 required_fields:
   title: string
   authors: list
