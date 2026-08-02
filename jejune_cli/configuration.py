@@ -10,6 +10,7 @@ from .configuration_doc_steward import (
     COMPONENT_CONFIG_HINTS as _DS_HINTS,
     init as _doc_steward_init,
 )
+from .doc_steward_extensions import doc_steward_extensions as _ds_extensions
 from .configuration_deployer import (
     CONFIG_GROUPS as _DEP_CONFIG_GROUPS,
     COMPONENT_CONFIG_HINTS as _DEP_HINTS,
@@ -258,6 +259,7 @@ def _doc_steward_group():
 
 
 _doc_steward_group.add_command(_doc_steward_init, "init")
+_doc_steward_group.add_command(_ds_extensions, "extensions")
 
 
 @click.group("deployer", short_help="Deployer role workspace")

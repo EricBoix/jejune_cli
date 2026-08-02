@@ -6,6 +6,7 @@ from pathlib import Path
 import click
 
 from ._env import dot_jejune
+from .doc_steward_extensions import _do_extension_install, _extension_installed
 from .next_steps import print_next_steps
 
 _TEMPLATES = Path(__file__).parent / "templates" / "doc-steward"
@@ -68,5 +69,9 @@ def init():
         with gitignore.open("a") as fh:
             fh.write(entry)
         click.echo(click.style("  updated  .gitignore (.jejune)", fg="green"))
+
+    if not _extension_installed():
+        click.echo("\nInstalling catalog-contributor extension...")
+        _do_extension_install()
 
     print_next_steps()
