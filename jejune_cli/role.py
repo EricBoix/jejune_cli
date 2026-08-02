@@ -3,12 +3,18 @@
 Roles restrict `--help` output and `doctor` checks to what is relevant
 for the active user persona. Role is inferred from the current directory;
 the JEJUNE_ROLE env var overrides auto-detection.
+
+Plugins can register additional roles at startup via ``register_role()``.
 """
 
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING, Callable
 
-ROLES = ("doc-steward", "catalog-curator", "deployer", "contributor")
+if TYPE_CHECKING:
+    from .plugin import JejuneRole
+
+ROLES: list[str] = ["doc-steward", "deployer", "contributor"]
 _DISPLAY_ROLES = ROLES
 
 _ROLE_COMPONENTS: dict[str, frozenset[str]] = {
@@ -16,30 +22,42 @@ _ROLE_COMPONENTS: dict[str, frozenset[str]] = {
     "doc-steward": frozenset(
         {"configuration", "neo4j", "llm", "llm-observability", "graph", "convert"}
     ),
-    "catalog-curator": frozenset({"catalog"}),
     # "deployment" = built-in; UI service names come from installed check/ plugins.
     "deployer": frozenset({"deployment", "docs-server", "kg-viewer", "md-browser"}),
 }
 
 _ROLE_INCLUDES: dict[str, tuple[str, ...]] = {
-    "deployer":        ("catalog-curator", "contributor"),
-    "catalog-curator": ("contributor",),
-    "doc-steward":     ("contributor",),
+    "deployer":    ("contributor",),
+    "doc-steward": ("contributor",),
 }
 
 _ROLE_REASON: dict[str, str] = {
     "contributor": "base role inherited by all other roles",
     "doc-steward": ".jejune/ directory detected",
-    "catalog-curator": "full-catalog.yaml detected",
     "deployer": "docker-compose.yml detected",
 }
 
 ROLE_SECTION_TITLE: dict[str, str] = {
     "contributor": "Contributor commands",
     "doc-steward": "Doc-steward commands",
-    "catalog-curator": "Catalog-curator commands",
     "deployer": "Deployer commands",
 }
+
+_ROLE_DETECTORS: list[tuple[str, Callable[[], bool]]] = []
+
+
+def register_role(role: "JejuneRole") -> None:
+    """Register a dynamically-defined role contributed by a plugin."""
+    ROLES.append(role.name)
+    _ROLE_COMPONENTS[role.name] = role.components
+    _ROLE_INCLUDES[role.name] = role.includes
+    _ROLE_REASON[role.name] = role.detection_reason
+    ROLE_SECTION_TITLE[role.name] = role.section_title
+    _ROLE_DETECTORS.append((role.name, role.detect))
+    for existing_role, additional_parents in role.extend_includes.items():
+        _ROLE_INCLUDES[existing_role] = (
+            _ROLE_INCLUDES.get(existing_role, ()) + additional_parents
+        )
 
 
 def detect_roles() -> list[str]:
@@ -79,8 +97,12 @@ def detect_role() -> tuple[str | None, str]:
         return "deployer", _ROLE_REASON["deployer"]
     if (cwd / ".jejune").is_dir():
         return "doc-steward", _ROLE_REASON["doc-steward"]
-    if (cwd / "full-catalog.yaml").exists():
-        return "catalog-curator", _ROLE_REASON["catalog-curator"]
+    for role_name, detector in _ROLE_DETECTORS:
+        try:
+            if detector():
+                return role_name, _ROLE_REASON[role_name]
+        except Exception:
+            pass
     return None, "no role indicator found in current directory"
 
 

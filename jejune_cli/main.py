@@ -1,14 +1,14 @@
 import importlib.metadata
-import shutil
 import subprocess
 from pathlib import Path
 
 import click
 
 from ._env import dot_jejune, load_env_files
-from .catalog import run_all, catalog as catalog_cmd
+from ._health import run_all
 from .convert import convert, convert_configured
 from .plugin import JejunePlugin, _REGISTRY
+from .role import register_role
 from .deployment import deployment
 from .ecosystem import ecosystem
 from .ui_deployment import build as _build_cmd, up as _up_cmd, down as _down_cmd
@@ -18,6 +18,7 @@ from .configuration import (
     get_config_hint,
     print_config_table,
     print_two_col_table,
+    register_role_config_subgroup,
 )
 from . import containers
 from .containers import containers_cli
@@ -28,8 +29,6 @@ from .neo4j import neo4j
 from .configuration_deployer import init as _deployer_init
 from .next_steps import has_heuristics_for_role, command_viable, register_command_precondition, register_precondition, print_next_steps, HeuristicStep, register_heuristic
 from .role import detect_role, detect_roles, role_components, ROLES, ROLE_SECTION_TITLE, _ROLE_INCLUDES, build_hierarchy_lines
-
-_T_ROLE_TEMPLATES = Path(__file__).parent / "templates"
 
 _ACTIVE_ROLE, _ACTIVE_ROLE_REASON = detect_role()
 _ACTIVE_ROLES: list[str] = detect_roles()
@@ -58,16 +57,21 @@ _BUILTIN_COMPONENTS: frozenset[str] = frozenset(_COMPONENTS)
 # Help-section membership for built-in components.
 _CONTRIBUTOR_COMMANDS = ["doctor", "configuration", "role", "containers", "ecosystem", "next"]
 _DOC_STEWARD_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert"]
-_CURATOR_COMPONENTS = ["catalog"]   # + "collection" stage plugins
 _DEPLOYER_COMPONENTS = ["deployment"]  # + "extension" stage plugins
 
 # Ordered sections for `jejune --help`, keyed by role name from ROLE_SECTION_TITLE.
 _ROLE_HELP_SECTIONS: list[tuple[str, list[str], str | None]] = [
-    ("contributor",     _CONTRIBUTOR_COMMANDS,   None),
-    ("doc-steward",     _DOC_STEWARD_COMPONENTS, "single-document"),
-    ("catalog-curator", _CURATOR_COMPONENTS,     "collection"),
-    ("deployer",        _DEPLOYER_COMPONENTS,    "extension"),
+    ("contributor",  _CONTRIBUTOR_COMMANDS,   None),
+    ("doc-steward",  _DOC_STEWARD_COMPONENTS, "single-document"),
+    ("deployer",     _DEPLOYER_COMPONENTS,    "extension"),
 ]
+
+# Numeric ordering for help sections; used to insert plugin-registered roles.
+_SECTION_ORDER: dict[str, int] = {
+    "contributor": 0,
+    "doc-steward": 10,
+    "deployer":    90,
+}
 
 
 _W_SECT = max(17, len("Component configuration"))  # recomputed after _load_plugins()
@@ -235,7 +239,7 @@ def role_list():
 
 
 @role.command("set")
-@click.argument("role_name", metavar="ROLE", type=click.Choice(list(ROLES)))
+@click.argument("role_name", metavar="ROLE", type=click.Choice(ROLES))
 def role_set(role_name):
     """Set the role for the current directory."""
     d = dot_jejune()
@@ -250,7 +254,7 @@ def role_set(role_name):
                 err=True,
             )
             raise SystemExit(1)
-    shutil.copy(_T_ROLE_TEMPLATES / role_name / "role", d / "role")
+    (d / "role").write_text(f"{role_name}\n")
     click.echo(f"Role set to {click.style(role_name, fg='cyan')}.")
 
 
@@ -582,7 +586,6 @@ cli.add_command(llm_observability)
 cli.add_command(graph)
 cli.add_command(deployment)
 cli.add_command(ecosystem)
-cli.add_command(catalog_cmd)
 cli.add_command(convert)
 cli.add_command(availability)
 cli.add_command(doctor)
@@ -622,7 +625,7 @@ for _alias_group, _alias_name, _alias_cmd, _alias_canonical, _ in _ALIASES:
 
 
 def _load_plugins() -> None:
-    global _W_SECT
+    global _W_SECT, _ACTIVE_ROLE, _ACTIVE_ROLE_REASON, _ACTIVE_ROLES, _ACTIVE_COMPONENTS
     from .configuration import CONFIG_GROUPS, COMPONENT_CONFIG_HINTS
     for ep in importlib.metadata.entry_points(group="jejune.plugins"):
         try:
@@ -642,7 +645,30 @@ def _load_plugins() -> None:
         if plugin.config_vars:
             CONFIG_GROUPS[plugin.name] = (plugin.config_vars, plugin.name)
             COMPONENT_CONFIG_HINTS[plugin.name] = plugin.config_hint
+        if plugin.role is not None:
+            _register_plugin_role(plugin)
     _W_SECT = max(len("Component configuration"), max(len(n) for n in _COMPONENTS))
+    _ACTIVE_ROLE, _ACTIVE_ROLE_REASON = detect_role()
+    _ACTIVE_ROLES = detect_roles()
+    _ACTIVE_COMPONENTS = role_components(_ACTIVE_ROLES)
+
+
+def _register_plugin_role(plugin: JejunePlugin) -> None:
+    """Register a role contributed by a plugin and insert its help section."""
+    role = plugin.role
+    assert role is not None
+    register_role(role)
+    order = role.order
+    insert_at = next(
+        (i for i, (rn, _, _) in enumerate(_ROLE_HELP_SECTIONS)
+         if _SECTION_ORDER.get(rn, 50) > order),
+        len(_ROLE_HELP_SECTIONS),
+    )
+    # Plugin commands are shown via _plugin_rows(role.help_stage); commands list stays empty.
+    _ROLE_HELP_SECTIONS.insert(insert_at, (role.name, [], role.help_stage))
+    _SECTION_ORDER[role.name] = order
+    if role.config_group is not None:
+        register_role_config_subgroup(role.name, role.config_group)
 
 
 _load_plugins()

@@ -18,6 +18,47 @@ import click
 
 
 @dataclass
+class JejuneRole:
+    """Role definition contributed by an extension package.
+
+    When a JejunePlugin carries a role, jejune-cli registers it at startup so
+    that the role becomes auto-detectable, its help section appears in
+    ``jejune --help``, and (optionally) its config subgroup appears under
+    ``jejune configuration``.
+
+    Fields
+    ------
+    name             : role identifier, e.g. ``"my-role"``.
+    components       : frozenset of component names owned by this role.
+    includes         : parent roles whose components are inherited.
+    detection_reason : human-readable indicator shown by ``jejune role``.
+    section_title    : header for this role's section in ``jejune --help``.
+    detect           : callable returning True when the cwd belongs to this role.
+    help_stage       : plugin stage used to group plugin commands in ``--help``
+                       (``"single-document"``, ``"collection"``, ``"extension"``).
+    order            : insertion position among help sections (contributor=0,
+                       doc-steward=10, deployer=90; defaults to 50).
+    config_group     : if set, added as a subgroup of ``jejune configuration``.
+    extend_includes  : mapping of *existing* role names to additional parent
+                       tuples to splice in at registration time.  Use this to
+                       make an existing role inherit from the new one.
+                       e.g. ``{"deployer": ("my-role",)}`` causes the deployer
+                       role to inherit my-role when the plugin is installed.
+    """
+
+    name: str
+    components: frozenset[str]
+    includes: tuple[str, ...]
+    detection_reason: str
+    section_title: str
+    detect: Callable[[], bool]
+    help_stage: str
+    order: int = 50
+    config_group: click.Group | None = None
+    extend_includes: dict[str, tuple[str, ...]] = field(default_factory=dict)
+
+
+@dataclass
 class JejunePlugin:
     """Contract between jejune-cli and an extension package.
 
@@ -58,7 +99,8 @@ class JejunePlugin:
     ``"collection"``       → "Collection-level extension components"
     ``"extension"``        → "Extension components" (default)
     """
+    role: JejuneRole | None = None
 
 
-# Populated at startup by main._load_plugins().  Read by catalog.run_all().
+# Populated at startup by main._load_plugins().  Read by _health.run_all().
 _REGISTRY: list[JejunePlugin] = []

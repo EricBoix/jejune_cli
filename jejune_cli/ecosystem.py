@@ -21,9 +21,6 @@ DEPLOYER_REPOS: list[tuple[str, str | None, str | None]] = [
     ("jejune_kg-graph_viewer",  None,            "KG_GRAPH_VIEWER_CONTEXT"),
     ("jejune_markdown_browser", "DockerContext", "MARKDOWN_BROWSER_CONTEXT"),
 ]
-CURATOR_REPOS: list[tuple[str, str | None, str | None]] = [
-    ("jejune_catalog", None, None),
-]
 DOC_STEWARD_REPOS: list[tuple[str, str | None, str | None]] = [
     ("jejune_extract_knowledge_graph", None, None),
     ("jejune_neo4j_docker",            None, None),
@@ -31,11 +28,18 @@ DOC_STEWARD_REPOS: list[tuple[str, str | None, str | None]] = [
 ]
 
 _ROLE_REPOS: dict[str, list[tuple[str, str | None, str | None]]] = {
-    "contributor":     [],
-    "deployer":        DEPLOYER_REPOS,
-    "catalog-curator": CURATOR_REPOS,
-    "doc-steward":     DOC_STEWARD_REPOS,
+    "contributor":  [],
+    "deployer":     DEPLOYER_REPOS,
+    "doc-steward":  DOC_STEWARD_REPOS,
 }
+
+
+def register_role_repos(
+    role_name: str,
+    repos: list[tuple[str, str | None, str | None]],
+) -> None:
+    """Register additional repos for a role (called by plugins)."""
+    _ROLE_REPOS.setdefault(role_name, []).extend(repos)
 
 # ---------------------------------------------------------------------------
 # Resolution helpers
@@ -127,7 +131,7 @@ def repos_for_role(role: str | None) -> list[tuple[str, str | None, str | None]]
 
 
 # ---------------------------------------------------------------------------
-# Availability checks (used by run_all in catalog.py)
+# Availability checks (used by run_all in _health.py)
 # ---------------------------------------------------------------------------
 
 def check_git() -> bool:

@@ -10,11 +10,6 @@ from .configuration_doc_steward import (
     COMPONENT_CONFIG_HINTS as _DS_HINTS,
     init as _doc_steward_init,
 )
-from .configuration_catalog_curator import (
-    CONFIG_GROUPS as _CC_CONFIG_GROUPS,
-    COMPONENT_CONFIG_HINTS as _CC_HINTS,
-    init as _curator_init,
-)
 from .configuration_deployer import (
     CONFIG_GROUPS as _DEP_CONFIG_GROUPS,
     COMPONENT_CONFIG_HINTS as _DEP_HINTS,
@@ -27,13 +22,11 @@ from .configuration_contributor import (
 
 CONFIG_GROUPS: dict[str, tuple[list[str], str]] = {
     **_DS_CONFIG_GROUPS,
-    **_CC_CONFIG_GROUPS,
     **_DEP_CONFIG_GROUPS,
     **_DEV_CONFIG_GROUPS,
 }
 COMPONENT_CONFIG_HINTS: dict[str, str] = {
     **_DS_HINTS,
-    **_CC_HINTS,
     **_DEP_HINTS,
     **_DEV_HINTS,
 }
@@ -191,7 +184,13 @@ def check_config_group(keys: list[str]) -> tuple[str, str]:
     return "error", "; ".join(issues)
 
 
-_ROLE_SUBGROUP_NAMES = frozenset({"doc-steward", "deployer", "catalog-curator"})
+_ROLE_SUBGROUP_NAMES: set[str] = {"doc-steward", "deployer"}
+
+
+def register_role_config_subgroup(name: str, group: click.Group) -> None:
+    """Add a role-specific init subgroup to ``jejune configuration``."""
+    _ROLE_SUBGROUP_NAMES.add(name)
+    configuration.add_command(group)
 
 
 _ROLE_CTX_KEY = "_jejune_configuration_role"
@@ -269,17 +268,8 @@ def _deployer_group():
 _deployer_group.add_command(_deployer_init, "init")
 
 
-@click.group("catalog-curator", short_help="Catalog-curator role workspace")
-def _curator_group():
-    """Initialise and inspect the catalog-curator workspace."""
-
-
-_curator_group.add_command(_curator_init, "init")
-
-
 configuration.add_command(_doc_steward_group)
 configuration.add_command(_deployer_group)
-configuration.add_command(_curator_group)
 
 
 @configuration.command("check-config")

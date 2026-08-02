@@ -19,7 +19,15 @@ from .next_steps import HeuristicStep, print_next_steps, register_heuristic, reg
 
 _TEMPLATES = Path(__file__).parent / "templates"
 _T_UI = _TEMPLATES / "deployer" / "ui-deployment"
-_TRIVIAL_CATALOG = _TEMPLATES / "catalog-curator" / "trivial-catalog.yaml"
+
+
+def _trivial_catalog_content() -> str | None:
+    """Return the trivial catalog template content from the installed catalog plugin."""
+    try:
+        from importlib.resources import files
+        return (files("jejune_catalog_check") / "templates" / "trivial-catalog.yaml").read_text()
+    except Exception:
+        return None
 
 _UI_SERVICES = ("docs-server", "kg-graph-viewer", "markdown-browser")
 
@@ -37,9 +45,12 @@ def _is_deployer_cwd() -> bool:
 def _deploy_catalog_needs_configuration() -> bool:
     """True when catalog.yaml is still the unedited trivial template."""
     catalog = Path(".") / "catalog.yaml"
-    if not catalog.exists() or not _TRIVIAL_CATALOG.exists():
+    if not catalog.exists():
         return False
-    return catalog.read_text() == _TRIVIAL_CATALOG.read_text()
+    template = _trivial_catalog_content()
+    if template is None:
+        return False
+    return catalog.read_text() == template
 
 
 def _deploy_env_is_default() -> bool:
@@ -287,7 +298,11 @@ def ui_configure(deployments_dir, name):
         shutil.copy(full_catalog, deploy_dir / "catalog.yaml")
         click.echo(f"Seeded catalog.yaml from {full_catalog}")
     else:
-        shutil.copy(_TEMPLATES / "catalog-curator" / "trivial-catalog.yaml", deploy_dir / "catalog.yaml")
+        template = _trivial_catalog_content()
+        if template:
+            (deploy_dir / "catalog.yaml").write_text(template)
+        else:
+            (deploy_dir / "catalog.yaml").write_text("documents: []\n")
         click.echo("Seeded catalog.yaml from built-in template — populate manually.")
 
     has_private = _has_private_repos(deploy_dir / "catalog.yaml")
