@@ -44,7 +44,8 @@ jejune deployment        # manage deployments
 ![Workflow](./Doc/workflow.png)
 
 Note: above image was generated from [workflow.puml](./Doc/workflow.puml) with
-`brew install plantuml` and `plantuml -t png workflow.puml` (run from the `Doc/` directory).
+`brew install plantuml` and `plantuml -t png workflow.puml` (run from the `Doc/`
+directory).
 
 ### Pipeline summary
 
@@ -111,7 +112,7 @@ uv run jejune doctor
 ### Initialize and configure
 
 Run `jejune init` once in the repository where you intend to use `jejune`.
-Its behaviour is role-aware:
+Its behavior is role-aware:
 
 | Detected role | What `jejune init` does |
 | ------------- | ----------------------- |
