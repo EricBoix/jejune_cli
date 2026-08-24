@@ -91,6 +91,24 @@ _AVAIL_HINTS: dict[str, str] = {
     "md-browser":  "run `jejune deployment extensions install`",
 }
 
+_UI_PLUGIN_NAMES: frozenset[str] = frozenset(("docs-server", "kg-viewer", "md-browser"))
+
+
+def _resolve_avail_hint(comp: str, fallback: str = "") -> str:
+    """Return the availability hint for *comp*, falling back to *fallback*.
+
+    For the three UI services (docs-server, kg-viewer, md-browser), when their
+    check plugins are loaded, suggests the appropriate jejune command rather than
+    exposing docker-compose details.
+    """
+    if comp in _UI_PLUGIN_NAMES and any(p.name == comp for p in _REGISTRY):
+        from .ui_deployment import _deploy_images_missing
+        try:
+            return "run `jejune build`" if _deploy_images_missing() else "run `jejune up`"
+        except Exception:
+            return "run `jejune up`"
+    return _AVAIL_HINTS.get(comp, fallback)
+
 # Required dependencies: a component is only effective when all its deps are ok.
 _COMPONENT_DEPS: dict[str, list[str]] = {
     "graph": ["neo4j", "llm"],
@@ -315,7 +333,7 @@ def doctor():
             visible_components.append(name)
 
     config_rows: list[tuple[str, str, str, str]] = [
-        (comp, status, msg if status == "error" else "", "" if status == "ok" else get_config_hint(comp, status, msg))
+        (comp, status, msg if status != "ok" else "", "" if status == "ok" else get_config_hint(comp, status, msg))
         for comp, (status, msg) in [
             (c, by_config.get(c, ("ok", "ok"))) for c in visible_components
         ]
@@ -373,9 +391,9 @@ def doctor():
             click.echo(click.style("Availability issues:", fg="red"))
             click.echo()
             _WN = max(len(n) for n in failed_avail)
-            _WH = max(len(_AVAIL_HINTS.get(n, "investigate")) for n in failed_avail)
+            _WH = max(len(_resolve_avail_hint(n, "investigate")) for n in failed_avail)
             for name in failed_avail:
-                action = _AVAIL_HINTS.get(name, "investigate")
+                action = _resolve_avail_hint(name, "investigate")
                 detail = by_avail[name][1] if name in by_avail else "dependency failed"
                 click.echo(f"  {click.style(f'{name:<{_WN}}', fg='red')}  {action:<{_WH}}  [{detail}]")
 
@@ -483,12 +501,12 @@ def _build_avail_rows(
             if status == "ok":
                 rows.append((comp, status, "", ""))
             else:
-                hint = _AVAIL_HINTS.get(comp, "")
+                hint = _resolve_avail_hint(comp)
                 if not hint:
                     deps = _COMPONENT_DEPS.get(comp, [])
                     for dep in sorted(deps, key=lambda d: _STATUS_RANK.get(by_avail.get(d, ("ok",))[0], 0), reverse=True):
                         if by_avail.get(dep, ("ok",))[0] != "ok":
-                            hint = _AVAIL_HINTS.get(dep, "")
+                            hint = _resolve_avail_hint(dep)
                             if hint:
                                 break
                 rows.append((comp, status, msg, hint))
