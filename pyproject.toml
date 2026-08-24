@@ -25,4 +25,4 @@ build-backend = "hatchling.build"
 packages = ["jejune_cli"]
 
 [tool.uv.sources]
-jejune-catalog-check = { path = "../jejune_catalog/check", editable = true }
+jejune-catalog-check = { git = "https://github.com/EricBoix/jejune_catalog", subdirectory = "check" }
