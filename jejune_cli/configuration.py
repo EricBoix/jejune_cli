@@ -108,7 +108,7 @@ def component_config_check(component: str) -> tuple[str, str]:
         return status, get_config_hint("convert", status, msg)
     if component not in CONFIG_GROUPS:
         return "ok", ""
-    keys, _ = CONFIG_GROUPS[component]
+    keys = CONFIG_GROUPS[component][0]
     status, msg = check_config_group(keys)
     return status, get_config_hint(component, status, msg)
 
@@ -123,7 +123,7 @@ def print_config_check(component: str) -> None:
     if component not in CONFIG_GROUPS:
         click.echo(click.style("no configuration required", fg="green"))
         return
-    keys, _ = CONFIG_GROUPS[component]
+    keys = CONFIG_GROUPS[component][0]
     _W = max(len(k) for k in keys)
     any_error = False
     for key in keys:

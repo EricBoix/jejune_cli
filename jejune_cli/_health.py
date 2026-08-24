@@ -24,10 +24,14 @@ def run_all(
     def _visible(name: str) -> bool:
         return components is None or name in components
 
-    for group, (keys, _) in CONFIG_GROUPS.items():
+    for group, group_def in CONFIG_GROUPS.items():
         if not _visible(group):
             continue
+        keys = group_def[0]
+        max_severity = group_def[2] if len(group_def) > 2 else "error"
         status, msg = check_config_group(keys)
+        if max_severity == "warn" and status == "error":
+            status = "warn"
         config.append((group, status, msg))
 
     if _visible("neo4j"):

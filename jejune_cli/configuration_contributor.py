@@ -1,7 +1,7 @@
 """Contributor role: configuration data."""
 
-CONFIG_GROUPS: dict[str, tuple[list[str], str]] = {
-    "ecosystem": (["JEJUNE_ROOT_DIR"], "ecosystem root"),
+CONFIG_GROUPS: dict[str, tuple] = {
+    "ecosystem": (["JEJUNE_ROOT_DIR"], "ecosystem root", "warn"),
 }
 
 COMPONENT_CONFIG_HINTS: dict[str, str] = {
