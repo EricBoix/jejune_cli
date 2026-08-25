@@ -2,7 +2,7 @@
 import click
 
 from ._env import dot_jejune
-from .role import ROLES, build_hierarchy_lines, detect_role, detect_roles, role_components
+from .role import _ABSTRACT_ROLES, ROLES, build_hierarchy_lines, detect_role, detect_roles, role_components
 
 
 @click.group(invoke_without_command=True, short_help="Show or list roles")
@@ -30,20 +30,47 @@ def role(ctx):
 
 @role.command("list")
 def role_list():
-    """List all known roles with their detection indicator."""
-    from .role import _DISPLAY_ROLES, _ROLE_REASON
+    """List all known roles with their detection mode."""
+    from .role import ROLES, _ROLE_REASON
     stored = None
     role_file = dot_jejune() / "role"
     if role_file.is_file():
         stored = role_file.read_text().strip().split(",")[0].strip()
-    _W = max(len(r) for r in _DISPLAY_ROLES)
-    for r in _DISPLAY_ROLES:
-        mark = click.style("✓", fg="green") + " " if r == stored else "  "
-        click.echo(f"  {mark}{r:<{_W}}  {_ROLE_REASON.get(r, '')}")
+
+    # (raw_name, display_name, description, detection)
+    rows: list[tuple[str, str, str, str]] = []
+    for r in ROLES:
+        display = f"{r} (abstract)" if r in _ABSTRACT_ROLES else r
+        description = _ROLE_REASON.get(r, "")
+        detection = "inherited only" if r in _ABSTRACT_ROLES else "auto-detected"
+        rows.append((r, display, description, detection))
+
+    w_name = max(len(row[1]) for row in rows)
+    w_desc = max(len(row[2]) for row in rows)
+    w_det = max(len(row[3]) for row in rows)
+    click.echo(f"  {'':2}{'Role':<{w_name}}  {'Description':<{w_desc}}  {'Detection':<{w_det}}")
+    click.echo(f"  {'':2}{'-' * w_name}  {'-' * w_desc}  {'-' * w_det}")
+    for raw, display, description, detection in rows:
+        mark = click.style("✓", fg="green") + " " if raw == stored else "  "
+        click.echo(f"  {mark}{display:<{w_name}}  {description:<{w_desc}}  {detection}")
+
+
+class _SettableRole(click.ParamType):
+    """Validates role names at runtime against the (plugin-extended) ROLES list."""
+    name = "ROLE"
+
+    def convert(self, value, param, ctx):
+        settable = [r for r in ROLES if r not in _ABSTRACT_ROLES]
+        if value not in settable:
+            self.fail(
+                f"'{value}' is not one of {', '.join(repr(r) for r in settable)}.",
+                param, ctx,
+            )
+        return value
 
 
 @role.command("set")
-@click.argument("role_name", metavar="ROLE", type=click.Choice(ROLES))
+@click.argument("role_name", metavar="ROLE", type=_SettableRole())
 def role_set(role_name):
     """Set the role for the current directory."""
     d = dot_jejune()

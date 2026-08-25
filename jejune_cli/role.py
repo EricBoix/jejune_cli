@@ -43,6 +43,8 @@ ROLE_SECTION_TITLE: dict[str, str] = {
     "deployer": "Deployer commands",
 }
 
+_ABSTRACT_ROLES: set[str] = set()
+
 _ROLE_DETECTORS: list[tuple[str, Callable[[], bool]]] = []
 
 
@@ -54,6 +56,8 @@ def register_role(role: "JejuneRole") -> None:
     _ROLE_REASON[role.name] = role.detection_reason
     ROLE_SECTION_TITLE[role.name] = role.section_title
     _ROLE_DETECTORS.append((role.name, role.detect))
+    if role.abstract:
+        _ABSTRACT_ROLES.add(role.name)
     for existing_role, additional_parents in role.extend_includes.items():
         _ROLE_INCLUDES[existing_role] = (
             _ROLE_INCLUDES.get(existing_role, ()) + additional_parents
