@@ -24,9 +24,9 @@ wheels = [
 ]
 
 [[package]]
-name = "jejune-catalog-check"
+name = "jejune-catalog"
 version = "0.1.0"
-source = { editable = "../jejune_catalog/check" }
+source = { editable = "../jejune_catalog" }
 dependencies = [
     { name = "click" },
     { name = "pyyaml" },
@@ -44,14 +44,14 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
-    { name = "jejune-catalog-check" },
+    { name = "jejune-catalog" },
     { name = "pyyaml" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.0" },
-    { name = "jejune-catalog-check", editable = "../jejune_catalog/check" },
+    { name = "jejune-catalog", editable = "../jejune_catalog" },
     { name = "pyyaml", specifier = ">=6.0" },
 ]
 
