@@ -189,6 +189,31 @@ def hint_availability():
         click.echo("run `jejune neo4j start`")
 
 
+def db_is_empty() -> bool:
+    """Return True when the running Neo4j database has no nodes; True on any error."""
+    running, _ = container_running()
+    if not running:
+        return True
+    user = os.environ.get("NEO4J_USERNAME", "neo4j")
+    password = os.environ.get("NEO4J_PASSWORD", "")
+    token = base64.b64encode(f"{user}:{password}".encode()).decode()
+    payload = json.dumps(
+        {"statements": [{"statement": "MATCH (n) RETURN count(n) AS count"}]}
+    ).encode()
+    req = urllib.request.Request(
+        "http://localhost:7474/db/neo4j/tx/commit",
+        data=payload,
+        headers={"Authorization": f"Basic {token}", "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read())
+        return data["results"][0]["data"][0]["row"][0] == 0
+    except Exception:
+        return True
+
+
 @neo4j.command("stats")
 @click.option(
     "--simple",
