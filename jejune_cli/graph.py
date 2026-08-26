@@ -79,19 +79,22 @@ def graph(ctx):
 graph.add_command(view)
 
 
-def _build_kg_image() -> None:
+def _build_kg_image(no_cache: bool = False) -> None:
     """Build the knowledge-graph extraction Docker image."""
     click.echo(f"Building {_BUILD_KG_IMAGE} ...")
+    extra = ["--no-cache"] if no_cache else []
     _run(
-        "docker", "build", "-t", _BUILD_KG_IMAGE,
+        "docker", "build", *extra, "-t", _BUILD_KG_IMAGE,
         f"{REPO_ROOT_DIR}/jejune_extract_knowledge_graph.git#:DockerContext",
     )
 
 
 @graph.command("build")
-def graph_build():
+@click.option("--no-cache", is_flag=True, default=False,
+              help="Do not use Docker layer cache when building.")
+def graph_build(no_cache: bool):
     """Build the knowledge-graph extraction Docker image."""
-    _build_kg_image()
+    _build_kg_image(no_cache=no_cache)
 
 
 @graph.command("check-availability")
@@ -143,7 +146,7 @@ def hint_config():
 
 
 @graph.command("split", context_settings={"ignore_unknown_options": True})
-@click.argument("doc_dir", type=click.Path(exists=True))
+@click.argument("doc_dir", default=".", type=click.Path(exists=True, file_okay=False))
 @click.option(
     "--splitter",
     type=click.Choice(list(_SPLITTERS)),
@@ -153,8 +156,10 @@ def hint_config():
 )
 @click.option("--output", default=None,
               help="Output JSON path inside the container. Defaults to the splitter's own naming scheme.")
+@click.option("--no-cache", is_flag=True, default=False,
+              help="Do not use Docker layer cache when building.")
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
-def split(doc_dir, splitter, output, extra_args):
+def split(doc_dir, splitter, output, no_cache, extra_args):
     """Split DOC_DIR's catalog into JSON chunks.
 
     Builds the extraction Docker image and runs the chosen splitter script
@@ -164,7 +169,7 @@ def split(doc_dir, splitter, output, extra_args):
     EXTRA_ARGS are forwarded verbatim to the splitter (e.g. --output_dir /data).
     """
     doc_dir = Path(doc_dir).resolve()
-    _build_kg_image()
+    _build_kg_image(no_cache=no_cache)
 
     output_args = ("--output", output) if output is not None else ()
     click.echo(f"Splitting with {_SPLITTERS[splitter]} ...")
@@ -182,9 +187,11 @@ def split(doc_dir, splitter, output, extra_args):
 
 
 @graph.command("extract", context_settings={"ignore_unknown_options": True})
-@click.argument("doc_dir", type=click.Path(exists=True))
+@click.argument("doc_dir", default=".", type=click.Path(exists=True, file_okay=False))
+@click.option("--no-cache", is_flag=True, default=False,
+              help="Do not use Docker layer cache when building.")
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
-def extract(doc_dir, extra_args):
+def extract(doc_dir, no_cache, extra_args):
     """Run the Markdown → Neo4j knowledge-graph extraction for DOC_DIR.
 
     DOC_DIR is the root of a jejune_doc_<name> repository. The command runs
@@ -206,7 +213,7 @@ def extract(doc_dir, extra_args):
     Credentials and LLM settings are read from .jejune/env-secrets / environment.
     """
     doc_dir = Path(doc_dir).resolve()
-    _build_kg_image()
+    _build_kg_image(no_cache=no_cache)
 
     _docker_run = (
         "docker", "run", "--rm", "--tty",

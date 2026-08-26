@@ -255,7 +255,7 @@ def build(deploy_dir_name: str | None, no_cache: bool) -> None:
     """
     from .ui_deployment import build as _deployment_build
     if _ACTIVE_ROLE == "doc-steward":
-        _graph_build_kg_image()
+        _graph_build_kg_image(no_cache=no_cache)
     elif _ACTIVE_ROLE == "deployer":
         ctx = click.get_current_context()
         ctx.invoke(_deployment_build, deploy_dir_name=deploy_dir_name, no_cache=no_cache)
