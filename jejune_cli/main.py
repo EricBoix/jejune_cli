@@ -24,7 +24,8 @@ from .plugin import JejunePlugin, _REGISTRY
 from .role import register_role
 from .deployment import deployment
 from .ecosystem import ecosystem
-from .ui_deployment import build as _build_cmd, up as _up_cmd, down as _down_cmd
+from .ui_deployment import up as _up_cmd, down as _down_cmd
+from .graph import _build_kg_image as _graph_build_kg_image
 from .configuration import (
     configuration,
     COMPONENT_CONFIG_HINTS as _CONFIG_HINTS,
@@ -205,10 +206,9 @@ cli.add_command(next_cmd, "next")
 # ---------------------------------------------------------------------------
 
 _ALIASES: list[tuple[click.Group, str, click.BaseCommand, str, str]] = [
-    (deployment, "init",  _deployer_init, "configuration deployer init", "deployer"),
-    (cli,        "build", _build_cmd,     "deployment build",            "deployer"),
-    (cli,        "up",    _up_cmd,        "deployment up",               "deployer"),
-    (cli,        "down",  _down_cmd,      "deployment down",             "deployer"),
+    (deployment, "init", _deployer_init, "configuration deployer init", "deployer"),
+    (cli,        "up",   _up_cmd,        "deployment up",               "deployer"),
+    (cli,        "down", _down_cmd,      "deployment down",             "deployer"),
 ]
 
 
@@ -235,6 +235,35 @@ class _AliasShim(click.BaseCommand):
 
 for _alias_group, _alias_name, _alias_cmd, _alias_canonical, _ in _ALIASES:
     _alias_group.add_command(_AliasShim(_alias_cmd, _alias_canonical), _alias_name)
+
+
+# ---------------------------------------------------------------------------
+# Role-dispatching build command
+# ---------------------------------------------------------------------------
+
+@cli.command("build")
+@click.argument("deploy_dir_name", required=False, metavar="DEPLOY_DIR_NAME",
+                type=click.Path(exists=True, file_okay=False))
+@click.option("--no-cache", is_flag=True, default=False,
+              help="Do not use cache when building images.")
+def build(deploy_dir_name: str | None, no_cache: bool) -> None:
+    """Build Docker images for the current role.
+
+    \b
+    doc-steward: builds the knowledge-graph extraction image.
+    deployer:    runs docker compose build (DEPLOY_DIR_NAME defaults to cwd).
+    """
+    from .ui_deployment import build as _deployment_build
+    if _ACTIVE_ROLE == "doc-steward":
+        _graph_build_kg_image()
+    elif _ACTIVE_ROLE == "deployer":
+        ctx = click.get_current_context()
+        ctx.invoke(_deployment_build, deploy_dir_name=deploy_dir_name, no_cache=no_cache)
+    else:
+        raise click.UsageError(
+            f"'jejune build' is not defined for role {_ACTIVE_ROLE!r}. "
+            f"Use 'jejune graph build' or 'jejune deployment build' directly."
+        )
 
 
 # ---------------------------------------------------------------------------

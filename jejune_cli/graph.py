@@ -23,7 +23,7 @@ _SPLITTERS = {
 _PREFLIGHT_SKIP = {
     "check-availability", "status-availability", "hint-availability",
     "check-config", "status-config", "hint-config",
-    "view", "split",
+    "view", "split", "build",
 }
 
 _DEP_HINTS = {
@@ -77,6 +77,21 @@ def graph(ctx):
 
 
 graph.add_command(view)
+
+
+def _build_kg_image() -> None:
+    """Build the knowledge-graph extraction Docker image."""
+    click.echo(f"Building {_BUILD_KG_IMAGE} ...")
+    _run(
+        "docker", "build", "-t", _BUILD_KG_IMAGE,
+        f"{REPO_ROOT_DIR}/jejune_extract_knowledge_graph.git#:DockerContext",
+    )
+
+
+@graph.command("build")
+def graph_build():
+    """Build the knowledge-graph extraction Docker image."""
+    _build_kg_image()
 
 
 @graph.command("check-availability")
@@ -149,12 +164,7 @@ def split(doc_dir, splitter, output, extra_args):
     EXTRA_ARGS are forwarded verbatim to the splitter (e.g. --output_dir /data).
     """
     doc_dir = Path(doc_dir).resolve()
-
-    click.echo(f"Building {_BUILD_KG_IMAGE} ...")
-    _run(
-        "docker", "build", "-t", _BUILD_KG_IMAGE,
-        f"{REPO_ROOT_DIR}/jejune_extract_knowledge_graph.git#:DockerContext",
-    )
+    _build_kg_image()
 
     output_args = ("--output", output) if output is not None else ()
     click.echo(f"Splitting with {_SPLITTERS[splitter]} ...")
@@ -196,15 +206,7 @@ def extract(doc_dir, extra_args):
     Credentials and LLM settings are read from .jejune/env-secrets / environment.
     """
     doc_dir = Path(doc_dir).resolve()
-
-    click.echo(f"Building {_BUILD_KG_IMAGE} ...")
-    _run(
-        "docker",
-        "build",
-        "-t",
-        _BUILD_KG_IMAGE,
-        f"{REPO_ROOT_DIR}/jejune_extract_knowledge_graph.git#:DockerContext",
-    )
+    _build_kg_image()
 
     _docker_run = (
         "docker", "run", "--rm", "--tty",
