@@ -12,10 +12,18 @@ from .neo4j import container_running as _neo4j_running
 
 _BUILD_KG_IMAGE = "jejune:extract_knowledge_graph"
 
+_CHUNKS_JSON = "/data/_chunks.json"
+
+_SPLITTERS = {
+    "headers":    "split_by_headers.py",
+    "paragraphs": "split_by_paragraphs.py",
+    "sentences":  "split_by_sentences.py",
+}
+
 _PREFLIGHT_SKIP = {
     "check-availability", "status-availability", "hint-availability",
     "check-config", "status-config", "hint-config",
-    "view",
+    "view", "split",
 }
 
 _DEP_HINTS = {
@@ -119,15 +127,70 @@ def hint_config():
     print_config_hint("graph")
 
 
+@graph.command("split", context_settings={"ignore_unknown_options": True})
+@click.argument("doc_dir", type=click.Path(exists=True))
+@click.option(
+    "--splitter",
+    type=click.Choice(list(_SPLITTERS)),
+    default="headers",
+    show_default=True,
+    help="Splitting strategy.",
+)
+@click.option("--output", default=None,
+              help="Output JSON path inside the container. Defaults to the splitter's own naming scheme.")
+@click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
+def split(doc_dir, splitter, output, extra_args):
+    """Split DOC_DIR's catalog into JSON chunks.
+
+    Builds the extraction Docker image and runs the chosen splitter script
+    against /data/catalog.yaml. Without --output the splitter writes a file
+    named after the markdown source and the splitting modality.
+
+    EXTRA_ARGS are forwarded verbatim to the splitter (e.g. --output_dir /data).
+    """
+    doc_dir = Path(doc_dir).resolve()
+
+    click.echo(f"Building {_BUILD_KG_IMAGE} ...")
+    _run(
+        "docker", "build", "-t", _BUILD_KG_IMAGE,
+        f"{REPO_ROOT_DIR}/jejune_extract_knowledge_graph.git#:DockerContext",
+    )
+
+    output_args = ("--output", output) if output is not None else ()
+    click.echo(f"Splitting with {_SPLITTERS[splitter]} ...")
+    _run(
+        "docker", "run", "--rm", "--tty",
+        "--network", "host",
+        "-v", f"{doc_dir}:/data",
+        "--name", "jejune_split",
+        _BUILD_KG_IMAGE,
+        _SPLITTERS[splitter],
+        "--catalog", "/data/catalog.yaml",
+        *output_args,
+        *extra_args,
+    )
+
+
 @graph.command("extract", context_settings={"ignore_unknown_options": True})
 @click.argument("doc_dir", type=click.Path(exists=True))
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
 def extract(doc_dir, extra_args):
     """Run the Markdown → Neo4j knowledge-graph extraction for DOC_DIR.
 
-    DOC_DIR is the root of a jejune_doc_<name> repository.
-    EXTRA_ARGS are filenames and flags forwarded verbatim to the extractor,
-    e.g. file1.md file2.md or --load_markdown_document file.md.
+    DOC_DIR is the root of a jejune_doc_<name> repository. The command runs
+    in two steps using the same Docker image:
+
+    \b
+    1. split_by_headers.py  -- splits /data/catalog.yaml into /data/_chunks.json
+    2. extract_kg_graph.py  -- feeds the JSON into Neo4j
+
+    EXTRA_ARGS are forwarded verbatim to the extractor (step 2), e.g.
+    --load_json_document /data/other.json to blend additional pre-built JSON
+    files alongside the auto-generated chunks.
+
+    To use a different splitter or inspect chunks before extraction, run the
+    splitter container step manually and call this command with the resulting
+    JSON via --load_json_document.
 
     Requires a running Neo4j instance (`jejune neo4j start`).
     Credentials and LLM settings are read from .jejune/env-secrets / environment.
@@ -143,22 +206,29 @@ def extract(doc_dir, extra_args):
         f"{REPO_ROOT_DIR}/jejune_extract_knowledge_graph.git#:DockerContext",
     )
 
+    _docker_run = (
+        "docker", "run", "--rm", "--tty",
+        "--network", "host",
+        "-v", f"{doc_dir}:/data",
+    )
+
+    click.echo("Splitting document into chunks ...")
+    _run(
+        *_docker_run,
+        "--name", "jejune_split",
+        _BUILD_KG_IMAGE,
+        _SPLITTERS["headers"],
+        "--catalog", "/data/catalog.yaml",
+        "--output", _CHUNKS_JSON,
+    )
+
     click.echo("Running extraction ...")
     _run(
-        "docker",
-        "run",
-        "--rm",
-        "--tty",
-        "--name",
-        "jejune_extract_knowledge_graph",
-        "--network",
-        "host",
-        "-v",
-        f"{doc_dir}:/data",
+        *_docker_run,
+        "--name", "jejune_extract_knowledge_graph",
         *docker_env_args(EXTRACT_ENV_VARS),
         _BUILD_KG_IMAGE,
-        "extracting_graph_semantic_chuncker.py",
-        "--input_directory",
-        "/data",
+        "extract_kg_graph.py",
+        "--load_json_document", _CHUNKS_JSON,
         *extra_args,
     )

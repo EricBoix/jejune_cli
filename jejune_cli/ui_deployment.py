@@ -336,16 +336,8 @@ def ui_list(deployments_dir):
 
 
 def _deployment_dir(deploy_dir_name: str | None) -> Path:
-    """Resolve DEPLOY_DIR_NAME, defaulting to CWD when it is a deployment directory."""
-    if deploy_dir_name is not None:
-        return Path(deploy_dir_name)
-    from .role import detect_role
-    role, _ = detect_role()
-    if role == "deployer":
-        return Path(".")
-    raise click.UsageError(
-        "DEPLOY_DIR_NAME required: current directory is not a deployment directory."
-    )
+    """Resolve DEPLOY_DIR_NAME, defaulting to CWD when omitted."""
+    return Path(deploy_dir_name) if deploy_dir_name is not None else Path(".")
 
 
 @click.command("build")
