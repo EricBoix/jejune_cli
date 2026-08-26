@@ -7,6 +7,7 @@ from .next_steps import (
     command_viable,
     evaluate,
     evaluate_state,
+    register_command_precondition,
     register_heuristic,
     register_precondition,
 )
@@ -125,6 +126,17 @@ def _graph_extract_command() -> str:
     return cmd
 
 
+def _neo4j_running() -> bool:
+    from .neo4j import container_running
+    ok, _ = container_running()
+    return ok
+
+
+def _neo4j_not_empty() -> bool:
+    from .neo4j import db_is_empty
+    return not db_is_empty()
+
+
 # ---------------------------------------------------------------------------
 # Registration — called from main.py after plugins are loaded so ROLES is
 # complete (plugins may register additional roles).
@@ -135,6 +147,8 @@ def register_heuristics() -> None:
     from .role import ROLES
 
     register_precondition("role set", _is_role_set)
+
+    register_command_precondition("jejune neo4j dump-turtle", _neo4j_running)
 
     register_heuristic(HeuristicStep(
         label="Check the role",
@@ -151,4 +165,17 @@ def register_heuristics() -> None:
         label="Extract the knowledge graph",
         command=_graph_extract_command,
         conditions=[_graph_available],
+        anti_conditions=[_neo4j_not_empty],
+    ), roles={"doc-steward"})
+
+    register_heuristic(HeuristicStep(
+        label="Dump the graph to Turtle",
+        command="jejune neo4j dump-turtle",
+        conditions=[_neo4j_running, _neo4j_not_empty],
+    ), roles={"doc-steward"})
+
+    register_heuristic(HeuristicStep(
+        label="Visualize the graph with neo4j UI",
+        command="open http://localhost:7474 in a browser",
+        conditions=[_neo4j_running, _neo4j_not_empty],
     ), roles={"doc-steward"})
