@@ -32,9 +32,15 @@ _ROLE_INCLUDES: dict[str, tuple[str, ...]] = {
 }
 
 _ROLE_REASON: dict[str, str] = {
-    "contributor": "base role inherited by all other roles",
+    "contributor": "inherited only",
     "doc-steward": ".jejune/ directory detected",
     "deployer": "docker-compose.yml detected",
+}
+
+_ROLE_DESCRIPTION: dict[str, str] = {
+    "contributor": "base ecosystem role",
+    "doc-steward": "document authoring",
+    "deployer": "service deployment",
 }
 
 ROLE_SECTION_TITLE: dict[str, str] = {

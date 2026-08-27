@@ -31,7 +31,7 @@ def role(ctx):
 @role.command("list")
 def role_list():
     """List all known roles with their detection mode."""
-    from .role import ROLES, _ROLE_REASON
+    from .role import ROLES, _ROLE_DESCRIPTION, _ROLE_REASON
     stored = None
     role_file = dot_jejune() / "role"
     if role_file.is_file():
@@ -41,8 +41,8 @@ def role_list():
     rows: list[tuple[str, str, str, str]] = []
     for r in ROLES:
         display = f"{r} (abstract)" if r in _ABSTRACT_ROLES else r
-        description = _ROLE_REASON.get(r, "")
-        detection = "inherited only" if r in _ABSTRACT_ROLES else "auto-detected"
+        description = _ROLE_DESCRIPTION.get(r, "")
+        detection = _ROLE_REASON.get(r, "inherited only" if r in _ABSTRACT_ROLES else "")
         rows.append((r, display, description, detection))
 
     w_name = max(len(row[1]) for row in rows)

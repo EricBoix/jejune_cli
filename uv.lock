@@ -26,16 +26,10 @@ wheels = [
 [[package]]
 name = "jejune-catalog"
 version = "0.1.0"
-source = { editable = "../jejune_catalog" }
+source = { git = "https://github.com/EricBoix/jejune_catalog#04c9dd9be61adfea3d794792dfe15e6b396cb676" }
 dependencies = [
     { name = "click" },
     { name = "pyyaml" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "click", specifier = ">=8.0" },
-    { name = "pyyaml", specifier = ">=6.0" },
 ]
 
 [[package]]
@@ -51,7 +45,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.0" },
-    { name = "jejune-catalog", editable = "../jejune_catalog" },
+    { name = "jejune-catalog", git = "https://github.com/EricBoix/jejune_catalog" },
     { name = "pyyaml", specifier = ">=6.0" },
 ]
 
