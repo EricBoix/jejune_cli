@@ -128,8 +128,8 @@ register_heuristic(HeuristicStep(
 ), roles={"deployer"})
 
 register_heuristic(HeuristicStep(
-    label="Configure deployment: using the default configuration",
-    command="deployer edits config files", order=5,
+    label="Wrap up configuration",
+    command="edit config files", order=5,
     conditions=[_is_deployer_cwd, _deploy_config_is_default],
     anti_conditions=[],
 ), roles={"deployer"})
@@ -173,7 +173,7 @@ register_heuristic(HeuristicStep(
 ), roles={"deployer"})
 
 register_role_ordering("deployer", {
-    "Configure deployment: using the default configuration": -1,
+    "Wrap up configuration": -1,
 })
 
 

@@ -1,12 +1,9 @@
 """Doctor command and availability display helpers."""
 import click
 
-from . import containers
 from ._health import run_all
 from .configuration import (
-    COMPONENT_CONFIG_HINTS as _CONFIG_HINTS,
     get_config_hint,
-    print_config_table,
     print_two_col_table,
 )
 
@@ -31,6 +28,11 @@ _BASE_COMPONENTS: list[str] = [
 
 _STATUS_RANK: dict[str, int] = {"error": 2, "warn": 1, "ok": 0}
 _STATUS_FG: dict[str, str] = {"ok": "green", "warn": "yellow", "error": "red"}
+_STATUS_ICON: dict[str, tuple[str, str]] = {
+    "ok":    ("✓", "green"),
+    "warn":  ("–", "yellow"),
+    "error": ("✗", "red"),
+}
 
 # ---------------------------------------------------------------------------
 # Availability metadata — populated by main._load_plugins() at startup.
@@ -92,9 +94,8 @@ def _resolve_avail_hint(comp: str, fallback: str = "") -> str:
     return _AVAIL_HINTS.get(comp, fallback)
 
 
-def _section_sep(title: str, width: int) -> str:
-    prefix = f"====== {title} "
-    return prefix + "=" * max(2, width - len(prefix))
+def _section_header(title: str) -> str:
+    return click.style(f"  {title}", bold=True)
 
 
 def _avail_all_visible() -> list[str]:
@@ -140,23 +141,70 @@ def _build_avail_rows(
     return rows
 
 
-def _print_avail_table(
-    rows: list[tuple[str, str, str, str]],
-    comp_header: str = "Component",
-    hint_header: str = "Hint",
+def _collect_img_status(visible: list[str]) -> dict[str, bool]:
+    """Return {comp: image_built} for components with a custom Docker image."""
+    result: dict[str, bool] = {}
+    if "convert" in visible:
+        from .convert import image_built as _ib
+        result["convert"] = _ib()[0]
+    ui = _UI_PLUGIN_NAMES & set(visible)
+    if ui:
+        try:
+            from .ui_deployment import _deploy_images_missing
+            ok = not _deploy_images_missing()
+            for name in ui:
+                result[name] = ok
+        except Exception:
+            pass
+    return result
+
+
+def _print_health_table(
+    config_rows: list[tuple[str, str, str, str]],
+    avail_rows: list[tuple[str, str, str, str]],
+    img_status: dict[str, bool],
 ) -> None:
-    """Render Component | Status | Check | <hint_header> availability table."""
-    if not rows:
+    """Render merged Component | Config | Img | Avail | Action table."""
+    if not config_rows:
         return
-    _W_C = max(len(comp_header), max(len(r[0]) for r in rows))
-    _W_S = max(len("Status"), max(len(r[1]) for r in rows))
-    _W_K = max(len("Check"), max(len(r[2]) for r in rows))
-    _W_H = max(len(hint_header), max(len(r[3]) for r in rows))
-    click.echo(f"  {comp_header:<{_W_C}}  {'Status':<{_W_S}}  {'Check':<{_W_K}}  {hint_header}")
-    click.echo("  " + "─" * (_W_C + 2 + _W_S + 2 + _W_K + 2 + _W_H))
-    for comp, status, check, hint in rows:
-        status_cell = click.style(f"{status:<{_W_S}}", fg=_STATUS_FG.get(status, "white"))
-        click.echo(f"  {comp:<{_W_C}}  {status_cell}  {check:<{_W_K}}  {hint}")
+    by_avail = {r[0]: r for r in avail_rows}
+    _COL_COMP  = "Component"
+    _COL_CFG   = "Config"
+    _COL_IMG   = "Img"
+    _COL_AVAIL = "Avail"
+    _COL_ACT   = "Action"
+    _W_COMP  = max(len(_COL_COMP), max(len(r[0]) for r in config_rows))
+    _W_CFG   = len(_COL_CFG)
+    _W_IMG   = len(_COL_IMG)
+    _W_AVAIL = len(_COL_AVAIL)
+    rows: list[tuple[str, str, bool | None, str | None, str]] = []
+    for comp, c_status, _, c_hint in config_rows:
+        avail = by_avail.get(comp)
+        a_status = avail[1] if avail else None
+        a_hint   = avail[3] if avail else ""
+        action = c_hint or (a_hint if a_status and a_status != "ok" else "")
+        img = img_status.get(comp)
+        rows.append((comp, c_status, img, a_status, action))
+    _W_ACT = max(len(_COL_ACT), max(len(r[4]) for r in rows))
+    divider_len = _W_COMP + 2 + _W_CFG + 2 + _W_IMG + 2 + _W_AVAIL + 2 + _W_ACT
+    click.echo(
+        f"  {_COL_COMP:<{_W_COMP}}  {_COL_CFG:<{_W_CFG}}  {_COL_IMG:<{_W_IMG}}  {_COL_AVAIL:<{_W_AVAIL}}  {_COL_ACT}"
+    )
+    click.echo("  " + "─" * divider_len)
+    for comp, c_status, img, a_status, action in rows:
+        c_icon, c_fg = _STATUS_ICON.get(c_status, ("?", "white"))
+        c_cell = click.style(c_icon, fg=c_fg) + " " * (_W_CFG - len(c_icon))
+        if img is None:
+            i_cell = " " * _W_IMG
+        else:
+            i_icon, i_fg = ("✓", "green") if img else ("✗", "red")
+            i_cell = click.style(i_icon, fg=i_fg) + " " * (_W_IMG - len(i_icon))
+        if a_status is not None:
+            a_icon, a_fg = _STATUS_ICON.get(a_status, ("?", "white"))
+            a_cell = click.style(a_icon, fg=a_fg) + " " * (_W_AVAIL - len(a_icon))
+        else:
+            a_cell = " " * _W_AVAIL
+        click.echo(f"  {comp:<{_W_COMP}}  {c_cell}  {i_cell}  {a_cell}  {action}")
 
 
 # ---------------------------------------------------------------------------
@@ -217,9 +265,6 @@ def doctor():
         if name not in visible_components:
             visible_components.append(name)
 
-    _W_SECT = max(len("Component configuration"), max((len(n) for n in all_comp), default=0))
-    _W_MSG = 16
-
     config_rows: list[tuple[str, str, str, str]] = [
         (
             comp,
@@ -231,58 +276,20 @@ def doctor():
             (c, by_config.get(c, ("ok", "ok"))) for c in visible_components
         ]
     ]
-    failed_config = [comp for comp, status, _, _ in config_rows if status == "error"]
 
     avail_rows = _build_avail_rows(avail_results, visible_components)
-    failed_avail = [comp for comp, status, _, _ in avail_rows if status == "error"]
 
     _CONFIG_NOTE = "  Configuration files: .jejune/env-config · .jejune/env-secrets"
-    all_hints = list(_CONFIG_HINTS.values()) or [""]
-    all_avail_hints = list(_AVAIL_HINTS.values()) or [""]
-    _W = max(
-        len(_CONFIG_NOTE),
-        2 + _W_SECT + 2 + _W_MSG + 2 + max(len(h) for h in all_hints + all_avail_hints),
-        88,
-    )
 
     role_label = f" [{active_role}]" if active_role else ""
-    click.echo(f"jejune doctor{role_label}")
-
-    click.echo(_section_sep("Configuration", _W))
-    click.echo()
-    note = _CONFIG_NOTE if active_role in (None, "doc-steward") else None
-    print_config_table(config_rows, note=note)
+    click.echo(click.style(f"jejune doctor{role_label}", bold=True))
     click.echo()
 
-    click.echo(_section_sep("Availability", _W))
-    _print_avail_table(avail_rows, comp_header="Component availability", hint_header="Diagnostic hint")
-
-    click.echo(_section_sep("Containers", _W))
-    containers.print_containers_table()
-
-    if failed_config or failed_avail:
+    img_status = _collect_img_status(visible_components)
+    _print_health_table(config_rows, avail_rows, img_status)
+    if active_role in (None, "doc-steward"):
         click.echo()
-        click.echo(_section_sep("Issues", _W))
-        if failed_config:
-            click.echo(click.style("Configuration issues:", fg="red"))
-            click.echo()
-            _WN = max(len(n) for n in failed_config)
-            _WH = max(len(get_config_hint(n, "error", by_config[n][1])) for n in failed_config)
-            for name in failed_config:
-                detail = by_config[name][1]
-                action = get_config_hint(name, "error", detail)
-                click.echo(f"  {click.style(f'{name:<{_WN}}', fg='red')}  {action:<{_WH}}  [{detail}]")
-        if failed_avail:
-            if failed_config:
-                click.echo()
-            click.echo(click.style("Availability issues:", fg="red"))
-            click.echo()
-            _WN = max(len(n) for n in failed_avail)
-            _WH = max(len(_resolve_avail_hint(n, "investigate")) for n in failed_avail)
-            for name in failed_avail:
-                action = _resolve_avail_hint(name, "investigate")
-                detail = by_avail[name][1] if name in by_avail else "dependency failed"
-                click.echo(f"  {click.style(f'{name:<{_WN}}', fg='red')}  {action:<{_WH}}  [{detail}]")
+        click.echo(_CONFIG_NOTE)
 
 
 # ---------------------------------------------------------------------------

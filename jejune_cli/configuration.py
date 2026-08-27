@@ -35,9 +35,9 @@ COMPONENT_CONFIG_HINTS: dict[str, str] = {
 _PLACEHOLDER = "_CHANGE_ME"
 
 _STATUS_DISPLAY: dict[str, tuple[str, str]] = {
-    "ok":    ("ok",             "green"),
-    "warn":  ("not configured", "yellow"),
-    "error": ("error",          "red"),
+    "ok":    ("✓", "green"),
+    "warn":  ("–", "yellow"),
+    "error": ("✗", "red"),
 }
 
 

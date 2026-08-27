@@ -157,9 +157,11 @@ def print_next_steps(
     _next_steps_printed = True
     click.echo()
     if cwd is not None and cwd.resolve() != Path.cwd().resolve():
-        click.echo(f"Next steps (from {cwd.name}/):")
+        title = f"Next steps (from {cwd.name}/)"
     else:
-        click.echo("Next steps:")
+        title = "Next steps"
+    click.echo(click.style(f"  {title}", bold=True))
+    click.echo("  " + "─" * len(title))
     for s in steps:
         cmd = s.resolved_command()
         suffix = f"  →  {cmd}" if cmd else ""
