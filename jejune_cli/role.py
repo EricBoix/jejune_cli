@@ -53,6 +53,24 @@ _ABSTRACT_ROLES: set[str] = set()
 
 _ROLE_DETECTORS: list[tuple[str, Callable[[], bool]]] = []
 
+# Help-section entries for abstract roles pre-registered at import time (before
+# _load_plugins runs).  Populated by register_role_help_section(); consumed once
+# by main._load_plugins() which inserts them into _ROLE_HELP_SECTIONS.
+_PENDING_HELP_SECTIONS: list[tuple[str, str | None, int]] = []
+
+
+def register_role_help_section(
+    name: str,
+    stage: str | None = None,
+    order: int = 50,
+) -> None:
+    """Queue a help-section entry for an abstract role pre-registered via register_role().
+
+    ``main._load_plugins()`` processes this list at startup and inserts entries
+    into ``_ROLE_HELP_SECTIONS`` in the correct order position.
+    """
+    _PENDING_HELP_SECTIONS.append((name, stage, order))
+
 
 def register_role(role: "JejuneRole") -> None:
     """Register a dynamically-defined role contributed by a plugin."""
@@ -256,3 +274,24 @@ def role_components(role: str | list[str] | None) -> frozenset[str] | None:
             own = own | _ROLE_COMPONENTS.get(parent, frozenset())
         result = result | own
     return result or None
+
+
+def role_inherits(role: str | None, parent: str) -> bool:
+    """Return True if *role* equals or transitively inherits from *parent*.
+
+    Performs a DFS traversal of ``_ROLE_INCLUDES``.  Safe against cycles.
+    """
+    if role is None:
+        return False
+    if role == parent:
+        return True
+    seen: set[str] = set()
+    stack: list[str] = list(_ROLE_INCLUDES.get(role, ()))
+    while stack:
+        r = stack.pop()
+        if r == parent:
+            return True
+        if r not in seen:
+            seen.add(r)
+            stack.extend(_ROLE_INCLUDES.get(r, ()))
+    return False

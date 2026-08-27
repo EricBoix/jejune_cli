@@ -42,7 +42,7 @@ from .llm_observability import llm_observability
 from .neo4j import neo4j
 from .configuration_deployer import init as _deployer_init
 from .next_steps import has_heuristics_for_role, command_viable, register_command_precondition, print_next_steps
-from .role import detect_role, detect_roles, role_components, ROLES, ROLE_SECTION_TITLE, _ROLE_INCLUDES, build_hierarchy_lines
+from .role import detect_role, detect_roles, role_components, ROLES, ROLE_SECTION_TITLE, _ROLE_INCLUDES, build_hierarchy_lines, _PENDING_HELP_SECTIONS
 
 _ACTIVE_ROLE, _ACTIVE_ROLE_REASON = detect_role()
 _ACTIVE_ROLES: list[str] = detect_roles()
@@ -293,6 +293,15 @@ def _load_plugins() -> None:
             COMPONENT_CONFIG_HINTS[plugin.name] = plugin.config_hint
         if plugin.role is not None:
             _register_plugin_role(plugin)
+    for pending_name, pending_stage, pending_order in _PENDING_HELP_SECTIONS:
+        if not any(rn == pending_name for rn, _, _ in _ROLE_HELP_SECTIONS):
+            insert_at = next(
+                (i for i, (rn, _, _) in enumerate(_ROLE_HELP_SECTIONS)
+                 if _SECTION_ORDER.get(rn, 50) > pending_order),
+                len(_ROLE_HELP_SECTIONS),
+            )
+            _ROLE_HELP_SECTIONS.insert(insert_at, (pending_name, [], pending_stage))
+            _SECTION_ORDER[pending_name] = pending_order
     _ACTIVE_ROLE, _ACTIVE_ROLE_REASON = detect_role()
     _ACTIVE_ROLES = detect_roles()
     _ACTIVE_COMPONENTS = role_components(_ACTIVE_ROLES)
