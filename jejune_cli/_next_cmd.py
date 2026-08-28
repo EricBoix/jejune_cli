@@ -137,6 +137,12 @@ def _neo4j_not_empty() -> bool:
     return not db_is_empty()
 
 
+def _neo4j_configured() -> bool:
+    from .configuration import component_config_check
+    status, _ = component_config_check("neo4j")
+    return status == "ok"
+
+
 # ---------------------------------------------------------------------------
 # Registration — called from main.py after plugins are loaded so ROLES is
 # complete (plugins may register additional roles).
@@ -160,6 +166,14 @@ def register_heuristics() -> None:
         command="jejune role set <chosen_role>",
         conditions=[_role_not_set],
     ), roles={None, *ROLES})
+
+    register_heuristic(HeuristicStep(
+        label="Start Neo4j",
+        command="jejune neo4j start --help",
+        order=10,
+        conditions=[_neo4j_configured],
+        anti_conditions=[_neo4j_running],
+    ), roles={"doc-steward"})
 
     register_heuristic(HeuristicStep(
         label="Extract the knowledge graph",

@@ -104,7 +104,7 @@ def _sort_key(
     ordering: dict[str, int] | None,
 ) -> tuple:
     rule3 = ordering.get(step.label, 0) if ordering else 0
-    return (rule3, _role_specificity(step, active_role), -_condition_count(step), step.order)
+    return (rule3, step.order, _role_specificity(step, active_role), -_condition_count(step))
 
 
 def _effective_ordering(
