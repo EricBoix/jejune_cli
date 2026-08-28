@@ -38,6 +38,7 @@ from . import containers
 from .containers import containers_cli
 from .graph import graph
 from .llm import llm
+from .manifest import manifest
 from .llm_observability import llm_observability
 from .neo4j import neo4j
 from .configuration_deployer import init as _deployer_init
@@ -64,7 +65,7 @@ _COMPONENTS: list[str] = list(_BASE_COMPONENTS)
 _BUILTIN_COMPONENTS: frozenset[str] = frozenset(_BASE_COMPONENTS)
 
 _CONTRIBUTOR_COMMANDS = ["doctor", "configuration", "role", "containers", "ecosystem", "next"]
-_DOC_STEWARD_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert"]
+_DOC_STEWARD_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert", "manifest"]
 _DEPLOYER_COMPONENTS = ["deployment"]
 
 _ROLE_HELP_SECTIONS: list[tuple[str, list[str], str | None]] = [
@@ -193,6 +194,7 @@ cli.add_command(neo4j)
 cli.add_command(llm)
 cli.add_command(llm_observability)
 cli.add_command(graph)
+cli.add_command(manifest)
 cli.add_command(deployment)
 cli.add_command(ecosystem)
 cli.add_command(convert)

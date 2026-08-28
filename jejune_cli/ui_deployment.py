@@ -101,6 +101,18 @@ def _deploy_services_available() -> bool:
     return _extensions_installed() and all(ok for _, ok, _ in _check_ui_services())
 
 
+def _deploy_catalog_check_fails() -> bool:
+    """True when the deployment catalog.yaml fails validation."""
+    try:
+        from jejune_catalog._impl import _check_deployment_impl
+        cwd = Path.cwd()
+        full_cat = cwd.parent.parent / "jejune_catalog" / "full-catalog.yaml"
+        results = _check_deployment_impl(cwd, full_cat)
+        return any(not ok for _, ok, _ in results)
+    except Exception:
+        return False
+
+
 register_precondition("deployer role detected",        _is_deployer_cwd)
 register_precondition("deployment config is default",  _deploy_config_is_default)
 register_precondition("deployment images missing",     _deploy_images_missing)
@@ -135,9 +147,15 @@ register_heuristic(HeuristicStep(
 ), roles={"deployer"})
 
 register_heuristic(HeuristicStep(
+    label="Fix deployment catalog", command="jejune catalog check", order=6,
+    conditions=[_is_deployer_cwd, _deploy_catalog_check_fails],
+    anti_conditions=[_deploy_catalog_needs_configuration],
+), roles={"deployer"})
+
+register_heuristic(HeuristicStep(
     label="Build deployment", command="jejune build", order=10,
     conditions=[_is_deployer_cwd, check_docker, _deploy_images_missing],
-    anti_conditions=[],
+    anti_conditions=[_deploy_catalog_check_fails],
 ), roles={"deployer"})
 
 register_heuristic(HeuristicStep(

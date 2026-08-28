@@ -101,7 +101,7 @@ def discover_doc_repos(
     root_dir: Path | None,
     tmp_dir: Path | None,
 ) -> list[tuple[str, RepoTier, str, bool]]:
-    """Return all locally cloned jejune_doc_* repos with a flag for catalog.yaml presence."""
+    """Return all locally cloned jejune_doc_* repos with a flag for manifest.yaml presence."""
     seen: set[str] = set()
     results: list[tuple[str, RepoTier, str, bool]] = []
     for tier, base in (("root", root_dir), ("tmp", tmp_dir)):
@@ -110,7 +110,7 @@ def discover_doc_repos(
         for p in sorted(base.glob("jejune_doc_*")):
             if p.is_dir() and p.name not in seen:
                 seen.add(p.name)
-                results.append((p.name, tier, str(p), (p / "catalog.yaml").exists()))  # type: ignore[arg-type]
+                results.append((p.name, tier, str(p), (p / "manifest.yaml").exists()))  # type: ignore[arg-type]
     return results
 
 
@@ -280,8 +280,8 @@ def ecosystem_status() -> None:
     _W_DN = max(len("Repository"),      max(len(r[0]) for r in doc_rows))
     _W_DC = max(len("Clone directory"), max(len(r[2]) for r in doc_rows))
 
-    click.echo(f"  {'Repository':<{_W_DN}}  catalog.yaml  Clone directory")
-    click.echo("  " + "─" * (_W_DN + 2 + len("catalog.yaml") + 2 + _W_DC))
+    click.echo(f"  {'Repository':<{_W_DN}}  manifest.yaml  Clone directory")
+    click.echo("  " + "─" * (_W_DN + 2 + len("manifest.yaml") + 2 + _W_DC))
     for name, has_doc, clone_dir in doc_rows:
         doc_cell = click.style("✓", fg="green") if has_doc else click.style("✗", fg="red")
         click.echo(f"  {name:<{_W_DN}}  {doc_cell}        {clone_dir}")

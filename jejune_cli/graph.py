@@ -163,7 +163,7 @@ def split(doc_dir, splitter, output, no_cache, extra_args):
     """Split DOC_DIR's catalog into JSON chunks.
 
     Builds the extraction Docker image and runs the chosen splitter script
-    against /data/catalog.yaml. Without --output the splitter writes a file
+    against /data/manifest.yaml. Without --output the splitter writes a file
     named after the markdown source and the splitting modality.
 
     EXTRA_ARGS are forwarded verbatim to the splitter (e.g. --output_dir /data).
@@ -180,7 +180,7 @@ def split(doc_dir, splitter, output, no_cache, extra_args):
         "--name", "jejune_split",
         _BUILD_KG_IMAGE,
         _SPLITTERS[splitter],
-        "--catalog", "/data/catalog.yaml",
+        "--catalog", "/data/manifest.yaml",
         *output_args,
         *extra_args,
     )
@@ -198,7 +198,7 @@ def extract(doc_dir, no_cache, extra_args):
     in two steps using the same Docker image:
 
     \b
-    1. split_by_headers.py  -- splits /data/catalog.yaml into /data/_chunks.json
+    1. split_by_headers.py  -- splits /data/manifest.yaml into /data/_chunks.json
     2. extract_kg_graph.py  -- feeds the JSON into Neo4j
 
     EXTRA_ARGS are forwarded verbatim to the extractor (step 2), e.g.
@@ -227,7 +227,7 @@ def extract(doc_dir, no_cache, extra_args):
         "--name", "jejune_split",
         _BUILD_KG_IMAGE,
         _SPLITTERS["headers"],
-        "--catalog", "/data/catalog.yaml",
+        "--catalog", "/data/manifest.yaml",
         "--output", _CHUNKS_JSON,
     )
 

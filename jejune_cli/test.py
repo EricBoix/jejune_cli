@@ -7,7 +7,7 @@ import yaml
 from ._env import dot_jejune
 
 _TMP_PATTERN = ".jejune/tmp/"
-_SCHEMA_PATH = Path(__file__).parent / "schema" / "catalog.yaml"
+_SCHEMA_PATH = Path(__file__).parent / "schema" / "manifest.yaml"
 
 
 def _load_doc_schema() -> dict:
@@ -37,12 +37,12 @@ def _check_doc_yaml(
 ) -> tuple[list[str], list[tuple[str, str]]]:
     """Return (errors, file_refs).
 
-    file_refs: (key, rel_path) for every file_field present in catalog.yaml.
-    errors: non-empty when catalog.yaml is missing or a referenced file is absent.
+    file_refs: (key, rel_path) for every file_field present in manifest.yaml.
+    errors: non-empty when manifest.yaml is missing or a referenced file is absent.
     """
-    doc_yaml = repo_dir / "catalog.yaml"
+    doc_yaml = repo_dir / "manifest.yaml"
     if not doc_yaml.exists():
-        return [f"catalog.yaml missing (see {_SCHEMA_PATH} for the expected format)"], []
+        return [f"manifest.yaml missing (see {_SCHEMA_PATH} for the expected format)"], []
 
     schema = _load_doc_schema()
     data = yaml.safe_load(doc_yaml.read_text()) or {}
