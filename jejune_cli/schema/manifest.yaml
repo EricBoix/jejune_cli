@@ -4,6 +4,7 @@ required_fields:
   authors: list
   year: integer
   keywords: list
+  slug: string
 optional_fields:
   isbn: string
 file_fields:  # values are repo-relative paths; checked for existence by jejune test
