@@ -5,5 +5,5 @@ CONFIG_GROUPS: dict[str, tuple] = {
 }
 
 COMPONENT_CONFIG_HINTS: dict[str, str] = {
-    "ecosystem": "edit .jejune/ecosystem-env-config: set JEJUNE_ROOT_DIR=/path/to/your/jejune/ecosystem",
+    "ecosystem": "edit .jejune/ecosystem-env-config and set JEJUNE_ROOT_DIR",
 }
