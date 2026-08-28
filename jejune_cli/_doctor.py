@@ -14,6 +14,7 @@ from .configuration import (
 
 _BASE_COMPONENTS: list[str] = [
     "ecosystem",
+    "docker",
     "neo4j",
     "llm",
     "llm-observability",
@@ -39,8 +40,9 @@ _STATUS_ICON: dict[str, tuple[str, str]] = {
 # ---------------------------------------------------------------------------
 
 _AVAIL_HINTS: dict[str, str] = {
+    "docker":             "install docker (https://docs.docker.com/get-docker/)",
     "neo4j":              "run `jejune neo4j start --help`",
-    "llm":                "run `jejune llm status`",
+    "llm":                "run `jejune llm status-config`",
     "llm-observability":  "run `jejune llm-observability start`",
     "convert":            "run `jejune convert build`",
     "docs-server":        "run `jejune deployment extensions install`",

@@ -34,6 +34,12 @@ def run_all(
             status = "warn"
         config.append((group, status, msg))
 
+    if _visible("docker"):
+        from .ecosystem import check_docker as _check_docker
+        config.append(("docker", "ok", ""))
+        ok = _check_docker()
+        avail.append(("docker", "ok" if ok else "error", "" if ok else "docker not found on PATH"))
+
     if _visible("neo4j"):
         running, msg = _neo4j_running()
         avail.append(("neo4j", "ok" if running else "warn", msg))
