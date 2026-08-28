@@ -41,8 +41,16 @@ def run_all(
         avail.append(("docker", "ok" if ok else "error", "" if ok else "docker not found on PATH"))
 
     if _visible("neo4j"):
+        from .configuration import component_config_check
+        cfg_status, _ = component_config_check("neo4j")
         running, msg = _neo4j_running()
-        avail.append(("neo4j", "ok" if running else "warn", msg))
+        if running:
+            status = "ok"
+        elif cfg_status != "ok":
+            status = "warn"
+        else:
+            status = "error"
+        avail.append(("neo4j", status, msg))
 
     if _visible("llm"):
         from .llm import llm_check_availability as _llm_check

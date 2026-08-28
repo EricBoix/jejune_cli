@@ -159,6 +159,7 @@ def register_heuristics() -> None:
     register_heuristic(HeuristicStep(
         label="Check the role",
         command="jejune role",
+        order=100,
     ), roles={None, *ROLES})
 
     register_heuristic(HeuristicStep(
