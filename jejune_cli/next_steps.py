@@ -176,7 +176,7 @@ def evaluate_state(cwd: Path | None = None) -> list[tuple[HeuristicStep, list[tu
 
     def _run() -> list[tuple[HeuristicStep, list[tuple[str, bool]], list[tuple[str, bool]]]]:
         result = []
-        for step in sorted(_REGISTRY, key=lambda s: _sort_key(s, active_role)):
+        for step in sorted(_REGISTRY, key=lambda s: _sort_key(s, active_role, None)):
             cond_results: list[tuple[str, bool]] = []
             for fn in step.conditions:
                 try:
