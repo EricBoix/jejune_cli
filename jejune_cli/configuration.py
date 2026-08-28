@@ -32,7 +32,7 @@ COMPONENT_CONFIG_HINTS: dict[str, str] = {
     **_DEV_HINTS,
 }
 
-_PLACEHOLDER = "_CHANGE_ME"
+_PLACEHOLDER = "CHANGE_ME"
 
 _STATUS_DISPLAY: dict[str, tuple[str, str]] = {
     "ok":    ("✓", "green"),
@@ -179,7 +179,7 @@ def check_config_group(keys: list[str]) -> tuple[str, str]:
 
     if all(s == "ok" for _, s in states):
         return "ok", "ok"
-    if all(s == "missing" for _, s in states):
+    if all(s in ("missing", "placeholder") for _, s in states):
         return "warn", "not configured"
     issues = [f"{k}: {s}" for k, s in states if s != "ok"]
     return "error", "; ".join(issues)
