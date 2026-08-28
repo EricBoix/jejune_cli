@@ -143,6 +143,13 @@ def _neo4j_configured() -> bool:
     return status == "ok"
 
 
+def _manifest_ok() -> bool:
+    from pathlib import Path
+    from .test import _check_doc_yaml
+    errors, _ = _check_doc_yaml(Path.cwd())
+    return not errors
+
+
 # ---------------------------------------------------------------------------
 # Registration — called from main.py after plugins are loaded so ROLES is
 # complete (plugins may register additional roles).
@@ -155,6 +162,7 @@ def register_heuristics() -> None:
     register_precondition("role set", _is_role_set)
 
     register_command_precondition("jejune neo4j dump-turtle", _neo4j_running)
+    register_command_precondition("jejune graph split", _manifest_ok)
 
     register_heuristic(HeuristicStep(
         label="Check the role",
