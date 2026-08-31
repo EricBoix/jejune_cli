@@ -91,10 +91,11 @@ def _build_kg_image(no_cache: bool = False) -> None:
 
 def _graph_is_built() -> bool:
     import subprocess
-    return subprocess.run(
-        ["docker", "image", "inspect", _BUILD_KG_IMAGE],
-        capture_output=True,
-    ).returncode == 0
+    r = subprocess.run(
+        ["docker", "images", "-q", _BUILD_KG_IMAGE],
+        capture_output=True, text=True,
+    )
+    return bool(r.returncode == 0 and r.stdout.strip())
 
 
 from ._build import register_build  # noqa: E402

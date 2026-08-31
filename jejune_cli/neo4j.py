@@ -86,10 +86,11 @@ def _build_neo4j_image(no_cache: bool = False) -> None:
 
 
 def _neo4j_is_built() -> bool:
-    return subprocess.run(
-        ["docker", "image", "inspect", _NEO4J_IMAGE],
-        capture_output=True,
-    ).returncode == 0
+    r = subprocess.run(
+        ["docker", "images", "-q", _NEO4J_IMAGE],
+        capture_output=True, text=True,
+    )
+    return bool(r.returncode == 0 and r.stdout.strip())
 
 
 from ._build import register_build  # noqa: E402

@@ -71,10 +71,10 @@ def _deploy_images_missing() -> bool:
     name = Path(".").resolve().name  # preserve case — matches {{NAME}} in docker-compose.yml image tags
     for svc in _UI_SERVICES:
         r = subprocess.run(
-            ["docker", "image", "inspect", f"jejune:{name}-{svc}"],
-            capture_output=True,
+            ["docker", "images", "-q", f"jejune:{name}-{svc}"],
+            capture_output=True, text=True,
         )
-        if r.returncode != 0:
+        if not (r.returncode == 0 and r.stdout.strip()):
             return True
     return False
 

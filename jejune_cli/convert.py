@@ -37,12 +37,11 @@ def convert_configured() -> bool:
 def image_built() -> tuple[bool, str]:
     """Return (is_built, message) for the convert Docker image."""
     image = _image_name()
-    result = subprocess.run(
-        ["docker", "image", "inspect", image],
-        capture_output=True,
-        text=True,
+    r = subprocess.run(
+        ["docker", "images", "-q", image],
+        capture_output=True, text=True,
     )
-    if result.returncode != 0:
+    if not (r.returncode == 0 and r.stdout.strip()):
         return False, "not built"
     return True, "ok"
 
