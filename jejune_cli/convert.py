@@ -125,16 +125,8 @@ def hint_availability():
         click.echo("run `jejune convert build`")
 
 
-@convert.command("build")
-def build():
-    """Build the converter Docker image.
-
-    If CONVERT_DOC_DIR points to a Dockerfile, uses the project root as build
-    context (docker build -f <Dockerfile> <project-root>) — for private repos
-    whose Dockerfile COPYs local files.  If CONVERT_DOC_DIR points to a
-    directory, uses DockerContext/ as the build context — for public repos
-    whose Dockerfile clones from GitHub.
-    """
+def _build_convert_image(no_cache: bool = False) -> None:
+    """Build the converter Docker image."""
     d = _doc_dir()
     if not d:
         raise click.ClickException("CONVERT_DOC_DIR is not set")
@@ -148,10 +140,28 @@ def build():
         if not ctx.is_dir():
             raise click.ClickException(f"DockerContext not found at {ctx}")
         dockerfile, context = ctx / "Dockerfile", ctx
+    extra = ["--no-cache"] if no_cache else []
+    image = _image_name()
+    click.echo(f"Building {image} ...")
     subprocess.run(
-        ["docker", "build", "-t", _image_name(), "-f", str(dockerfile), str(context)],
+        ["docker", "build", *extra, "-t", image, "-f", str(dockerfile), str(context)],
         check=True,
     )
+
+
+@convert.command("build")
+@click.option("--no-cache", is_flag=True, default=False,
+              help="Do not use Docker layer cache when building.")
+def build(no_cache: bool):
+    """Build the converter Docker image.
+
+    If CONVERT_DOC_DIR points to a Dockerfile, uses the project root as build
+    context (docker build -f <Dockerfile> <project-root>) — for private repos
+    whose Dockerfile COPYs local files.  If CONVERT_DOC_DIR points to a
+    directory, uses DockerContext/ as the build context — for public repos
+    whose Dockerfile clones from GitHub.
+    """
+    _build_convert_image(no_cache=no_cache)
 
 
 @convert.command(

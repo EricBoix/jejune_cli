@@ -19,7 +19,7 @@ from ._doctor import (
 )
 from ._next_cmd import next_cmd, register_heuristics
 from ._role_cmd import role
-from .convert import convert, convert_configured
+from .convert import convert, convert_configured, _build_convert_image
 from .plugin import JejunePlugin, _REGISTRY
 from .role import register_role
 from .deployment import deployment
@@ -252,12 +252,15 @@ def build(deploy_dir_name: str | None, no_cache: bool) -> None:
     """Build Docker images for the current role.
 
     \b
-    doc-steward: builds the knowledge-graph extraction image.
+    doc-steward: builds the knowledge-graph extraction image, and the
+                 convert image when CONVERT_DOC_DIR is configured.
     deployer:    runs docker compose build (DEPLOY_DIR_NAME defaults to cwd).
     """
     from .ui_deployment import build as _deployment_build
     if _ACTIVE_ROLE == "doc-steward":
         _graph_build_kg_image(no_cache=no_cache)
+        if convert_configured():
+            _build_convert_image(no_cache=no_cache)
     elif _ACTIVE_ROLE == "deployer":
         ctx = click.get_current_context()
         ctx.invoke(_deployment_build, deploy_dir_name=deploy_dir_name, no_cache=no_cache)
