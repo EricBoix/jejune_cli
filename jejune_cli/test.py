@@ -128,7 +128,7 @@ def _manifest_avail_status(repo_dir: Path) -> tuple[str, str]:
         if (rel := data.get(key)) and not (repo_dir / rel).exists()
     ]
     if missing_files:
-        return "warn", f"{len(missing_files)} file(s) not found"
+        return "error", f"{len(missing_files)} file(s) not found"
     return "ok", ""
 
 
