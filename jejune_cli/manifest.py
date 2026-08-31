@@ -1,7 +1,6 @@
 """`jejune manifest` command group — per-document manifest operations."""
 
 import re
-import sys
 from pathlib import Path
 
 import click
@@ -13,42 +12,6 @@ from ._doctor import _STATUS_FG
 @click.group("manifest", short_help="Document manifest operations")
 def manifest():
     """Validate and inspect the document manifest (manifest.yaml) in the current repo."""
-
-
-@manifest.command("check")
-@click.option("--verbose", "-v", is_flag=True, default=False,
-              help="Print referenced files.")
-def manifest_check(verbose):
-    """Validate manifest.yaml in the current repository.
-
-    Required-field errors exit 1. Unknown-field warnings exit 0.
-    File-reference errors exit 1.
-    """
-    from .test import _check_doc_yaml, _manifest_avail_status, _manifest_config_status
-    cfg_status, cfg_msg = _manifest_config_status(Path.cwd())
-    avail_status, avail_msg = _manifest_avail_status(Path.cwd())
-    failed = False
-    if cfg_status == "error":
-        click.echo(click.style(f"  {cfg_msg}", fg="red"))
-        failed = True
-    elif cfg_status == "warn":
-        click.echo(click.style(f"  {cfg_msg}", fg="yellow"))
-    if avail_status != "ok":
-        click.echo(click.style(f"  {avail_msg}", fg="yellow"))
-        failed = True
-    if failed:
-        click.echo(click.style("manifest.yaml — error(s)", fg="red"))
-        sys.exit(1)
-    if cfg_status == "warn":
-        click.echo(click.style("manifest.yaml — warning(s)", fg="yellow"))
-        return
-    if verbose:
-        _, file_refs = _check_doc_yaml(Path.cwd())
-        if file_refs:
-            key_width = max(len(k) for k, _ in file_refs)
-            for key, rel in file_refs:
-                click.echo(f"  {key:<{key_width}}  {rel}")
-    click.echo(click.style("manifest.yaml — ok", fg="green"))
 
 
 @manifest.command("check-config")
@@ -78,16 +41,21 @@ def manifest_hint_config():
     if status == "ok":
         click.echo(click.style("manifest.yaml is properly configured", fg="green"))
     else:
-        click.echo("run `jejune manifest check`")
+        click.echo("run `jejune manifest check-config`")
 
 
 @manifest.command("check-availability")
 def manifest_check_availability():
     """Show manifest availability detail (file references exist on disk)."""
-    from .test import _manifest_avail_status
+    from .test import _check_doc_yaml, _manifest_avail_status
     status, msg = _manifest_avail_status(Path.cwd())
     label = "ok" if status == "ok" else msg
     click.echo(f"  files  {click.style(label, fg=_STATUS_FG.get(status, 'white'))}")
+    _, file_refs = _check_doc_yaml(Path.cwd())
+    if file_refs:
+        key_width = max(len(k) for k, _ in file_refs)
+        for key, rel in file_refs:
+            click.echo(f"  {key:<{key_width}}  {rel}")
 
 
 @manifest.command("status-availability")
