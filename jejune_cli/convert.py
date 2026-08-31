@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import click
@@ -198,14 +199,13 @@ def run_cmd(output_dir, test, extra_args):
             f"Docker image {image!r} is not built. Run `jejune convert build` first."
         )
     if test:
-        subprocess.run(
+        result = subprocess.run(
             ["docker", "run", "--rm", image, "--test", *extra_args],
-            check=True,
         )
     else:
         out = Path(output_dir).resolve()
         out.mkdir(parents=True, exist_ok=True)
-        subprocess.run(
+        result = subprocess.run(
             [
                 "docker", "run", "--rm",
                 "-v", f"{out}:/output",
@@ -213,5 +213,5 @@ def run_cmd(output_dir, test, extra_args):
                 "--output_directory", "/output",
                 *extra_args,
             ],
-            check=True,
         )
+    sys.exit(result.returncode)
