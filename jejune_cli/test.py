@@ -53,13 +53,34 @@ def _check_doc_yaml(
         if field not in data:
             errors.append(f"required field {field!r} missing")
 
+    for key in schema.get("required_file_fields", []):
+        rel = data.get(key)
+        if rel is None:
+            errors.append(f"required field {key!r} missing")
+        elif not (repo_dir / rel).exists():
+            file_refs.append((key, rel))
+            errors.append(f"{key}: {rel!r} not found")
+        else:
+            file_refs.append((key, rel))
+
     for key in schema.get("file_fields", []):
+        if key in schema.get("required_file_fields", []):
+            continue
         rel = data.get(key)
         if rel is None:
             continue
         file_refs.append((key, rel))
         if not (repo_dir / rel).exists():
             errors.append(f"{key}: {rel!r} not found")
+
+    known_keys = (
+        set(schema.get("required_fields", {}).keys())
+        | set(schema.get("optional_fields", {}).keys())
+        | set(schema.get("file_fields", []))
+    )
+    for key in data:
+        if key not in known_keys:
+            errors.append(f"unknown field {key!r}")
 
     if errors:
         errors.append(f"see {_SCHEMA_PATH} for the expected format")

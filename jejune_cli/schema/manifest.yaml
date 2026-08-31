@@ -12,3 +12,6 @@ file_fields:  # values are repo-relative paths; checked for existence by jejune 
   - markdown_file
   - sentences_file
   - turtle_file
+required_file_fields:  # must be present and point to an existing file
+  - markdown_file
+  - turtle_file
