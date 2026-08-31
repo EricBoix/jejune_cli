@@ -103,6 +103,12 @@ class JejunePlugin:
     ``"collection"``       → "Collection-level extension components"
     ``"extension"``        → "Extension components" (default)
     """
+    kind: str = ""
+    """Component nature shown in the ``jejune doctor`` Kind column.
+
+    ``"dep"``  → external dependency the user must install/provide.
+    ``""``     → mandatory jejune-managed component (default; no label shown).
+    """
     role: JejuneRole | None = None
     build_image: Callable[[bool], None] | None = None
     """(no_cache: bool) -> None — builds this component's Docker image.

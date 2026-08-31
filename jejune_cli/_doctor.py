@@ -63,9 +63,40 @@ _COMPONENT_OPTIONAL_DEPS: dict[str, list[str]] = {
     "graph": ["llm-observability"],
 }
 
+# External dependencies: components the user must install/provide (not jejune-managed).
+# Components absent from this dict and not optional are mandatory jejune-managed (blank kind).
+_COMPONENT_KIND: dict[str, str] = {
+    "ecosystem": "dep",
+    "docker":    "dep",
+    "llm":       "dep",
+}
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _component_kind(name: str) -> str:
+    """Return the Kind label for a component: "opt", "dep", or "" (blank)."""
+    _optional_set = {
+        dep
+        for deps in _COMPONENT_OPTIONAL_DEPS.values()
+        for dep in deps
+    }
+    _required_set = {
+        dep
+        for deps in _COMPONENT_DEPS.values()
+        for dep in deps
+    }
+    if name in _optional_set and name not in _required_set:
+        return "opt"
+    if name in _COMPONENT_KIND:
+        return _COMPONENT_KIND[name]
+    from .plugin import _REGISTRY
+    for p in _REGISTRY:
+        if p.name == name:
+            return p.kind
+    return ""
+
 
 def _all_components() -> list[str]:
     """Return ordered component names: built-ins first, then loaded plugins."""
@@ -163,34 +194,40 @@ def _print_health_table(
     avail_rows: list[tuple[str, str, str, str]],
     img_status: dict[str, bool],
 ) -> None:
-    """Render merged Component | Config | Img | Avail | Action table."""
+    """Render merged Component | Kind | Config | Img | Avail | Action table."""
     if not config_rows:
         return
     by_avail = {r[0]: r for r in avail_rows}
     _COL_COMP  = "Component"
+    _COL_KIND  = "Kind"
     _COL_CFG   = "Config"
     _COL_IMG   = "Img"
     _COL_AVAIL = "Avail"
     _COL_ACT   = "Action"
     _W_COMP  = max(len(_COL_COMP), max(len(r[0]) for r in config_rows))
+    _W_KIND  = len(_COL_KIND)
     _W_CFG   = len(_COL_CFG)
     _W_IMG   = len(_COL_IMG)
     _W_AVAIL = len(_COL_AVAIL)
-    rows: list[tuple[str, str, bool | None, str | None, str]] = []
+    rows: list[tuple[str, str, str, bool | None, str | None, str]] = []
     for comp, c_status, _, c_hint in config_rows:
         avail = by_avail.get(comp)
         a_status = avail[1] if avail else None
         a_hint   = avail[3] if avail else ""
         action = c_hint or (a_hint if a_status and a_status != "ok" else "")
         img = img_status.get(comp)
-        rows.append((comp, c_status, img, a_status, action))
-    _W_ACT = max(len(_COL_ACT), max(len(r[4]) for r in rows))
-    divider_len = _W_COMP + 2 + _W_CFG + 2 + _W_IMG + 2 + _W_AVAIL + 2 + _W_ACT
+        rows.append((comp, _component_kind(comp), c_status, img, a_status, action))
+    _W_ACT = max(len(_COL_ACT), max(len(r[5]) for r in rows))
+    divider_len = (
+        _W_COMP + 2 + _W_KIND + 2 + _W_CFG + 2 + _W_IMG + 2 + _W_AVAIL + 2 + _W_ACT
+    )
     click.echo(
-        f"  {_COL_COMP:<{_W_COMP}}  {_COL_CFG:<{_W_CFG}}  {_COL_IMG:<{_W_IMG}}  {_COL_AVAIL:<{_W_AVAIL}}  {_COL_ACT}"
+        f"  {_COL_COMP:<{_W_COMP}}  {_COL_KIND:<{_W_KIND}}  {_COL_CFG:<{_W_CFG}}"
+        f"  {_COL_IMG:<{_W_IMG}}  {_COL_AVAIL:<{_W_AVAIL}}  {_COL_ACT}"
     )
     click.echo("  " + "─" * divider_len)
-    for comp, c_status, img, a_status, action in rows:
+    for comp, kind, c_status, img, a_status, action in rows:
+        k_cell = f"{kind:<{_W_KIND}}"
         c_icon, c_fg = _STATUS_ICON.get(c_status, ("?", "white"))
         c_cell = click.style(c_icon, fg=c_fg) + " " * (_W_CFG - len(c_icon))
         if img is None:
@@ -203,7 +240,7 @@ def _print_health_table(
             a_cell = click.style(a_icon, fg=a_fg) + " " * (_W_AVAIL - len(a_icon))
         else:
             a_cell = " " * _W_AVAIL
-        click.echo(f"  {comp:<{_W_COMP}}  {c_cell}  {i_cell}  {a_cell}  {action}")
+        click.echo(f"  {comp:<{_W_COMP}}  {k_cell}  {c_cell}  {i_cell}  {a_cell}  {action}")
 
 
 # ---------------------------------------------------------------------------
