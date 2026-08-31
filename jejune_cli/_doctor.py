@@ -19,6 +19,8 @@ _BASE_COMPONENTS: list[str] = [
     "network",
     "git_repos",
     "docker",
+    "dockerhub",
+    "pypi",
     "extensions",
     "neo4j",
     "llm",
@@ -63,12 +65,20 @@ _UI_PLUGIN_NAMES: frozenset[str] = frozenset(("docs-server", "kg-viewer", "md-br
 
 # Required dependencies: a component is only effective when all its deps are ok.
 _COMPONENT_DEPS: dict[str, list[str]] = {
-    "git_repos":  ["network"],
-    "ecosystem":  ["git_repos"],
-    "extensions": ["git_repos"],
-    "neo4j":      ["git_repos"],
-    "graph":      ["git_repos", "neo4j", "llm"],
-    "deployment": ["catalog"],
+    "git_repos":    ["network"],
+    "dockerhub":    ["network"],
+    "pypi":         ["network"],
+    "ecosystem":    ["git_repos"],
+    "extensions":   ["git_repos"],
+    "neo4j":        ["git_repos", "dockerhub"],
+    "llm":          ["network"],
+    "graph":        ["git_repos", "neo4j", "llm"],
+    "catalog":      ["ecosystem"],
+    "deployment":   ["catalog"],
+    "convert":      ["pypi"],
+    "docs-server":  ["ecosystem", "docker"],
+    "kg-viewer":    ["ecosystem", "docker"],
+    "md-browser":   ["ecosystem", "docker"],
 }
 
 # Optional dependencies: enhance a component but do not affect its effective status.
@@ -83,6 +93,8 @@ _COMPONENT_KIND: dict[str, str] = {
     "git_repos":  "dep",
     "ecosystem":  "dep",
     "docker":     "dep",
+    "dockerhub":  "dep",
+    "pypi":       "dep",
     "extensions": "dep",
     "llm":        "dep",
 }
@@ -138,6 +150,26 @@ def _all_components() -> list[str]:
     return result
 
 
+def _topo_sorted(components: list[str]) -> list[str]:
+    """Return components sorted in topological dependency order via DFS."""
+    comp_set = set(components)
+    visited: set[str] = set()
+    result: list[str] = []
+
+    def visit(name: str) -> None:
+        if name in visited:
+            return
+        visited.add(name)
+        for dep in _COMPONENT_DEPS.get(name, []):
+            if dep in comp_set:
+                visit(dep)
+        result.append(name)
+
+    for comp in components:
+        visit(comp)
+    return result
+
+
 def _is_visible(name: str) -> bool:
     pred = _COMPONENT_VISIBLE.get(name)
     if pred is not None and not pred():
@@ -163,7 +195,7 @@ def _section_header(title: str) -> str:
 
 
 def _avail_all_visible() -> list[str]:
-    return [c for c in _all_components() if _is_visible(c)]
+    return _topo_sorted([c for c in _all_components() if _is_visible(c)])
 
 
 def _build_avail_rows(
@@ -331,6 +363,7 @@ def doctor():
     for name in (sorted(active_components - _builtin) if active_components else []):
         if name not in visible_components:
             visible_components.append(name)
+    visible_components = _topo_sorted(visible_components)
 
     config_rows: list[tuple[str, str, str, str]] = [
         (

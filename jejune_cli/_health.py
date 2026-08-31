@@ -94,6 +94,16 @@ def run_all(
         avail.append(("network", "ok" if ok else "error",
                       "" if ok else "GitHub not reachable"))
 
+    if _visible("dockerhub"):
+        from .dockerhub import check_dockerhub as _check_dockerhub
+        ok, msg = _check_dockerhub()
+        avail.append(("dockerhub", "ok" if ok else "error", msg))
+
+    if _visible("pypi"):
+        from .pypi import check_pypi as _check_pypi
+        ok, msg = _check_pypi()
+        avail.append(("pypi", "ok" if ok else "error", msg))
+
     if _visible("git_repos") and _remote:
         from .git_repos import check_git as _check_git
         ok = _check_git()
