@@ -1,4 +1,6 @@
 """Doctor command and availability display helpers."""
+from typing import Callable
+
 import click
 
 from ._health import run_all
@@ -14,6 +16,8 @@ from .configuration import (
 
 _BASE_COMPONENTS: list[str] = [
     "ecosystem",
+    "network",
+    "git_repos",
     "docker",
     "extensions",
     "neo4j",
@@ -42,6 +46,8 @@ _STATUS_ICON: dict[str, tuple[str, str]] = {
 # ---------------------------------------------------------------------------
 
 _AVAIL_HINTS: dict[str, str] = {
+    "network":            "check internet connectivity (GitHub must be reachable)",
+    "git_repos":          "install git (https://git-scm.com)",
     "docker":             "install docker (https://docs.docker.com/get-docker/)",
     "neo4j":              "run `jejune neo4j start --help`",
     "llm":                "run `jejune llm status-config`",
@@ -57,7 +63,11 @@ _UI_PLUGIN_NAMES: frozenset[str] = frozenset(("docs-server", "kg-viewer", "md-br
 
 # Required dependencies: a component is only effective when all its deps are ok.
 _COMPONENT_DEPS: dict[str, list[str]] = {
-    "graph":      ["neo4j", "llm"],
+    "git_repos":  ["network"],
+    "ecosystem":  ["git_repos"],
+    "extensions": ["git_repos"],
+    "neo4j":      ["git_repos"],
+    "graph":      ["git_repos", "neo4j", "llm"],
     "deployment": ["catalog"],
 }
 
@@ -69,11 +79,25 @@ _COMPONENT_OPTIONAL_DEPS: dict[str, list[str]] = {
 # External dependencies: components the user must install/provide (not jejune-managed).
 # Components absent from this dict and not optional are mandatory jejune-managed (blank kind).
 _COMPONENT_KIND: dict[str, str] = {
+    "network":    "dep",
+    "git_repos":  "dep",
     "ecosystem":  "dep",
     "docker":     "dep",
     "extensions": "dep",
     "llm":        "dep",
 }
+
+# Visibility predicates: when the predicate returns False the component is hidden.
+_COMPONENT_VISIBLE: dict[str, Callable[[], bool]] = {}
+
+
+def _init_visibility() -> None:
+    from .ecosystem import ecosystem_needs_remote
+    _COMPONENT_VISIBLE["network"]   = ecosystem_needs_remote
+    _COMPONENT_VISIBLE["git_repos"] = ecosystem_needs_remote
+
+
+_init_visibility()
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -115,6 +139,9 @@ def _all_components() -> list[str]:
 
 
 def _is_visible(name: str) -> bool:
+    pred = _COMPONENT_VISIBLE.get(name)
+    if pred is not None and not pred():
+        return False
     from .role import detect_roles, role_components
     active = role_components(detect_roles())
     return active is None or name in active

@@ -2,7 +2,6 @@
 
 import os
 import subprocess
-import urllib.request
 from pathlib import Path
 from typing import Literal
 
@@ -131,16 +130,18 @@ def repos_for_role(role: str | None) -> list[tuple[str, str | None, str | None]]
 
 
 # ---------------------------------------------------------------------------
-# Availability checks (used by run_all in _health.py)
+# Ecosystem-level checks and predicates
 # ---------------------------------------------------------------------------
 
-def check_git() -> bool:
-    """Return True if git is available on PATH."""
-    try:
-        subprocess.run(["git", "--version"], capture_output=True, check=True)
-        return True
-    except Exception:
-        return False
+def ecosystem_needs_remote() -> bool:
+    """True when any role repo resolves to the remote (GitHub) tier."""
+    from .role import detect_role
+    role, _ = detect_role()
+    root_dir, tmp_dir = resolve_dirs()
+    return any(
+        repo_status(name, root_dir, tmp_dir)[0] == "remote"
+        for name, _, _ in repos_for_role(role)
+    )
 
 
 def check_docker() -> bool:
@@ -161,33 +162,8 @@ def check_uv() -> bool:
         return False
 
 
-def check_network(url: str = REPO_ROOT_DIR, timeout: int = 5) -> bool:
-    """Return True if url is reachable."""
-    try:
-        urllib.request.urlopen(url, timeout=timeout)
-        return True
-    except Exception:
-        return False
-
-
-def check_contributor_avail() -> tuple[bool, str]:
-    """Check git availability and network reachability of REPO_ROOT_DIR."""
-    git_ok = check_git()
-    net_ok = check_network()
-    if git_ok and net_ok:
-        return True, "git ok, network ok"
-    parts = []
-    if not git_ok:
-        parts.append("git not found on PATH")
-    if not net_ok:
-        parts.append(f"{REPO_ROOT_DIR} not reachable")
-    return False, "; ".join(parts)
-
-
-register_precondition("docker available",  check_docker)
-register_precondition("git available",     check_git)
-register_precondition("github accessible", check_network)
-register_precondition("uv available",      check_uv)
+register_precondition("docker available", check_docker)
+register_precondition("uv available",     check_uv)
 
 
 # ---------------------------------------------------------------------------
@@ -223,11 +199,7 @@ def ecosystem_status() -> None:
     root_status = click.style("set", fg="green") if root_ok else click.style("not set", fg="yellow")
     click.echo(f"  {'JEJUNE_ROOT_DIR':<{_W}}  {root_val:<50}  {root_status}")
 
-    git_ok  = check_git()
-    net_ok  = check_network()
-    net_str  = click.style("reachable", fg="green") if net_ok else click.style("unreachable", fg="red")
-    git_str  = click.style("git ok", fg="green") if git_ok else click.style("git missing", fg="red")
-    click.echo(f"  {'REPO_ROOT_DIR':<{_W}}  {REPO_ROOT_DIR:<50}  {net_str}  {git_str}")
+    click.echo(f"  {'REPO_ROOT_DIR':<{_W}}  {REPO_ROOT_DIR}")
     click.echo()
 
     # --- Components table ---

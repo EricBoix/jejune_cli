@@ -2,6 +2,7 @@
 
 from .convert import convert_configured as _convert_configured, image_built as _convert_image_built
 from .neo4j import container_running as _neo4j_running
+from .ecosystem import ecosystem_needs_remote as _ecosystem_needs_remote
 
 
 def run_all(
@@ -82,10 +83,22 @@ def run_all(
             avail_status, avail_msg = cfg_status, cfg_msg
         avail.append(("manifest", avail_status, avail_msg))
 
-    if _visible("ecosystem"):
-        from .ecosystem import check_contributor_avail
-        ok, msg = check_contributor_avail()
-        avail.append(("ecosystem", "ok" if ok else "warn", msg))
+    if _visible("network") or _visible("git_repos"):
+        _remote = _ecosystem_needs_remote()
+    else:
+        _remote = False
+
+    if _visible("network") and _remote:
+        from .network import check_network as _check_network
+        ok = _check_network()
+        avail.append(("network", "ok" if ok else "error",
+                      "" if ok else "GitHub not reachable"))
+
+    if _visible("git_repos") and _remote:
+        from .git_repos import check_git as _check_git
+        ok = _check_git()
+        avail.append(("git_repos", "ok" if ok else "error",
+                      "" if ok else "git not found on PATH"))
 
     if _visible("extensions"):
         from .deployer_extensions import _extensions_installed
