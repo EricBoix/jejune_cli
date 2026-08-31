@@ -75,8 +75,12 @@ def run_all(
     if _visible("manifest"):
         from pathlib import Path
         from .test import _manifest_avail_status, _manifest_config_status
-        config.append(("manifest", *_manifest_config_status(Path.cwd())))
-        avail.append(("manifest", *_manifest_avail_status(Path.cwd())))
+        cfg_status, cfg_msg = _manifest_config_status(Path.cwd())
+        config.append(("manifest", cfg_status, cfg_msg))
+        avail_status, avail_msg = _manifest_avail_status(Path.cwd())
+        if cfg_status != "ok" and avail_status == "ok":
+            avail_status, avail_msg = cfg_status, cfg_msg
+        avail.append(("manifest", avail_status, avail_msg))
 
     if _visible("ecosystem"):
         from .ecosystem import check_contributor_avail
