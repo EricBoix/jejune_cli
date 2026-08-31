@@ -87,3 +87,48 @@ def _check_doc_yaml(
     return errors, file_refs
 
 
+def _manifest_config_status(repo_dir: Path) -> tuple[str, str]:
+    """(status, msg) for the Config column in jejune doctor.
+
+    "error" when required fields are absent, "warn" for unknown fields only.
+    """
+    doc_yaml = repo_dir / "manifest.yaml"
+    if not doc_yaml.exists():
+        return "error", "manifest.yaml missing"
+    schema = _load_doc_schema()
+    data = yaml.safe_load(doc_yaml.read_text()) or {}
+    missing = [f for f in schema.get("required_fields", {}) if f not in data]
+    missing += [f for f in schema.get("required_file_fields", []) if f not in data]
+    if missing:
+        return "error", f"required field(s) missing: {', '.join(missing)}"
+    known_keys = (
+        set(schema.get("required_fields", {}).keys())
+        | set(schema.get("optional_fields", {}).keys())
+        | set(schema.get("file_fields", []))
+    )
+    unknown = [k for k in data if k not in known_keys]
+    if unknown:
+        return "warn", f"unknown field(s): {', '.join(unknown)}"
+    return "ok", ""
+
+
+def _manifest_avail_status(repo_dir: Path) -> tuple[str, str]:
+    """(status, msg) for the Avail column in jejune doctor.
+
+    Checks only that file-field values point to existing files.
+    """
+    doc_yaml = repo_dir / "manifest.yaml"
+    if not doc_yaml.exists():
+        return "warn", "manifest.yaml missing"
+    schema = _load_doc_schema()
+    data = yaml.safe_load(doc_yaml.read_text()) or {}
+    missing_files = [
+        f"{key}: {rel!r} not found"
+        for key in schema.get("file_fields", [])
+        if (rel := data.get(key)) and not (repo_dir / rel).exists()
+    ]
+    if missing_files:
+        return "warn", f"{len(missing_files)} file(s) not found"
+    return "ok", ""
+
+

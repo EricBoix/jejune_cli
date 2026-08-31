@@ -74,10 +74,9 @@ def run_all(
 
     if _visible("manifest"):
         from pathlib import Path
-        from .test import _check_doc_yaml
-        errors, _ = _check_doc_yaml(Path.cwd())
-        ok = not errors
-        avail.append(("manifest", "ok" if ok else "warn", "" if ok else f"{len(errors)} error(s) in manifest.yaml"))
+        from .test import _manifest_avail_status, _manifest_config_status
+        config.append(("manifest", *_manifest_config_status(Path.cwd())))
+        avail.append(("manifest", *_manifest_avail_status(Path.cwd())))
 
     if _visible("ecosystem"):
         from .ecosystem import check_contributor_avail
