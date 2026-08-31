@@ -107,7 +107,7 @@ class _JejuneGroup(click.Group):
         load_env_files()
 
         _hidden_unless_configured = {
-            "convert": convert_configured,
+            "convert": lambda: convert_configured() or Path.cwd().joinpath("full-catalog.yaml").exists(),
             "next": lambda: has_heuristics_for_role(_ACTIVE_ROLE),
         }
 
