@@ -77,16 +77,28 @@ def _resolve_port_credentials(
     return port, credentials
 
 
+def _build_neo4j_image(no_cache: bool = False) -> None:
+    """Build the Neo4j Docker image."""
+    click.echo(f"Building {_NEO4J_IMAGE} ...")
+    extra = ["--no-cache"] if no_cache else []
+    _run("docker", "build", *extra, "-t", _NEO4J_IMAGE,
+         f"{REPO_ROOT_DIR}/jejune_neo4j_docker.git")
+
+
+def _neo4j_is_built() -> bool:
+    return subprocess.run(
+        ["docker", "image", "inspect", _NEO4J_IMAGE],
+        capture_output=True,
+    ).returncode == 0
+
+
+from ._build import register_build  # noqa: E402
+register_build("neo4j", _build_neo4j_image, is_built=_neo4j_is_built)
+
+
 def _launch_container(data_dir: Path, port: str, credentials: str) -> None:
     """Build the Neo4j image, start the container, and wait until it is ready."""
-    click.echo(f"Building {_NEO4J_IMAGE} ...")
-    _run(
-        "docker",
-        "build",
-        "-t",
-        _NEO4J_IMAGE,
-        f"{REPO_ROOT_DIR}/jejune_neo4j_docker.git",
-    )
+    _build_neo4j_image()
 
     (data_dir / "database").mkdir(parents=True, exist_ok=True)
 

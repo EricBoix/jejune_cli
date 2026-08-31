@@ -104,6 +104,13 @@ class JejunePlugin:
     ``"extension"``        → "Extension components" (default)
     """
     role: JejuneRole | None = None
+    build_image: Callable[[bool], None] | None = None
+    """(no_cache: bool) -> None — builds this component's Docker image.
+
+    When set, main._load_plugins() registers it automatically via register_build().
+    """
+    image_is_built: Callable[[], bool] | None = None
+    """() -> bool — returns True when this component's Docker image already exists."""
 
 
 # Populated at startup by main._load_plugins().  Read by _health.run_all().

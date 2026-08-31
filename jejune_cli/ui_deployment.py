@@ -257,6 +257,23 @@ def _run_compose(deploy_dir: Path, *args: str) -> None:
     sys.exit(_compose_returncode(deploy_dir, *args))
 
 
+def _build_deployment_images(no_cache: bool = False) -> None:
+    if no_cache:
+        subprocess.run(["docker", "builder", "prune", "--force"], check=True)
+    extra = ["--no-cache"] if no_cache else []
+    rc = _compose_returncode(_deployment_dir(None), "build", *extra)
+    if rc != 0:
+        raise SystemExit(rc)
+
+
+from ._build import register_build  # noqa: E402
+register_build(
+    "deployment",
+    _build_deployment_images,
+    is_built=lambda: not _deploy_images_missing(),
+)
+
+
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------

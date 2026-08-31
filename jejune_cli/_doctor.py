@@ -144,20 +144,17 @@ def _build_avail_rows(
 
 
 def _collect_img_status(visible: list[str]) -> dict[str, bool]:
-    """Return {comp: image_built} for components with a custom Docker image."""
+    """Return {comp: image_built} for components with a registered Docker image."""
+    from ._build import _BUILD_REGISTRY
     result: dict[str, bool] = {}
-    if "convert" in visible:
-        from .convert import image_built as _ib
-        result["convert"] = _ib()[0]
-    ui = _UI_PLUGIN_NAMES & set(visible)
-    if ui:
-        try:
-            from .ui_deployment import _deploy_images_missing
-            ok = not _deploy_images_missing()
-            for name in ui:
-                result[name] = ok
-        except Exception:
-            pass
+    for comp in visible:
+        if comp in _BUILD_REGISTRY:
+            _, is_built = _BUILD_REGISTRY[comp]
+            if is_built is not None:
+                try:
+                    result[comp] = is_built()
+                except Exception:
+                    pass
     return result
 
 

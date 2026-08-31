@@ -19,13 +19,12 @@ from ._doctor import (
 )
 from ._next_cmd import next_cmd, register_heuristics
 from ._role_cmd import role
-from .convert import convert, convert_configured, _build_convert_image
+from .convert import convert, convert_configured
 from .plugin import JejunePlugin, _REGISTRY
 from .role import register_role
 from .deployment import deployment
 from .ecosystem import ecosystem
 from .ui_deployment import up as _up_cmd, down as _down_cmd
-from .graph import _build_kg_image as _graph_build_kg_image
 from .configuration import (
     configuration,
     COMPONENT_CONFIG_HINTS as _CONFIG_HINTS,
@@ -240,35 +239,27 @@ for _alias_group, _alias_name, _alias_cmd, _alias_canonical, _ in _ALIASES:
 
 
 # ---------------------------------------------------------------------------
-# Role-dispatching build command
+# Registry-driven build command
 # ---------------------------------------------------------------------------
 
 @cli.command("build")
-@click.argument("deploy_dir_name", required=False, metavar="DEPLOY_DIR_NAME",
-                type=click.Path(exists=True, file_okay=False))
 @click.option("--no-cache", is_flag=True, default=False,
               help="Do not use cache when building images.")
-def build(deploy_dir_name: str | None, no_cache: bool) -> None:
-    """Build Docker images for the current role.
+def build(no_cache: bool) -> None:
+    """Build Docker images for all components in the current role.
 
-    \b
-    doc-steward: builds the knowledge-graph extraction image, and the
-                 convert image when CONVERT_DOC_DIR is configured.
-    deployer:    runs docker compose build (DEPLOY_DIR_NAME defaults to cwd).
+    Each component that owns a Docker image registers its builder automatically.
+    Use `jejune deployment build <dir>` to build a specific deployment directory.
     """
-    from .ui_deployment import build as _deployment_build
-    if _ACTIVE_ROLE == "doc-steward":
-        _graph_build_kg_image(no_cache=no_cache)
-        if convert_configured():
-            _build_convert_image(no_cache=no_cache)
-    elif _ACTIVE_ROLE == "deployer":
-        ctx = click.get_current_context()
-        ctx.invoke(_deployment_build, deploy_dir_name=deploy_dir_name, no_cache=no_cache)
-    else:
+    from ._build import _BUILD_REGISTRY
+    components = role_components(_ACTIVE_ROLES) or set()
+    builders = [(c, fn) for c, (fn, _) in _BUILD_REGISTRY.items() if c in components]
+    if not builders:
         raise click.UsageError(
-            f"'jejune build' is not defined for role {_ACTIVE_ROLE!r}. "
-            f"Use 'jejune graph build' or 'jejune deployment build' directly."
+            f"'jejune build' has no Docker images registered for role {_ACTIVE_ROLE!r}."
         )
+    for _, fn in builders:
+        fn(no_cache)
 
 
 # ---------------------------------------------------------------------------
@@ -298,6 +289,10 @@ def _load_plugins() -> None:
             COMPONENT_CONFIG_HINTS[plugin.name] = plugin.config_hint
         if plugin.role is not None:
             _register_plugin_role(plugin)
+        if plugin.build_image is not None:
+            from ._build import register_build
+            register_build(plugin.name, plugin.build_image,
+                           is_built=plugin.image_is_built)
     for pending_name, pending_stage, pending_order in _PENDING_HELP_SECTIONS:
         if not any(rn == pending_name for rn, _, _ in _ROLE_HELP_SECTIONS):
             insert_at = next(

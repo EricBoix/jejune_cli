@@ -89,6 +89,18 @@ def _build_kg_image(no_cache: bool = False) -> None:
     )
 
 
+def _graph_is_built() -> bool:
+    import subprocess
+    return subprocess.run(
+        ["docker", "image", "inspect", _BUILD_KG_IMAGE],
+        capture_output=True,
+    ).returncode == 0
+
+
+from ._build import register_build  # noqa: E402
+register_build("graph", _build_kg_image, is_built=_graph_is_built)
+
+
 @graph.command("build")
 @click.option("--no-cache", is_flag=True, default=False,
               help="Do not use Docker layer cache when building.")

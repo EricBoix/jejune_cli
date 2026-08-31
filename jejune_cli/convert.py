@@ -149,6 +149,15 @@ def _build_convert_image(no_cache: bool = False) -> None:
     )
 
 
+def _build_if_configured(no_cache: bool = False) -> None:
+    if convert_configured():
+        _build_convert_image(no_cache=no_cache)
+
+
+from ._build import register_build  # noqa: E402
+register_build("convert", _build_if_configured, is_built=lambda: image_built()[0])
+
+
 @convert.command("build")
 @click.option("--no-cache", is_flag=True, default=False,
               help="Do not use Docker layer cache when building.")
