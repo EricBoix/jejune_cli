@@ -72,6 +72,13 @@ def run_all(
         built, msg = _convert_image_built()
         avail.append(("convert", "ok" if built else "warn", msg))
 
+    if _visible("manifest"):
+        from pathlib import Path
+        from .test import _check_doc_yaml
+        errors, _ = _check_doc_yaml(Path.cwd())
+        ok = not errors
+        avail.append(("manifest", "ok" if ok else "warn", "" if ok else f"{len(errors)} error(s) in manifest.yaml"))
+
     if _visible("ecosystem"):
         from .ecosystem import check_contributor_avail
         ok, msg = check_contributor_avail()

@@ -21,6 +21,7 @@ _BASE_COMPONENTS: list[str] = [
     "graph",
     "deployment",
     "convert",
+    "manifest",
 ]
 
 # ---------------------------------------------------------------------------
