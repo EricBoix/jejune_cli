@@ -182,8 +182,14 @@ def build(no_cache: bool):
     show_default=True,
     help="Host directory mounted as /output inside the container.",
 )
+@click.option(
+    "--test",
+    is_flag=True,
+    default=False,
+    help="Run container tests (pytest) instead of converting.",
+)
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
-def run_cmd(output_dir, extra_args):
+def run_cmd(output_dir, test, extra_args):
     """Run the converter container, forwarding EXTRA_ARGS to the entrypoint."""
     image = _image_name()
     built, _ = image_built()
@@ -191,15 +197,21 @@ def run_cmd(output_dir, extra_args):
         raise click.ClickException(
             f"Docker image {image!r} is not built. Run `jejune convert build` first."
         )
-    out = Path(output_dir).resolve()
-    out.mkdir(parents=True, exist_ok=True)
-    subprocess.run(
-        [
-            "docker", "run", "--rm",
-            "-v", f"{out}:/output",
-            image,
-            "--output_directory", "/output",
-            *extra_args,
-        ],
-        check=True,
-    )
+    if test:
+        subprocess.run(
+            ["docker", "run", "--rm", image, "--test", *extra_args],
+            check=True,
+        )
+    else:
+        out = Path(output_dir).resolve()
+        out.mkdir(parents=True, exist_ok=True)
+        subprocess.run(
+            [
+                "docker", "run", "--rm",
+                "-v", f"{out}:/output",
+                image,
+                "--output_directory", "/output",
+                *extra_args,
+            ],
+            check=True,
+        )
