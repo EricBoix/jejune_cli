@@ -15,6 +15,7 @@ from .configuration import (
 _BASE_COMPONENTS: list[str] = [
     "ecosystem",
     "docker",
+    "extensions",
     "neo4j",
     "llm",
     "llm-observability",
@@ -46,6 +47,7 @@ _AVAIL_HINTS: dict[str, str] = {
     "llm":                "run `jejune llm status-config`",
     "llm-observability":  "run `jejune llm-observability start`",
     "convert":            "run `jejune convert build`",
+    "extensions":         "run `jejune deployment extensions install`",
     "docs-server":        "run `jejune deployment extensions install`",
     "kg-viewer":          "run `jejune deployment extensions install`",
     "md-browser":         "run `jejune deployment extensions install`",
@@ -67,9 +69,10 @@ _COMPONENT_OPTIONAL_DEPS: dict[str, list[str]] = {
 # External dependencies: components the user must install/provide (not jejune-managed).
 # Components absent from this dict and not optional are mandatory jejune-managed (blank kind).
 _COMPONENT_KIND: dict[str, str] = {
-    "ecosystem": "dep",
-    "docker":    "dep",
-    "llm":       "dep",
+    "ecosystem":  "dep",
+    "docker":     "dep",
+    "extensions": "dep",
+    "llm":        "dep",
 }
 
 # ---------------------------------------------------------------------------

@@ -53,9 +53,11 @@ def manifest_check_availability():
     click.echo(f"  files  {click.style(label, fg=_STATUS_FG.get(status, 'white'))}")
     _, file_refs = _check_doc_yaml(Path.cwd())
     if file_refs:
+        repo = Path.cwd()
         key_width = max(len(k) for k, _ in file_refs)
         for key, rel in file_refs:
-            click.echo(f"  {key:<{key_width}}  {rel}")
+            fg = None if (repo / rel).exists() else "red"
+            click.echo(f"  {click.style(f'{key:<{key_width}}  {rel}', fg=fg)}")
 
 
 @manifest.command("status-availability")

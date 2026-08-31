@@ -87,6 +87,11 @@ def run_all(
         ok, msg = check_contributor_avail()
         avail.append(("ecosystem", "ok" if ok else "warn", msg))
 
+    if _visible("extensions"):
+        from .deployer_extensions import _extensions_installed
+        ok = _extensions_installed()
+        avail.append(("extensions", "ok" if ok else "error", "" if ok else "not installed"))
+
     for plugin in _REGISTRY:
         if not _visible(plugin.name):
             continue
