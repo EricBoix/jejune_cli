@@ -78,7 +78,7 @@ def run_all(
         cfg_status, cfg_msg = _manifest_config_status(Path.cwd())
         config.append(("manifest", cfg_status, cfg_msg))
         avail_status, avail_msg = _manifest_avail_status(Path.cwd())
-        if cfg_status != "ok" and avail_status == "ok":
+        if cfg_status == "error" and avail_status == "ok":
             avail_status, avail_msg = cfg_status, cfg_msg
         avail.append(("manifest", avail_status, avail_msg))
 
