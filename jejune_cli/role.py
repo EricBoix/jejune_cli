@@ -20,10 +20,10 @@ _DISPLAY_ROLES = ROLES
 _ROLE_COMPONENTS: dict[str, frozenset[str]] = {
     "contributor": frozenset({"ecosystem", "network", "git_repos"}),
     "doc-steward": frozenset(
-        {"docker", "neo4j", "llm", "llm-observability", "graph", "convert", "manifest"}
+        {"docker", "dockerhub", "pypi", "neo4j", "llm", "llm-observability", "graph", "convert", "manifest"}
     ),
     # "deployment" = built-in; UI service names come from installed check/ plugins.
-    "deployer": frozenset({"docker", "extensions", "deployment", "docs-server", "kg-viewer", "md-browser"}),
+    "deployer": frozenset({"docker", "extensions", "catalog", "deployment", "docs-server", "kg-viewer", "md-browser"}),
 }
 
 _ROLE_INCLUDES: dict[str, tuple[str, ...]] = {
