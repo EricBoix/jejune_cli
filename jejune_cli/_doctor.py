@@ -57,9 +57,9 @@ _AVAIL_HINTS: dict[str, str] = {
     "llm-observability":  "run `jejune llm-observability start`",
     "convert":            "run `jejune convert build`",
     "extensions":         "run `jejune deployment extensions install`",
-    "docs-server":        "run `jejune deployment extensions install`",
-    "kg-viewer":          "run `jejune deployment extensions install`",
-    "md-browser":         "run `jejune deployment extensions install`",
+    "docs-server":        "run `jejune deployment install`",
+    "kg-viewer":          "run `jejune deployment install`",
+    "md-browser":         "run `jejune deployment install`",
 }
 
 _UI_PLUGIN_NAMES: frozenset[str] = frozenset(("docs-server", "kg-viewer", "md-browser"))
