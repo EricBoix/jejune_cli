@@ -104,6 +104,11 @@ _COMPONENT_KIND: dict[str, str] = {
 # Visibility predicates: when the predicate returns False the component is hidden.
 _COMPONENT_VISIBLE: dict[str, Callable[[], bool]] = {}
 
+# Components hidden from the default doctor output when they are available.
+_HIDE_WHEN_AVAILABLE: frozenset[str] = frozenset(
+    ("network", "git-command", "git-repos-access", "docker", "extensions")
+)
+
 
 def _init_visibility() -> None:
     from .ecosystem import ecosystem_needs_remote
@@ -314,7 +319,8 @@ def _print_health_table(
 # ---------------------------------------------------------------------------
 
 @click.command()
-def doctor():
+@click.option("--verbose", is_flag=True, default=False, help="Show all components, including those that are available.")
+def doctor(verbose: bool):
     """Report component configuration and availability. Inspired by `brew doctor`.
 
     Two-stage check:\n
@@ -323,6 +329,8 @@ def doctor():
 
     Followed by a Components summary showing which commands each enables.
     Only components relevant to the detected role are shown.
+    External infrastructure components (network, git-command, git-repos-access,
+    docker, extensions) are hidden when available; use --verbose to show all.
     """
     from ._env import dot_jejune
     from .plugin import _REGISTRY
@@ -387,6 +395,13 @@ def doctor():
     role_label = f" [{active_role}]" if active_role else ""
     click.echo(click.style(f"jejune doctor{role_label}", bold=True))
     click.echo()
+
+    if not verbose:
+        avail_ok = {comp for comp, status, _, _ in avail_rows if status == "ok"}
+        config_rows = [
+            row for row in config_rows
+            if row[0] not in _HIDE_WHEN_AVAILABLE or row[0] not in avail_ok
+        ]
 
     img_status = _collect_img_status(visible_components)
     _print_health_table(config_rows, avail_rows, img_status)
