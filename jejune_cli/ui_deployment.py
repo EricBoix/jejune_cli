@@ -113,6 +113,11 @@ def _deploy_catalog_check_fails() -> bool:
         return False
 
 
+def _deployment_installed() -> bool:
+    from ._next_cmd import _is_deployment_installed
+    return _is_deployment_installed()
+
+
 register_precondition("deployer role detected",        _is_deployer_cwd)
 register_precondition("deployment config is default",  _deploy_config_is_default)
 register_precondition("deployment images missing",     _deploy_images_missing)
@@ -154,7 +159,7 @@ register_heuristic(HeuristicStep(
 
 register_heuristic(HeuristicStep(
     label="Build deployment", command="jejune build", order=10,
-    conditions=[_is_deployer_cwd, check_docker, _deploy_images_missing],
+    conditions=[_is_deployer_cwd, check_docker, _deploy_images_missing, _deployment_installed],
     anti_conditions=[_deploy_catalog_check_fails],
 ), roles={"deployer"})
 

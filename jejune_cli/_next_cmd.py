@@ -150,6 +150,31 @@ def _manifest_ok() -> bool:
     return not errors
 
 
+def _is_catalog_installed() -> bool:
+    try:
+        from jejune_catalog._commands import _load_catalog_docs
+        from .ecosystem import repo_status, resolve_dirs
+    except ImportError:
+        return True  # catalog plugin absent — nothing to install
+    try:
+        docs = _load_catalog_docs(None)
+    except Exception:
+        return True  # no catalog.yaml → nothing to install
+    try:
+        eco_root, eco_tmp = resolve_dirs()
+        return all(
+            repo_status(doc["name"], eco_root, eco_tmp)[0] in ("root", "tmp")
+            for doc in docs
+        )
+    except Exception:
+        return False
+
+
+def _is_deployment_installed() -> bool:
+    from .deployer_extensions import _extensions_installed
+    return _is_catalog_installed() and _extensions_installed()
+
+
 # ---------------------------------------------------------------------------
 # Registration — called from main.py after plugins are loaded so ROLES is
 # complete (plugins may register additional roles).
@@ -160,9 +185,16 @@ def register_heuristics() -> None:
     from .role import ROLES
 
     register_precondition("role set", _is_role_set)
+    register_precondition("deployment installed", _is_deployment_installed)
 
     register_command_precondition("jejune neo4j dump-turtle", _neo4j_running)
     register_command_precondition("jejune graph split", _manifest_ok)
+
+    register_heuristic(HeuristicStep(
+        label="Install deployment",
+        command="jejune deployment install",
+        anti_conditions=[_is_deployment_installed],
+    ), roles={"deployer"})
 
     register_heuristic(HeuristicStep(
         label="Check the role",
