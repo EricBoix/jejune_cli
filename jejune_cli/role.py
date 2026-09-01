@@ -18,7 +18,7 @@ ROLES: list[str] = ["doc-steward", "deployer", "contributor"]
 _DISPLAY_ROLES = ROLES
 
 _ROLE_COMPONENTS: dict[str, frozenset[str]] = {
-    "contributor": frozenset({"ecosystem", "network", "git_repos"}),
+    "contributor": frozenset({"ecosystem", "network", "git-command", "git-repos-access"}),
     "doc-steward": frozenset(
         {"docker", "dockerhub", "pypi", "neo4j", "llm", "llm-observability", "graph", "convert", "manifest"}
     ),

@@ -17,7 +17,8 @@ from .configuration import (
 _BASE_COMPONENTS: list[str] = [
     "ecosystem",
     "network",
-    "git_repos",
+    "git-command",
+    "git-repos-access",
     "docker",
     "dockerhub",
     "pypi",
@@ -49,7 +50,7 @@ _STATUS_ICON: dict[str, tuple[str, str]] = {
 
 _AVAIL_HINTS: dict[str, str] = {
     "network":            "check internet connectivity (GitHub must be reachable)",
-    "git_repos":          "install git (https://git-scm.com)",
+    "git-command":        "install git (https://git-scm.com)",
     "docker":             "install docker (https://docs.docker.com/get-docker/)",
     "neo4j":              "run `jejune neo4j start --help`",
     "llm":                "run `jejune llm status-config`",
@@ -65,14 +66,14 @@ _UI_PLUGIN_NAMES: frozenset[str] = frozenset(("docs-server", "kg-viewer", "md-br
 
 # Required dependencies: a component is only effective when all its deps are ok.
 _COMPONENT_DEPS: dict[str, list[str]] = {
-    "git_repos":    ["network"],
+    "git-repos-access": ["network", "git-command"],
     "dockerhub":    ["network"],
     "pypi":         ["network"],
-    "ecosystem":    ["git_repos"],
-    "extensions":   ["git_repos"],
-    "neo4j":        ["git_repos", "dockerhub"],
+    "ecosystem":    ["git-repos-access"],
+    "extensions":   ["git-repos-access"],
+    "neo4j":        ["git-repos-access", "dockerhub"],
     "llm":          ["network"],
-    "graph":        ["git_repos", "neo4j", "llm"],
+    "graph":        ["git-repos-access", "neo4j", "llm"],
     "catalog":      ["ecosystem"],
     "deployment":   ["catalog"],
     "convert":      ["pypi"],
@@ -89,8 +90,9 @@ _COMPONENT_OPTIONAL_DEPS: dict[str, list[str]] = {
 # External dependencies: components the user must install/provide (not jejune-managed).
 # Components absent from this dict and not optional are mandatory jejune-managed (blank kind).
 _COMPONENT_KIND: dict[str, str] = {
-    "network":    "dep",
-    "git_repos":  "dep",
+    "network":          "dep",
+    "git-command":      "dep",
+    "git-repos-access": "dep",
     "ecosystem":  "dep",
     "docker":     "dep",
     "dockerhub":  "dep",
@@ -105,8 +107,9 @@ _COMPONENT_VISIBLE: dict[str, Callable[[], bool]] = {}
 
 def _init_visibility() -> None:
     from .ecosystem import ecosystem_needs_remote
-    _COMPONENT_VISIBLE["network"]   = ecosystem_needs_remote
-    _COMPONENT_VISIBLE["git_repos"] = ecosystem_needs_remote
+    _COMPONENT_VISIBLE["network"]          = ecosystem_needs_remote
+    _COMPONENT_VISIBLE["git-command"]      = ecosystem_needs_remote
+    _COMPONENT_VISIBLE["git-repos-access"] = ecosystem_needs_remote
 
 
 _init_visibility()

@@ -1,4 +1,4 @@
-"""Git availability check for the `git_repos` doctor component."""
+"""Git CLI presence check for the `git-command` doctor component."""
 
 import subprocess
 

@@ -83,7 +83,7 @@ def run_all(
             avail_status, avail_msg = cfg_status, cfg_msg
         avail.append(("manifest", avail_status, avail_msg))
 
-    if _visible("network") or _visible("git_repos"):
+    if _visible("network") or _visible("git-command") or _visible("git-repos-access"):
         _remote = _ecosystem_needs_remote()
     else:
         _remote = False
@@ -104,10 +104,10 @@ def run_all(
         ok, msg = _check_pypi()
         avail.append(("pypi", "ok" if ok else "error", msg))
 
-    if _visible("git_repos") and _remote:
-        from .git_repos import check_git as _check_git
+    if _visible("git-command") and _remote:
+        from .git_command import check_git as _check_git
         ok = _check_git()
-        avail.append(("git_repos", "ok" if ok else "error",
+        avail.append(("git-command", "ok" if ok else "error",
                       "" if ok else "git not found on PATH"))
 
     if _visible("extensions"):
