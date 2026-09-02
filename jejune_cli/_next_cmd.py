@@ -192,7 +192,7 @@ def _is_catalog_contributor_cwd() -> bool:
         return False
 
 
-def _is_jejune_project_cwd() -> bool:
+def _is_jejune_workspace_cwd() -> bool:
     from .ui_deployment import _is_deployer_cwd
     return _is_document_cwd() or _is_deployer_cwd() or _is_catalog_contributor_cwd()
 
@@ -219,21 +219,21 @@ def register_heuristics() -> None:
     register_command_precondition("jejune graph split", _manifest_ok)
 
     register_heuristic(HeuristicStep(
-        label="Connect to jejune document/deployment directory",
+        label="Connect to a jejune workspace directory",
         command="cd <jejune_doc_or_deploy_dir>",
-        anti_conditions=[_is_jejune_project_cwd],
+        anti_conditions=[_is_jejune_workspace_cwd],
     ), roles={None})
 
     register_heuristic(HeuristicStep(
-        label="Create document directory",
-        command="jejune configuration doc-steward init",
-        anti_conditions=[_is_jejune_project_cwd],
+        label="Create document workspace directory",
+        command="jejune document init --help",
+        anti_conditions=[_is_jejune_workspace_cwd],
     ), roles={None})
 
     register_heuristic(HeuristicStep(
-        label="Create deployment directory",
-        command="jejune deployment init",
-        anti_conditions=[_is_jejune_project_cwd],
+        label="Create deployment workspace directory",
+        command="jejune deployment init --help",
+        anti_conditions=[_is_jejune_workspace_cwd],
     ), roles={None})
 
     from .ui_deployment import _is_deployer_cwd

@@ -30,15 +30,27 @@ COMPONENT_CONFIG_HINTS: dict[str, str] = {
 }
 
 
-@click.command("init")
-def init():
-    """Write jejune scaffold files into .jejune/ in the current directory.
+class _DocStewardInit(click.Command):
+    def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        formatter.write_usage(
+            ctx.command_path,
+            "[OPTIONS] [DIR_NAME]",
+            prefix="Usage [doc-steward]: ",
+        )
 
+
+@click.command("init", cls=_DocStewardInit)
+@click.argument("dir_name", required=False, metavar="DIR_NAME")
+def init(dir_name: str | None) -> None:
+    """Write jejune scaffold files into .jejune/ in DIR_NAME.
+
+    DIR_NAME defaults to the current directory when omitted.
     Creates .jejune/env-config, .jejune/env-secrets, and .jejune/ecosystem-env-config
     from built-in templates.
     Adds .jejune to .gitignore so the whole directory stays local by default.
     """
-    d = dot_jejune()
+    target = Path(dir_name) if dir_name else Path.cwd()
+    d = dot_jejune(target)
     d.mkdir(exist_ok=True)
 
     created = []
@@ -63,7 +75,7 @@ def init():
     for f in skipped:
         click.echo(click.style(f"  skipped  .jejune/{f} (already exists)", fg="yellow"))
 
-    gitignore = Path.cwd() / ".gitignore"
+    gitignore = target / ".gitignore"
     entry = ".jejune\n"
     if not gitignore.exists() or ".jejune" not in gitignore.read_text().splitlines():
         with gitignore.open("a") as fh:
@@ -73,5 +85,8 @@ def init():
     if not _extension_installed():
         click.echo("\nInstalling catalog-contributor extension...")
         _do_extension_install()
+
+    if dir_name and dir_name not in (".", str(Path.cwd())) and target.resolve() != Path.cwd().resolve():
+        click.echo(f"  cd {dir_name}")
 
     print_next_steps()

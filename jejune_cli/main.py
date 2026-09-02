@@ -24,6 +24,8 @@ from .plugin import JejunePlugin, _REGISTRY
 from .role import register_role
 from .deployment import deployment
 from .ecosystem import ecosystem
+
+document = click.Group("document", help="Document workspace commands.")
 from .ui_deployment import up as _up_cmd, down as _down_cmd
 from .configuration import (
     configuration,
@@ -41,6 +43,7 @@ from .manifest import manifest
 from .llm_observability import llm_observability
 from .neo4j import neo4j
 from .configuration_deployer import init as _deployer_init
+from .configuration_doc_steward import init as _doc_steward_init
 from .next_steps import has_heuristics_for_role, command_viable, register_command_precondition, print_next_steps
 from .role import detect_roles, role_components, ROLES, ROLE_SECTION_TITLE, _ROLE_INCLUDES, build_hierarchy_lines, _PENDING_HELP_SECTIONS
 
@@ -195,6 +198,7 @@ cli.add_command(llm_observability)
 cli.add_command(graph)
 cli.add_command(manifest)
 cli.add_command(deployment)
+cli.add_command(document)
 cli.add_command(ecosystem)
 cli.add_command(convert)
 cli.add_command(availability)
@@ -207,7 +211,8 @@ cli.add_command(next_cmd, "next")
 # ---------------------------------------------------------------------------
 
 _ALIASES: list[tuple[click.Group, str, click.BaseCommand, str, str]] = [
-    (deployment, "init", _deployer_init, "configuration deployer init", "deployer"),
+    (deployment, "init", _deployer_init,    "configuration deployer init",    "deployer"),
+    (document,   "init", _doc_steward_init, "configuration doc-steward init", "doc-steward"),
     (cli,        "up",   _up_cmd,        "deployment up",               "deployer"),
     (cli,        "down", _down_cmd,      "deployment down",             "deployer"),
 ]
