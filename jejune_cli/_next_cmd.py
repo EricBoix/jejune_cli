@@ -236,6 +236,7 @@ def register_heuristics() -> None:
         anti_conditions=[_is_jejune_workspace_cwd],
     ), roles={None})
 
+    from ._doctor import requires_component
     from .ui_deployment import _is_deployer_cwd
     register_heuristic(HeuristicStep(
         label="Install deployment",
@@ -248,14 +249,14 @@ def register_heuristics() -> None:
         label="Start Neo4j",
         command="jejune neo4j start --help",
         order=10,
-        conditions=[_neo4j_configured],
+        conditions=[requires_component("neo4j"), _neo4j_configured],
         anti_conditions=[_neo4j_running],
     ), roles={"doc-steward"})
 
     register_heuristic(HeuristicStep(
         label="Extract the knowledge graph",
         command=_graph_extract_command,
-        conditions=[_graph_available],
+        conditions=[requires_component("graph"), _graph_available],
         anti_conditions=[_neo4j_not_empty],
     ), roles={"doc-steward"})
 

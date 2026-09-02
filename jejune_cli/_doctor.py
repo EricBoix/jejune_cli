@@ -20,8 +20,8 @@ _BASE_COMPONENTS: list[str] = [
     "git-command",
     "git-repos-access",
     "docker",
-    "dockerhub",
-    "pypi",
+    "docker-hub-server",
+    "pypi-server",
     "uv-command",
     "extensions",
     "neo4j",
@@ -69,16 +69,16 @@ _UI_PLUGIN_NAMES: frozenset[str] = frozenset(("docs-server", "kg-viewer", "md-br
 # Required dependencies: a component is only effective when all its deps are ok.
 _COMPONENT_DEPS: dict[str, list[str]] = {
     "git-repos-access": ["network", "git-command"],
-    "dockerhub":    ["network"],
-    "pypi":         ["network"],
+    "docker-hub-server": ["network"],
+    "pypi-server":  ["network"],
     "ecosystem":    ["git-repos-access"],
     "extensions":   ["git-repos-access", "uv-command"],
-    "neo4j":        ["git-repos-access", "dockerhub"],
+    "neo4j":        ["git-repos-access", "docker-hub-server"],
     "llm":          ["network"],
     "graph":        ["git-repos-access", "neo4j", "llm"],
     "catalog":      ["ecosystem"],
     "deployment":   ["catalog"],
-    "convert":      ["pypi"],
+    "convert":      ["pypi-server"],
     "docs-server":  ["ecosystem", "docker"],
     "kg-viewer":    ["ecosystem", "docker"],
     "md-browser":   ["ecosystem", "docker"],
@@ -97,8 +97,8 @@ _COMPONENT_KIND: dict[str, str] = {
     "git-repos-access": "dep",
     "ecosystem":  "dep",
     "docker":     "dep",
-    "dockerhub":  "dep",
-    "pypi":       "dep",
+    "docker-hub-server": "dep",
+    "pypi-server": "dep",
     "uv-command": "dep",
     "extensions": "dep",
     "llm":        "dep",
@@ -121,6 +121,58 @@ def _init_visibility() -> None:
 
 
 _init_visibility()
+
+# ---------------------------------------------------------------------------
+# Component availability registry
+# ---------------------------------------------------------------------------
+
+_COMPONENT_AVAIL: dict[str, Callable[[], bool]] = {}
+_COMPONENT_AVAIL_INITIALIZED = False
+
+
+def _init_component_avail() -> None:
+    global _COMPONENT_AVAIL_INITIALIZED
+    if _COMPONENT_AVAIL_INITIALIZED:
+        return
+    _COMPONENT_AVAIL_INITIALIZED = True
+    from .network         import is_network_available
+    from .git_command     import is_git_command_available
+    from .uv_command      import is_uv_command_available
+    from .docker_command  import is_docker_command_available
+    from .docker_hub_server import is_docker_hub_server_available
+    from .pypi_server     import is_pypi_server_available
+    from .deployer_extensions import _extensions_installed
+    _COMPONENT_AVAIL["network"]          = is_network_available
+    _COMPONENT_AVAIL["git-command"]      = is_git_command_available
+    _COMPONENT_AVAIL["uv-command"]       = is_uv_command_available
+    _COMPONENT_AVAIL["docker"]           = is_docker_command_available
+    _COMPONENT_AVAIL["docker-hub-server"] = is_docker_hub_server_available
+    _COMPONENT_AVAIL["pypi-server"]      = is_pypi_server_available
+    _COMPONENT_AVAIL["extensions"]       = _extensions_installed
+
+
+def component_available(name: str, _seen: set[str] | None = None) -> bool:
+    """Return True if *name* and all its transitive deps in _COMPONENT_DEPS are available."""
+    _init_component_avail()
+    if _seen is None:
+        _seen = set()
+    if name in _seen:
+        return True
+    _seen.add(name)
+    for dep in _COMPONENT_DEPS.get(name, []):
+        if not component_available(dep, _seen):
+            return False
+    fn = _COMPONENT_AVAIL.get(name)
+    return fn() if fn else True
+
+
+def requires_component(name: str) -> Callable[[], bool]:
+    """Return a named condition predicate that checks *name* and its transitive deps."""
+    def _check() -> bool:
+        return component_available(name)
+    _check.__name__ = f"{name.replace('-', '_')}_available"
+    return _check
+
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -36,7 +36,7 @@ def run_all(
         config.append((group, status, msg))
 
     if _visible("docker"):
-        from .ecosystem import check_docker as _check_docker
+        from .docker_command import is_docker_command_available as _check_docker
         config.append(("docker", "ok", ""))
         ok = _check_docker()
         avail.append(("docker", "ok" if ok else "error", "" if ok else "docker not found on PATH"))
@@ -89,30 +89,30 @@ def run_all(
         _remote = False
 
     if _visible("network") and _remote:
-        from .network import check_network as _check_network
-        ok = _check_network()
+        from .network import is_network_available as _is_network_available
+        ok = _is_network_available()
         avail.append(("network", "ok" if ok else "error",
                       "" if ok else "GitHub not reachable"))
 
-    if _visible("dockerhub"):
-        from .dockerhub import check_dockerhub as _check_dockerhub
-        ok, msg = _check_dockerhub()
-        avail.append(("dockerhub", "ok" if ok else "error", msg))
+    if _visible("docker-hub-server"):
+        from .docker_hub_server import check_docker_hub_server
+        ok, msg = check_docker_hub_server()
+        avail.append(("docker-hub-server", "ok" if ok else "error", msg))
 
-    if _visible("pypi"):
-        from .pypi import check_pypi as _check_pypi
-        ok, msg = _check_pypi()
-        avail.append(("pypi", "ok" if ok else "error", msg))
+    if _visible("pypi-server"):
+        from .pypi_server import check_pypi_server as _check_pypi_server
+        ok, msg = _check_pypi_server()
+        avail.append(("pypi-server", "ok" if ok else "error", msg))
 
     if _visible("git-command") and _remote:
-        from .git_command import check_git as _check_git
-        ok = _check_git()
+        from .git_command import is_git_command_available as _is_git_command_available
+        ok = _is_git_command_available()
         avail.append(("git-command", "ok" if ok else "error",
                       "" if ok else "git not found on PATH"))
 
     if _visible("uv-command"):
-        from .ecosystem import check_uv as _check_uv
-        ok = _check_uv()
+        from .uv_command import is_uv_command_available as _is_uv_command_available
+        ok = _is_uv_command_available()
         avail.append(("uv-command", "ok" if ok else "error",
                       "" if ok else "uv not found on PATH"))
 

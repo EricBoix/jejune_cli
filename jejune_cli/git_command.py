@@ -3,7 +3,7 @@
 import subprocess
 
 
-def check_git() -> bool:
+def is_git_command_available() -> bool:
     """Return True if git is available on PATH."""
     try:
         subprocess.run(["git", "--version"], capture_output=True, check=True)

@@ -14,7 +14,11 @@ from .deployer_extensions import (
     _DEPLOYER_CHECK_PACKAGES,
     _extensions_installed,
 )
-from .ecosystem import check_docker, check_uv
+from .docker_command import is_docker_command_available as check_docker
+from .uv_command import is_uv_command_available  # noqa: F401 — re-exported for external use
+from ._doctor import requires_component
+
+_extensions_available = requires_component("extensions")
 from .next_steps import HeuristicStep, print_next_steps, register_heuristic, register_precondition, register_role_ordering
 
 _TEMPLATES = Path(__file__).parent / "templates"
@@ -172,13 +176,13 @@ register_heuristic(HeuristicStep(
 register_heuristic(HeuristicStep(
     label="Install deployer CLI extensions",
     command="jejune deployment extensions install", order=22,
-    conditions=[_is_deployer_cwd, check_uv, _deploy_containers_running],
+    conditions=[_is_deployer_cwd, _extensions_available, _deploy_containers_running],
     anti_conditions=[_extensions_installed],
 ), roles={"deployer"})
 
 register_heuristic(HeuristicStep(
     label="Check deployment status", command="jejune deployment status", order=25,
-    conditions=[_is_deployer_cwd, check_uv, _deploy_containers_running, _extensions_installed],
+    conditions=[_is_deployer_cwd, _extensions_available, _deploy_containers_running, _extensions_installed],
     anti_conditions=[_deploy_services_available],
 ), roles={"deployer"})
 

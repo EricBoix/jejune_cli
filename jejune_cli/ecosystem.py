@@ -144,26 +144,11 @@ def ecosystem_needs_remote() -> bool:
     )
 
 
-def check_docker() -> bool:
-    """Return True if docker is available on PATH."""
-    try:
-        subprocess.run(["docker", "info"], capture_output=True, check=True)
-        return True
-    except Exception:
-        return False
+from .docker_command import is_docker_command_available
+from .uv_command import is_uv_command_available
 
-
-def check_uv() -> bool:
-    """Return True if uv is available on PATH."""
-    try:
-        subprocess.run(["uv", "--version"], capture_output=True, check=True)
-        return True
-    except Exception:
-        return False
-
-
-register_precondition("docker available", check_docker)
-register_precondition("uv available",     check_uv)
+register_precondition("docker available", is_docker_command_available)
+register_precondition("uv available",     is_uv_command_available)
 
 
 # ---------------------------------------------------------------------------
