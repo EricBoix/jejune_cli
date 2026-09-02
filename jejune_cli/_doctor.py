@@ -22,6 +22,7 @@ _BASE_COMPONENTS: list[str] = [
     "docker",
     "dockerhub",
     "pypi",
+    "uv-command",
     "extensions",
     "neo4j",
     "llm",
@@ -56,7 +57,8 @@ _AVAIL_HINTS: dict[str, str] = {
     "llm":                "run `jejune llm status-config`",
     "llm-observability":  "run `jejune llm-observability start`",
     "convert":            "run `jejune convert build`",
-    "extensions":         "run `jejune deployment extensions install`",
+    "uv-command":         "install uv (https://docs.astral.sh/uv/getting-started/installation/)",
+    "extensions":         "run `jejune deployment install`",
     "docs-server":        "run `jejune deployment install`",
     "kg-viewer":          "run `jejune deployment install`",
     "md-browser":         "run `jejune deployment install`",
@@ -70,7 +72,7 @@ _COMPONENT_DEPS: dict[str, list[str]] = {
     "dockerhub":    ["network"],
     "pypi":         ["network"],
     "ecosystem":    ["git-repos-access"],
-    "extensions":   ["git-repos-access"],
+    "extensions":   ["git-repos-access", "uv-command"],
     "neo4j":        ["git-repos-access", "dockerhub"],
     "llm":          ["network"],
     "graph":        ["git-repos-access", "neo4j", "llm"],
@@ -97,6 +99,7 @@ _COMPONENT_KIND: dict[str, str] = {
     "docker":     "dep",
     "dockerhub":  "dep",
     "pypi":       "dep",
+    "uv-command": "dep",
     "extensions": "dep",
     "llm":        "dep",
 }
@@ -106,7 +109,7 @@ _COMPONENT_VISIBLE: dict[str, Callable[[], bool]] = {}
 
 # Components hidden from the default doctor output when they are available.
 _HIDE_WHEN_AVAILABLE: frozenset[str] = frozenset(
-    ("network", "git-command", "git-repos-access", "docker", "extensions")
+    ("network", "git-command", "git-repos-access", "docker", "uv-command", "extensions")
 )
 
 

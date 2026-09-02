@@ -23,7 +23,7 @@ _ROLE_COMPONENTS: dict[str, frozenset[str]] = {
         {"docker", "dockerhub", "pypi", "neo4j", "llm", "llm-observability", "graph", "convert", "manifest"}
     ),
     # "deployment" = built-in; UI service names come from installed check/ plugins.
-    "deployer": frozenset({"docker", "extensions", "catalog", "deployment", "docs-server", "kg-viewer", "md-browser"}),
+    "deployer": frozenset({"docker", "uv-command", "extensions", "catalog", "deployment", "docs-server", "kg-viewer", "md-browser"}),
 }
 
 _ROLE_INCLUDES: dict[str, tuple[str, ...]] = {

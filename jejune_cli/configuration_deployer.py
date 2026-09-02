@@ -23,10 +23,13 @@ def init(dir_name: str | None) -> None:
     DIR_NAME defaults to the name of the current directory when omitted.
     """
     from pathlib import Path
+    from .next_steps import print_next_steps
     from .ui_deployment import ui_configure
     effective_name = dir_name or Path.cwd().name
     click.get_current_context().invoke(
         ui_configure, deployments_dir=".", name=effective_name
     )
+    cd_hint = None
     if dir_name and dir_name not in (".", str(Path.cwd())):
-        click.echo(f"  cd {effective_name}")
+        cd_hint = [f"First: cd {effective_name}"]
+    print_next_steps(preamble=cd_hint)

@@ -86,7 +86,7 @@ def init(dir_name: str | None) -> None:
         click.echo("\nInstalling catalog-contributor extension...")
         _do_extension_install()
 
+    cd_hint = None
     if dir_name and dir_name not in (".", str(Path.cwd())) and target.resolve() != Path.cwd().resolve():
-        click.echo(f"  cd {dir_name}")
-
-    print_next_steps()
+        cd_hint = [f"First: cd {dir_name}"]
+    print_next_steps(preamble=cd_hint)

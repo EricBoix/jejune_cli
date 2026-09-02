@@ -146,13 +146,14 @@ def evaluate(
 def print_next_steps(
     cwd: Path | None = None,
     ordering: dict[str, int] | None = None,
+    preamble: list[str] | None = None,
 ) -> None:
     """Evaluate and print heuristic next steps. Silent if none apply."""
     global _next_steps_printed
     if _next_steps_printed:
         return
     steps = evaluate(cwd, ordering=ordering)
-    if not steps:
+    if not steps and not preamble:
         return
     _next_steps_printed = True
     click.echo()
@@ -162,6 +163,11 @@ def print_next_steps(
         title = "Next steps"
     click.echo(click.style(f"  {title}", bold=True))
     click.echo("  " + "─" * len(title))
+    if preamble:
+        for line in preamble:
+            click.echo(f"  {line}")
+    if preamble and steps:
+        click.echo(f"  Then:")
     for s in steps:
         cmd = s.resolved_command()
         suffix = f"  →  {cmd}" if cmd else ""

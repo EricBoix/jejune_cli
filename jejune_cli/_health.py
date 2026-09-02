@@ -110,6 +110,12 @@ def run_all(
         avail.append(("git-command", "ok" if ok else "error",
                       "" if ok else "git not found on PATH"))
 
+    if _visible("uv-command"):
+        from .ecosystem import check_uv as _check_uv
+        ok = _check_uv()
+        avail.append(("uv-command", "ok" if ok else "error",
+                      "" if ok else "uv not found on PATH"))
+
     if _visible("extensions"):
         from .deployer_extensions import _extensions_installed
         ok = _extensions_installed()
