@@ -172,6 +172,39 @@ def _is_deployment_installed() -> bool:
     return _is_catalog_installed() and _extensions_installed()
 
 
+def _is_catalog_contributor_cwd() -> bool:
+    """True when role is catalog-contributor, cwd is a git clone, and the repo is jejune_catalog."""
+    import subprocess
+    from pathlib import Path
+    from .role import detect_role
+    role, _ = detect_role()
+    if role != "catalog-contributor":
+        return False
+    if not (Path.cwd() / ".git").exists():
+        return False
+    try:
+        url = subprocess.check_output(
+            ["git", "remote", "get-url", "origin"],
+            cwd=Path.cwd(), stderr=subprocess.DEVNULL, text=True,
+        ).strip()
+        return url.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git") == "jejune_catalog"
+    except Exception:
+        return False
+
+
+def _is_jejune_project_cwd() -> bool:
+    from .ui_deployment import _is_deployer_cwd
+    return _is_document_cwd() or _is_deployer_cwd() or _is_catalog_contributor_cwd()
+
+
+def _is_document_cwd() -> bool:
+    """True when the role is doc-steward and catalog.yaml exists in cwd."""
+    from pathlib import Path
+    from .role import detect_role
+    role, _ = detect_role()
+    return role == "doc-steward" and (Path.cwd() / "catalog.yaml").is_file()
+
+
 # ---------------------------------------------------------------------------
 # Registration — called from main.py after plugins are loaded so ROLES is
 # complete (plugins may register additional roles).
@@ -186,8 +219,28 @@ def register_heuristics() -> None:
     register_command_precondition("jejune graph split", _manifest_ok)
 
     register_heuristic(HeuristicStep(
+        label="Connect to jejune document/deployment directory",
+        command="cd <jejune_doc_or_deploy_dir>",
+        anti_conditions=[_is_jejune_project_cwd],
+    ), roles={None})
+
+    register_heuristic(HeuristicStep(
+        label="Create document directory",
+        command="jejune configuration doc-steward init",
+        anti_conditions=[_is_jejune_project_cwd],
+    ), roles={None})
+
+    register_heuristic(HeuristicStep(
+        label="Create deployment directory",
+        command="jejune deployment init",
+        anti_conditions=[_is_jejune_project_cwd],
+    ), roles={None})
+
+    from .ui_deployment import _is_deployer_cwd
+    register_heuristic(HeuristicStep(
         label="Install deployment",
         command="jejune deployment install",
+        conditions=[_is_deployer_cwd],
         anti_conditions=[_is_deployment_installed],
     ), roles={"deployer"})
 

@@ -2,7 +2,7 @@
 import click
 
 from ._env import dot_jejune
-from .role import _ABSTRACT_ROLES, ROLES, build_hierarchy_lines, detect_role, detect_roles, role_components
+from .role import _ABSTRACT_ROLES, ROLES, build_hierarchy_lines, detect_roles, role_components
 
 
 @click.group(invoke_without_command=True, short_help="Show or list roles")
@@ -14,8 +14,7 @@ def role(ctx):
     """
     if ctx.invoked_subcommand is not None:
         return
-    active_roles = detect_roles()
-    _, active_role_reason = detect_role()
+    active_roles, active_role_reason = detect_roles()
     active_components = role_components(active_roles)
     if active_roles:
         click.echo(f"role:   {click.style(', '.join(active_roles), fg='cyan')}")

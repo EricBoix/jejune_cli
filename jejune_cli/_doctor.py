@@ -183,7 +183,8 @@ def _is_visible(name: str) -> bool:
     if pred is not None and not pred():
         return False
     from .role import detect_roles, role_components
-    active = role_components(detect_roles())
+    roles, _ = detect_roles()
+    active = role_components(roles)
     return active is None or name in active
 
 
@@ -337,7 +338,8 @@ def doctor(verbose: bool):
     from .role import detect_role, detect_roles, role_components
 
     active_role, _ = detect_role()
-    active_components = role_components(detect_roles())
+    active_roles, _ = detect_roles()
+    active_components = role_components(active_roles)
 
     d = dot_jejune()
     if active_role in (None, "doc-steward") and not d.is_dir():
@@ -416,7 +418,8 @@ def doctor(verbose: bool):
 
 def _active_components():
     from .role import detect_roles, role_components
-    return role_components(detect_roles())
+    roles, _ = detect_roles()
+    return role_components(roles)
 
 
 @click.command("check-availability")

@@ -88,50 +88,36 @@ def register_role(role: "JejuneRole") -> None:
         )
 
 
-def detect_roles() -> list[str]:
-    """Return all valid roles listed in .jejune/role (or the single detected role)."""
-    override = os.environ.get("JEJUNE_ROLE")
-    if override:
-        return [override] if override in ROLES else []
-    try:
-        cwd = Path.cwd()
-    except FileNotFoundError:
-        return []
-    role_file = cwd / ".jejune" / "role"
-    if role_file.is_file():
-        return [r.strip() for r in role_file.read_text().strip().split(",")
-                if r.strip() in ROLES]
-    primary, _ = detect_role()
-    return [primary] if primary else []
-
-
-def detect_role() -> tuple[str | None, str]:
-    """Return (role, reason). Override with JEJUNE_ROLE env var."""
+def detect_roles() -> tuple[list[str], str]:
+    """Return (roles, reason). Roles are all valid entries from .jejune/role, or a single auto-detected role."""
     override = os.environ.get("JEJUNE_ROLE")
     if override:
         if override in ROLES:
-            return override, f"JEJUNE_ROLE={override}"
-        return None, f"JEJUNE_ROLE={override!r} is not a known role (ignored)"
+            return [override], f"JEJUNE_ROLE={override}"
+        return [], f"JEJUNE_ROLE={override!r} is not a known role (ignored)"
     try:
         cwd = Path.cwd()
     except FileNotFoundError:
-        return None, "current directory is inaccessible"
+        return [], "current directory is inaccessible"
     role_file = cwd / ".jejune" / "role"
     if role_file.is_file():
-        role = role_file.read_text().strip().split(",")[0].strip()
-        if role in ROLES:
-            return role, ".jejune/role"
-    if (cwd / "docker-compose.yml").exists():
-        return "deployer", _ROLE_REASON["deployer"]
-    if (cwd / ".jejune").is_dir():
-        return "doc-steward", _ROLE_REASON["doc-steward"]
+        roles = [r.strip() for r in role_file.read_text().strip().split(",")
+                 if r.strip() in ROLES]
+        if roles:
+            return roles, ".jejune/role"
     for role_name, detector in _ROLE_DETECTORS:
         try:
             if detector():
-                return role_name, _ROLE_REASON[role_name]
+                return [role_name], _ROLE_REASON[role_name]
         except Exception:
             pass
-    return None, "no role indicator found in current directory"
+    return [], "no role indicator found in current directory"
+
+
+def detect_role() -> tuple[str | None, str]:
+    """Return (role, reason) — first role from detect_roles()."""
+    roles, reason = detect_roles()
+    return (roles[0] if roles else None), reason
 
 
 def build_hierarchy_lines() -> list[str]:

@@ -39,7 +39,7 @@ _UI_SERVICES = ("docs-server", "kg-graph-viewer", "markdown-browser")
 def _is_deployer_cwd() -> bool:
     from .role import detect_role
     role, _ = detect_role()
-    return role == "deployer"
+    return role == "deployer" and (Path.cwd() / "docker-compose.yml").is_file() 
 
 
 def _deploy_catalog_needs_configuration() -> bool:
