@@ -19,16 +19,20 @@ _BASE_COMPONENTS: list[str] = [
     "network",
     "git-command",
     "git-repos-access",
-    "docker",
+    "docker-command",
     "docker-hub-server",
     "pypi-server",
     "uv-command",
     "extensions",
+    "catalog",
     "neo4j",
     "llm",
     "llm-observability",
     "graph",
     "deployment",
+    "docs-server",
+    "kg-viewer",
+    "md-browser",
     "convert",
     "manifest",
 ]
@@ -52,7 +56,7 @@ _STATUS_ICON: dict[str, tuple[str, str]] = {
 _AVAIL_HINTS: dict[str, str] = {
     "network":            "check internet connectivity (GitHub must be reachable)",
     "git-command":        "install git (https://git-scm.com)",
-    "docker":             "install docker (https://docs.docker.com/get-docker/)",
+    "docker-command":     "install Docker Desktop (https://docs.docker.com/get-docker/)",
     "neo4j":              "run `jejune neo4j start --help`",
     "llm":                "run `jejune llm status-config`",
     "llm-observability":  "run `jejune llm-observability start`",
@@ -79,9 +83,9 @@ _COMPONENT_DEPS: dict[str, list[str]] = {
     "catalog":      ["ecosystem"],
     "deployment":   ["catalog"],
     "convert":      ["pypi-server"],
-    "docs-server":  ["ecosystem", "docker"],
-    "kg-viewer":    ["ecosystem", "docker"],
-    "md-browser":   ["ecosystem", "docker"],
+    "docs-server":  ["ecosystem", "docker-command"],
+    "kg-viewer":    ["ecosystem", "docker-command"],
+    "md-browser":   ["ecosystem", "docker-command"],
 }
 
 # Optional dependencies: enhance a component but do not affect its effective status.
@@ -90,18 +94,19 @@ _COMPONENT_OPTIONAL_DEPS: dict[str, list[str]] = {
 }
 
 # External dependencies: components the user must install/provide (not jejune-managed).
-# Components absent from this dict and not optional are mandatory jejune-managed (blank kind).
-_COMPONENT_KIND: dict[str, str] = {
-    "network":          "dep",
-    "git-command":      "dep",
-    "git-repos-access": "dep",
-    "ecosystem":  "dep",
-    "docker":     "dep",
-    "docker-hub-server": "dep",
-    "pypi-server": "dep",
-    "uv-command": "dep",
-    "extensions": "dep",
-    "llm":        "dep",
+# Values are (kind, fix_step_label). fix_step_label is the HeuristicStep label for restoring
+# this dep's availability, or None for deps without a dedicated fix step.
+_COMPONENT_KIND: dict[str, tuple[str, str | None]] = {
+    "network":           ("dep", "Check network connectivity"),
+    "git-command":       ("dep", "Install git"),
+    "git-repos-access":  ("dep", None),
+    "ecosystem":         ("dep", None),
+    "docker-command":    ("dep", "Install docker desktop"),
+    "docker-hub-server": ("dep", None),
+    "pypi-server":       ("dep", None),
+    "uv-command":        ("dep", "Install uv"),
+    "extensions":        ("dep", "Install deployment"),
+    "llm":               ("dep", None),
 }
 
 # Visibility predicates: when the predicate returns False the component is hidden.
@@ -109,7 +114,7 @@ _COMPONENT_VISIBLE: dict[str, Callable[[], bool]] = {}
 
 # Components hidden from the default doctor output when they are available.
 _HIDE_WHEN_AVAILABLE: frozenset[str] = frozenset(
-    ("network", "git-command", "git-repos-access", "docker", "uv-command", "extensions")
+    ("network", "git-command", "git-repos-access", "docker-command", "uv-command", "extensions")
 )
 
 
@@ -121,6 +126,27 @@ def _init_visibility() -> None:
 
 
 _init_visibility()
+
+
+def _validate_component_names() -> None:
+    """Assert that all component-name keys in built-in dicts are in _BASE_COMPONENTS."""
+    _base = frozenset(_BASE_COMPONENTS)
+    _flat_deps = {d for deps in _COMPONENT_DEPS.values() for d in deps}
+    _flat_opt  = {d for deps in _COMPONENT_OPTIONAL_DEPS.values() for d in deps}
+    for lbl, names in [
+        ("_AVAIL_HINTS keys",               _AVAIL_HINTS),
+        ("_COMPONENT_DEPS keys",            _COMPONENT_DEPS),
+        ("_COMPONENT_DEPS values",          _flat_deps),
+        ("_COMPONENT_KIND keys",            _COMPONENT_KIND),
+        ("_COMPONENT_OPTIONAL_DEPS keys",   _COMPONENT_OPTIONAL_DEPS),
+        ("_COMPONENT_OPTIONAL_DEPS values", _flat_opt),
+        ("_HIDE_WHEN_AVAILABLE",            _HIDE_WHEN_AVAILABLE),
+    ]:
+        unknown = set(names) - _base
+        assert not unknown, f"{lbl} contain unknown component names: {unknown}"
+
+
+_validate_component_names()
 
 # ---------------------------------------------------------------------------
 # Component availability registry
@@ -145,7 +171,7 @@ def _init_component_avail() -> None:
     _COMPONENT_AVAIL["network"]          = is_network_available
     _COMPONENT_AVAIL["git-command"]      = is_git_command_available
     _COMPONENT_AVAIL["uv-command"]       = is_uv_command_available
-    _COMPONENT_AVAIL["docker"]           = is_docker_command_available
+    _COMPONENT_AVAIL["docker-command"]   = is_docker_command_available
     _COMPONENT_AVAIL["docker-hub-server"] = is_docker_hub_server_available
     _COMPONENT_AVAIL["pypi-server"]      = is_pypi_server_available
     _COMPONENT_AVAIL["extensions"]       = _extensions_installed
@@ -193,12 +219,18 @@ def _component_kind(name: str) -> str:
     if name in _optional_set and name not in _required_set:
         return "opt"
     if name in _COMPONENT_KIND:
-        return _COMPONENT_KIND[name]
+        return _COMPONENT_KIND[name][0]
     from .plugin import _REGISTRY
     for p in _REGISTRY:
         if p.name == name:
             return p.kind
     return ""
+
+
+def dep_fix_label(name: str) -> str | None:
+    """Return the HeuristicStep label for restoring this dep component's availability, or None."""
+    entry = _COMPONENT_KIND.get(name)
+    return entry[1] if entry is not None else None
 
 
 def _all_components() -> list[str]:

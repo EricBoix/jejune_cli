@@ -10,7 +10,7 @@ from pathlib import Path
 import click
 
 from . import containers
-from ._ecosystem import REPO_ROOT_DIR
+from .component_git_server import remote_git_url
 from ._env import TTL_ENV_VARS, docker_env_args
 from .configuration import (
     component_config_check,
@@ -82,7 +82,7 @@ def _build_neo4j_image(no_cache: bool = False) -> None:
     click.echo(f"Building {_NEO4J_IMAGE} ...")
     extra = ["--no-cache"] if no_cache else []
     _run("docker", "build", *extra, "-t", _NEO4J_IMAGE,
-         f"{REPO_ROOT_DIR}/jejune_neo4j_docker.git")
+         remote_git_url("jejune_neo4j_docker"))
 
 
 def _neo4j_is_built() -> bool:
@@ -470,7 +470,7 @@ def dump_turtle(output_dir, filename):
         "build",
         "-t",
         _TTL_IMAGE,
-        f"{REPO_ROOT_DIR}/jejune_neo4j_to_rdf_ttl.git#:DockerContext",
+        remote_git_url("jejune_neo4j_to_rdf_ttl", ":DockerContext"),
     )
 
     click.echo(f"Exporting to {output_dir / filename} ...")

@@ -2,13 +2,13 @@
 
 import urllib.request
 
-from ._ecosystem import REPO_ROOT_DIR
+_WELL_KNOWN_URL = "https://www.google.com"
 
 
 def is_network_available(timeout: int = 5) -> bool:
-    """Return True if REPO_ROOT_DIR is reachable over HTTP."""
+    """Return True if the internet is reachable."""
     try:
-        urllib.request.urlopen(REPO_ROOT_DIR, timeout=timeout)
+        urllib.request.urlopen(_WELL_KNOWN_URL, timeout=timeout)
         return True
     except Exception:
         return False

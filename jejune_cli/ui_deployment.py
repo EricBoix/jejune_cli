@@ -16,7 +16,13 @@ from .deployer_extensions import (
 )
 from .docker_command import is_docker_command_available as check_docker
 from .uv_command import is_uv_command_available  # noqa: F401 — re-exported for external use
-from ._doctor import requires_component
+from ._doctor import (
+    _AVAIL_HINTS,
+    _BASE_COMPONENTS,
+    _topo_sorted,
+    dep_fix_label,
+    requires_component,
+)
 
 _extensions_available = requires_component("extensions")
 from .next_steps import HeuristicStep, print_next_steps, register_heuristic, register_precondition, register_role_ordering
@@ -143,7 +149,7 @@ def _docs_server_url() -> str:
 
 register_heuristic(HeuristicStep(
     label="Install docker desktop",
-    command=None, order=2,
+    command=_AVAIL_HINTS["docker-command"], order=2,
     conditions=[_is_deployer_cwd],
     anti_conditions=[check_docker],
 ), roles={"deployer"})
@@ -199,9 +205,28 @@ register_heuristic(HeuristicStep(
     anti_conditions=[],
 ), roles={"deployer"})
 
+_dep_fix_pairs: list[tuple[str, str]] = [
+    (comp, lbl)
+    for comp in _BASE_COMPONENTS
+    if (lbl := dep_fix_label(comp)) is not None and comp in _AVAIL_HINTS
+]
+_EXISTING_DEP_STEPS: frozenset[str] = frozenset({"docker-command", "extensions"})
+for _comp, _label in _dep_fix_pairs:
+    if _comp in _EXISTING_DEP_STEPS:
+        continue
+    register_heuristic(HeuristicStep(
+        label=_label,
+        command=_AVAIL_HINTS[_comp],
+        conditions=[_is_deployer_cwd],
+        anti_conditions=[requires_component(_comp)],
+    ), roles={"deployer"})
+
+_dep_topo = _topo_sorted([c for c, _ in _dep_fix_pairs])
+_n = len(_dep_topo)
 register_role_ordering("deployer", {
-    "Wrap up configuration": -1,
-})
+    label: (_dep_topo.index(comp) - _n) * 10
+    for comp, label in _dep_fix_pairs
+} | {"Wrap up configuration": -1})
 
 
 # ---------------------------------------------------------------------------

@@ -7,7 +7,7 @@ from typing import Literal
 
 import click
 
-from ._ecosystem import REPO_ROOT_DIR
+from .component_git_server import remote_repo_path, remote_git_url
 from .next_steps import register_precondition
 
 # ---------------------------------------------------------------------------
@@ -61,7 +61,7 @@ def repo_status(
         return "root", str(root_dir / name)
     if tmp_dir is not None and (tmp_dir / name).exists():
         return "tmp", str(tmp_dir / name)
-    return "remote", f"{REPO_ROOT_DIR}/{name}"
+    return "remote", remote_repo_path(name)
 
 
 def resolve(
@@ -78,10 +78,7 @@ def resolve(
     tier, base = repo_status(name, root_dir, tmp_dir)
     if tier in ("root", "tmp"):
         return str(Path(base) / subpath) if subpath else base
-    url = f"{REPO_ROOT_DIR}/{name}.git"
-    if subpath:
-        url += f"#main:{subpath}"
-    return url
+    return remote_git_url(name, f"main:{subpath}" if subpath else None)
 
 
 def resolve_dirs(deploy_dir: Path | None = None) -> tuple[Path | None, Path | None]:
@@ -184,6 +181,7 @@ def ecosystem_status() -> None:
     root_status = click.style("set", fg="green") if root_ok else click.style("not set", fg="yellow")
     click.echo(f"  {'JEJUNE_ROOT_DIR':<{_W}}  {root_val:<50}  {root_status}")
 
+    from .component_git_server import REPO_ROOT_DIR
     click.echo(f"  {'REPO_ROOT_DIR':<{_W}}  {REPO_ROOT_DIR}")
     click.echo()
 

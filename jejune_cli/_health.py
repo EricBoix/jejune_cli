@@ -4,6 +4,27 @@ from .convert import convert_configured as _convert_configured, image_built as _
 from .neo4j import container_running as _neo4j_running
 from .ecosystem import ecosystem_needs_remote as _ecosystem_needs_remote
 
+# Maps doctor component names to docker-compose service names for the UI trio.
+# Must stay in sync with ui_deployment._UI_SERVICES.
+_UI_COMP_SERVICES: dict[str, str] = {
+    "docs-server": "docs-server",
+    "kg-viewer":   "kg-graph-viewer",
+    "md-browser":  "markdown-browser",
+}
+
+
+def _validate_ui_comp_services() -> None:
+    """Assert that _UI_COMP_SERVICES keys are known component names.
+
+    Lazy import of _BASE_COMPONENTS required: _doctor.py imports run_all from
+    this module at its own module level, so a top-level import here would be
+    circular.
+    """
+    from ._doctor import _BASE_COMPONENTS
+    _base = frozenset(_BASE_COMPONENTS)
+    unknown = set(_UI_COMP_SERVICES) - _base
+    assert not unknown, f"_UI_COMP_SERVICES keys contain unknown component names: {unknown}"
+
 
 def run_all(
     components: set[str] | None = None,
@@ -16,6 +37,7 @@ def run_all(
     Each entry is (component, status, message).
     When *components* is given, only those components are checked.
     """
+    _validate_ui_comp_services()
     from .configuration import CONFIG_GROUPS, check_config_group
     from .plugin import _REGISTRY
 
@@ -35,11 +57,11 @@ def run_all(
             status = "warn"
         config.append((group, status, msg))
 
-    if _visible("docker"):
+    if _visible("docker-command"):
         from .docker_command import is_docker_command_available as _check_docker
-        config.append(("docker", "ok", ""))
+        config.append(("docker-command", "ok", ""))
         ok = _check_docker()
-        avail.append(("docker", "ok" if ok else "error", "" if ok else "docker not found on PATH"))
+        avail.append(("docker-command", "ok" if ok else "error", "" if ok else "docker not found on PATH"))
 
     if _visible("neo4j"):
         from .configuration import component_config_check
@@ -120,6 +142,16 @@ def run_all(
         from .deployer_extensions import _extensions_installed
         ok = _extensions_installed()
         avail.append(("extensions", "ok" if ok else "error", "" if ok else "not installed"))
+
+    _plugin_names = {p.name for p in _REGISTRY}
+    for ui_comp, svc_name in _UI_COMP_SERVICES.items():
+        if not _visible(ui_comp) or ui_comp in _plugin_names:
+            continue
+        from pathlib import Path
+        from . import containers as _c
+        deploy_name = Path(".").resolve().name.lower()
+        ok = _c.is_running(f"jejune-{deploy_name}-{svc_name}-1")
+        avail.append((ui_comp, "ok" if ok else "error", "" if ok else "container not running"))
 
     for plugin in _REGISTRY:
         if not _visible(plugin.name):

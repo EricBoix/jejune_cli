@@ -57,14 +57,15 @@ def _do_extensions_install() -> None:
     Uses a local editable install when the repo is available via JEJUNE_ROOT_DIR
     or .jejune/tmp; falls back to installing directly from the git remote.
     """
-    from .ecosystem import REPO_ROOT_DIR, repo_status, resolve_dirs
+    from .ecosystem import repo_status, resolve_dirs
+    from .component_git_server import remote_pip_url
 
     root_dir, tmp_dir = resolve_dirs()
 
     for repo_name, check_subpath, plugin_name in _DEPLOYER_CHECK_PACKAGES:
         tier, base = repo_status(repo_name, root_dir, tmp_dir)
         if tier == "remote":
-            git_url = f"git+{REPO_ROOT_DIR}/{repo_name}.git#subdirectory={check_subpath}"
+            git_url = remote_pip_url(repo_name, check_subpath)
             cmd = ["uv", "pip", "install", "--python", sys.executable, git_url]
         else:
             cmd = ["uv", "pip", "install", "--python", sys.executable, "-e", str(Path(base) / check_subpath)]

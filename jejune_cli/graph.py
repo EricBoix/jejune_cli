@@ -2,7 +2,7 @@ from pathlib import Path
 
 import click
 
-from ._ecosystem import REPO_ROOT_DIR
+from .component_git_server import remote_git_url
 from ._env import EXTRACT_ENV_VARS, docker_env_args
 from .configuration import print_config_hint, print_config_status
 from .graph_view import view
@@ -85,7 +85,7 @@ def _build_kg_image(no_cache: bool = False) -> None:
     extra = ["--no-cache"] if no_cache else []
     _run(
         "docker", "build", *extra, "-t", _BUILD_KG_IMAGE,
-        f"{REPO_ROOT_DIR}/jejune_extract_knowledge_graph.git#:DockerContext",
+        remote_git_url("jejune_extract_knowledge_graph", ":DockerContext"),
     )
 
 
