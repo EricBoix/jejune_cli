@@ -108,9 +108,6 @@ def _is_role_set() -> bool:
     return reason == ".jejune/role"
 
 
-def _role_not_set() -> bool:
-    return not _is_role_set()
-
 
 def _graph_available() -> bool:
     from .graph import graph_available
@@ -182,8 +179,6 @@ def _is_deployment_installed() -> bool:
 
 def register_heuristics() -> None:
     """Register all CLI heuristics. Must be called after _load_plugins()."""
-    from .role import ROLES
-
     register_precondition("role set", _is_role_set)
     register_precondition("deployment installed", _is_deployment_installed)
 
@@ -195,18 +190,6 @@ def register_heuristics() -> None:
         command="jejune deployment install",
         anti_conditions=[_is_deployment_installed],
     ), roles={"deployer"})
-
-    register_heuristic(HeuristicStep(
-        label="Check the role",
-        command="jejune role",
-        order=100,
-    ), roles={None, *ROLES})
-
-    register_heuristic(HeuristicStep(
-        label="Set a role",
-        command="jejune role set <chosen_role>",
-        conditions=[_role_not_set],
-    ), roles={None, *ROLES})
 
     register_heuristic(HeuristicStep(
         label="Start Neo4j",
