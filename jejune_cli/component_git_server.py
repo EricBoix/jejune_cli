@@ -2,7 +2,7 @@
 
 import subprocess
 
-REPO_ROOT_DIR = "https://github.com/EricBoix"
+from ._git_server_config import REPO_ROOT_DIR
 
 
 def remote_repo_path(name: str) -> str:

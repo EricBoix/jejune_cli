@@ -29,7 +29,7 @@ class CustomBuildHook(BuildHookInterface):
         with open(pyproject_path, "rb") as f:
             pyproject = tomllib.load(f)
         base = pyproject["tool"]["jejune"]["ecosystem-repo-base"]
-        Path("jejune_cli/_ecosystem.py").write_text(
+        Path("jejune_cli/_git_server_config.py").write_text(
             f'REPO_ROOT_DIR = "{base}"\n'
         )
-        build_data["artifacts"].append("jejune_cli/_ecosystem.py")
+        build_data["artifacts"].append("jejune_cli/_git_server_config.py")
