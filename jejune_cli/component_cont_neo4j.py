@@ -9,18 +9,18 @@ import urllib.request
 from pathlib import Path
 
 from .component_containerized import cont_comp
-from .component_git_server import remote_git_url
 from .component_registry import REGISTRY
 from .configuration import configuration
 
 
 class comp_neo4j(cont_comp):
     def __init__(self) -> None:
+        git_server = REGISTRY.get("git-server")
         super().__init__(
             name="neo4j",
             image_name="jejune:neo4j",
-            build_context=remote_git_url("jejune_neo4j_docker"),
-            dependencies=[REGISTRY.get("github-server"), REGISTRY.get("docker-hub-server")],
+            build_context=git_server.remote_git_url("jejune_neo4j_docker"),
+            dependencies=[git_server, REGISTRY.get("docker-hub-server")],
             hint="run `jejune neo4j start --help`",
             configuration=configuration("edit .jejune/env-secrets or .jejune/env-config", env_vars=["NEO4J_PASSWORD"])
         )

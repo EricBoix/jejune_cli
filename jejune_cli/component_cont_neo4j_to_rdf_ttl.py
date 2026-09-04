@@ -4,17 +4,17 @@ from pathlib import Path
 
 from ._env import TTL_ENV_VARS, docker_env_args
 from .component_containerized import cont_comp
-from .component_git_server import remote_git_url
 from .component_registry import REGISTRY
 
 
 class comp_neo4j_to_rdf_ttl(cont_comp):
     def __init__(self) -> None:
+        git_server = REGISTRY.get("git-server")
         super().__init__(
             name="neo4j-to-rdf-ttl",
             image_name="jejune:neo4j_to_rdf_ttl",
-            build_context=remote_git_url("jejune_neo4j_to_rdf_ttl", ":DockerContext"),
-            dependencies=[REGISTRY.get("github-server"), REGISTRY.get("docker-hub-server")],
+            build_context=git_server.remote_git_url("jejune_neo4j_to_rdf_ttl", ":DockerContext"),
+            dependencies=[git_server, REGISTRY.get("docker-hub-server")],
         )
 
     def dump_turtle(self, output_dir: Path, filename: str) -> None:

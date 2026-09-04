@@ -35,7 +35,7 @@ def _init_visibility() -> None:
     from .ecosystem import ecosystem_needs_remote
     _COMPONENT_VISIBLE["network"]          = ecosystem_needs_remote
     _COMPONENT_VISIBLE["git-command"]      = ecosystem_needs_remote
-    _COMPONENT_VISIBLE["github-server"] = ecosystem_needs_remote
+    _COMPONENT_VISIBLE["git-server"] = ecosystem_needs_remote
 
 
 _init_visibility()
@@ -60,7 +60,7 @@ def _init_registry() -> None:
         component_ext_command_uv,
         component_ext_server_pypi,
         component_ext_server_docker_hub,
-        component_ext_server_github,
+        component_ext_server_git,
         component_ext_server_llm,
         component_ext_server_llm_observability,
         component_ext_extensions,
@@ -200,19 +200,13 @@ def _build_avail_rows(
             if status == "ok":
                 rows.append((comp, status, "", ""))
             else:
-                hint = _resolve_avail_hint(comp)
-                if not hint:
-                    inst = REGISTRY.get(comp)
-                    deps = inst.dependencies if inst else []
-                    for dep in sorted(
-                        deps,
-                        key=lambda d: _STATUS_RANK.get(by_avail.get(d.name, ("ok",))[0], 0),
-                        reverse=True,
-                    ):
-                        if by_avail.get(dep.name, ("ok",))[0] != "ok":
-                            hint = _resolve_avail_hint(dep.name)
-                            if hint:
-                                break
+                inst = REGISTRY.get(comp)
+                deps = inst.dependencies if inst else []
+                failing_deps = [
+                    dep for dep in deps
+                    if by_avail.get(dep.name, ("ok",))[0] != "ok"
+                ]
+                hint = "" if failing_deps else _resolve_avail_hint(comp)
                 rows.append((comp, status, msg, hint))
         else:
             inst = REGISTRY.get(comp)
@@ -312,7 +306,7 @@ def doctor(verbose: bool):
 
     Followed by a Components summary showing which commands each enables.
     Only components relevant to the detected role are shown.
-    External infrastructure components (network, git-command, github-server,
+    External infrastructure components (network, git-command, git-server,
     docker, extensions) are hidden when available; use --verbose to show all.
     """
     from ._env import dot_jejune

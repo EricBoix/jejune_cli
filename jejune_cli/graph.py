@@ -2,7 +2,6 @@ from pathlib import Path
 
 import click
 
-from .component_git_server import remote_git_url
 from ._env import EXTRACT_ENV_VARS, docker_env_args
 from .component_cont_graph import graph_comp
 from .click_comp_configuration import print_config_hint, print_config_status

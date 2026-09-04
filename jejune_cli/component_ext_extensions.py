@@ -7,7 +7,7 @@ class comp_extensions(ext_comp):
     def __init__(self) -> None:
         super().__init__(
             name="extensions",
-            dependencies=[REGISTRY.get("github-server"), REGISTRY.get("uv-command")],
+            dependencies=[REGISTRY.get("git-server"), REGISTRY.get("uv-command")],
             hint="run `jejune extensions install`",
         )
 
