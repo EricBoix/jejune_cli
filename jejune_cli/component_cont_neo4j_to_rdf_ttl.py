@@ -14,7 +14,7 @@ class comp_neo4j_to_rdf_ttl(cont_comp):
             name="neo4j-to-rdf-ttl",
             image_name="jejune:neo4j_to_rdf_ttl",
             build_context=remote_git_url("jejune_neo4j_to_rdf_ttl", ":DockerContext"),
-            dependencies=["git-repos-access", "docker-hub-server"],
+            dependencies=[REGISTRY.get("github-server"), REGISTRY.get("docker-hub-server")],
         )
 
     def dump_turtle(self, output_dir: Path, filename: str) -> None:

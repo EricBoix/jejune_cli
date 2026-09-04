@@ -1,4 +1,4 @@
-"""git-repos-access server component."""
+"""github-server component."""
 import subprocess
 
 from ._git_server_config import REPO_ROOT_DIR
@@ -9,9 +9,9 @@ from .component_registry import REGISTRY
 class comp_server_github(ext_server):
     def __init__(self) -> None:
         super().__init__(
-            name="git-repos-access",
+            name="github-server",
             api_url="",
-            dependencies=["network", "git-command"],
+            dependencies=[REGISTRY.get("network"), REGISTRY.get("git-command")],
         )
 
     def check(self, timeout: int = 5) -> tuple[str, str]:

@@ -9,9 +9,12 @@ class comp_docs_server(cont_comp):
             name="docs-server",
             image_name="jejune-docs-server",
             service_name="docs-server",
-            dependencies=["ecosystem", "docker-command"],
+            dependencies=[REGISTRY.get("ecosystem"), REGISTRY.get("docker-command")],
             hint="run `jejune deployment install`",
         )
+
+    def is_available(self) -> bool:
+        return self.is_built()
 
     def is_running(self) -> tuple[bool, str]:
         from pathlib import Path

@@ -8,7 +8,7 @@ class comp_ecosystem(component):
     def __init__(self) -> None:
         super().__init__(
             name="ecosystem",
-            dependencies=["git-repos-access"],
+            dependencies=[REGISTRY.get("github-server")],
             configuration=configuration("edit .jejune/ecosystem-env-config and set JEJUNE_ROOT_DIR", env_vars=["JEJUNE_ROOT_DIR"], max_severity="warn"),
         )
 

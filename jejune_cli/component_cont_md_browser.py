@@ -9,9 +9,12 @@ class comp_md_browser(cont_comp):
             name="md-browser",
             image_name="jejune-markdown-browser",
             service_name="markdown-browser",
-            dependencies=["ecosystem", "docker-command"],
+            dependencies=[REGISTRY.get("ecosystem"), REGISTRY.get("docker-command")],
             hint="run `jejune deployment install`",
         )
+
+    def is_available(self) -> bool:
+        return self.is_built()
 
     def is_running(self) -> tuple[bool, str]:
         from pathlib import Path

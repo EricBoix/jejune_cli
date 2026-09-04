@@ -13,7 +13,7 @@ class comp_server_pypi(ext_server):
         super().__init__(
             name="pypi-server",
             api_url=_PYPI_API_URL,
-            dependencies=["network"],
+            dependencies=[REGISTRY.get("network")],
         )
 
     def check(self) -> tuple[str, str]:

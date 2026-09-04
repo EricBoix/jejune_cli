@@ -13,7 +13,7 @@ class comp_server_docker_hub(ext_server):
         super().__init__(
             name="docker-hub-server",
             api_url=_DOCKERHUB_API_URL,
-            dependencies=["network"],
+            dependencies=[REGISTRY.get("network")],
         )
 
     def check(self) -> tuple[str, str]:

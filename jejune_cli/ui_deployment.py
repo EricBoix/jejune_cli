@@ -188,7 +188,7 @@ register_heuristic(HeuristicStep(
 
 register_heuristic(HeuristicStep(
     label="Install deployer CLI extensions",
-    command="jejune deployment extensions install", order=22,
+    command="jejune extensions install", order=22,
     conditions=[_is_deployer_cwd, _extensions_available, _deploy_containers_running],
     anti_conditions=[_extensions_installed],
 ), roles={"deployer"})
@@ -233,7 +233,7 @@ _n = len(_dep_topo)
 register_role_ordering("deployer", {
     label: (_dep_topo.index(comp) - _n) * 10
     for comp, label in _dep_fix_pairs
-} | {"Wrap up configuration": -1})
+} | {"Install deployment": -2, "Wrap up configuration": -1})
 
 
 # ---------------------------------------------------------------------------
@@ -322,7 +322,7 @@ def status(deploy_dir_name: str | None) -> None:
     load_deployment_env(deploy_dir)
     if not _extensions_installed():
         click.echo(click.style("Check extensions not installed.", fg="red"), err=True)
-        click.echo("Run: jejune deployment extensions install", err=True)
+        click.echo("Run: jejune extensions install", err=True)
         raise SystemExit(1)
     results = _check_ui_services()
     from .plugin import _REGISTRY

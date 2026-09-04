@@ -7,12 +7,12 @@ class comp_extensions(ext_comp):
     def __init__(self) -> None:
         super().__init__(
             name="extensions",
-            dependencies=["git-repos-access", "uv-command"],
-            hint="run `jejune deployment install`",
+            dependencies=[REGISTRY.get("github-server"), REGISTRY.get("uv-command")],
+            hint="run `jejune extensions install`",
         )
 
     def check(self) -> tuple[str, str]:
-        from .deployer_extensions import _extensions_installed
+        from .extensions_registry import _extensions_installed
         ok = _extensions_installed()
         return ("ok", "") if ok else ("error", "not installed")
 

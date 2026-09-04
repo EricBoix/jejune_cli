@@ -8,13 +8,12 @@ def deployment():
 
 # Deployment commands live in ui_deployment.py; imported here to stay in this group.
 from .ui_deployment import ui_configure, ui_list, up, down, build, status  # noqa: E402, F401
-from .deployer_extensions import deployer_extensions  # noqa: E402, F401
 
 
 @deployment.command("install")
 def deployment_install() -> None:
     """Install all deployment components: catalog repos and check extensions."""
-    from .deployer_extensions import _do_extensions_install
+    from .extensions_registry import _do_extensions_install
     try:
         from jejune_catalog._commands import _do_catalog_install
         click.echo("Installing catalog repositories...")
@@ -27,5 +26,5 @@ def deployment_install() -> None:
     _do_extensions_install()
 
 
-for _cmd in (ui_list, up, down, build, status, deployer_extensions, deployment_install):
+for _cmd in (ui_list, up, down, build, status, deployment_install):
     deployment.add_command(_cmd)

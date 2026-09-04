@@ -9,9 +9,12 @@ class comp_kg_viewer(cont_comp):
             name="kg-viewer",
             image_name="jejune-kg-graph-viewer",
             service_name="kg-graph-viewer",
-            dependencies=["ecosystem", "docker-command"],
+            dependencies=[REGISTRY.get("ecosystem"), REGISTRY.get("docker-command")],
             hint="run `jejune deployment install`",
         )
+
+    def is_available(self) -> bool:
+        return self.is_built()
 
     def is_running(self) -> tuple[bool, str]:
         from pathlib import Path

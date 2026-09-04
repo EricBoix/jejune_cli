@@ -31,8 +31,8 @@ class ComponentRegistry:
             if comp is None:
                 return
             for dep in comp.dependencies:
-                if dep in comp_set:
-                    visit(dep)
+                if dep.name in comp_set:
+                    visit(dep.name)
             result.append(by_name[name])
 
         for name in list(by_name):

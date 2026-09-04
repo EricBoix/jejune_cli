@@ -9,7 +9,7 @@ class comp_server_llm(ext_server):
         super().__init__(
             name="llm",
             api_url="",
-            dependencies=["network"],
+            dependencies=[REGISTRY.get("network")],
             hint="run `jejune llm status-config`",
             configuration=configuration(
                 "edit .jejune/env-secrets",

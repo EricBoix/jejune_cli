@@ -22,6 +22,7 @@ from .plugin import JejunePlugin, _REGISTRY
 from .role import register_role
 from .deployment import deployment
 from .ecosystem import ecosystem
+from .extensions import extensions_group
 
 document = click.Group("document", help="Document workspace commands.")
 from .ui_deployment import up as _up_cmd, down as _down_cmd
@@ -195,6 +196,7 @@ cli.add_command(manifest)
 cli.add_command(deployment)
 cli.add_command(document)
 cli.add_command(ecosystem)
+cli.add_command(extensions_group, "extensions")
 cli.add_command(convert)
 cli.add_command(availability)
 cli.add_command(doctor)

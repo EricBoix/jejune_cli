@@ -35,7 +35,7 @@ def _init_visibility() -> None:
     from .ecosystem import ecosystem_needs_remote
     _COMPONENT_VISIBLE["network"]          = ecosystem_needs_remote
     _COMPONENT_VISIBLE["git-command"]      = ecosystem_needs_remote
-    _COMPONENT_VISIBLE["git-repos-access"] = ecosystem_needs_remote
+    _COMPONENT_VISIBLE["github-server"] = ecosystem_needs_remote
 
 
 _init_visibility()
@@ -65,7 +65,6 @@ def _init_registry() -> None:
         component_ext_server_llm_observability,
         component_ext_extensions,
         component_ecosystem,
-        component_deployment_comp,
         component_catalog,
         component_manifest,
         component_cont_docs_server,
@@ -74,6 +73,7 @@ def _init_registry() -> None:
         component_cont_convert,
         component_cont_neo4j,
         component_cont_graph,
+        component_deployment,
     )
 
 
@@ -81,13 +81,12 @@ _init_registry()
 
 
 def _validate_registry() -> None:
-    """Assert that all dependency names in each component refer to known registry entries."""
-    known = frozenset(REGISTRY.names())
+    """Assert that all dependency instances in each component are registered."""
     for inst in REGISTRY:
-        unknown = set(inst.dependencies) - known
-        assert not unknown, f"{inst.name}.dependencies contain unknown names: {unknown}"
-        unknown = set(inst.optional_dependencies) - known
-        assert not unknown, f"{inst.name}.optional_dependencies contain unknown names: {unknown}"
+        for dep in inst.dependencies + inst.optional_dependencies:
+            assert REGISTRY.get(dep.name) is dep, (
+                f"{inst.name}.dependencies contains unregistered instance {dep.name!r}"
+            )
 
 
 _validate_registry()
@@ -108,7 +107,7 @@ def component_available(name: str, _seen: set[str] | None = None) -> bool:
     if inst is None:
         return True
     for dep in inst.dependencies:
-        if not component_available(dep, _seen):
+        if not component_available(dep.name, _seen):
             return False
     return inst.is_available()
 
@@ -128,7 +127,7 @@ def requires_component(name: str) -> Callable[[], bool]:
 def _component_kind(name: str) -> str:
     """Return the Kind label for a component: "opt", "dep", or "" (blank)."""
     _optional_set = {
-        dep
+        dep.name
         for inst in REGISTRY
         for dep in inst.optional_dependencies
     } | {
@@ -136,7 +135,7 @@ def _component_kind(name: str) -> str:
         for deps in _PLUGIN_OPTIONAL_DEPS.values()
         for dep in deps
     }
-    _required_set = {dep for inst in REGISTRY for dep in inst.dependencies}
+    _required_set = {dep.name for inst in REGISTRY for dep in inst.dependencies}
     if name in _optional_set and name not in _required_set:
         return "opt"
     inst = REGISTRY.get(name)
@@ -207,11 +206,11 @@ def _build_avail_rows(
                     deps = inst.dependencies if inst else []
                     for dep in sorted(
                         deps,
-                        key=lambda d: _STATUS_RANK.get(by_avail.get(d, ("ok",))[0], 0),
+                        key=lambda d: _STATUS_RANK.get(by_avail.get(d.name, ("ok",))[0], 0),
                         reverse=True,
                     ):
-                        if by_avail.get(dep, ("ok",))[0] != "ok":
-                            hint = _resolve_avail_hint(dep)
+                        if by_avail.get(dep.name, ("ok",))[0] != "ok":
+                            hint = _resolve_avail_hint(dep.name)
                             if hint:
                                 break
                 rows.append((comp, status, msg, hint))
@@ -220,11 +219,11 @@ def _build_avail_rows(
             req = inst.dependencies if inst else []
             if req:
                 worst = max(
-                    (by_avail.get(dep, ("ok", ""))[0] for dep in req),
+                    (by_avail.get(dep.name, ("ok", ""))[0] for dep in req),
                     key=lambda s: _STATUS_RANK.get(s, 0),
                     default="ok",
                 )
-                failing = [dep for dep in req if by_avail.get(dep, ("ok", ""))[0] != "ok"]
+                failing = [dep.name for dep in req if by_avail.get(dep.name, ("ok", ""))[0] != "ok"]
                 check = "" if worst == "ok" else "deps: " + ", ".join(failing)
                 rows.append((comp, worst, check, ""))
     return rows
@@ -313,7 +312,7 @@ def doctor(verbose: bool):
 
     Followed by a Components summary showing which commands each enables.
     Only components relevant to the detected role are shown.
-    External infrastructure components (network, git-command, git-repos-access,
+    External infrastructure components (network, git-command, github-server,
     docker, extensions) are hidden when available; use --verbose to show all.
     """
     from ._env import dot_jejune

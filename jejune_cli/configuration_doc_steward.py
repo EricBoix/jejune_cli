@@ -6,7 +6,7 @@ from pathlib import Path
 import click
 
 from ._env import dot_jejune
-from .doc_steward_extensions import _do_extension_install, _extension_installed, doc_steward_extensions as _ds_extensions
+from .extensions_registry import _do_extensions_install, _extensions_installed
 from .next_steps import print_next_steps
 
 _TEMPLATES = Path(__file__).parent / "templates" / "doc-steward"
@@ -64,9 +64,9 @@ def init(dir_name: str | None) -> None:
             fh.write(entry)
         click.echo(click.style("  updated  .gitignore (.jejune)", fg="green"))
 
-    if not _extension_installed():
+    if not _extensions_installed(role="doc-steward"):
         click.echo("\nInstalling catalog-contributor extension...")
-        _do_extension_install()
+        _do_extensions_install(role="doc-steward")
 
     cd_hint = None
     if dir_name and dir_name not in (".", str(Path.cwd())) and target.resolve() != Path.cwd().resolve():
@@ -81,4 +81,3 @@ def doc_steward_group():
 
 doc_steward_group._role_subgroup = True
 doc_steward_group.add_command(init, "init")
-doc_steward_group.add_command(_ds_extensions, "extensions")

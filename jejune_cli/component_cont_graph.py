@@ -10,8 +10,8 @@ class comp_graph(cont_comp):
             name="graph",
             image_name="jejune:extract_knowledge_graph",
             build_context=remote_git_url("jejune_extract_knowledge_graph", ":DockerContext"),
-            dependencies=["git-repos-access", "neo4j", "llm"],
-            optional_dependencies=["llm-observability"],
+            dependencies=[REGISTRY.get("github-server"), REGISTRY.get("neo4j"), REGISTRY.get("llm")],
+            optional_dependencies=[REGISTRY.get("llm-observability")],
         )
 
     def is_running(self) -> tuple[bool, str]:

@@ -10,7 +10,7 @@ class comp_convert(cont_comp):
         super().__init__(
             name="convert",
             image_name="jejune-convert",
-            dependencies=["pypi-server"],
+            dependencies=[REGISTRY.get("pypi-server")],
             hint="run `jejune convert build`",
             configuration=configuration(
                 "set CONVERT_DOC_DIR in .jejune/env-config",
