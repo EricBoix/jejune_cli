@@ -5,7 +5,8 @@ import urllib.request
 
 import click
 
-from .configuration import print_config_hint, print_config_status
+from .component_ext_server_llm import llm_comp
+from .click_comp_configuration import print_config_hint, print_config_status
 
 _TEST_PROMPT = "How are you today?"
 _TIMEOUT = 10            # seconds — used for all checks except inference
@@ -187,20 +188,19 @@ def llm():
 @llm.command("check-config")
 def check_config():
     """Show per-variable configuration detail for the llm component."""
-    from .configuration import print_config_check
-    print_config_check("llm")
+    print_config_check(llm_comp.configuration)
 
 
 @llm.command("status-config")
 def status_config():
     """Show llm configuration status."""
-    print_config_status("llm")
+    print_config_status(llm_comp.configuration)
 
 
 @llm.command("hint-config")
 def hint_config():
     """Show the configuration hint for the llm component."""
-    print_config_hint("llm")
+    print_config_hint(llm_comp.configuration)
 
 
 

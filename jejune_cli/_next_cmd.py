@@ -116,27 +116,27 @@ def _graph_available() -> bool:
 
 
 def _graph_extract_command() -> str:
-    from .neo4j import db_is_empty
+    from .component_cont_neo4j import neo4j_comp
     cmd = "jejune graph extract"
-    if not db_is_empty():
+    if not neo4j_comp.db_is_empty():
         cmd += " (warning: database is not empty)"
     return cmd
 
 
 def _neo4j_running() -> bool:
-    from .neo4j import container_running
-    ok, _ = container_running()
+    from .component_cont_neo4j import neo4j_comp
+    ok, _ = neo4j_comp.is_running()
     return ok
 
 
 def _neo4j_not_empty() -> bool:
-    from .neo4j import db_is_empty
-    return not db_is_empty()
+    from .component_cont_neo4j import neo4j_comp
+    return not neo4j_comp.db_is_empty()
 
 
 def _neo4j_configured() -> bool:
-    from .configuration import component_config_check
-    status, _ = component_config_check("neo4j")
+    from .component_cont_neo4j import neo4j_comp
+    status, *_ = neo4j_comp.configuration.check()
     return status == "ok"
 
 

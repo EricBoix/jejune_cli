@@ -11,6 +11,14 @@ import click
 from . import containers
 from .component_git_server import remote_git_url
 
+
+def _container_running(name: str) -> bool:
+    result = subprocess.run(
+        ["docker", "inspect", "-f", "{{.State.Running}}", name],
+        capture_output=True, text=True,
+    )
+    return result.returncode == 0 and result.stdout.strip() == "true"
+
 _META_URL = "viewer_url"
 
 
@@ -149,7 +157,7 @@ def _cmd_list() -> None:
     for entry in mine:
         name = entry["container"]
         port = entry["port"]
-        running = containers.is_running(name)
+        running = _container_running(name)
         status = click.style("running", fg="green") if running else click.style("stopped", fg="yellow")
         click.echo(f"  id={entry['id']}  {name}  port={port}  {status}")
 
@@ -160,7 +168,7 @@ def _cmd_open(url: str, new_server: bool) -> None:
     shutil.copy2(local_path, _VIEWER_DATA / local_path.name)
 
     mine = containers.for_component(_VIEWER_COMPONENT)
-    last = next((e for e in reversed(mine) if containers.is_running(e["container"])), None)
+    last = next((e for e in reversed(mine) if _container_running(e["container"])), None)
 
     if new_server or last is None:
         _build_viewer_image()

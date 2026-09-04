@@ -2,10 +2,6 @@
 
 import click
 
-CONFIG_GROUPS: dict[str, tuple[list[str], str]] = {}
-COMPONENT_CONFIG_HINTS: dict[str, str] = {}
-
-
 class _DeployerInit(click.Command):
     def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         formatter.write_usage(
@@ -33,3 +29,12 @@ def init(dir_name: str | None) -> None:
     if dir_name and dir_name not in (".", str(Path.cwd())):
         cd_hint = [f"First: cd {effective_name}"]
     print_next_steps(preamble=cd_hint)
+
+
+@click.group("deployer", short_help="Deployer role workspace")
+def deployer_group():
+    """Initialise and inspect the deployer workspace."""
+
+
+deployer_group._role_subgroup = True
+deployer_group.add_command(init, "init")

@@ -14,18 +14,25 @@ from .deployer_extensions import (
     _DEPLOYER_CHECK_PACKAGES,
     _extensions_installed,
 )
-from .docker_command import is_docker_command_available as check_docker
-from .uv_command import is_uv_command_available  # noqa: F401 — re-exported for external use
+from .component_ext import ext_comp
+from .component_registry import REGISTRY
 from ._doctor import (
-    _AVAIL_HINTS,
-    _BASE_COMPONENTS,
     _topo_sorted,
-    dep_fix_label,
     requires_component,
 )
 
 _extensions_available = requires_component("extensions")
 from .next_steps import HeuristicStep, print_next_steps, register_heuristic, register_precondition, register_role_ordering
+
+
+def check_docker() -> bool:
+    inst = REGISTRY.get("docker-command")
+    return inst.is_available() if inst else False
+
+
+def is_uv_command_available() -> bool:  # noqa: F401 — re-exported for external use
+    inst = REGISTRY.get("uv-command")
+    return inst.is_available() if inst else False
 
 _TEMPLATES = Path(__file__).parent / "templates"
 _T_UI = _TEMPLATES / "deployer" / "ui-deployment"
@@ -149,7 +156,7 @@ def _docs_server_url() -> str:
 
 register_heuristic(HeuristicStep(
     label="Install docker desktop",
-    command=_AVAIL_HINTS["docker-command"], order=2,
+    command=REGISTRY.get("docker-command").hint, order=2,
     conditions=[_is_deployer_cwd],
     anti_conditions=[check_docker],
 ), roles={"deployer"})
@@ -206,9 +213,9 @@ register_heuristic(HeuristicStep(
 ), roles={"deployer"})
 
 _dep_fix_pairs: list[tuple[str, str]] = [
-    (comp, lbl)
-    for comp in _BASE_COMPONENTS
-    if (lbl := dep_fix_label(comp)) is not None and comp in _AVAIL_HINTS
+    (inst.name, inst.hint)
+    for inst in REGISTRY
+    if isinstance(inst, ext_comp) and inst.hint
 ]
 _EXISTING_DEP_STEPS: frozenset[str] = frozenset({"docker-command", "extensions"})
 for _comp, _label in _dep_fix_pairs:
@@ -216,7 +223,7 @@ for _comp, _label in _dep_fix_pairs:
         continue
     register_heuristic(HeuristicStep(
         label=_label,
-        command=_AVAIL_HINTS[_comp],
+        command=_label,
         conditions=[_is_deployer_cwd],
         anti_conditions=[requires_component(_comp)],
     ), roles={"deployer"})
@@ -300,12 +307,6 @@ def _build_deployment_images(no_cache: bool = False) -> None:
         raise SystemExit(rc)
 
 
-from ._build import register_build  # noqa: E402
-register_build(
-    "deployment",
-    _build_deployment_images,
-    is_built=lambda: not _deploy_images_missing(),
-)
 
 
 # ---------------------------------------------------------------------------

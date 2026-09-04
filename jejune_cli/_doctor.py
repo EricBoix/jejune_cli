@@ -4,38 +4,11 @@ from typing import Callable
 import click
 
 from ._health import run_all
-from .configuration import (
-    get_config_hint,
+from .component_ext import ext_comp
+from .component_registry import REGISTRY
+from .click_comp_configuration import (
     print_two_col_table,
 )
-
-# ---------------------------------------------------------------------------
-# Component registry — _BASE_COMPONENTS is the ordered list of built-in
-# component names.  main.py imports it to seed _COMPONENTS and _BUILTIN_COMPONENTS.
-# ---------------------------------------------------------------------------
-
-_BASE_COMPONENTS: list[str] = [
-    "ecosystem",
-    "network",
-    "git-command",
-    "git-repos-access",
-    "docker-command",
-    "docker-hub-server",
-    "pypi-server",
-    "uv-command",
-    "extensions",
-    "catalog",
-    "neo4j",
-    "llm",
-    "llm-observability",
-    "graph",
-    "deployment",
-    "docs-server",
-    "kg-viewer",
-    "md-browser",
-    "convert",
-    "manifest",
-]
 
 # ---------------------------------------------------------------------------
 # Display constants
@@ -49,73 +22,13 @@ _STATUS_ICON: dict[str, tuple[str, str]] = {
     "error": ("✗", "red"),
 }
 
-# ---------------------------------------------------------------------------
-# Availability metadata — populated by main._load_plugins() at startup.
-# ---------------------------------------------------------------------------
-
-_AVAIL_HINTS: dict[str, str] = {
-    "network":            "check internet connectivity (GitHub must be reachable)",
-    "git-command":        "install git (https://git-scm.com)",
-    "docker-command":     "install Docker Desktop (https://docs.docker.com/get-docker/)",
-    "neo4j":              "run `jejune neo4j start --help`",
-    "llm":                "run `jejune llm status-config`",
-    "llm-observability":  "run `jejune llm-observability start`",
-    "convert":            "run `jejune convert build`",
-    "uv-command":         "install uv (https://docs.astral.sh/uv/getting-started/installation/)",
-    "extensions":         "run `jejune deployment install`",
-    "docs-server":        "run `jejune deployment install`",
-    "kg-viewer":          "run `jejune deployment install`",
-    "md-browser":         "run `jejune deployment install`",
-}
-
 _UI_PLUGIN_NAMES: frozenset[str] = frozenset(("docs-server", "kg-viewer", "md-browser"))
 
-# Required dependencies: a component is only effective when all its deps are ok.
-_COMPONENT_DEPS: dict[str, list[str]] = {
-    "git-repos-access": ["network", "git-command"],
-    "docker-hub-server": ["network"],
-    "pypi-server":  ["network"],
-    "ecosystem":    ["git-repos-access"],
-    "extensions":   ["git-repos-access", "uv-command"],
-    "neo4j":        ["git-repos-access", "docker-hub-server"],
-    "llm":          ["network"],
-    "graph":        ["git-repos-access", "neo4j", "llm"],
-    "catalog":      ["ecosystem"],
-    "deployment":   ["catalog"],
-    "convert":      ["pypi-server"],
-    "docs-server":  ["ecosystem", "docker-command"],
-    "kg-viewer":    ["ecosystem", "docker-command"],
-    "md-browser":   ["ecosystem", "docker-command"],
-}
-
-# Optional dependencies: enhance a component but do not affect its effective status.
-_COMPONENT_OPTIONAL_DEPS: dict[str, list[str]] = {
-    "graph": ["llm-observability"],
-}
-
-# External dependencies: components the user must install/provide (not jejune-managed).
-# Values are (kind, fix_step_label). fix_step_label is the HeuristicStep label for restoring
-# this dep's availability, or None for deps without a dedicated fix step.
-_COMPONENT_KIND: dict[str, tuple[str, str | None]] = {
-    "network":           ("dep", "Check network connectivity"),
-    "git-command":       ("dep", "Install git"),
-    "git-repos-access":  ("dep", None),
-    "ecosystem":         ("dep", None),
-    "docker-command":    ("dep", "Install docker desktop"),
-    "docker-hub-server": ("dep", None),
-    "pypi-server":       ("dep", None),
-    "uv-command":        ("dep", "Install uv"),
-    "extensions":        ("dep", "Install deployment"),
-    "llm":               ("dep", None),
-}
+# Plugin-contributed optional dependencies (built-in optional deps live on component classes).
+_PLUGIN_OPTIONAL_DEPS: dict[str, list[str]] = {}
 
 # Visibility predicates: when the predicate returns False the component is hidden.
 _COMPONENT_VISIBLE: dict[str, Callable[[], bool]] = {}
-
-# Components hidden from the default doctor output when they are available.
-_HIDE_WHEN_AVAILABLE: frozenset[str] = frozenset(
-    ("network", "git-command", "git-repos-access", "docker-command", "uv-command", "extensions")
-)
 
 
 def _init_visibility() -> None:
@@ -127,69 +40,77 @@ def _init_visibility() -> None:
 
 _init_visibility()
 
-
-def _validate_component_names() -> None:
-    """Assert that all component-name keys in built-in dicts are in _BASE_COMPONENTS."""
-    _base = frozenset(_BASE_COMPONENTS)
-    _flat_deps = {d for deps in _COMPONENT_DEPS.values() for d in deps}
-    _flat_opt  = {d for deps in _COMPONENT_OPTIONAL_DEPS.values() for d in deps}
-    for lbl, names in [
-        ("_AVAIL_HINTS keys",               _AVAIL_HINTS),
-        ("_COMPONENT_DEPS keys",            _COMPONENT_DEPS),
-        ("_COMPONENT_DEPS values",          _flat_deps),
-        ("_COMPONENT_KIND keys",            _COMPONENT_KIND),
-        ("_COMPONENT_OPTIONAL_DEPS keys",   _COMPONENT_OPTIONAL_DEPS),
-        ("_COMPONENT_OPTIONAL_DEPS values", _flat_opt),
-        ("_HIDE_WHEN_AVAILABLE",            _HIDE_WHEN_AVAILABLE),
-    ]:
-        unknown = set(names) - _base
-        assert not unknown, f"{lbl} contain unknown component names: {unknown}"
-
-
-_validate_component_names()
-
 # ---------------------------------------------------------------------------
-# Component availability registry
+# Component registry initialisation (lazy, idempotent)
 # ---------------------------------------------------------------------------
 
-_COMPONENT_AVAIL: dict[str, Callable[[], bool]] = {}
-_COMPONENT_AVAIL_INITIALIZED = False
+_REGISTRY_INITIALIZED = False
 
 
-def _init_component_avail() -> None:
-    global _COMPONENT_AVAIL_INITIALIZED
-    if _COMPONENT_AVAIL_INITIALIZED:
+def _init_registry() -> None:
+    """Import all built-in component modules so they self-register into REGISTRY."""
+    global _REGISTRY_INITIALIZED
+    if _REGISTRY_INITIALIZED:
         return
-    _COMPONENT_AVAIL_INITIALIZED = True
-    from .network         import is_network_available
-    from .git_command     import is_git_command_available
-    from .uv_command      import is_uv_command_available
-    from .docker_command  import is_docker_command_available
-    from .docker_hub_server import is_docker_hub_server_available
-    from .pypi_server     import is_pypi_server_available
-    from .deployer_extensions import _extensions_installed
-    _COMPONENT_AVAIL["network"]          = is_network_available
-    _COMPONENT_AVAIL["git-command"]      = is_git_command_available
-    _COMPONENT_AVAIL["uv-command"]       = is_uv_command_available
-    _COMPONENT_AVAIL["docker-command"]   = is_docker_command_available
-    _COMPONENT_AVAIL["docker-hub-server"] = is_docker_hub_server_available
-    _COMPONENT_AVAIL["pypi-server"]      = is_pypi_server_available
-    _COMPONENT_AVAIL["extensions"]       = _extensions_installed
+    _REGISTRY_INITIALIZED = True
+    from . import (  # noqa: F401
+        component_ext_network,
+        component_ext_command_git,
+        component_ext_command_docker,
+        component_ext_command_uv,
+        component_ext_server_pypi,
+        component_ext_server_docker_hub,
+        component_ext_server_github,
+        component_ext_server_llm,
+        component_ext_server_llm_observability,
+        component_ext_extensions,
+        component_ecosystem,
+        component_deployment_comp,
+        component_catalog,
+        component_manifest,
+        component_cont_docs_server,
+        component_cont_kg_viewer,
+        component_cont_md_browser,
+        component_cont_convert,
+        component_cont_neo4j,
+        component_cont_graph,
+    )
+
+
+_init_registry()
+
+
+def _validate_registry() -> None:
+    """Assert that all dependency names in each component refer to known registry entries."""
+    known = frozenset(REGISTRY.names())
+    for inst in REGISTRY:
+        unknown = set(inst.dependencies) - known
+        assert not unknown, f"{inst.name}.dependencies contain unknown names: {unknown}"
+        unknown = set(inst.optional_dependencies) - known
+        assert not unknown, f"{inst.name}.optional_dependencies contain unknown names: {unknown}"
+
+
+_validate_registry()
+
+# ---------------------------------------------------------------------------
+# Component availability
+# ---------------------------------------------------------------------------
 
 
 def component_available(name: str, _seen: set[str] | None = None) -> bool:
-    """Return True if *name* and all its transitive deps in _COMPONENT_DEPS are available."""
-    _init_component_avail()
+    """Return True if *name* and all its transitive required deps are available."""
     if _seen is None:
         _seen = set()
     if name in _seen:
         return True
     _seen.add(name)
-    for dep in _COMPONENT_DEPS.get(name, []):
+    inst = REGISTRY.get(name)
+    if inst is None:
+        return True
+    for dep in inst.dependencies:
         if not component_available(dep, _seen):
             return False
-    fn = _COMPONENT_AVAIL.get(name)
-    return fn() if fn else True
+    return inst.is_available()
 
 
 def requires_component(name: str) -> Callable[[], bool]:
@@ -208,61 +129,37 @@ def _component_kind(name: str) -> str:
     """Return the Kind label for a component: "opt", "dep", or "" (blank)."""
     _optional_set = {
         dep
-        for deps in _COMPONENT_OPTIONAL_DEPS.values()
-        for dep in deps
-    }
-    _required_set = {
+        for inst in REGISTRY
+        for dep in inst.optional_dependencies
+    } | {
         dep
-        for deps in _COMPONENT_DEPS.values()
+        for deps in _PLUGIN_OPTIONAL_DEPS.values()
         for dep in deps
     }
+    _required_set = {dep for inst in REGISTRY for dep in inst.dependencies}
     if name in _optional_set and name not in _required_set:
         return "opt"
-    if name in _COMPONENT_KIND:
-        return _COMPONENT_KIND[name][0]
-    from .plugin import _REGISTRY
-    for p in _REGISTRY:
+    inst = REGISTRY.get(name)
+    if inst is not None:
+        return "dep" if isinstance(inst, ext_comp) else ""
+    from .plugin import _REGISTRY as _PLUGIN_REGISTRY
+    for p in _PLUGIN_REGISTRY:
         if p.name == name:
             return p.kind
     return ""
 
 
-def dep_fix_label(name: str) -> str | None:
-    """Return the HeuristicStep label for restoring this dep component's availability, or None."""
-    entry = _COMPONENT_KIND.get(name)
-    return entry[1] if entry is not None else None
-
-
 def _all_components() -> list[str]:
-    """Return ordered component names: built-ins first, then loaded plugins."""
-    from .plugin import _REGISTRY
-    seen = set(_BASE_COMPONENTS)
-    result = list(_BASE_COMPONENTS)
-    for p in _REGISTRY:
-        if p.name not in seen:
-            result.append(p.name)
-            seen.add(p.name)
-    return result
+    """Return ordered component names from REGISTRY (built-ins + loaded plugins)."""
+    return REGISTRY.names()
 
 
 def _topo_sorted(components: list[str]) -> list[str]:
-    """Return components sorted in topological dependency order via DFS."""
+    """Return components in topological order using REGISTRY ordering."""
     comp_set = set(components)
-    visited: set[str] = set()
-    result: list[str] = []
-
-    def visit(name: str) -> None:
-        if name in visited:
-            return
-        visited.add(name)
-        for dep in _COMPONENT_DEPS.get(name, []):
-            if dep in comp_set:
-                visit(dep)
-        result.append(name)
-
-    for comp in components:
-        visit(comp)
-    return result
+    ordered = [name for name in REGISTRY.names() if name in comp_set]
+    ordered += [name for name in components if name not in set(ordered)]
+    return ordered
 
 
 def _is_visible(name: str) -> bool:
@@ -276,18 +173,15 @@ def _is_visible(name: str) -> bool:
 
 
 def _resolve_avail_hint(comp: str, fallback: str = "") -> str:
-    from .plugin import _REGISTRY
-    if comp in _UI_PLUGIN_NAMES and any(p.name == comp for p in _REGISTRY):
+    from .plugin import _REGISTRY as _PLUGIN_REGISTRY
+    if comp in _UI_PLUGIN_NAMES and any(p.name == comp for p in _PLUGIN_REGISTRY):
         from .ui_deployment import _deploy_images_missing
         try:
             return "run `jejune build`" if _deploy_images_missing() else "run `jejune up`"
         except Exception:
             return "run `jejune up`"
-    return _AVAIL_HINTS.get(comp, fallback)
-
-
-def _section_header(title: str) -> str:
-    return click.style(f"  {title}", bold=True)
+    inst = REGISTRY.get(comp)
+    return (inst.hint or fallback) if inst else fallback
 
 
 def _avail_all_visible() -> list[str]:
@@ -309,7 +203,8 @@ def _build_avail_rows(
             else:
                 hint = _resolve_avail_hint(comp)
                 if not hint:
-                    deps = _COMPONENT_DEPS.get(comp, [])
+                    inst = REGISTRY.get(comp)
+                    deps = inst.dependencies if inst else []
                     for dep in sorted(
                         deps,
                         key=lambda d: _STATUS_RANK.get(by_avail.get(d, ("ok",))[0], 0),
@@ -320,31 +215,32 @@ def _build_avail_rows(
                             if hint:
                                 break
                 rows.append((comp, status, msg, hint))
-        elif comp in _COMPONENT_DEPS:
-            req = _COMPONENT_DEPS[comp]
-            worst = max(
-                (by_avail.get(dep, ("ok", ""))[0] for dep in req),
-                key=lambda s: _STATUS_RANK.get(s, 0),
-                default="ok",
-            )
-            failing = [dep for dep in req if by_avail.get(dep, ("ok", ""))[0] != "ok"]
-            check = "" if worst == "ok" else "deps: " + ", ".join(failing)
-            rows.append((comp, worst, check, ""))
+        else:
+            inst = REGISTRY.get(comp)
+            req = inst.dependencies if inst else []
+            if req:
+                worst = max(
+                    (by_avail.get(dep, ("ok", ""))[0] for dep in req),
+                    key=lambda s: _STATUS_RANK.get(s, 0),
+                    default="ok",
+                )
+                failing = [dep for dep in req if by_avail.get(dep, ("ok", ""))[0] != "ok"]
+                check = "" if worst == "ok" else "deps: " + ", ".join(failing)
+                rows.append((comp, worst, check, ""))
     return rows
 
 
 def _collect_img_status(visible: list[str]) -> dict[str, bool]:
-    """Return {comp: image_built} for components with a registered Docker image."""
-    from ._build import _BUILD_REGISTRY
+    """Return {comp: image_built} for cont_comp components with is_built registered."""
+    from .component_containerized import cont_comp
     result: dict[str, bool] = {}
     for comp in visible:
-        if comp in _BUILD_REGISTRY:
-            _, is_built = _BUILD_REGISTRY[comp]
-            if is_built is not None:
-                try:
-                    result[comp] = is_built()
-                except Exception:
-                    pass
+        inst = REGISTRY.get(comp)
+        if isinstance(inst, cont_comp):
+            try:
+                result[comp] = inst.is_built()
+            except Exception:
+                pass
     return result
 
 
@@ -421,7 +317,7 @@ def doctor(verbose: bool):
     docker, extensions) are hidden when available; use --verbose to show all.
     """
     from ._env import dot_jejune
-    from .plugin import _REGISTRY
+    from .plugin import _REGISTRY as _PLUGIN_REGISTRY
     from .role import detect_role, detect_roles, role_components
 
     active_role, _ = detect_role()
@@ -441,10 +337,8 @@ def doctor(verbose: bool):
 
     config_results, avail_results = run_all(components=active_components)
 
-    # Show placeholder rows for expected components not covered by built-ins or
-    # registered plugins (e.g. deployer check extensions not yet installed).
-    _plugin_names = {p.name for p in _REGISTRY}
-    _builtin = frozenset(_BASE_COMPONENTS)
+    _plugin_names = {p.name for p in _PLUGIN_REGISTRY}
+    _builtin = frozenset(REGISTRY.names())
     if active_components is not None:
         _seen_config = {c for c, _, _ in config_results}
         _seen_avail  = {c for c, _, _ in avail_results}
@@ -456,7 +350,6 @@ def doctor(verbose: bool):
                     avail_results.append((name, "warn", "extension not installed"))
 
     by_config = {comp: (status, msg) for comp, status, msg in config_results}
-    by_avail = {comp: (status, msg) for comp, status, msg in avail_results}
 
     all_comp = _all_components()
     visible_components = [c for c in all_comp if _is_visible(c)]
@@ -465,17 +358,14 @@ def doctor(verbose: bool):
             visible_components.append(name)
     visible_components = _topo_sorted(visible_components)
 
-    config_rows: list[tuple[str, str, str, str]] = [
-        (
-            comp,
-            status,
-            msg if status != "ok" else "",
-            "" if status == "ok" else get_config_hint(comp, status, msg),
-        )
-        for comp, (status, msg) in [
-            (c, by_config.get(c, ("ok", "ok"))) for c in visible_components
-        ]
-    ]
+    visible_set = set(visible_components)
+    config_rows: list[tuple[str, str, str, str]] = []
+    for comp in REGISTRY:
+        if comp.name not in visible_set:
+            continue
+        status, msg = by_config.get(comp.name, ("ok", "ok"))
+        hint = (comp.configuration.hint or "") if status != "ok" and hasattr(comp, 'configuration') else ""
+        config_rows.append((comp.name, status, msg if status != "ok" else "", hint))
 
     avail_rows = _build_avail_rows(avail_results, visible_components)
 
@@ -489,7 +379,7 @@ def doctor(verbose: bool):
         avail_ok = {comp for comp, status, _, _ in avail_rows if status == "ok"}
         config_rows = [
             row for row in config_rows
-            if row[0] not in _HIDE_WHEN_AVAILABLE or row[0] not in avail_ok
+            if not (isinstance(REGISTRY.get(row[0]), ext_comp) and row[0] in avail_ok)
         ]
 
     img_status = _collect_img_status(visible_components)

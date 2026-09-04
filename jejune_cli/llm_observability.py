@@ -5,8 +5,9 @@ import urllib.request
 
 import click
 
-from .configuration import (
-    component_config_check,
+from .component_ext_server_llm_observability import llm_obs_comp
+from .click_comp_configuration import (
+    print_config_check,
     print_config_hint,
     print_config_status,
 )
@@ -31,9 +32,7 @@ def container_running() -> tuple[bool, str]:
 
 def llm_observability_available() -> tuple[bool, str]:
     """Config-guard + container check; consumed by catalog.run_all() and *-availability commands."""
-    from .configuration import component_config_check
-
-    cfg_status, _ = component_config_check("llm-observability")
+    cfg_status, *_ = llm_obs_comp.configuration.check()
     if cfg_status != "ok":
         return False, "not configured"
     return container_running()
@@ -47,21 +46,19 @@ def llm_observability():
 @llm_observability.command("check-config")
 def check_config():
     """Show per-variable configuration detail for the llm-observability component."""
-    from .configuration import print_config_check
-
-    print_config_check("llm-observability")
+    print_config_check(llm_obs_comp.configuration)
 
 
 @llm_observability.command("status-config")
 def status_config():
     """Show llm-observability configuration status."""
-    print_config_status("llm-observability")
+    print_config_status(llm_obs_comp.configuration)
 
 
 @llm_observability.command("hint-config")
 def hint_config():
     """Show the configuration hint for the llm-observability component."""
-    print_config_hint("llm-observability")
+    print_config_hint(llm_obs_comp.configuration)
 
 
 @llm_observability.command("start")
@@ -114,8 +111,7 @@ def check_availability():
     """Show detailed llm-observability availability (container state and endpoint reachability)."""
     ok, msg = llm_observability_available()
     if msg == "not configured":
-        _, hint = component_config_check("llm-observability")
-        click.echo(f"  {click.style('not configured', fg='yellow')}  {hint}")
+        click.echo(f"  {click.style('not configured', fg='yellow')}  {llm_obs_comp.configuration.hint}")
         return
     running = ok
     url = os.environ.get("TRACELOOP_BASE_URL", f"http://localhost:{_OTLP_PORT}")
@@ -154,7 +150,6 @@ def hint_availability():
     if ok:
         click.echo(click.style("llm-observability is running", fg="green"))
     elif msg == "not configured":
-        _, hint = component_config_check("llm-observability")
-        click.echo(hint or "configure TRACELOOP_BASE_URL in .jejune/env-config")
+        click.echo(llm_obs_comp.configuration.hint)
     else:
         click.echo("run `jejune llm-observability start`")

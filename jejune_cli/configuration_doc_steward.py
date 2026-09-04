@@ -6,29 +6,11 @@ from pathlib import Path
 import click
 
 from ._env import dot_jejune
-from .doc_steward_extensions import _do_extension_install, _extension_installed
+from .doc_steward_extensions import _do_extension_install, _extension_installed, doc_steward_extensions as _ds_extensions
 from .next_steps import print_next_steps
 
 _TEMPLATES = Path(__file__).parent / "templates" / "doc-steward"
 _ECOSYSTEM_TEMPLATE = Path(__file__).parent / "templates" / "ecosystem" / "env-config"
-
-# Config groups: name → (env vars, components that require them).
-# "warn" (yellow) = none set — use case not configured, valid.
-# "error" (red)   = partial or placeholder — needs attention.
-CONFIG_GROUPS: dict[str, tuple[list[str], str]] = {
-    "neo4j":             (["NEO4J_PASSWORD"],                                   "neo4j, graph dump-turtle, graph extract"),
-    "llm":               (["LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"],  "graph extract"),
-    "llm-observability": (["TRACELOOP_BASE_URL"],                               "graph extract (tracing)"),
-    "convert":           (["CONVERT_DOC_DIR"],                                  "convert build, convert run"),
-}
-
-COMPONENT_CONFIG_HINTS: dict[str, str] = {
-    "neo4j":             "edit .jejune/env-secrets or .jejune/env-config",
-    "llm":               "edit .jejune/env-secrets",
-    "llm-observability": "configure TRACELOOP_BASE_URL in .jejune/env-config",
-    "convert":           "set CONVERT_DOC_DIR in .jejune/env-config",
-}
-
 
 class _DocStewardInit(click.Command):
     def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
@@ -90,3 +72,13 @@ def init(dir_name: str | None) -> None:
     if dir_name and dir_name not in (".", str(Path.cwd())) and target.resolve() != Path.cwd().resolve():
         cd_hint = [f"First: cd {dir_name}"]
     print_next_steps(preamble=cd_hint)
+
+
+@click.group("doc-steward", short_help="Doc-steward role workspace")
+def doc_steward_group():
+    """Initialise and inspect the doc-steward workspace."""
+
+
+doc_steward_group._role_subgroup = True
+doc_steward_group.add_command(init, "init")
+doc_steward_group.add_command(_ds_extensions, "extensions")

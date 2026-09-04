@@ -4,11 +4,12 @@ import click
 
 from .component_git_server import remote_git_url
 from ._env import EXTRACT_ENV_VARS, docker_env_args
-from .configuration import print_config_hint, print_config_status
+from .component_cont_graph import graph_comp
+from .click_comp_configuration import print_config_hint, print_config_status
 from .graph_view import view
 from .llm import llm_available as _llm_available
 from .llm_observability import container_running as _llm_obs_running
-from .neo4j import container_running as _neo4j_running
+from .component_cont_neo4j import neo4j_comp as _neo4j_comp
 
 _BUILD_KG_IMAGE = "jejune:extract_knowledge_graph"
 
@@ -33,7 +34,7 @@ _DEP_HINTS = {
 
 
 def _preflight() -> None:
-    running, _ = _neo4j_running()
+    running, _ = _neo4j_comp.is_running()
     if not running:
         raise click.ClickException(
             "neo4j is not running — refer to `jejune neo4j start --help`"
@@ -57,7 +58,7 @@ def _run(*cmd: str) -> None:
 
 def _graph_dep_statuses() -> dict[str, tuple[bool, str]]:
     """Run required-dep checks once; shared by graph_available and *-availability commands."""
-    return {"neo4j": _neo4j_running(), "llm": _llm_available()}
+    return {"neo4j": _neo4j_comp.is_running(), "llm": _llm_available()}
 
 
 def graph_available() -> tuple[bool, str]:
@@ -79,27 +80,7 @@ def graph(ctx):
 graph.add_command(view)
 
 
-def _build_kg_image(no_cache: bool = False) -> None:
-    """Build the knowledge-graph extraction Docker image."""
-    click.echo(f"Building {_BUILD_KG_IMAGE} ...")
-    extra = ["--no-cache"] if no_cache else []
-    _run(
-        "docker", "build", *extra, "-t", _BUILD_KG_IMAGE,
-        remote_git_url("jejune_extract_knowledge_graph", ":DockerContext"),
-    )
-
-
-def _graph_is_built() -> bool:
-    import subprocess
-    r = subprocess.run(
-        ["docker", "images", "-q", _BUILD_KG_IMAGE],
-        capture_output=True, text=True,
-    )
-    return bool(r.returncode == 0 and r.stdout.strip())
-
-
-from ._build import register_build  # noqa: E402
-register_build("graph", _build_kg_image, is_built=_graph_is_built)
+from .component_cont_graph import graph_comp  # noqa: E402
 
 
 @graph.command("build")
@@ -107,7 +88,7 @@ register_build("graph", _build_kg_image, is_built=_graph_is_built)
               help="Do not use Docker layer cache when building.")
 def graph_build(no_cache: bool):
     """Build the knowledge-graph extraction Docker image."""
-    _build_kg_image(no_cache=no_cache)
+    graph_comp.build(no_cache=no_cache)
 
 
 @graph.command("check-availability")
@@ -142,20 +123,19 @@ def hint_availability():
 @graph.command("check-config")
 def check_config():
     """Show per-variable configuration detail for the graph component."""
-    from .configuration import print_config_check
-    print_config_check("graph")
+    print_config_check(graph_comp.configuration)
 
 
 @graph.command("status-config")
 def status_config():
     """Show graph configuration status."""
-    print_config_status("graph")
+    print_config_status(graph_comp.configuration)
 
 
 @graph.command("hint-config")
 def hint_config():
     """Show the configuration hint for the graph component."""
-    print_config_hint("graph")
+    print_config_hint(graph_comp.configuration)
 
 
 @graph.command("split", context_settings={"ignore_unknown_options": True})
@@ -182,7 +162,7 @@ def split(doc_dir, splitter, output, no_cache, extra_args):
     EXTRA_ARGS are forwarded verbatim to the splitter (e.g. --output_dir /data).
     """
     doc_dir = Path(doc_dir).resolve()
-    _build_kg_image(no_cache=no_cache)
+    graph_comp.build(no_cache=no_cache)
 
     output_args = ("--output", output) if output is not None else ()
     click.echo(f"Splitting with {_SPLITTERS[splitter]} ...")
@@ -226,7 +206,7 @@ def extract(doc_dir, no_cache, extra_args):
     Credentials and LLM settings are read from .jejune/env-secrets / environment.
     """
     doc_dir = Path(doc_dir).resolve()
-    _build_kg_image(no_cache=no_cache)
+    graph_comp.build(no_cache=no_cache)
 
     _docker_run = (
         "docker", "run", "--rm", "--tty",

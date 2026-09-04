@@ -141,11 +141,20 @@ def ecosystem_needs_remote() -> bool:
     )
 
 
-from .docker_command import is_docker_command_available
-from .uv_command import is_uv_command_available
+from .component_registry import REGISTRY as _REGISTRY_ECO
 
-register_precondition("docker available", is_docker_command_available)
-register_precondition("uv available",     is_uv_command_available)
+def _check_docker() -> bool:
+    inst = _REGISTRY_ECO.get("docker-command")
+    return inst.is_available() if inst else False
+
+
+def _check_uv() -> bool:
+    inst = _REGISTRY_ECO.get("uv-command")
+    return inst.is_available() if inst else False
+
+
+register_precondition("docker available", _check_docker)
+register_precondition("uv available",     _check_uv)
 
 
 # ---------------------------------------------------------------------------

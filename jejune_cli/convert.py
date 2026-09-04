@@ -5,7 +5,7 @@ from pathlib import Path
 
 import click
 
-from .configuration import print_config_status
+from .click_comp_configuration import print_config_check, print_config_status
 
 def _doc_dir() -> Path | None:
     val = os.environ.get("CONVERT_DOC_DIR")
@@ -35,6 +35,19 @@ def convert_configured() -> bool:
     return (d / "DockerContext").is_dir()
 
 
+def validate_convert_dir(val: str) -> tuple[str, str]:
+    """Validate that val points to a Dockerfile or a directory containing DockerContext/."""
+    p = Path(val)
+    if p.is_file():
+        if not p.exists():
+            return "error", f"Dockerfile not found at {p.resolve()}"
+        return "ok", ""
+    ctx = p / "DockerContext"
+    if not ctx.is_dir():
+        return "error", f"DockerContext not found at {ctx}"
+    return "ok", ""
+
+
 def image_built() -> tuple[bool, str]:
     """Return (is_built, message) for the convert Docker image."""
     image = _image_name()
@@ -60,14 +73,15 @@ def convert():
 @convert.command("check-config")
 def check_config():
     """Show per-variable configuration detail for the convert component."""
-    from .configuration import print_config_check
-    print_config_check("convert")
+    from .component_cont_convert import convert_comp
+    print_config_check(convert_comp.configuration)
 
 
 @convert.command("status-config")
 def status_config():
     """Show convert configuration status."""
-    print_config_status("convert")
+    from .component_cont_convert import convert_comp
+    print_config_status(convert_comp.configuration)
 
 
 @convert.command("hint-config")
@@ -154,8 +168,6 @@ def _build_if_configured(no_cache: bool = False) -> None:
         _build_convert_image(no_cache=no_cache)
 
 
-from ._build import register_build  # noqa: E402
-register_build("convert", _build_if_configured, is_built=lambda: image_built()[0])
 
 
 @convert.command("build")

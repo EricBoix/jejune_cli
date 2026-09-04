@@ -40,22 +40,6 @@ def _save(entries: list[dict]) -> None:
     _REGISTRY.write_text(json.dumps(entries, indent=2))
 
 
-def is_running(name: str) -> bool:
-    """Return True if the named Docker container is currently running."""
-    result = subprocess.run(
-        ["docker", "inspect", "-f", "{{.State.Running}}", name],
-        capture_output=True,
-        text=True,
-    )
-    return result.returncode == 0 and result.stdout.strip() == "true"
-
-
-def _exists(name: str) -> bool:
-    """Return True if the named container exists in Docker (running or stopped)."""
-    return subprocess.run(
-        ["docker", "inspect", name],
-        capture_output=True,
-    ).returncode == 0
 
 
 def register(component: str, container: str, **meta) -> dict:
@@ -99,17 +83,15 @@ def unregister(*container_names: str) -> None:
 
 
 def all_entries() -> list[dict]:
-    """Return all registry entries, pruning any whose containers have disappeared.
+    """Return all active container entries from the component REGISTRY."""
+    from .component_containerized import cont_comp
+    from .component_registry import REGISTRY
 
-    The prune step is also performed under the lock so concurrent contexts do
-    not overwrite each other's reconciliation writes.
-    """
-    with _registry_lock():
-        entries = _load()
-        live = [e for e in entries if _exists(e["container"])]
-        if len(live) < len(entries):
-            _save(live)
-        return live
+    return [
+        {"component": inst.name, "container": inst.container_name}
+        for inst in REGISTRY
+        if isinstance(inst, cont_comp) and inst.exists()
+    ]
 
 
 def for_component(component: str) -> list[dict]:
@@ -122,22 +104,23 @@ def print_containers_table(prefix: str = "  ") -> None:
 
     Called by both `jejune containers list` and `jejune doctor`.
     """
-    entries = all_entries()
-    if not entries:
-        click.echo(f"{prefix}No containers on record.")
+    from .component_containerized import cont_comp
+    from .component_registry import REGISTRY
+
+    comps = [inst for inst in REGISTRY if isinstance(inst, cont_comp)]
+    if not comps:
+        click.echo(f"{prefix}No container components registered.")
         return
-    _W_CTR = max(len(e["container"]) for e in entries)
-    _W_COMP = max(len(e["component"]) for e in entries)
-    header = f"{prefix}{'Container':<{_W_CTR}}  {'Component':<{_W_COMP}}  Port    Status"
+
+    _W_COMP = max(len(inst.name) for inst in comps)
+    _W_IMG  = max(len(inst.image_name) for inst in comps)
+    header = f"{prefix}{'Component':<{_W_COMP}}  {'Image':<{_W_IMG}}  Status"
     click.echo(header)
     click.echo(prefix + "─" * (len(header) - len(prefix)))
-    for entry in entries:
-        name = entry["container"]
-        comp = entry["component"]
-        port = str(entry.get("port", ""))
-        running = is_running(name)
-        status_str = click.style("running", fg="green") if running else click.style("stopped", fg="yellow")
-        click.echo(f"{prefix}{name:<{_W_CTR}}  {comp:<{_W_COMP}}  {port:<6}  {status_str}")
+    for inst in comps:
+        ok, msg = inst.is_running()
+        status_str = click.style("running", fg="green") if ok else click.style(msg, fg="yellow")
+        click.echo(f"{prefix}{inst.name:<{_W_COMP}}  {inst.image_name:<{_W_IMG}}  {status_str}")
 
 
 @click.group("containers", short_help="Manage jejune-managed Docker containers")

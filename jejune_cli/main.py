@@ -7,16 +7,14 @@ import click
 from ._env import dot_jejune, load_env_files
 from ._health import run_all  # noqa: F401 — re-exported for external callers
 from ._doctor import (
-    _BASE_COMPONENTS,
-    _AVAIL_HINTS,
-    _COMPONENT_DEPS,
-    _COMPONENT_OPTIONAL_DEPS,
+    _PLUGIN_OPTIONAL_DEPS,
     availability,
     config_check_availability,
     config_hint_availability,
     config_status_availability,
     doctor,
 )
+from .component_registry import REGISTRY
 from ._next_cmd import next_cmd, register_heuristics
 from ._role_cmd import role
 from .convert import convert, convert_configured
@@ -27,10 +25,8 @@ from .ecosystem import ecosystem
 
 document = click.Group("document", help="Document workspace commands.")
 from .ui_deployment import up as _up_cmd, down as _down_cmd
-from .configuration import (
+from .click_comp_configuration import (
     configuration,
-    COMPONENT_CONFIG_HINTS as _CONFIG_HINTS,
-    get_config_hint,
     print_config_table,
     print_two_col_table,
     register_role_config_subgroup,
@@ -41,7 +37,7 @@ from .graph import graph
 from .llm import llm
 from .manifest import manifest
 from .llm_observability import llm_observability
-from .neo4j import neo4j
+from .click_comp_neo4j import neo4j
 from .configuration_deployer import init as _deployer_init
 from .configuration_doc_steward import init as _doc_steward_init
 from .next_steps import has_heuristics_for_role, command_viable, register_command_precondition, print_next_steps
@@ -63,8 +59,7 @@ register_command_precondition("jejune doctor", _doctor_viable)
 # Component registry
 # ---------------------------------------------------------------------------
 
-_COMPONENTS: list[str] = list(_BASE_COMPONENTS)
-_BUILTIN_COMPONENTS: frozenset[str] = frozenset(_BASE_COMPONENTS)
+_BUILTIN_COMPONENTS: frozenset[str] = frozenset(REGISTRY.names())
 
 _CONTRIBUTOR_COMMANDS = ["doctor", "configuration", "role", "containers", "ecosystem", "next"]
 _DOC_STEWARD_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert", "manifest"]
@@ -256,24 +251,34 @@ def build(no_cache: bool) -> None:
     Each component that owns a Docker image registers its builder automatically.
     Use `jejune deployment build <dir>` to build a specific deployment directory.
     """
-    from ._build import _BUILD_REGISTRY
+    from .component_containerized import cont_comp
     components = role_components(_ACTIVE_ROLES) or set()
-    builders = [(c, fn) for c, (fn, _) in _BUILD_REGISTRY.items() if c in components]
+    builders = [
+        inst for inst in REGISTRY
+        if isinstance(inst, cont_comp) and inst.name in components and inst.build_context
+    ]
     if not builders:
         raise click.UsageError(
             f"'jejune build' has no Docker images registered for role {_ACTIVE_ROLE!r}."
         )
-    for _, fn in builders:
-        fn(no_cache)
+    for inst in builders:
+        inst.build(no_cache)
 
 
 # ---------------------------------------------------------------------------
 # Plugin loading
 # ---------------------------------------------------------------------------
 
+from .component_internal import component as _component
+
+
+class _PluginComp(_component):
+    def check(self) -> tuple[str, str]:
+        return "ok", ""
+
+
 def _load_plugins() -> None:
     global _ACTIVE_ROLE, _ACTIVE_ROLE_REASON, _ACTIVE_ROLES, _ACTIVE_COMPONENTS
-    from .configuration import CONFIG_GROUPS, COMPONENT_CONFIG_HINTS
     for ep in importlib.metadata.entry_points(group="jejune.plugins"):
         try:
             plugin: JejunePlugin = ep.load()
@@ -282,22 +287,20 @@ def _load_plugins() -> None:
             continue
         _REGISTRY.append(plugin)
         cli.add_command(plugin.group, plugin.name)
-        _COMPONENTS.append(plugin.name)
-        if plugin.required_deps:
-            _COMPONENT_DEPS[plugin.name] = plugin.required_deps
+        REGISTRY.add(_PluginComp(
+            name=plugin.name,
+            dependencies=plugin.required_deps or [],
+            hint=plugin.avail_hint,
+        ))
         if plugin.optional_deps:
-            _COMPONENT_OPTIONAL_DEPS[plugin.name] = plugin.optional_deps
-        if plugin.avail_hint:
-            _AVAIL_HINTS[plugin.name] = plugin.avail_hint
+            _PLUGIN_OPTIONAL_DEPS[plugin.name] = plugin.optional_deps
         if plugin.config_vars:
-            CONFIG_GROUPS[plugin.name] = (plugin.config_vars, plugin.name)
-            COMPONENT_CONFIG_HINTS[plugin.name] = plugin.config_hint
+            inst = REGISTRY.get(plugin.name)
+            if inst is not None:
+                inst.configuration.env_vars = plugin.config_vars
+                inst.configuration.hint = plugin.config_hint
         if plugin.role is not None:
             _register_plugin_role(plugin)
-        if plugin.build_image is not None:
-            from ._build import register_build
-            register_build(plugin.name, plugin.build_image,
-                           is_built=plugin.image_is_built)
     for pending_name, pending_stage, pending_order in _PENDING_HELP_SECTIONS:
         if not any(rn == pending_name for rn, _, _ in _ROLE_HELP_SECTIONS):
             insert_at = next(
@@ -326,7 +329,7 @@ def _register_plugin_role(plugin: JejunePlugin) -> None:
     _ROLE_HELP_SECTIONS.insert(insert_at, (role_obj.name, [], role_obj.help_stage))
     _SECTION_ORDER[role_obj.name] = order
     if role_obj.config_group is not None:
-        register_role_config_subgroup(role_obj.name, role_obj.config_group)
+        register_role_config_subgroup(role_obj.config_group)
 
 
 _load_plugins()
