@@ -275,16 +275,18 @@ def _resolve_deploy_dir(deployments_dir: str, name: str) -> Path:
 
 
 def _compose_returncode(deploy_dir: Path, *args: str) -> int:
-    from .ecosystem import DEPLOYER_REPOS, resolve, resolve_dirs
+    from .component_registry import REGISTRY
+    from .role import repos_for_role
 
+    eco = REGISTRY.get("ecosystem")
     env = os.environ.copy()
-    root_dir, tmp_dir = resolve_dirs(deploy_dir)
+    root_dir, tmp_dir = eco.resolve_dirs(deploy_dir)
     if root_dir:
         env["JEJUNE_ROOT_DIR"] = str(root_dir)
 
-    for name, subpath, key in DEPLOYER_REPOS:
+    for name, subpath, key in repos_for_role("deployer"):
         if key:
-            env[key] = resolve(name, root_dir, tmp_dir, subpath)
+            env[key] = eco.resolve(name, root_dir, tmp_dir, subpath)
 
     result = subprocess.run(
         ["docker", "compose", "--env-file", "deployment.env", *args],

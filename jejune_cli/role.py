@@ -9,13 +9,38 @@ Plugins can register additional roles at startup via ``register_role()``.
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Literal
 
 if TYPE_CHECKING:
     from .plugin import JejuneRole
 
+RepoTier = Literal["root", "tmp", "remote"]
+
 ROLES: list[str] = ["doc-steward", "deployer", "contributor"]
 _DISPLAY_ROLES = ROLES
+
+_ROLE_REPOS: dict[str, list[tuple[str, str | None, str | None]]] = {"contributor": []}
+
+
+def register_role_repos(
+    role_name: str,
+    repos: list[tuple[str, str | None, str | None]],
+) -> None:
+    _ROLE_REPOS.setdefault(role_name, []).extend(repos)
+
+
+def repos_for_role(role: str | None) -> list[tuple[str, str | None, str | None]]:
+    seen: set[str] = set()
+    result: list[tuple[str, str | None, str | None]] = []
+    roles_to_visit = [role] if role else []
+    while roles_to_visit:
+        r = roles_to_visit.pop(0)
+        if r in seen:
+            continue
+        seen.add(r)
+        result.extend(_ROLE_REPOS.get(r, []))
+        roles_to_visit.extend(_ROLE_INCLUDES.get(r, ()))
+    return result
 
 _ROLE_COMPONENTS: dict[str, frozenset[str]] = {
     "contributor": frozenset({"ecosystem", "network", "git-command", "git-server"}),

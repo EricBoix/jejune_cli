@@ -32,10 +32,14 @@ _COMPONENT_VISIBLE: dict[str, Callable[[], bool]] = {}
 
 
 def _init_visibility() -> None:
-    from .ecosystem import ecosystem_needs_remote
-    _COMPONENT_VISIBLE["network"]          = ecosystem_needs_remote
-    _COMPONENT_VISIBLE["git-command"]      = ecosystem_needs_remote
-    _COMPONENT_VISIBLE["git-server"] = ecosystem_needs_remote
+    from .component_registry import REGISTRY as _r
+
+    def _eco_needs_remote() -> bool:
+        return _r.get("ecosystem").ecosystem_needs_remote()
+
+    _COMPONENT_VISIBLE["network"]     = _eco_needs_remote
+    _COMPONENT_VISIBLE["git-command"] = _eco_needs_remote
+    _COMPONENT_VISIBLE["git-server"]  = _eco_needs_remote
 
 
 _init_visibility()

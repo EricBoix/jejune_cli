@@ -20,11 +20,11 @@ _ROLE_PACKAGES: dict[str, list[tuple[str, str, str]]] = {
 
 
 def _install_one(repo_name: str, check_subpath: str, plugin_name: str) -> None:
-    from .ecosystem import repo_status, resolve_dirs
     from .component_registry import REGISTRY
 
-    root_dir, tmp_dir = resolve_dirs()
-    tier, base = repo_status(repo_name, root_dir, tmp_dir)
+    eco = REGISTRY.get("ecosystem")
+    root_dir, tmp_dir = eco.resolve_dirs()
+    tier, base = eco.repo_status(repo_name, root_dir, tmp_dir)
     if tier == "remote":
         git_url = REGISTRY.get("git-server").remote_pip_url(repo_name, check_subpath)
         cmd = ["uv", "pip", "install", "--python", sys.executable, git_url]

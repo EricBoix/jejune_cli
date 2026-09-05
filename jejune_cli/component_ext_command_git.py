@@ -12,8 +12,7 @@ class comp_command_git(ext_command):
         )
 
     def check(self) -> tuple[str, str]:
-        from .ecosystem import ecosystem_needs_remote
-        if not ecosystem_needs_remote():
+        if not REGISTRY.get("ecosystem").ecosystem_needs_remote():
             return "ok", ""
         return super().check()
 

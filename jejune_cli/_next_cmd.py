@@ -150,7 +150,6 @@ def _manifest_ok() -> bool:
 def _is_catalog_installed() -> bool:
     try:
         from jejune_catalog._commands import _load_catalog_docs
-        from .ecosystem import repo_status, resolve_dirs
     except ImportError:
         return True  # catalog plugin absent — nothing to install
     try:
@@ -158,9 +157,11 @@ def _is_catalog_installed() -> bool:
     except Exception:
         return True  # no catalog.yaml → nothing to install
     try:
-        eco_root, eco_tmp = resolve_dirs()
+        from .component_registry import REGISTRY as _reg
+        eco = _reg.get("ecosystem")
+        eco_root, eco_tmp = eco.resolve_dirs()
         return all(
-            repo_status(doc["name"], eco_root, eco_tmp)[0] in ("root", "tmp")
+            eco.repo_status(doc["name"], eco_root, eco_tmp)[0] in ("root", "tmp")
             for doc in docs
         )
     except Exception:

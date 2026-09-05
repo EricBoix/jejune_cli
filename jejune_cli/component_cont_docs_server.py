@@ -1,6 +1,7 @@
 """docs-server containerized component."""
 from .component_containerized import cont_comp
 from .component_registry import REGISTRY
+from .role import register_role_repos
 
 
 class comp_docs_server(cont_comp):
@@ -12,6 +13,7 @@ class comp_docs_server(cont_comp):
             dependencies=[REGISTRY.get("ecosystem"), REGISTRY.get("docker-command")],
             hint="run `jejune deployment install`",
         )
+        register_role_repos("deployer", [("jejune_docs_server", "DockerContext", "DOCS_SERVER_CONTEXT")])
 
     def is_available(self) -> bool:
         return self.is_built()

@@ -21,7 +21,7 @@ from .convert import convert, convert_configured
 from .plugin import JejunePlugin, _REGISTRY
 from .role import register_role
 from .deployment import deployment
-from .ecosystem import ecosystem
+from .click_comp_ecosystem import ecosystem
 from .extensions import extensions_group
 
 document = click.Group("document", help="Document workspace commands.")

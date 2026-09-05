@@ -1,6 +1,7 @@
 """md-browser containerized component."""
 from .component_containerized import cont_comp
 from .component_registry import REGISTRY
+from .role import register_role_repos
 
 
 class comp_md_browser(cont_comp):
@@ -12,6 +13,7 @@ class comp_md_browser(cont_comp):
             dependencies=[REGISTRY.get("ecosystem"), REGISTRY.get("docker-command")],
             hint="run `jejune deployment install`",
         )
+        register_role_repos("deployer", [("jejune_markdown_browser", "DockerContext", "MARKDOWN_BROWSER_CONTEXT")])
 
     def is_available(self) -> bool:
         return self.is_built()

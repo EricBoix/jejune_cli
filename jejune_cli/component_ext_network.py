@@ -15,8 +15,7 @@ class comp_network(ext_comp):
         self.remote_server = "www.google.com"
 
     def check(self) -> tuple[str, str]:
-        from .ecosystem import ecosystem_needs_remote
-        if not ecosystem_needs_remote():
+        if not REGISTRY.get("ecosystem").ecosystem_needs_remote():
             return "ok", ""
         ok = _ping(self.remote_server)
         return ("ok", "") if ok else ("error", "GitHub not reachable")
