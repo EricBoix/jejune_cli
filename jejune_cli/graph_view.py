@@ -9,7 +9,8 @@ from urllib.parse import urlparse
 import click
 
 from . import containers
-from .component_registry import REGISTRY
+from .component_base import base_comp
+COMP_REGISTRY = base_comp.registry
 
 
 def _container_running(name: str) -> bool:
@@ -36,7 +37,7 @@ class _ViewGroup(click.Group):
 
 
 _VIEWER_IMAGE = "jejune:kg_graph_viewer"
-_VIEWER_GITHUB = REGISTRY.get("git-server").remote_git_url("jejune_kg-graph_viewer")
+_VIEWER_GITHUB = COMP_REGISTRY.get("git-server").remote_git_url("jejune_kg-graph_viewer")
 _VIEWER_DATA = Path.home() / ".jejune" / "viewer_data"
 _VIEWER_NAME_PREFIX = "jejune_kg_viewer_"
 _VIEWER_COMPONENT = "graph-view"

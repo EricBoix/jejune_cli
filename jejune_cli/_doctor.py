@@ -5,7 +5,6 @@ import click
 
 from ._health import run_all
 from .component_ext import ext_comp
-from .component_registry import REGISTRY
 from .click_comp_configuration import (
     print_two_col_table,
 )
@@ -28,50 +27,20 @@ _UI_PLUGIN_NAMES: frozenset[str] = frozenset(("docs-server", "kg-viewer", "md-br
 _PLUGIN_OPTIONAL_DEPS: dict[str, list[str]] = {}
 
 # ---------------------------------------------------------------------------
-# Component registry initialisation (lazy, idempotent)
+# Component registry initialisation
 # ---------------------------------------------------------------------------
 
-_REGISTRY_INITIALIZED = False
+from .component_base import base_comp
+COMP_REGISTRY = base_comp.registry
 
-
-def _init_registry() -> None:
-    """Import all built-in component modules so they self-register into REGISTRY."""
-    global _REGISTRY_INITIALIZED
-    if _REGISTRY_INITIALIZED:
-        return
-    _REGISTRY_INITIALIZED = True
-    from . import (  # noqa: F401
-        component_ext_network,
-        component_ext_command_git,
-        component_ext_command_docker,
-        component_ext_command_uv,
-        component_ext_server_pypi,
-        component_ext_server_docker_hub,
-        component_ext_server_git,
-        component_ext_server_llm,
-        component_ext_server_llm_observability,
-        component_ext_extensions,
-        component_ecosystem,
-        component_catalog,
-        component_manifest,
-        component_cont_docs_server,
-        component_cont_kg_viewer,
-        component_cont_md_browser,
-        component_cont_convert,
-        component_cont_neo4j,
-        component_cont_graph,
-        component_deployment,
-    )
-
-
-_init_registry()
+base_comp.initialize_registry()
 
 
 def _validate_registry() -> None:
     """Assert that all dependency instances in each component are registered."""
-    for inst in REGISTRY:
+    for inst in COMP_REGISTRY:
         for dep in inst.dependencies + inst.optional_dependencies:
-            assert REGISTRY.get(dep.name) is dep, (
+            assert COMP_REGISTRY.get(dep.name) is dep, (
                 f"{inst.name}.dependencies contains unregistered instance {dep.name!r}"
             )
 
@@ -90,7 +59,7 @@ def component_available(name: str, _seen: set[str] | None = None) -> bool:
     if name in _seen:
         return True
     _seen.add(name)
-    inst = REGISTRY.get(name)
+    inst = COMP_REGISTRY.get(name)
     if inst is None:
         return True
     for dep in inst.dependencies:
@@ -115,17 +84,17 @@ def _component_kind(name: str) -> str:
     """Return the Kind label for a component: "opt", "dep", or "" (blank)."""
     _optional_set = {
         dep.name
-        for inst in REGISTRY
+        for inst in COMP_REGISTRY
         for dep in inst.optional_dependencies
     } | {
         dep
         for deps in _PLUGIN_OPTIONAL_DEPS.values()
         for dep in deps
     }
-    _required_set = {dep.name for inst in REGISTRY for dep in inst.dependencies}
+    _required_set = {dep.name for inst in COMP_REGISTRY for dep in inst.dependencies}
     if name in _optional_set and name not in _required_set:
         return "opt"
-    inst = REGISTRY.get(name)
+    inst = COMP_REGISTRY.get(name)
     if inst is not None:
         return "dep" if isinstance(inst, ext_comp) else ""
     from .plugin import _REGISTRY as _PLUGIN_REGISTRY
@@ -137,19 +106,19 @@ def _component_kind(name: str) -> str:
 
 def _all_components() -> list[str]:
     """Return ordered component names from REGISTRY (built-ins + loaded plugins)."""
-    return REGISTRY.names()
+    return COMP_REGISTRY.names()
 
 
 def _topo_sorted(components: list[str]) -> list[str]:
     """Return components in topological order using REGISTRY ordering."""
     comp_set = set(components)
-    ordered = [name for name in REGISTRY.names() if name in comp_set]
+    ordered = [name for name in COMP_REGISTRY.names() if name in comp_set]
     ordered += [name for name in components if name not in set(ordered)]
     return ordered
 
 
 def _is_visible(name: str) -> bool:
-    inst = REGISTRY.get(name)
+    inst = COMP_REGISTRY.get(name)
     if inst is not None and inst.visible is not None and not inst.visible():
         return False
     from .role import detect_roles, role_components
@@ -166,7 +135,7 @@ def _resolve_avail_hint(comp: str, fallback: str = "") -> str:
             return "run `jejune build`" if _deploy_images_missing() else "run `jejune up`"
         except Exception:
             return "run `jejune up`"
-    inst = REGISTRY.get(comp)
+    inst = COMP_REGISTRY.get(comp)
     return (inst.hint or fallback) if inst else fallback
 
 
@@ -187,7 +156,7 @@ def _build_avail_rows(
             if status == "ok":
                 rows.append((comp, status, "", ""))
             else:
-                inst = REGISTRY.get(comp)
+                inst = COMP_REGISTRY.get(comp)
                 deps = inst.dependencies if inst else []
                 failing_deps = [
                     dep for dep in deps
@@ -196,7 +165,7 @@ def _build_avail_rows(
                 hint = "" if failing_deps else _resolve_avail_hint(comp)
                 rows.append((comp, status, msg, hint))
         else:
-            inst = REGISTRY.get(comp)
+            inst = COMP_REGISTRY.get(comp)
             req = inst.dependencies if inst else []
             if req:
                 worst = max(
@@ -215,7 +184,7 @@ def _collect_img_status(visible: list[str]) -> dict[str, bool]:
     from .component_containerized import cont_comp
     result: dict[str, bool] = {}
     for comp in visible:
-        inst = REGISTRY.get(comp)
+        inst = COMP_REGISTRY.get(comp)
         if isinstance(inst, cont_comp):
             try:
                 result[comp] = inst.is_built()
@@ -317,7 +286,7 @@ def doctor(verbose: bool):
     config_results, avail_results = run_all(components=active_components)
 
     _plugin_names = {p.name for p in _PLUGIN_REGISTRY}
-    _builtin = frozenset(REGISTRY.names())
+    _builtin = frozenset(COMP_REGISTRY.names())
     if active_components is not None:
         _seen_config = {c for c, _, _ in config_results}
         _seen_avail  = {c for c, _, _ in avail_results}
@@ -339,7 +308,7 @@ def doctor(verbose: bool):
 
     visible_set = set(visible_components)
     config_rows: list[tuple[str, str, str, str]] = []
-    for comp in REGISTRY:
+    for comp in COMP_REGISTRY:
         if comp.name not in visible_set:
             continue
         status, msg = by_config.get(comp.name, ("ok", "ok"))
@@ -358,7 +327,7 @@ def doctor(verbose: bool):
         avail_ok = {comp for comp, status, _, _ in avail_rows if status == "ok"}
         config_rows = [
             row for row in config_rows
-            if not (isinstance(REGISTRY.get(row[0]), ext_comp) and row[0] in avail_ok)
+            if not (isinstance(COMP_REGISTRY.get(row[0]), ext_comp) and row[0] in avail_ok)
         ]
 
     img_status = _collect_img_status(visible_components)

@@ -3,7 +3,8 @@ import platform
 import subprocess
 
 from .component_ext import ext_comp
-from .component_registry import REGISTRY
+from .component_base import base_comp
+COMP_REGISTRY = base_comp.registry
 
 
 class comp_network(ext_comp):
@@ -13,11 +14,11 @@ class comp_network(ext_comp):
             hint="check internet connectivity (GitHub must be reachable)",
         )
         self.remote_server = "www.google.com"
-        self.visible = lambda: REGISTRY.get("ecosystem").ecosystem_needs_remote()
+        self.visible = lambda: COMP_REGISTRY.get("ecosystem").ecosystem_needs_remote()
         type(self).registry.add(self)
 
     def check(self) -> tuple[str, str]:
-        if not REGISTRY.get("ecosystem").ecosystem_needs_remote():
+        if not COMP_REGISTRY.get("ecosystem").ecosystem_needs_remote():
             return "ok", ""
         ok = _ping(self.remote_server)
         return ("ok", "") if ok else ("error", "GitHub not reachable")

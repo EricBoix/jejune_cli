@@ -14,7 +14,6 @@ from ._doctor import (
     config_status_availability,
     doctor,
 )
-from .component_registry import REGISTRY
 from ._next_cmd import next_cmd, register_heuristics
 from ._role_cmd import role
 from .convert import convert, convert_configured
@@ -60,7 +59,10 @@ register_command_precondition("jejune doctor", _doctor_viable)
 # Component registry
 # ---------------------------------------------------------------------------
 
-_BUILTIN_COMPONENTS: frozenset[str] = frozenset(REGISTRY.names())
+from .component_base import base_comp
+COMP_REGISTRY = base_comp.registry
+
+_BUILTIN_COMPONENTS: frozenset[str] = frozenset(COMP_REGISTRY.names())
 
 _CONTRIBUTOR_COMMANDS = ["doctor", "configuration", "role", "containers", "ecosystem", "next"]
 _DOC_STEWARD_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert", "manifest"]
@@ -256,7 +258,7 @@ def build(no_cache: bool) -> None:
     from .component_containerized import cont_comp
     components = role_components(_ACTIVE_ROLES) or set()
     builders = [
-        inst for inst in REGISTRY
+        inst for inst in COMP_REGISTRY
         if isinstance(inst, cont_comp) and inst.name in components and inst.build_context
     ]
     if not builders:
@@ -291,7 +293,7 @@ def _load_plugins() -> None:
         except Exception as exc:
             click.echo(f"Warning: failed to load plugin {ep.name!r}: {exc}", err=True)
             continue
-        _REGISTRY.append(plugin)
+        _COMP_REGISTRY.append(plugin)
         cli.add_command(plugin.group, plugin.name)
         _PluginComp(
             name=plugin.name,
@@ -301,7 +303,7 @@ def _load_plugins() -> None:
         if plugin.optional_deps:
             _PLUGIN_OPTIONAL_DEPS[plugin.name] = plugin.optional_deps
         if plugin.config_vars:
-            inst = REGISTRY.get(plugin.name)
+            inst = COMP_REGISTRY.get(plugin.name)
             if inst is not None:
                 inst.configuration.env_vars = plugin.config_vars
                 inst.configuration.hint = plugin.config_hint

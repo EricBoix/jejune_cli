@@ -157,8 +157,9 @@ def _is_catalog_installed() -> bool:
     except Exception:
         return True  # no catalog.yaml → nothing to install
     try:
-        from .component_registry import REGISTRY as _reg
-        eco = _reg.get("ecosystem")
+        from .component_base import base_comp
+        COMP_REGISTRY = base_comp.registry
+        eco = COMP_REGISTRY.get("ecosystem")
         eco_root, eco_tmp = eco.resolve_dirs()
         return all(
             eco.repo_status(doc["name"], eco_root, eco_tmp)[0] in ("root", "tmp")

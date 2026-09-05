@@ -15,23 +15,25 @@ from .deployer_extensions import (
     _extensions_installed,
 )
 from .component_ext import ext_comp
-from .component_registry import REGISTRY
 from ._doctor import (
     _topo_sorted,
     requires_component,
 )
+
+from .component_base import base_comp
+COMP_REGISTRY = base_comp.registry
 
 _extensions_available = requires_component("extensions")
 from .next_steps import HeuristicStep, print_next_steps, register_heuristic, register_precondition, register_role_ordering
 
 
 def check_docker() -> bool:
-    inst = REGISTRY.get("docker-command")
+    inst = COMP_REGISTRY.get("docker-command")
     return inst.is_available() if inst else False
 
 
 def is_uv_command_available() -> bool:  # noqa: F401 — re-exported for external use
-    inst = REGISTRY.get("uv-command")
+    inst = COMP_REGISTRY.get("uv-command")
     return inst.is_available() if inst else False
 
 _TEMPLATES = Path(__file__).parent / "templates"
@@ -156,7 +158,7 @@ def _docs_server_url() -> str:
 
 register_heuristic(HeuristicStep(
     label="Install docker desktop",
-    command=REGISTRY.get("docker-command").hint, order=2,
+    command=COMP_REGISTRY.get("docker-command").hint, order=2,
     conditions=[_is_deployer_cwd],
     anti_conditions=[check_docker],
 ), roles={"deployer"})
@@ -214,7 +216,7 @@ register_heuristic(HeuristicStep(
 
 _dep_fix_pairs: list[tuple[str, str]] = [
     (inst.name, inst.hint)
-    for inst in REGISTRY
+    for inst in COMP_REGISTRY
     if isinstance(inst, ext_comp) and inst.hint
 ]
 _EXISTING_DEP_STEPS: frozenset[str] = frozenset({"docker-command", "extensions"})
@@ -275,10 +277,9 @@ def _resolve_deploy_dir(deployments_dir: str, name: str) -> Path:
 
 
 def _compose_returncode(deploy_dir: Path, *args: str) -> int:
-    from .component_registry import REGISTRY
     from .role import repos_for_role
 
-    eco = REGISTRY.get("ecosystem")
+    eco = COMP_REGISTRY.get("ecosystem")
     env = os.environ.copy()
     root_dir, tmp_dir = eco.resolve_dirs(deploy_dir)
     if root_dir:

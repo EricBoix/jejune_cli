@@ -2,8 +2,9 @@
 
 import click
 
-from .component_registry import REGISTRY
 from .role import repos_for_role
+from .component_base import base_comp
+COMP_REGISTRY = base_comp.registry
 
 
 @click.group(invoke_without_command=True, short_help="Ecosystem repository status")
@@ -19,7 +20,7 @@ def ecosystem_status() -> None:
     """List required repositories and their local/remote resolution status."""
     from .role import detect_role
 
-    eco = REGISTRY.get("ecosystem")
+    eco = COMP_REGISTRY.get("ecosystem")
     role, _ = detect_role()
     root_dir, tmp_dir = eco.resolve_dirs()
 
@@ -35,7 +36,7 @@ def ecosystem_status() -> None:
     root_status = click.style("set", fg="green") if root_ok else click.style("not set", fg="yellow")
     click.echo(f"  {'JEJUNE_ROOT_DIR':<{_W}}  {root_val:<50}  {root_status}")
 
-    click.echo(f"  {'REPO_ROOT_DIR':<{_W}}  {REGISTRY.get('git-server').repo_root_dir()}")
+    click.echo(f"  {'REPO_ROOT_DIR':<{_W}}  {COMP_REGISTRY.get('git-server').repo_root_dir()}")
     click.echo()
 
     # --- Components table ---

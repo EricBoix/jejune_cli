@@ -12,10 +12,10 @@ def run_all(
     Each entry is (component, status, message).
     When *components* is given, only those components are checked.
     """
-    from .component_base import base_comp
     from .component_internal import component
-    from .component_registry import REGISTRY
     from .plugin import _REGISTRY as _PLUGIN_REGISTRY
+    from .component_base import base_comp
+    COMP_REGISTRY = base_comp.registry
 
     config: list[tuple[str, str, str]] = []
     avail:  list[tuple[str, str, str]] = []
@@ -24,7 +24,7 @@ def run_all(
         return components is None or name in components
 
     # Config: all components carrying env_vars on their configuration object
-    for inst in REGISTRY:
+    for inst in COMP_REGISTRY:
         if not hasattr(inst, 'configuration') or not inst.configuration.env_vars:
             continue
         if not _visible(inst.name):
@@ -32,9 +32,9 @@ def run_all(
         status, msg, _ = inst.configuration.check()
         config.append((inst.name, status, msg))
 
-    # Avail: built-in REGISTRY components (plugins handled separately)
+    # Avail: built-in COMP_REGISTRY components (plugins handled separately)
     _plugin_names = {p.name for p in _PLUGIN_REGISTRY}
-    for inst in REGISTRY:
+    for inst in COMP_REGISTRY:
         if not isinstance(inst, base_comp):
             continue
         if not _visible(inst.name) or inst.name in _plugin_names:

@@ -163,12 +163,13 @@ configuration.add_command(_deployer_group)
 def _role_config_checks() -> list[tuple[str, str, str, str]]:
     """Return (name, status, msg, hint) for every configurable component in the current role."""
     from .role import detect_role, role_components
-    from .component_registry import REGISTRY
+    from .component_base import base_comp
+    COMP_REGISTRY = base_comp.registry
     role, _ = detect_role()
     visible = role_components(role)
     return [
         (comp.name, *comp.configuration.check())
-        for comp in REGISTRY
+        for comp in COMP_REGISTRY
         if (visible is None or comp.name in visible)
         and hasattr(comp, 'configuration')
         and comp.configuration.env_vars
