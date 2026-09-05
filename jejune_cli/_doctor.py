@@ -308,12 +308,11 @@ def doctor(verbose: bool):
     if active_role in (None, "doc-steward") and not d.is_dir():
         click.echo(
             click.style(
-                f"No .jejune/ directory found in {d.parent}.\n"
-                "Run `jejune configuration doc-steward init` to set up the workspace.",
+                "Current working directory is not a jejune workspace.",
                 fg="yellow",
             )
         )
-        raise SystemExit(1)
+        return
 
     config_results, avail_results = run_all(components=active_components)
 
