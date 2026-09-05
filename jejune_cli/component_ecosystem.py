@@ -4,17 +4,19 @@ from pathlib import Path
 
 from .configuration import configuration
 from .component_internal import component
-from .component_registry import REGISTRY
 from .role import RepoTier
 
 
 class comp_ecosystem(component):
     def __init__(self) -> None:
+        git_server = type(self).registry.get("git-server")
         super().__init__(
             name="ecosystem",
-            dependencies=[REGISTRY.get("git-server")],
+            dependencies=[git_server],
             configuration=configuration("edit .jejune/ecosystem-env-config and set JEJUNE_ROOT_DIR", env_vars=["JEJUNE_ROOT_DIR"], max_severity="warn"),
         )
+        self._git_server = git_server
+        type(self).registry.add(self)
 
     def repo_status(
         self,
@@ -26,7 +28,7 @@ class comp_ecosystem(component):
             return "root", str(root_dir / name)
         if tmp_dir is not None and (tmp_dir / name).exists():
             return "tmp", str(tmp_dir / name)
-        return "remote", REGISTRY.get("git-server").remote_repo_path(name)
+        return "remote", self._git_server.remote_repo_path(name)
 
     def resolve(
         self,
@@ -38,7 +40,7 @@ class comp_ecosystem(component):
         tier, base = self.repo_status(name, root_dir, tmp_dir)
         if tier in ("root", "tmp"):
             return str(Path(base) / subpath) if subpath else base
-        return REGISTRY.get("git-server").remote_git_url(name, f"main:{subpath}" if subpath else None)
+        return self._git_server.remote_git_url(name, f"main:{subpath}" if subpath else None)
 
     def resolve_dirs(self, deploy_dir: Path | None = None) -> tuple[Path | None, Path | None]:
         from ._env import dot_jejune
@@ -76,4 +78,4 @@ class comp_ecosystem(component):
         return "ok", ""
 
 
-REGISTRY.add(comp_ecosystem())
+comp_ecosystem()

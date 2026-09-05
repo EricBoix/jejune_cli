@@ -1,16 +1,21 @@
 """Registry of all known components, maintained in topological dependency order."""
+
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 if TYPE_CHECKING:
     from .component_base import base_comp
-    from .component_ext import ext_comp
 
 
 class ComponentRegistry:
-    def __init__(self) -> None:
-        self._comps: list[base_comp] = []
+    _instance: ClassVar[ComponentRegistry | None] = None
+
+    def __new__(cls) -> ComponentRegistry:
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._comps = []
+        return cls._instance
 
     def add(self, comp: base_comp) -> None:
         self._comps.append(comp)

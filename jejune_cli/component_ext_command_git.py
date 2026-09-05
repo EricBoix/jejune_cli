@@ -10,6 +10,7 @@ class comp_command_git(ext_command):
             command=["git", "--version"],
             hint="install git (https://git-scm.com)",
         )
+        type(self).registry.add(self)
 
     def check(self) -> tuple[str, str]:
         if not REGISTRY.get("ecosystem").ecosystem_needs_remote():
@@ -17,4 +18,4 @@ class comp_command_git(ext_command):
         return super().check()
 
 
-REGISTRY.add(comp_command_git())
+comp_command_git()

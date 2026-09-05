@@ -1,6 +1,5 @@
 """docker-command component."""
 from .component_ext_command import ext_command
-from .component_registry import REGISTRY
 
 
 class comp_command_docker(ext_command):
@@ -10,6 +9,7 @@ class comp_command_docker(ext_command):
             command=["docker", "info"],
             hint="install Docker Desktop (https://docs.docker.com/get-docker/)",
         )
+        type(self).registry.add(self)
 
 
-REGISTRY.add(comp_command_docker())
+comp_command_docker()

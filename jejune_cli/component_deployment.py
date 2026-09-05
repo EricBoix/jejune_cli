@@ -1,6 +1,5 @@
 """Deployment component (internal)."""
 from .component_internal import component
-from .component_registry import REGISTRY
 
 
 class comp_deployment(component):
@@ -8,13 +7,14 @@ class comp_deployment(component):
         super().__init__(
             name="deployment",
             dependencies=[
-                REGISTRY.get("catalog"),
-                REGISTRY.get("docs-server"),
-                REGISTRY.get("kg-viewer"),
-                REGISTRY.get("md-browser"),
+                type(self).registry.get("catalog"),
+                type(self).registry.get("docs-server"),
+                type(self).registry.get("kg-viewer"),
+                type(self).registry.get("md-browser"),
             ],
             hint="run `jejune deployment install`",
         )
+        type(self).registry.add(self)
 
     def check(self) -> tuple[str, str]:
         for dep in self.dependencies:
@@ -23,4 +23,4 @@ class comp_deployment(component):
         return "ok", ""
 
 
-REGISTRY.add(comp_deployment())
+comp_deployment()

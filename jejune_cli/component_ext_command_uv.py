@@ -1,6 +1,5 @@
 """uv-command component."""
 from .component_ext_command import ext_command
-from .component_registry import REGISTRY
 
 
 class comp_command_uv(ext_command):
@@ -10,6 +9,7 @@ class comp_command_uv(ext_command):
             command=["uv", "--version"],
             hint="install uv (https://docs.astral.sh/uv/getting-started/installation/)",
         )
+        type(self).registry.add(self)
 
 
-REGISTRY.add(comp_command_uv())
+comp_command_uv()

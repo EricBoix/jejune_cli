@@ -1,7 +1,6 @@
 """LLM observability server component."""
 from .configuration import configuration
 from .component_ext_server import ext_server
-from .component_registry import REGISTRY
 
 
 class comp_server_llm_observability(ext_server):
@@ -15,6 +14,7 @@ class comp_server_llm_observability(ext_server):
                 env_vars=["TRACELOOP_BASE_URL"],
             ),
         )
+        type(self).registry.add(self)
 
     def check(self) -> tuple[str, str]:
         from .llm_observability import llm_observability_available
@@ -23,4 +23,3 @@ class comp_server_llm_observability(ext_server):
 
 
 llm_obs_comp = comp_server_llm_observability()
-REGISTRY.add(llm_obs_comp)

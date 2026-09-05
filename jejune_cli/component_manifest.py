@@ -1,11 +1,11 @@
 """Manifest configuration component."""
 from .component_internal import component
-from .component_registry import REGISTRY
 
 
 class comp_manifest(component):
     def __init__(self) -> None:
         super().__init__(name="manifest")
+        type(self).registry.add(self)
 
     def check_config(self) -> tuple[str, str] | None:
         from pathlib import Path
@@ -22,4 +22,4 @@ class comp_manifest(component):
         return avail_status, avail_msg
 
 
-REGISTRY.add(comp_manifest())
+comp_manifest()

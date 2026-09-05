@@ -1,8 +1,13 @@
 """Abstract base class for all jejune components."""
 from abc import ABC, abstractmethod
+from typing import ClassVar
+
+from .component_registry import ComponentRegistry
 
 
 class base_comp(ABC):
+    registry: ClassVar[ComponentRegistry] = ComponentRegistry()
+
     def __init__(
         self,
         name: str,
@@ -12,6 +17,7 @@ class base_comp(ABC):
     ) -> None:
         self.name = name
         self.dependencies: list[base_comp] = dependencies or []
+        # Optional dependencies depend on the configuration choices
         self.optional_dependencies: list[base_comp] = optional_dependencies or []
         self.hint = hint
 

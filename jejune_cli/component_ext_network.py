@@ -13,6 +13,7 @@ class comp_network(ext_comp):
             hint="check internet connectivity (GitHub must be reachable)",
         )
         self.remote_server = "www.google.com"
+        type(self).registry.add(self)
 
     def check(self) -> tuple[str, str]:
         if not REGISTRY.get("ecosystem").ecosystem_needs_remote():
@@ -33,4 +34,4 @@ def _ping(host: str) -> bool:
         return False
 
 
-REGISTRY.add(comp_network())
+comp_network()

@@ -9,21 +9,21 @@ import urllib.request
 from pathlib import Path
 
 from .component_containerized import cont_comp
-from .component_registry import REGISTRY
 from .configuration import configuration
 
 
 class comp_neo4j(cont_comp):
     def __init__(self) -> None:
-        git_server = REGISTRY.get("git-server")
+        git_server = type(self).registry.get("git-server")
         super().__init__(
             name="neo4j",
             image_name="jejune:neo4j",
             build_context=git_server.remote_git_url("jejune_neo4j_docker"),
-            dependencies=[git_server, REGISTRY.get("docker-hub-server")],
+            dependencies=[git_server, type(self).registry.get("docker-hub-server")],
             hint="run `jejune neo4j start --help`",
             configuration=configuration("edit .jejune/env-secrets or .jejune/env-config", env_vars=["NEO4J_PASSWORD"])
         )
+        type(self).registry.add(self)
 
     def launch_container(self, data_dir: Path, port: str, credentials: str) -> None:
         """Build, start, and wait for the Neo4j container to be ready."""
@@ -200,4 +200,3 @@ class comp_neo4j(cont_comp):
 
 
 neo4j_comp = comp_neo4j()
-REGISTRY.add(neo4j_comp)

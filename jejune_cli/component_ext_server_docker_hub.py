@@ -3,7 +3,6 @@ import urllib.error
 import urllib.request
 
 from .component_ext_server import ext_server
-from .component_registry import REGISTRY
 
 _DOCKERHUB_API_URL = "https://hub.docker.com/v2/"
 
@@ -13,8 +12,9 @@ class comp_server_docker_hub(ext_server):
         super().__init__(
             name="docker-hub-server",
             api_url=_DOCKERHUB_API_URL,
-            dependencies=[REGISTRY.get("network")],
+            dependencies=[type(self).registry.get("network")],
         )
+        type(self).registry.add(self)
 
     def check(self) -> tuple[str, str]:
         try:
@@ -28,4 +28,4 @@ class comp_server_docker_hub(ext_server):
             return "error", f"Docker Hub not reachable: {exc}"
 
 
-REGISTRY.add(comp_server_docker_hub())
+comp_server_docker_hub()

@@ -275,6 +275,10 @@ from .component_internal import component as _component
 
 
 class _PluginComp(_component):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        type(self).registry.add(self)
+
     def check(self) -> tuple[str, str]:
         return "ok", ""
 
@@ -289,11 +293,11 @@ def _load_plugins() -> None:
             continue
         _REGISTRY.append(plugin)
         cli.add_command(plugin.group, plugin.name)
-        REGISTRY.add(_PluginComp(
+        _PluginComp(
             name=plugin.name,
             dependencies=plugin.required_deps or [],
             hint=plugin.avail_hint,
-        ))
+        )
         if plugin.optional_deps:
             _PLUGIN_OPTIONAL_DEPS[plugin.name] = plugin.optional_deps
         if plugin.config_vars:

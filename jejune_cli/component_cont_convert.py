@@ -1,7 +1,6 @@
 """convert containerized component."""
 from .component_containerized import cont_comp
 from .configuration import configuration
-from .component_registry import REGISTRY
 from .convert import validate_convert_dir
 
 
@@ -10,7 +9,7 @@ class comp_convert(cont_comp):
         super().__init__(
             name="convert",
             image_name="jejune-convert",
-            dependencies=[REGISTRY.get("pypi-server")],
+            dependencies=[type(self).registry.get("pypi-server")],
             hint="run `jejune convert build`",
             configuration=configuration(
                 "set CONVERT_DOC_DIR in .jejune/env-config",
@@ -18,6 +17,7 @@ class comp_convert(cont_comp):
                 env_var_validator=validate_convert_dir,
             ),
         )
+        type(self).registry.add(self)
 
     def build(self, no_cache: bool = False) -> None:
         from .convert import _build_if_configured
@@ -43,4 +43,3 @@ class comp_convert(cont_comp):
 
 
 convert_comp = comp_convert()
-REGISTRY.add(convert_comp)
