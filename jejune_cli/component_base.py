@@ -1,6 +1,6 @@
 """Abstract base class for all jejune components."""
 from abc import ABC, abstractmethod
-from typing import ClassVar
+from typing import Callable, ClassVar
 
 from .component_registry import ComponentRegistry
 
@@ -16,6 +16,7 @@ class base_comp(ABC):
         hint: str | None = None,
     ) -> None:
         self.name = name
+        self.visible: Callable[[], bool] | None = None
         self.dependencies: list[base_comp] = dependencies or []
         # Optional dependencies depend on the configuration choices
         self.optional_dependencies: list[base_comp] = optional_dependencies or []

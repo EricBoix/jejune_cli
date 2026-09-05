@@ -3,6 +3,7 @@ import subprocess
 
 from ._git_server_config import REPO_ROOT_DIR as _REPO_ROOT_DIR
 from .component_ext_server import ext_server
+from .component_registry import REGISTRY
 
 
 class comp_server_git(ext_server):
@@ -12,6 +13,7 @@ class comp_server_git(ext_server):
             api_url="",
             dependencies=[type(self).registry.get("network"), type(self).registry.get("git-command")],
         )
+        self.visible = lambda: REGISTRY.get("ecosystem").ecosystem_needs_remote()
         type(self).registry.add(self)
 
     def repo_root_dir(self) -> str:

@@ -10,6 +10,7 @@ class comp_command_git(ext_command):
             command=["git", "--version"],
             hint="install git (https://git-scm.com)",
         )
+        self.visible = lambda: REGISTRY.get("ecosystem").ecosystem_needs_remote()
         type(self).registry.add(self)
 
     def check(self) -> tuple[str, str]:

@@ -27,23 +27,6 @@ _UI_PLUGIN_NAMES: frozenset[str] = frozenset(("docs-server", "kg-viewer", "md-br
 # Plugin-contributed optional dependencies (built-in optional deps live on component classes).
 _PLUGIN_OPTIONAL_DEPS: dict[str, list[str]] = {}
 
-# Visibility predicates: when the predicate returns False the component is hidden.
-_COMPONENT_VISIBLE: dict[str, Callable[[], bool]] = {}
-
-
-def _init_visibility() -> None:
-    from .component_registry import REGISTRY as _r
-
-    def _eco_needs_remote() -> bool:
-        return _r.get("ecosystem").ecosystem_needs_remote()
-
-    _COMPONENT_VISIBLE["network"]     = _eco_needs_remote
-    _COMPONENT_VISIBLE["git-command"] = _eco_needs_remote
-    _COMPONENT_VISIBLE["git-server"]  = _eco_needs_remote
-
-
-_init_visibility()
-
 # ---------------------------------------------------------------------------
 # Component registry initialisation (lazy, idempotent)
 # ---------------------------------------------------------------------------
@@ -166,8 +149,8 @@ def _topo_sorted(components: list[str]) -> list[str]:
 
 
 def _is_visible(name: str) -> bool:
-    pred = _COMPONENT_VISIBLE.get(name)
-    if pred is not None and not pred():
+    inst = REGISTRY.get(name)
+    if inst is not None and inst.visible is not None and not inst.visible():
         return False
     from .role import detect_roles, role_components
     roles, _ = detect_roles()

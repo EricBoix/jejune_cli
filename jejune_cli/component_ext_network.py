@@ -13,6 +13,7 @@ class comp_network(ext_comp):
             hint="check internet connectivity (GitHub must be reachable)",
         )
         self.remote_server = "www.google.com"
+        self.visible = lambda: REGISTRY.get("ecosystem").ecosystem_needs_remote()
         type(self).registry.add(self)
 
     def check(self) -> tuple[str, str]:
