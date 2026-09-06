@@ -7,6 +7,7 @@ from .component_registry import ComponentRegistry
 
 class base_comp(ABC):
     registry: ClassVar[ComponentRegistry] = ComponentRegistry()
+    mandatory: ClassVar[bool] = True
 
     def __init__(
         self,

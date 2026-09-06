@@ -4,7 +4,7 @@ import subprocess
 
 import click
 
-from .component_internal import component
+from .component_with_config import conf_comp as component
 from .configuration import configuration
 
 

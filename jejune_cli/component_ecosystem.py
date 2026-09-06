@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 from .configuration import configuration
-from .component_internal import component
+from .component_with_config import conf_comp as component
 from .role import RepoTier
 
 

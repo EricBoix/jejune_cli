@@ -7,7 +7,6 @@ import click
 from ._env import dot_jejune, load_env_files
 from ._health import run_all  # noqa: F401 — re-exported for external callers
 from ._doctor import (
-    _PLUGIN_OPTIONAL_DEPS,
     availability,
     config_check_availability,
     config_hint_availability,
@@ -61,8 +60,6 @@ register_command_precondition("jejune doctor", _doctor_viable)
 
 from .component_base import base_comp
 COMP_REGISTRY = base_comp.registry
-
-_BUILTIN_COMPONENTS: frozenset[str] = frozenset(COMP_REGISTRY.names())
 
 _CONTRIBUTOR_COMMANDS = ["doctor", "configuration", "role", "containers", "ecosystem", "next"]
 _DOC_STEWARD_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert", "manifest"]
@@ -273,7 +270,7 @@ def build(no_cache: bool) -> None:
 # Plugin loading
 # ---------------------------------------------------------------------------
 
-from .component_internal import component as _component
+from .component_with_config import conf_comp as _component
 
 
 class _PluginComp(_component):
@@ -293,15 +290,17 @@ def _load_plugins() -> None:
         except Exception as exc:
             click.echo(f"Warning: failed to load plugin {ep.name!r}: {exc}", err=True)
             continue
-        _COMP_REGISTRY.append(plugin)
+        _REGISTRY.append(plugin)
         cli.add_command(plugin.group, plugin.name)
         _PluginComp(
             name=plugin.name,
             dependencies=plugin.required_deps or [],
             hint=plugin.avail_hint,
         )
-        if plugin.optional_deps:
-            _PLUGIN_OPTIONAL_DEPS[plugin.name] = plugin.optional_deps
+        for dep_name in plugin.optional_deps:
+            inst = COMP_REGISTRY.get(dep_name)
+            if inst:
+                inst.mandatory = False
         if plugin.config_vars:
             inst = COMP_REGISTRY.get(plugin.name)
             if inst is not None:

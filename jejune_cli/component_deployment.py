@@ -1,5 +1,5 @@
 """Deployment component (internal)."""
-from .component_internal import component
+from .component_with_config import conf_comp as component
 
 
 class comp_deployment(component):

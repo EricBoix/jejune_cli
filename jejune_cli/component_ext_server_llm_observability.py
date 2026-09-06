@@ -4,6 +4,8 @@ from .component_ext_server import ext_server
 
 
 class comp_server_llm_observability(ext_server):
+    mandatory = False
+
     def __init__(self) -> None:
         super().__init__(
             name="llm-observability",

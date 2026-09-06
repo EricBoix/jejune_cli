@@ -27,14 +27,7 @@ _extensions_available = requires_component("extensions")
 from .next_steps import HeuristicStep, print_next_steps, register_heuristic, register_precondition, register_role_ordering
 
 
-def check_docker() -> bool:
-    inst = COMP_REGISTRY.get("docker-command")
-    return inst.is_available() if inst else False
-
-
-def is_uv_command_available() -> bool:  # noqa: F401 — re-exported for external use
-    inst = COMP_REGISTRY.get("uv-command")
-    return inst.is_available() if inst else False
+_docker_available = requires_component("docker-command")
 
 _TEMPLATES = Path(__file__).parent / "templates"
 _T_UI = _TEMPLATES / "deployer" / "ui-deployment"
@@ -160,7 +153,7 @@ register_heuristic(HeuristicStep(
     label="Install docker desktop",
     command=COMP_REGISTRY.get("docker-command").hint, order=2,
     conditions=[_is_deployer_cwd],
-    anti_conditions=[check_docker],
+    anti_conditions=[_docker_available],
 ), roles={"deployer"})
 
 register_heuristic(HeuristicStep(
@@ -178,13 +171,13 @@ register_heuristic(HeuristicStep(
 
 register_heuristic(HeuristicStep(
     label="Build deployment", command="jejune build", order=10,
-    conditions=[_is_deployer_cwd, check_docker, _deploy_images_missing, _deployment_installed],
+    conditions=[_is_deployer_cwd, _docker_available, _deploy_images_missing, _deployment_installed],
     anti_conditions=[_deploy_catalog_check_fails],
 ), roles={"deployer"})
 
 register_heuristic(HeuristicStep(
     label="Start deployment", command="jejune up", order=20,
-    conditions=[_is_deployer_cwd, check_docker],
+    conditions=[_is_deployer_cwd, _docker_available],
     anti_conditions=[_deploy_images_missing, _deploy_containers_running],
 ), roles={"deployer"})
 
@@ -210,7 +203,7 @@ register_heuristic(HeuristicStep(
 
 register_heuristic(HeuristicStep(
     label="Deployment running stop", command="jejune down", order=35,
-    conditions=[_is_deployer_cwd, check_docker, _deploy_containers_running],
+    conditions=[_is_deployer_cwd, _docker_available, _deploy_containers_running],
     anti_conditions=[],
 ), roles={"deployer"})
 

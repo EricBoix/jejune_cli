@@ -12,7 +12,7 @@ def run_all(
     Each entry is (component, status, message).
     When *components* is given, only those components are checked.
     """
-    from .component_internal import component
+    from .component_with_config import conf_comp as component
     from .plugin import _REGISTRY as _PLUGIN_REGISTRY
     from .component_base import base_comp
     COMP_REGISTRY = base_comp.registry

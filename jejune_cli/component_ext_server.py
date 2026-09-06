@@ -3,10 +3,10 @@ import urllib.error
 import urllib.request
 
 from .configuration import configuration as _configuration
-from .component_ext import ext_comp
+from .component_with_config import conf_comp
 
 
-class ext_server(ext_comp):
+class ext_server(conf_comp):
     """External server reachable via HTTP. Subclasses override check() for non-HTTP."""
 
     def __init__(
@@ -17,9 +17,8 @@ class ext_server(ext_comp):
         hint: str | None = None,
         configuration: _configuration | None = None,
     ) -> None:
-        super().__init__(name=name, dependencies=dependencies, hint=hint)
+        super().__init__(name=name, dependencies=dependencies, hint=hint, configuration=configuration)
         self.api_url = api_url
-        self.configuration = configuration if configuration is not None else _configuration()
 
     def check(self) -> tuple[str, str]:
         try:
