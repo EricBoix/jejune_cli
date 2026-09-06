@@ -77,69 +77,62 @@ def requires_component(name: str) -> Callable[[], bool]:
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _all_components() -> list[str]:
-    """Return ordered component names from REGISTRY (built-ins + loaded plugins)."""
-    return COMP_REGISTRY.names()
-
-
-def _topo_sorted(components: list[str]) -> list[str]:
+def _topo_sorted(components: list[base_comp]) -> list[base_comp]:
     """Return components in topological order using REGISTRY ordering."""
-    comp_set = set(components)
-    ordered = [name for name in COMP_REGISTRY.names() if name in comp_set]
-    ordered += [name for name in components if name not in set(ordered)]
+    comp_set = {c.name for c in components}
+    ordered = [c for c in COMP_REGISTRY if c.name in comp_set]
+    ordered_names = {c.name for c in ordered}
+    ordered += [c for c in components if c.name not in ordered_names]
     return ordered
 
 
-def _is_visible(name: str) -> bool:
-    inst = COMP_REGISTRY.get(name)
-    if inst is not None and inst.visible is not None and not inst.visible():
+def _is_visible(inst: base_comp) -> bool:
+    if inst.visible is not None and not inst.visible():
         return False
     from .role import detect_roles, role_components
     roles, _ = detect_roles()
     active = role_components(roles)
-    return active is None or name in active
+    return active is None or inst.name in active
 
 
-def _resolve_avail_hint(comp: str, fallback: str = "") -> str:
+def _resolve_avail_hint(inst: base_comp, fallback: str = "") -> str:
     from .plugin import _REGISTRY as _PLUGIN_REGISTRY
-    if comp in _UI_PLUGIN_NAMES and any(p.name == comp for p in _PLUGIN_REGISTRY):
+    if inst.name in _UI_PLUGIN_NAMES and any(p.name == inst.name for p in _PLUGIN_REGISTRY):
         from .ui_deployment import _deploy_images_missing
         try:
             return "run `jejune build`" if _deploy_images_missing() else "run `jejune up`"
         except Exception:
             return "run `jejune up`"
-    inst = COMP_REGISTRY.get(comp)
-    return (inst.hint or fallback) if inst else fallback
+    return inst.hint or fallback
 
 
-def _avail_all_visible() -> list[str]:
-    return _topo_sorted([c for c in _all_components() if _is_visible(c)])
+def _avail_all_visible() -> list[base_comp]:
+    return _topo_sorted([c for c in COMP_REGISTRY if _is_visible(c)])
 
 
 def _build_avail_rows(
     avail_results: list[tuple[str, str, str]],
-    all_visible: list[str],
+    all_visible: list[base_comp],
+    ext_names: list[str] | None = None,
 ) -> list[tuple[str, str, str, str]]:
     """Build (comp, status, check, hint) rows for the availability table."""
     by_avail = {comp: (status, msg) for comp, status, msg in avail_results}
     rows: list[tuple[str, str, str, str]] = []
-    for comp in all_visible:
+    for inst in all_visible:
+        comp = inst.name
         if comp in by_avail:
             status, msg = by_avail[comp]
             if status == "ok":
                 rows.append((comp, status, "", ""))
             else:
-                inst = COMP_REGISTRY.get(comp)
-                deps = inst.dependencies if inst else []
                 failing_deps = [
-                    dep for dep in deps
+                    dep for dep in inst.dependencies
                     if by_avail.get(dep.name, ("ok",))[0] != "ok"
                 ]
-                hint = "" if failing_deps else _resolve_avail_hint(comp)
+                hint = "" if failing_deps else _resolve_avail_hint(inst)
                 rows.append((comp, status, msg, hint))
         else:
-            inst = COMP_REGISTRY.get(comp)
-            req = inst.dependencies if inst else []
+            req = inst.dependencies
             if req:
                 worst = max(
                     (by_avail.get(dep.name, ("ok", ""))[0] for dep in req),
@@ -149,18 +142,21 @@ def _build_avail_rows(
                 failing = [dep.name for dep in req if by_avail.get(dep.name, ("ok", ""))[0] != "ok"]
                 check = "" if worst == "ok" else "deps: " + ", ".join(failing)
                 rows.append((comp, worst, check, ""))
+    for name in (ext_names or []):
+        if name in by_avail:
+            status, msg = by_avail[name]
+            rows.append((name, status, msg if status != "ok" else "", ""))
     return rows
 
 
-def _collect_img_status(visible: list[str]) -> dict[str, bool]:
+def _collect_img_status(visible: list[base_comp]) -> dict[str, bool]:
     """Return {comp: image_built} for cont_comp components with is_built registered."""
     from .component_containerized import cont_comp
     result: dict[str, bool] = {}
-    for comp in visible:
-        inst = COMP_REGISTRY.get(comp)
+    for inst in visible:
         if isinstance(inst, cont_comp):
             try:
-                result[comp] = inst.is_built()
+                result[inst.name] = inst.is_built()
             except Exception:
                 pass
     return result
@@ -269,23 +265,23 @@ def doctor(verbose: bool):
 
     by_config = {comp: (status, msg) for comp, status, msg in config_results}
 
-    all_comp = _all_components()
-    visible_components = [c for c in all_comp if _is_visible(c)]
-    for name in (sorted(active_components - _builtin) if active_components else []):
-        if name not in visible_components:
-            visible_components.append(name)
-    visible_components = _topo_sorted(visible_components)
+    visible_components: list[base_comp] = _topo_sorted(
+        [c for c in COMP_REGISTRY if _is_visible(c)]
+    )
+    visible_names = {c.name for c in visible_components}
+    ext_names: list[str] = [
+        name
+        for name in (sorted(active_components - _builtin) if active_components else [])
+        if name not in visible_names
+    ]
 
-    visible_set = set(visible_components)
     config_rows: list[tuple[str, str, str, str]] = []
-    for comp in COMP_REGISTRY:
-        if comp.name not in visible_set:
-            continue
+    for comp in visible_components:
         status, msg = by_config.get(comp.name, ("ok", "ok"))
         hint = (comp.configuration.hint or "") if status != "ok" and hasattr(comp, 'configuration') else ""
         config_rows.append((comp.name, status, msg if status != "ok" else "", hint))
 
-    avail_rows = _build_avail_rows(avail_results, visible_components)
+    avail_rows = _build_avail_rows(avail_results, visible_components, ext_names)
 
     _CONFIG_NOTE = "  Configuration files: .jejune/env-config · .jejune/env-secrets"
 
@@ -295,9 +291,10 @@ def doctor(verbose: bool):
 
     if not verbose:
         avail_ok = {comp for comp, status, _, _ in avail_rows if status == "ok"}
+        mandatory_names = {c.name for c in visible_components if c.mandatory}
         config_rows = [
             row for row in config_rows
-            if not (not COMP_REGISTRY.get(row[0]).mandatory and row[0] in avail_ok)
+            if row[0] in mandatory_names or row[0] not in avail_ok
         ]
 
     img_status = _collect_img_status(visible_components)
