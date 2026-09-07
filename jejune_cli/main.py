@@ -13,7 +13,7 @@ from ._doctor import (
     config_status_availability,
     doctor,
 )
-from ._next_cmd import next_cmd, register_heuristics
+from .click_next_steps import next_cmd, register_heuristics
 from ._role_cmd import role
 from .convert import convert, convert_configured
 from .plugin import JejunePlugin, _REGISTRY

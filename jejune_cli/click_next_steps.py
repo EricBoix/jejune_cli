@@ -101,15 +101,6 @@ def next_state_cmd(list_preconditions: bool) -> None:
 # Heuristic condition functions
 # ---------------------------------------------------------------------------
 
-def _is_role_set() -> bool:
-    """True when role is explicitly set via a valid .jejune/role file."""
-    from pathlib import Path
-    from .role import ROLE_REGISTRY
-    role_file = Path.cwd() / ".jejune" / "role"
-    return role_file.is_file() and ROLE_REGISTRY.detect_role() is not None
-
-
-
 def _graph_available() -> bool:
     from .graph import graph_available
     ok, _ = graph_available()
@@ -188,7 +179,6 @@ def _is_jejune_workspace_cwd() -> bool:
 
 def register_heuristics() -> None:
     """Register all CLI heuristics. Must be called after _load_plugins()."""
-    register_precondition("role set", _is_role_set)
     register_precondition("deployment installed", _is_deployment_installed)
 
     register_command_precondition("jejune neo4j dump-turtle", _neo4j_running)
@@ -213,11 +203,11 @@ def register_heuristics() -> None:
     ), roles={None})
 
     from ._doctor import requires_component
-    from .role import _is_deployer_cwd
+    from .role import DEPLOYER
     register_heuristic(HeuristicStep(
         label="Install deployment",
         command="jejune deployment install",
-        conditions=[_is_deployer_cwd],
+        conditions=[DEPLOYER.is_deployer],
         anti_conditions=[_is_deployment_installed],
     ), roles={"deployer"})
 

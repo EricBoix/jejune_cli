@@ -1,7 +1,6 @@
 """RoleRegistry singleton and built-in role registrations."""
 
 import os
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .role import CONTRIBUTOR, DEPLOYER, DOC_STEWARD, NO_ROLE, Role
@@ -69,21 +68,13 @@ class RoleRegistry:
         override = os.environ.get("JEJUNE_ROLE")
         if override:
             return self._roles.get(override, NO_ROLE)
-        try:
-            role_file = Path.cwd() / ".jejune" / "role"
-            if role_file.is_file():
-                for token in role_file.read_text().strip().split(","):
-                    r = self._roles.get(token.strip())
-                    if r is not None:
-                        return r
-        except FileNotFoundError:
-            pass
         for r in self._roles.values():
-            try:
-                if r.is_deployer() or r.is_doc_steward() or r.is_catalog_contributor():
-                    return r
-            except Exception:
-                pass
+            if r.detector is not None:
+                try:
+                    if r.detector():
+                        return r
+                except Exception:
+                    pass
         return NO_ROLE
 
     def role_components(self, role: Role) -> frozenset[str] | None:

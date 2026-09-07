@@ -39,7 +39,7 @@ class JejuneRole:
     order            : insertion position among help sections (contributor=0,
                        doc-steward=10, deployer=90; defaults to 50).
     abstract         : if True, the role appears in ``jejune role list`` annotated as
-                       abstract but cannot be set via ``jejune role set``.  Use for
+                       abstract but never directly detected.  Use for
                        roles that are only ever reached through inheritance.
     config_group     : if set, added as a subgroup of ``jejune configuration``.
     extend_includes  : mapping of *existing* role names to additional parent

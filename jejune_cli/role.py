@@ -22,18 +22,18 @@ class Role:
         return self.name == "deployer" and self.detector is not None and self.detector()
 
     def is_doc_steward(self) -> bool:
-        return self.name == "doc-steward" and self.detector is not None and self.detector()
+        return (
+            self.name == "doc-steward" and self.detector is not None and self.detector()
+        )
 
-    def is_catalog_contributor(self) -> bool:
-        return self.name == "catalog-contributor" and self.detector is not None and self.detector()
+    @staticmethod
+    def _is_doc_steward_cwd() -> bool:
+        return (Path.cwd() / "manifest.yaml").is_file()
 
-
-def _is_doc_steward_cwd() -> bool:
-    return (Path.cwd() / ".jejune").is_dir()
-
-
-def _is_deployer_cwd() -> bool:
-    return (Path.cwd() / "docker-compose.yml").is_file()
+    @staticmethod
+    def _is_deployer_cwd() -> bool:
+        cwd = Path.cwd()
+        return (cwd / "docker-compose.yml").is_file() and (cwd / "catalog.yaml").is_file()
 
 
 NO_ROLE = Role(name="", components=frozenset(), includes=(), section_title="")
@@ -48,27 +48,44 @@ CONTRIBUTOR = Role(
 
 DOC_STEWARD = Role(
     name="doc-steward",
-    components=frozenset({
-        "docker-command", "docker-hub-server", "pypi-server", "neo4j",
-        "llm", "llm-observability", "graph", "convert", "manifest",
-    }),
+    components=frozenset(
+        {
+            "docker-command",
+            "docker-hub-server",
+            "pypi-server",
+            "neo4j",
+            "llm",
+            "llm-observability",
+            "graph",
+            "convert",
+            "manifest",
+        }
+    ),
     includes=("contributor",),
     section_title="Doc-steward commands",
     description="document authoring",
-    detector=_is_doc_steward_cwd,
+    detector=Role._is_doc_steward_cwd,
 )
 
 # "deployment" = built-in; UI service names come from installed check/ plugins.
 DEPLOYER = Role(
     name="deployer",
-    components=frozenset({
-        "docker-command", "uv-command", "extensions", "catalog",
-        "deployment", "docs-server", "kg-viewer", "md-browser",
-    }),
+    components=frozenset(
+        {
+            "docker-command",
+            "uv-command",
+            "extensions",
+            "catalog",
+            "deployment",
+            "docs-server",
+            "kg-viewer",
+            "md-browser",
+        }
+    ),
     includes=("contributor",),
     section_title="Deployer commands",
     description="service deployment",
-    detector=_is_deployer_cwd,
+    detector=Role._is_deployer_cwd,
 )
 
 # Re-export so existing callers keep working without import changes.
