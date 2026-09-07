@@ -12,10 +12,10 @@ class comp_ecosystem(component):
         git_server = type(self).registry.get("git-server")
         super().__init__(
             name="ecosystem",
-            dependencies=[git_server],
             configuration=configuration("edit .jejune/ecosystem-env-config and set JEJUNE_ROOT_DIR", env_vars=["JEJUNE_ROOT_DIR"], max_severity="warn"),
         )
         self._git_server = git_server
+        self.conditional_dependencies = [(self.ecosystem_needs_remote, git_server)]
         type(self).registry.add(self)
 
     def repo_status(

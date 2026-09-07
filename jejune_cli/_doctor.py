@@ -33,34 +33,22 @@ COMP_REGISTRY = base_comp.registry
 base_comp.initialize_registry()
 
 
-def _validate_registry() -> None:
-    """Assert that all dependency instances in each component are registered."""
-    for inst in COMP_REGISTRY:
-        for dep in inst.dependencies + inst.optional_dependencies:
-            assert COMP_REGISTRY.get(dep.name) is dep, (
-                f"{inst.name}.dependencies contains unregistered instance {dep.name!r}"
-            )
-
-
-_validate_registry()
+COMP_REGISTRY.validate()
 
 # ---------------------------------------------------------------------------
 # Component availability
 # ---------------------------------------------------------------------------
 
 
-def component_available(name: str, _seen: set[str] | None = None) -> bool:
-    """Return True if *name* and all its transitive required deps are available."""
+def component_available(inst: base_comp, _seen: set[str] | None = None) -> bool:
+    """Return True if *inst* and all its transitive active deps are available."""
     if _seen is None:
         _seen = set()
-    if name in _seen:
+    if inst.name in _seen:
         return True
-    _seen.add(name)
-    inst = COMP_REGISTRY.get(name)
-    if inst is None:
-        return True
-    for dep in inst.dependencies:
-        if not component_available(dep.name, _seen):
+    _seen.add(inst.name)
+    for dep in inst.active_deps():
+        if not component_available(dep, _seen):
             return False
     return inst.is_available()
 
@@ -68,7 +56,8 @@ def component_available(name: str, _seen: set[str] | None = None) -> bool:
 def requires_component(name: str) -> Callable[[], bool]:
     """Return a named condition predicate that checks *name* and its transitive deps."""
     def _check() -> bool:
-        return component_available(name)
+        inst = COMP_REGISTRY.get(name)
+        return inst is not None and component_available(inst)
     _check.__name__ = f"{name.replace('-', '_')}_available"
     return _check
 
@@ -77,22 +66,7 @@ def requires_component(name: str) -> Callable[[], bool]:
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _topo_sorted(components: list[base_comp]) -> list[base_comp]:
-    """Return components in topological order using REGISTRY ordering."""
-    comp_set = {c.name for c in components}
-    ordered = [c for c in COMP_REGISTRY if c.name in comp_set]
-    ordered_names = {c.name for c in ordered}
-    ordered += [c for c in components if c.name not in ordered_names]
-    return ordered
 
-
-def _is_visible(inst: base_comp) -> bool:
-    if inst.visible is not None and not inst.visible():
-        return False
-    from .role import detect_roles, role_components
-    roles, _ = detect_roles()
-    active = role_components(roles)
-    return active is None or inst.name in active
 
 
 def _resolve_avail_hint(inst: base_comp, fallback: str = "") -> str:
@@ -107,7 +81,10 @@ def _resolve_avail_hint(inst: base_comp, fallback: str = "") -> str:
 
 
 def _avail_all_visible() -> list[base_comp]:
-    return _topo_sorted([c for c in COMP_REGISTRY if _is_visible(c)])
+    from .role import detect_roles, role_components
+    roles, _ = detect_roles()
+    active = COMP_REGISTRY.active_set(role_components(roles))
+    return COMP_REGISTRY.sorted_subset([c for c in COMP_REGISTRY if c.name in active])
 
 
 def _build_avail_rows(
@@ -125,21 +102,22 @@ def _build_avail_rows(
             if status == "ok":
                 rows.append((comp, status, "", ""))
             else:
+                active_deps = inst.active_deps()
                 failing_deps = [
-                    dep for dep in inst.dependencies
+                    dep for dep in active_deps
                     if by_avail.get(dep.name, ("ok",))[0] != "ok"
                 ]
                 hint = "" if failing_deps else _resolve_avail_hint(inst)
                 rows.append((comp, status, msg, hint))
         else:
-            req = inst.dependencies
-            if req:
+            active_deps = inst.active_deps()
+            if active_deps:
                 worst = max(
-                    (by_avail.get(dep.name, ("ok", ""))[0] for dep in req),
+                    (by_avail.get(dep.name, ("ok", ""))[0] for dep in active_deps),
                     key=lambda s: _STATUS_RANK.get(s, 0),
                     default="ok",
                 )
-                failing = [dep.name for dep in req if by_avail.get(dep.name, ("ok", ""))[0] != "ok"]
+                failing = [dep.name for dep in active_deps if by_avail.get(dep.name, ("ok", ""))[0] != "ok"]
                 check = "" if worst == "ok" else "deps: " + ", ".join(failing)
                 rows.append((comp, worst, check, ""))
     for name in (ext_names or []):
@@ -265,8 +243,8 @@ def doctor(verbose: bool):
 
     by_config = {comp: (status, msg) for comp, status, msg in config_results}
 
-    visible_components: list[base_comp] = _topo_sorted(
-        [c for c in COMP_REGISTRY if _is_visible(c)]
+    visible_components: list[base_comp] = COMP_REGISTRY.sorted_subset(
+        [c for c in COMP_REGISTRY if c.name in COMP_REGISTRY.active_set(active_components)]
     )
     visible_names = {c.name for c in visible_components}
     ext_names: list[str] = [
