@@ -1,10 +1,12 @@
 """Ecosystem component."""
 import os
 from pathlib import Path
+from typing import Literal
 
 from .configuration import configuration
 from .component_with_config import conf_comp as component
-from .role import RepoTier
+
+RepoTier = Literal["root", "tmp", "remote"]
 
 
 class comp_ecosystem(component):
@@ -66,12 +68,17 @@ class comp_ecosystem(component):
         return results
 
     def ecosystem_needs_remote(self) -> bool:
-        from .role import detect_role, repos_for_role
-        role, _ = detect_role()
+        from .role import ROLE_REGISTRY
+        role = ROLE_REGISTRY.detect_role()
         root_dir, tmp_dir = self.resolve_dirs()
+        active = ROLE_REGISTRY.role_components(role)
+        if active is None:
+            return False
         return any(
             self.repo_status(name, root_dir, tmp_dir)[0] == "remote"
-            for name, _, _ in repos_for_role(role)
+            for comp in type(self).registry
+            if comp.name in active
+            for name, _, _ in getattr(comp, "repos", [])
         )
 
     def check(self) -> tuple[str, str]:

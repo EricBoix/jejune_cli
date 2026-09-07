@@ -24,9 +24,9 @@ def next_cmd(ctx):
         if command_viable("jejune doctor"):
             click.echo("No next steps detected. Run `jejune doctor` for system status.")
         else:
-            from .role import detect_role
-            active_role, _ = detect_role()
-            if active_role in (None, "doc-steward") and not dot_jejune().is_dir():
+            from .role import ROLE_REGISTRY
+            active_role = ROLE_REGISTRY.detect_role()
+            if (not active_role or active_role.is_doc_steward()) and not dot_jejune().is_dir():
                 click.echo(
                     "No next steps detected. "
                     "Run `jejune configuration doc-steward init` to set up the workspace."
@@ -103,9 +103,10 @@ def next_state_cmd(list_preconditions: bool) -> None:
 
 def _is_role_set() -> bool:
     """True when role is explicitly set via a valid .jejune/role file."""
-    from .role import detect_role
-    _, reason = detect_role()
-    return reason == ".jejune/role"
+    from pathlib import Path
+    from .role import ROLE_REGISTRY
+    role_file = Path.cwd() / ".jejune" / "role"
+    return role_file.is_file() and ROLE_REGISTRY.detect_role() is not None
 
 
 
@@ -174,37 +175,10 @@ def _is_deployment_installed() -> bool:
     return _is_catalog_installed() and _extensions_installed()
 
 
-def _is_catalog_contributor_cwd() -> bool:
-    """True when role is catalog-contributor, cwd is a git clone, and the repo is jejune_catalog."""
-    import subprocess
-    from pathlib import Path
-    from .role import detect_role
-    role, _ = detect_role()
-    if role != "catalog-contributor":
-        return False
-    if not (Path.cwd() / ".git").exists():
-        return False
-    try:
-        url = subprocess.check_output(
-            ["git", "remote", "get-url", "origin"],
-            cwd=Path.cwd(), stderr=subprocess.DEVNULL, text=True,
-        ).strip()
-        return url.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git") == "jejune_catalog"
-    except Exception:
-        return False
-
-
 def _is_jejune_workspace_cwd() -> bool:
-    from .ui_deployment import _is_deployer_cwd
-    return _is_document_cwd() or _is_deployer_cwd() or _is_catalog_contributor_cwd()
-
-
-def _is_document_cwd() -> bool:
-    """True when the role is doc-steward and catalog.yaml exists in cwd."""
-    from pathlib import Path
-    from .role import detect_role
-    role, _ = detect_role()
-    return role == "doc-steward" and (Path.cwd() / "catalog.yaml").is_file()
+    from .role import ROLE_REGISTRY
+    role = ROLE_REGISTRY.detect_role()
+    return bool(role)
 
 
 # ---------------------------------------------------------------------------
@@ -239,7 +213,7 @@ def register_heuristics() -> None:
     ), roles={None})
 
     from ._doctor import requires_component
-    from .ui_deployment import _is_deployer_cwd
+    from .role import _is_deployer_cwd
     register_heuristic(HeuristicStep(
         label="Install deployment",
         command="jejune deployment install",

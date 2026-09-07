@@ -18,10 +18,10 @@ def extensions_group(ctx: click.Context) -> None:
 @extensions_group.command("status")
 def extensions_status() -> None:
     """Show which extensions are installed for the current role."""
-    from .role import detect_role
+    from .role import ROLE_REGISTRY
 
-    role, _ = detect_role()
-    pkgs = _ROLE_PACKAGES.get(role, [])
+    role = ROLE_REGISTRY.detect_role()
+    pkgs = _ROLE_PACKAGES.get(role.name if role else None, [])
     if not pkgs:
         click.echo("No extensions defined for the current role.")
         return
@@ -35,10 +35,10 @@ def extensions_status() -> None:
 @extensions_group.command("install")
 def extensions_install() -> None:
     """Install extensions for the current role (local clone or git remote)."""
-    from .role import detect_role
+    from .role import ROLE_REGISTRY
 
-    role, _ = detect_role()
-    if role not in _ROLE_PACKAGES:
+    role = ROLE_REGISTRY.detect_role()
+    if (role.name if role else None) not in _ROLE_PACKAGES:
         click.echo(click.style("No extensions defined for the current role.", fg="yellow"))
         return
     if _extensions_installed():

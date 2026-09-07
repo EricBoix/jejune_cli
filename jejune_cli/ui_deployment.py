@@ -16,11 +16,11 @@ from .deployer_extensions import (
 )
 from .component_ext import ext_comp
 from ._doctor import (
-    _topo_sorted,
     requires_component,
 )
 
 from .component_base import base_comp
+from .role import ROLE_REGISTRY, _is_deployer_cwd
 COMP_REGISTRY = base_comp.registry
 
 _extensions_available = requires_component("extensions")
@@ -47,12 +47,6 @@ _UI_SERVICES = ("docs-server", "kg-graph-viewer", "markdown-browser")
 # ---------------------------------------------------------------------------
 # Heuristic conditions for `jejune next`
 # ---------------------------------------------------------------------------
-
-def _is_deployer_cwd() -> bool:
-    from .role import detect_role
-    role, _ = detect_role()
-    return role == "deployer" and (Path.cwd() / "docker-compose.yml").is_file() 
-
 
 def _deploy_catalog_needs_configuration() -> bool:
     """True when catalog.yaml is still the unedited trivial template."""
@@ -207,27 +201,27 @@ register_heuristic(HeuristicStep(
     anti_conditions=[],
 ), roles={"deployer"})
 
-_dep_fix_pairs: list[tuple[str, str]] = [
-    (inst.name, inst.hint)
+_dep_fix_pairs: list[tuple[base_comp, str]] = [
+    (inst, inst.hint)
     for inst in COMP_REGISTRY
     if isinstance(inst, ext_comp) and inst.hint
 ]
 _EXISTING_DEP_STEPS: frozenset[str] = frozenset({"docker-command", "extensions"})
-for _comp, _label in _dep_fix_pairs:
-    if _comp in _EXISTING_DEP_STEPS:
+for _dep_inst, _label in _dep_fix_pairs:
+    if _dep_inst.name in _EXISTING_DEP_STEPS:
         continue
     register_heuristic(HeuristicStep(
         label=_label,
         command=_label,
         conditions=[_is_deployer_cwd],
-        anti_conditions=[requires_component(_comp)],
+        anti_conditions=[requires_component(_dep_inst.name)],
     ), roles={"deployer"})
 
-_dep_topo = _topo_sorted([c for c, _ in _dep_fix_pairs])
+_dep_topo = COMP_REGISTRY.sorted_subset([inst for inst, _ in _dep_fix_pairs])
 _n = len(_dep_topo)
 register_role_ordering("deployer", {
-    label: (_dep_topo.index(comp) - _n) * 10
-    for comp, label in _dep_fix_pairs
+    label: (_dep_topo.index(inst) - _n) * 10
+    for inst, label in _dep_fix_pairs
 } | {"Install deployment": -2, "Wrap up configuration": -1})
 
 
@@ -270,15 +264,18 @@ def _resolve_deploy_dir(deployments_dir: str, name: str) -> Path:
 
 
 def _compose_returncode(deploy_dir: Path, *args: str) -> int:
-    from .role import repos_for_role
-
     eco = COMP_REGISTRY.get("ecosystem")
     env = os.environ.copy()
     root_dir, tmp_dir = eco.resolve_dirs(deploy_dir)
     if root_dir:
         env["JEJUNE_ROOT_DIR"] = str(root_dir)
 
-    for name, subpath, key in repos_for_role("deployer"):
+    active = ROLE_REGISTRY.role_components("deployer")
+    repos = [] if active is None else [
+        r for comp in COMP_REGISTRY if comp.name in active
+        for r in getattr(comp, "repos", [])
+    ]
+    for name, subpath, key in repos:
         if key:
             env[key] = eco.resolve(name, root_dir, tmp_dir, subpath)
 

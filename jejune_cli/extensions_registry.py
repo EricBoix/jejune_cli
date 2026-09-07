@@ -43,8 +43,9 @@ def _install_one(repo_name: str, check_subpath: str, plugin_name: str) -> None:
 def _extensions_installed(role: str | None = None) -> bool:
     """Return True when all extensions for *role* (or the detected role) are installed."""
     if role is None:
-        from .role import detect_role
-        role, _ = detect_role()
+        from .role import ROLE_REGISTRY
+        r = ROLE_REGISTRY.detect_role()
+        role = r.name if r else None
     pkgs = _ROLE_PACKAGES.get(role, [])
     installed = {ep.name for ep in importlib.metadata.entry_points(group="jejune.plugins")}
     return all(p[2] in installed for p in pkgs)
@@ -53,7 +54,8 @@ def _extensions_installed(role: str | None = None) -> bool:
 def _do_extensions_install(role: str | None = None) -> None:
     """Install all extensions for *role* (or the detected role)."""
     if role is None:
-        from .role import detect_role
-        role, _ = detect_role()
+        from .role import ROLE_REGISTRY
+        r = ROLE_REGISTRY.detect_role()
+        role = r.name if r else None
     for repo_name, check_subpath, plugin_name in _ROLE_PACKAGES.get(role, []):
         _install_one(repo_name, check_subpath, plugin_name)

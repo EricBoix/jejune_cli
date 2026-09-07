@@ -17,7 +17,7 @@ from ._next_cmd import next_cmd, register_heuristics
 from ._role_cmd import role
 from .convert import convert, convert_configured
 from .plugin import JejunePlugin, _REGISTRY
-from .role import register_role
+from .role import ROLE_REGISTRY
 from .deployment import deployment
 from .click_comp_ecosystem import ecosystem
 from .extensions import extensions_group
@@ -40,11 +40,9 @@ from .click_comp_neo4j import neo4j
 from .configuration_deployer import init as _deployer_init
 from .configuration_doc_steward import init as _doc_steward_init
 from .next_steps import has_heuristics_for_role, command_viable, register_command_precondition, print_next_steps
-from .role import detect_roles, role_components, ROLES, ROLE_SECTION_TITLE, _ROLE_INCLUDES, build_hierarchy_lines, _PENDING_HELP_SECTIONS
-
-_ACTIVE_ROLES, _ACTIVE_ROLE_REASON = detect_roles()
-_ACTIVE_ROLE: str | None = _ACTIVE_ROLES[0] if _ACTIVE_ROLES else None
-_ACTIVE_COMPONENTS = role_components(_ACTIVE_ROLES)
+_ACTIVE_ROLE_OBJ = ROLE_REGISTRY.detect_role()
+_ACTIVE_ROLE: str | None = _ACTIVE_ROLE_OBJ.name or None
+_ACTIVE_COMPONENTS = ROLE_REGISTRY.role_components(_ACTIVE_ROLE_OBJ)
 
 
 def _doctor_viable() -> bool:
@@ -96,7 +94,7 @@ class _JejuneGroup(click.Group):
         return result
 
     def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        prefix = f"Usage [{_ACTIVE_ROLE}]: " if _ACTIVE_ROLE in ROLES else "Usage: "
+        prefix = f"Usage [{_ACTIVE_ROLE}]: " if _ACTIVE_ROLE in ROLE_REGISTRY.roles else "Usage: "
         formatter.write_usage(ctx.command_path, "[OPTIONS] COMPONENT COMMAND [ARGS]...", prefix=prefix)
 
     def format_commands(
@@ -127,9 +125,9 @@ class _JejuneGroup(click.Group):
                 for p in _REGISTRY if p.stage == stage
             ]
 
-        _included = set(_ROLE_INCLUDES.get(_ACTIVE_ROLE, ()))
+        _included = set(ROLE_REGISTRY.includes(_ACTIVE_ROLE))
         for role_name, commands, plugin_stage in _ROLE_HELP_SECTIONS:
-            if _ACTIVE_ROLE in ROLES and role_name not in {_ACTIVE_ROLE} | _included:
+            if _ACTIVE_ROLE in ROLE_REGISTRY.roles and role_name not in {_ACTIVE_ROLE} | _included:
                 continue
             rows = _rows(commands)
             if plugin_stage:
@@ -140,7 +138,7 @@ class _JejuneGroup(click.Group):
                 if alias_role == role_name and grp is self
             ]
             if rows:
-                with formatter.section(ROLE_SECTION_TITLE[role_name]):
+                with formatter.section(ROLE_REGISTRY.section_title(role_name)):
                     formatter.write_dl(rows)
 
 
@@ -253,7 +251,7 @@ def build(no_cache: bool) -> None:
     Use `jejune deployment build <dir>` to build a specific deployment directory.
     """
     from .component_containerized import cont_comp
-    components = role_components(_ACTIVE_ROLES) or set()
+    components = ROLE_REGISTRY.role_components(_ACTIVE_ROLE_OBJ) or set()
     builders = [
         inst for inst in COMP_REGISTRY
         if isinstance(inst, cont_comp) and inst.name in components and inst.build_context
@@ -283,7 +281,7 @@ class _PluginComp(_component):
 
 
 def _load_plugins() -> None:
-    global _ACTIVE_ROLE, _ACTIVE_ROLE_REASON, _ACTIVE_ROLES, _ACTIVE_COMPONENTS
+    global _ACTIVE_ROLE, _ACTIVE_ROLE_OBJ, _ACTIVE_COMPONENTS
     for ep in importlib.metadata.entry_points(group="jejune.plugins"):
         try:
             plugin: JejunePlugin = ep.load()
@@ -308,7 +306,7 @@ def _load_plugins() -> None:
                 inst.configuration.hint = plugin.config_hint
         if plugin.role is not None:
             _register_plugin_role(plugin)
-    for pending_name, pending_stage, pending_order in _PENDING_HELP_SECTIONS:
+    for pending_name, pending_stage, pending_order in ROLE_REGISTRY.pending_help_sections:
         if not any(rn == pending_name for rn, _, _ in _ROLE_HELP_SECTIONS):
             insert_at = next(
                 (i for i, (rn, _, _) in enumerate(_ROLE_HELP_SECTIONS)
@@ -317,16 +315,16 @@ def _load_plugins() -> None:
             )
             _ROLE_HELP_SECTIONS.insert(insert_at, (pending_name, [], pending_stage))
             _SECTION_ORDER[pending_name] = pending_order
-    _ACTIVE_ROLES, _ACTIVE_ROLE_REASON = detect_roles()
-    _ACTIVE_ROLE = _ACTIVE_ROLES[0] if _ACTIVE_ROLES else None
-    _ACTIVE_COMPONENTS = role_components(_ACTIVE_ROLES)
+    _ACTIVE_ROLE_OBJ = ROLE_REGISTRY.detect_role()
+    _ACTIVE_ROLE = _ACTIVE_ROLE_OBJ.name if _ACTIVE_ROLE_OBJ else None
+    _ACTIVE_COMPONENTS = ROLE_REGISTRY.role_components(_ACTIVE_ROLE_OBJ)
 
 
 def _register_plugin_role(plugin: JejunePlugin) -> None:
     """Register a role contributed by a plugin and insert its help section."""
     role_obj = plugin.role
     assert role_obj is not None
-    register_role(role_obj)
+    ROLE_REGISTRY.register_from_plugin(role_obj)
     order = role_obj.order
     insert_at = next(
         (i for i, (rn, _, _) in enumerate(_ROLE_HELP_SECTIONS)

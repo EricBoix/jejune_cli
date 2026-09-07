@@ -81,9 +81,9 @@ def _resolve_avail_hint(inst: base_comp, fallback: str = "") -> str:
 
 
 def _avail_all_visible() -> list[base_comp]:
-    from .role import detect_roles, role_components
-    roles, _ = detect_roles()
-    active = COMP_REGISTRY.active_set(role_components(roles))
+    from .role import ROLE_REGISTRY
+    role = ROLE_REGISTRY.detect_role()
+    active = COMP_REGISTRY.active_set(ROLE_REGISTRY.role_components(role))
     return COMP_REGISTRY.sorted_subset([c for c in COMP_REGISTRY if c.name in active])
 
 
@@ -211,14 +211,14 @@ def doctor(verbose: bool):
     """
     from ._env import dot_jejune
     from .plugin import _REGISTRY as _PLUGIN_REGISTRY
-    from .role import detect_role, detect_roles, role_components
+    from .role import ROLE_REGISTRY
 
-    active_role, _ = detect_role()
-    active_roles, _ = detect_roles()
-    active_components = role_components(active_roles)
+    active_role_obj = ROLE_REGISTRY.detect_role()
+    active_role = active_role_obj.name if active_role_obj else None
+    active_components = ROLE_REGISTRY.role_components(active_role_obj)
 
     d = dot_jejune()
-    if active_role in (None, "doc-steward") and not d.is_dir():
+    if (not active_role_obj or active_role_obj.is_doc_steward()) and not d.is_dir():
         click.echo(
             click.style(
                 "Current working directory is not a jejune workspace.",
@@ -287,9 +287,9 @@ def doctor(verbose: bool):
 # ---------------------------------------------------------------------------
 
 def _active_components():
-    from .role import detect_roles, role_components
-    roles, _ = detect_roles()
-    return role_components(roles)
+    from .role import ROLE_REGISTRY
+    role = ROLE_REGISTRY.detect_role()
+    return ROLE_REGISTRY.role_components(role)
 
 
 @click.command("check-availability")

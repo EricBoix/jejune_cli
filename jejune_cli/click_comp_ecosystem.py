@@ -2,7 +2,7 @@
 
 import click
 
-from .role import repos_for_role
+from .role import ROLE_REGISTRY
 from .component_base import base_comp
 COMP_REGISTRY = base_comp.registry
 
@@ -18,13 +18,11 @@ def ecosystem(ctx: click.Context) -> None:
 @ecosystem.command("status")
 def ecosystem_status() -> None:
     """List required repositories and their local/remote resolution status."""
-    from .role import detect_role
-
     eco = COMP_REGISTRY.get("ecosystem")
-    role, _ = detect_role()
+    role = ROLE_REGISTRY.detect_role()
     root_dir, tmp_dir = eco.resolve_dirs()
 
-    role_label = f"  [{role}]" if role else ""
+    role_label = f"  [{role.name}]" if role else ""
     click.echo(f"jejune ecosystem{role_label}")
     click.echo()
 
@@ -40,7 +38,11 @@ def ecosystem_status() -> None:
     click.echo()
 
     # --- Components table ---
-    repos = repos_for_role(role)
+    active = ROLE_REGISTRY.role_components(role)
+    repos = [] if active is None else [
+        r for comp in COMP_REGISTRY if comp.name in active
+        for r in getattr(comp, "repos", [])
+    ]
     click.echo(click.style("  Components", bold=True))
     if not repos:
         click.echo(click.style("    No repositories required for the current role.", fg="yellow"))

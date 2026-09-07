@@ -120,7 +120,7 @@ def evaluate(
     ordering: dict[str, int] | None = None,
 ) -> list[HeuristicStep]:
     _load_providers()
-    from .role import detect_role
+    from .role import ROLE_REGISTRY
 
     def _sorted(active_role: str | None) -> list[HeuristicStep]:
         eff = _effective_ordering(active_role, ordering)
@@ -132,13 +132,11 @@ def evaluate(
         )
 
     if cwd is None:
-        active_role, _ = detect_role()
-        return _sorted(active_role)
+        return _sorted(ROLE_REGISTRY.detect_role().name or None)
     old = os.getcwd()
     try:
         os.chdir(cwd)
-        active_role, _ = detect_role()
-        return _sorted(active_role)
+        return _sorted(ROLE_REGISTRY.detect_role().name or None)
     finally:
         os.chdir(old)
 
@@ -177,8 +175,8 @@ def print_next_steps(
 def evaluate_state(cwd: Path | None = None) -> list[tuple[HeuristicStep, list[tuple[str, bool]], list[tuple[str, bool]]]]:
     """Return per-heuristic condition evaluation for diagnostics."""
     _load_providers()
-    from .role import detect_role
-    active_role, _ = detect_role()
+    from .role import ROLE_REGISTRY
+    active_role = ROLE_REGISTRY.detect_role().name or None
 
     def _run() -> list[tuple[HeuristicStep, list[tuple[str, bool]], list[tuple[str, bool]]]]:
         result = []

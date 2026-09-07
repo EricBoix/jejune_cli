@@ -2,7 +2,7 @@
 import click
 
 from ._env import dot_jejune
-from .role import _ABSTRACT_ROLES, ROLES, build_hierarchy_lines, detect_roles, role_components
+from .role import ROLE_REGISTRY
 
 
 @click.group(invoke_without_command=True, short_help="Show or list roles")
@@ -14,13 +14,12 @@ def role(ctx):
     """
     if ctx.invoked_subcommand is not None:
         return
-    active_roles, active_role_reason = detect_roles()
-    active_components = role_components(active_roles)
-    if active_roles:
-        click.echo(f"role:   {click.style(', '.join(active_roles), fg='cyan')}")
+    active_role = ROLE_REGISTRY.detect_role()
+    active_components = ROLE_REGISTRY.role_components(active_role)
+    if active_role:
+        click.echo(f"role:   {click.style(active_role.name, fg='cyan')}")
     else:
         click.echo(f"role:   {click.style('(none)', fg='yellow')}")
-    click.echo(f"reason: {active_role_reason}")
     if active_components:
         click.echo(f"shows:  {', '.join(sorted(active_components))}")
     else:
@@ -30,19 +29,18 @@ def role(ctx):
 @role.command("list")
 def role_list():
     """List all known roles with their detection mode."""
-    from .role import ROLES, _ROLE_DESCRIPTION, _ROLE_REASON
     stored = None
     role_file = dot_jejune() / "role"
     if role_file.is_file():
         stored = role_file.read_text().strip().split(",")[0].strip()
 
-    # (raw_name, display_name, description, detection)
+    abstract = ROLE_REGISTRY.abstract_roles
     rows: list[tuple[str, str, str, str]] = []
-    for r in ROLES:
-        display = f"{r} (abstract)" if r in _ABSTRACT_ROLES else r
-        description = _ROLE_DESCRIPTION.get(r, "")
-        detection = _ROLE_REASON.get(r, "inherited only" if r in _ABSTRACT_ROLES else "")
-        rows.append((r, display, description, detection))
+    for r in ROLE_REGISTRY.roles:
+        role_obj = ROLE_REGISTRY._roles[r]
+        display = f"{r} (abstract)" if r in abstract else r
+        detection = "auto-detected" if role_obj.detector is not None else "inherited only"
+        rows.append((r, display, ROLE_REGISTRY.description(r), detection))
 
     w_name = max(len(row[1]) for row in rows)
     w_desc = max(len(row[2]) for row in rows)
@@ -55,11 +53,11 @@ def role_list():
 
 
 class _SettableRole(click.ParamType):
-    """Validates role names at runtime against the (plugin-extended) ROLES list."""
+    """Validates role names at runtime against the (plugin-extended) roles list."""
     name = "ROLE"
 
     def convert(self, value, param, ctx):
-        settable = [r for r in ROLES if r not in _ABSTRACT_ROLES]
+        settable = [r for r in ROLE_REGISTRY.roles if r not in ROLE_REGISTRY.abstract_roles]
         if value not in settable:
             self.fail(
                 f"'{value}' is not one of {', '.join(repr(r) for r in settable)}.",
@@ -91,5 +89,5 @@ def role_set(role_name):
 @role.command("hierarchy")
 def role_hierarchy():
     """Display the role inheritance hierarchy as a UML inheritance diagram."""
-    for line in build_hierarchy_lines():
+    for line in ROLE_REGISTRY.build_hierarchy_lines():
         click.echo(line)

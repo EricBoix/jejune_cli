@@ -102,15 +102,15 @@ _ROLE_CTX_KEY = "_jejune_configuration_role"
 
 class _ConfigurationGroup(click.Group):
     def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        from .role import detect_role, ROLES
-        active_role, _ = detect_role()
+        from .role import ROLE_REGISTRY
+        active_role = ROLE_REGISTRY.detect_role()
         ctx.meta[_ROLE_CTX_KEY] = active_role
 
-        if active_role in ROLES:
+        if active_role:
             formatter.write_usage(
                 ctx.command_path,
                 " ".join(self.collect_usage_pieces(ctx)),
-                prefix=f"Usage [{active_role}]: ",
+                prefix=f"Usage [{active_role.name}]: ",
             )
             self.format_help_text(ctx, formatter)
             self.format_options(ctx, formatter)  # calls format_commands internally
@@ -119,7 +119,7 @@ class _ConfigurationGroup(click.Group):
             self.format_commands(ctx, formatter)
 
     def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        from .role import ROLES
+        from .role import ROLE_REGISTRY
         active_role = ctx.meta.get(_ROLE_CTX_KEY)
 
         regular: list[tuple[str, str]] = []
@@ -134,11 +134,11 @@ class _ConfigurationGroup(click.Group):
             else:
                 regular.append(entry)
 
-        if regular and active_role in ROLES:
+        if regular and active_role is not None:
             with formatter.section("Commands"):
                 formatter.write_dl(regular)
 
-        if roles and active_role not in ROLES:
+        if roles and not active_role:
             formatter.write_paragraph()
             formatter.write_usage(
                 "jejune configuration",
@@ -162,11 +162,11 @@ configuration.add_command(_deployer_group)
 
 def _role_config_checks() -> list[tuple[str, str, str, str]]:
     """Return (name, status, msg, hint) for every configurable component in the current role."""
-    from .role import detect_role, role_components
+    from .role import ROLE_REGISTRY
     from .component_base import base_comp
     COMP_REGISTRY = base_comp.registry
-    role, _ = detect_role()
-    visible = role_components(role)
+    role = ROLE_REGISTRY.detect_role()
+    visible = ROLE_REGISTRY.role_components(role)
     return [
         (comp.name, *comp.configuration.check())
         for comp in COMP_REGISTRY
