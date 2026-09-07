@@ -20,8 +20,9 @@ from ._doctor import (
 )
 
 from .component_base import base_comp
-from .role import ROLE_REGISTRY, DEPLOYER
-COMP_REGISTRY = base_comp.registry
+from .role import DEPLOYER
+from .role_registry import ROLE_REGISTRY
+from .component_registry import REGISTRY as COMP_REGISTRY
 
 _extensions_available = requires_component("extensions")
 from .next_steps import HeuristicStep, print_next_steps, register_heuristic, register_precondition, register_role_ordering
@@ -270,9 +271,10 @@ def _compose_returncode(deploy_dir: Path, *args: str) -> int:
     if root_dir:
         env["JEJUNE_ROOT_DIR"] = str(root_dir)
 
-    active = ROLE_REGISTRY.role_components("deployer")
+    from .role import NO_ROLE
+    active = ROLE_REGISTRY.role_components(ROLE_REGISTRY._roles.get("deployer", NO_ROLE))
     repos = [] if active is None else [
-        r for comp in COMP_REGISTRY if comp.name in active
+        r for comp in COMP_REGISTRY if comp in active
         for r in getattr(comp, "repos", [])
     ]
     for name, subpath, key in repos:

@@ -1,15 +1,15 @@
 """Deployer extensions component."""
 from .component_ext import ext_comp
+from .component_registry import ComponentRegistry
 
 
 class comp_extensions(ext_comp):
     def __init__(self) -> None:
         super().__init__(
             name="extensions",
-            dependencies=[type(self).registry.get("git-server"), type(self).registry.get("uv-command")],
+            dependencies=[ComponentRegistry().get("git-server"), ComponentRegistry().get("uv-command")],
             hint="run `jejune extensions install`",
         )
-        type(self).registry.add(self)
 
     def check(self) -> tuple[str, str]:
         from .extensions_registry import _extensions_installed
@@ -17,4 +17,3 @@ class comp_extensions(ext_comp):
         return ("ok", "") if ok else ("error", "not installed")
 
 
-comp_extensions()

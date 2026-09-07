@@ -2,7 +2,7 @@
 
 
 def run_all(
-    components: set[str] | None = None,
+    components: "set[base_comp] | None" = None,
 ) -> tuple[
     list[tuple[str, str, str]],
     list[tuple[str, str, str]],
@@ -15,19 +15,26 @@ def run_all(
     from .component_with_config import conf_comp as component
     from .plugin import _REGISTRY as _PLUGIN_REGISTRY
     from .component_base import base_comp
-    COMP_REGISTRY = base_comp.registry
+    from .component_registry import REGISTRY as COMP_REGISTRY
 
     config: list[tuple[str, str, str]] = []
     avail:  list[tuple[str, str, str]] = []
 
-    def _visible(name: str) -> bool:
-        return components is None or name in components
+    _visible_names: set[str] | None = (
+        None if components is None else {c.name for c in components}
+    )
+
+    def _visible_inst(inst: base_comp) -> bool:
+        return components is None or inst in components
+
+    def _visible_name(name: str) -> bool:
+        return _visible_names is None or name in _visible_names
 
     # Config: all components carrying env_vars on their configuration object
     for inst in COMP_REGISTRY:
         if not hasattr(inst, 'configuration') or not inst.configuration.env_vars:
             continue
-        if not _visible(inst.name):
+        if not _visible_inst(inst):
             continue
         status, msg, _ = inst.configuration.check()
         config.append((inst.name, status, msg))
@@ -37,7 +44,7 @@ def run_all(
     for inst in COMP_REGISTRY:
         if not isinstance(inst, base_comp):
             continue
-        if not _visible(inst.name) or inst.name in _plugin_names:
+        if not _visible_inst(inst) or inst.name in _plugin_names:
             continue
         status, msg = inst.check()
         avail.append((inst.name, status, msg))
@@ -48,7 +55,7 @@ def run_all(
 
     # Plugin availability checks
     for plugin in _PLUGIN_REGISTRY:
-        if not _visible(plugin.name):
+        if not _visible_name(plugin.name):
             continue
         if plugin.check_availability is not None:
             passed, msg = plugin.check_availability()

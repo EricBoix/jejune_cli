@@ -85,8 +85,7 @@ def unregister(*container_names: str) -> None:
 def all_entries() -> list[dict]:
     """Return all active container entries from the component REGISTRY."""
     from .component_containerized import cont_comp
-    from .component_base import base_comp
-    COMP_REGISTRY = base_comp.registry
+    from .component_registry import REGISTRY as COMP_REGISTRY
 
     return [
         {"component": inst.name, "container": inst.container_name}
@@ -106,8 +105,7 @@ def print_containers_table(prefix: str = "  ") -> None:
     Called by both `jejune containers list` and `jejune doctor`.
     """
     from .component_containerized import cont_comp
-    from .component_base import base_comp
-    COMP_REGISTRY = base_comp.registry
+    from .component_registry import REGISTRY as COMP_REGISTRY
 
     comps = [inst for inst in COMP_REGISTRY if isinstance(inst, cont_comp)]
     if not comps:

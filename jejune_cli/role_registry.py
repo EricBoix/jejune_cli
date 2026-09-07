@@ -7,6 +7,7 @@ from .role import CONTRIBUTOR, DEPLOYER, DOC_STEWARD, NO_ROLE, Role
 
 if TYPE_CHECKING:
     from .plugin import JejuneRole
+    from .component_base import base_comp
 
 
 class RoleRegistry:
@@ -18,9 +19,11 @@ class RoleRegistry:
         self._roles[role.name] = role
 
     def register_from_plugin(self, j: "JejuneRole") -> None:
+        from .component_registry import REGISTRY as COMP_REGISTRY
+        components = frozenset(filter(None, (COMP_REGISTRY.get(n) for n in j.components)))
         role = Role(
             name=j.name,
-            components=j.components,
+            components=components,
             includes=j.includes,
             section_title=j.section_title,
             detector=j.detect,
@@ -77,7 +80,7 @@ class RoleRegistry:
                     pass
         return NO_ROLE
 
-    def role_components(self, role: Role) -> frozenset[str] | None:
+    def role_components(self, role: Role) -> "frozenset[base_comp] | None":
         if not role:
             return None
         own = role.components

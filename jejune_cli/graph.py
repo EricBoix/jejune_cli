@@ -3,12 +3,13 @@ from pathlib import Path
 import click
 
 from ._env import EXTRACT_ENV_VARS, docker_env_args
-from .component_cont_graph import graph_comp
+from .component_registry import REGISTRY as COMP_REGISTRY
 from .click_comp_configuration import print_config_hint, print_config_status
 from .graph_view import view
 from .llm import llm_available as _llm_available
-from .llm_observability import container_running as _llm_obs_running
-from .component_cont_neo4j import neo4j_comp as _neo4j_comp
+_llm_obs_comp = COMP_REGISTRY.get("llm-observability")
+graph_comp = COMP_REGISTRY.get("graph")
+_neo4j_comp = COMP_REGISTRY.get("neo4j")
 
 _BUILD_KG_IMAGE = "jejune:extract_knowledge_graph"
 
@@ -79,7 +80,6 @@ def graph(ctx):
 graph.add_command(view)
 
 
-from .component_cont_graph import graph_comp  # noqa: E402
 
 
 @graph.command("build")
@@ -95,7 +95,7 @@ def check_availability():
     """Show graph availability status with optional-dep detail."""
     ok, msg = graph_available()
     status = click.style("ok", fg="green") if ok else click.style(msg, fg="red")
-    lo_ok, _ = _llm_obs_running()
+    lo_ok, _ = _llm_obs_comp.is_running()
     opt = click.style("llm-observability", fg="green" if lo_ok else "yellow")
     click.echo(f"graph: {status}  ({opt} optional)")
 

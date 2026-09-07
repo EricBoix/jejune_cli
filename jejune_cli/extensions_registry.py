@@ -20,8 +20,7 @@ _ROLE_PACKAGES: dict[str, list[tuple[str, str, str]]] = {
 
 
 def _install_one(repo_name: str, check_subpath: str, plugin_name: str) -> None:
-    from .component_base import base_comp
-    COMP_REGISTRY = base_comp.registry
+    from .component_registry import REGISTRY as COMP_REGISTRY
 
     eco = COMP_REGISTRY.get("ecosystem")
     root_dir, tmp_dir = eco.resolve_dirs()
@@ -43,7 +42,7 @@ def _install_one(repo_name: str, check_subpath: str, plugin_name: str) -> None:
 def _extensions_installed(role: str | None = None) -> bool:
     """Return True when all extensions for *role* (or the detected role) are installed."""
     if role is None:
-        from .role import ROLE_REGISTRY
+        from .role_registry import ROLE_REGISTRY
         r = ROLE_REGISTRY.detect_role()
         role = r.name if r else None
     pkgs = _ROLE_PACKAGES.get(role, [])
@@ -54,7 +53,7 @@ def _extensions_installed(role: str | None = None) -> bool:
 def _do_extensions_install(role: str | None = None) -> None:
     """Install all extensions for *role* (or the detected role)."""
     if role is None:
-        from .role import ROLE_REGISTRY
+        from .role_registry import ROLE_REGISTRY
         r = ROLE_REGISTRY.detect_role()
         role = r.name if r else None
     for repo_name, check_subpath, plugin_name in _ROLE_PACKAGES.get(role, []):

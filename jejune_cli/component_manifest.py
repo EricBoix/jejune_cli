@@ -5,7 +5,6 @@ from .component_with_config import conf_comp as component
 class comp_manifest(component):
     def __init__(self) -> None:
         super().__init__(name="manifest")
-        type(self).registry.add(self)
 
     def check_config(self) -> tuple[str, str] | None:
         from pathlib import Path
@@ -22,4 +21,3 @@ class comp_manifest(component):
         return avail_status, avail_msg
 
 
-comp_manifest()

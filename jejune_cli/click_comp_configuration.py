@@ -102,7 +102,7 @@ _ROLE_CTX_KEY = "_jejune_configuration_role"
 
 class _ConfigurationGroup(click.Group):
     def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        from .role import ROLE_REGISTRY
+        from .role_registry import ROLE_REGISTRY
         active_role = ROLE_REGISTRY.detect_role()
         ctx.meta[_ROLE_CTX_KEY] = active_role
 
@@ -119,7 +119,6 @@ class _ConfigurationGroup(click.Group):
             self.format_commands(ctx, formatter)
 
     def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        from .role import ROLE_REGISTRY
         active_role = ctx.meta.get(_ROLE_CTX_KEY)
 
         regular: list[tuple[str, str]] = []
@@ -162,15 +161,14 @@ configuration.add_command(_deployer_group)
 
 def _role_config_checks() -> list[tuple[str, str, str, str]]:
     """Return (name, status, msg, hint) for every configurable component in the current role."""
-    from .role import ROLE_REGISTRY
-    from .component_base import base_comp
-    COMP_REGISTRY = base_comp.registry
+    from .role_registry import ROLE_REGISTRY
+    from .component_registry import REGISTRY as COMP_REGISTRY
     role = ROLE_REGISTRY.detect_role()
-    visible = ROLE_REGISTRY.role_components(role)
+    role_components = ROLE_REGISTRY.role_components(role)
     return [
         (comp.name, *comp.configuration.check())
         for comp in COMP_REGISTRY
-        if (visible is None or comp.name in visible)
+        if (role_components is None or comp in role_components)
         and hasattr(comp, 'configuration')
         and comp.configuration.env_vars
     ]

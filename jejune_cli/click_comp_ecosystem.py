@@ -2,9 +2,8 @@
 
 import click
 
-from .role import ROLE_REGISTRY
-from .component_base import base_comp
-COMP_REGISTRY = base_comp.registry
+from .role_registry import ROLE_REGISTRY
+from .component_registry import REGISTRY as COMP_REGISTRY
 
 
 @click.group(invoke_without_command=True, short_help="Ecosystem repository status")
@@ -40,7 +39,7 @@ def ecosystem_status() -> None:
     # --- Components table ---
     active = ROLE_REGISTRY.role_components(role)
     repos = [] if active is None else [
-        r for comp in COMP_REGISTRY if comp.name in active
+        r for comp in COMP_REGISTRY if comp in active
         for r in getattr(comp, "repos", [])
     ]
     click.echo(click.style("  Components", bold=True))

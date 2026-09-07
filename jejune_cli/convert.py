@@ -73,14 +73,14 @@ def convert():
 @convert.command("check-config")
 def check_config():
     """Show per-variable configuration detail for the convert component."""
-    from .component_cont_convert import convert_comp
+    from .component_registry import REGISTRY as COMP_REGISTRY; convert_comp = COMP_REGISTRY.get("convert")
     print_config_check(convert_comp.configuration)
 
 
 @convert.command("status-config")
 def status_config():
     """Show convert configuration status."""
-    from .component_cont_convert import convert_comp
+    from .component_registry import REGISTRY as COMP_REGISTRY; convert_comp = COMP_REGISTRY.get("convert")
     print_config_status(convert_comp.configuration)
 
 

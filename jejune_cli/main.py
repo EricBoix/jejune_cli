@@ -17,20 +17,17 @@ from .click_next_steps import next_cmd, register_heuristics
 from ._role_cmd import role
 from .convert import convert, convert_configured
 from .plugin import JejunePlugin, _REGISTRY
-from .role import ROLE_REGISTRY
+from .role_registry import ROLE_REGISTRY
 from .deployment import deployment
 from .click_comp_ecosystem import ecosystem
-from .extensions import extensions_group
+from .click_extensions import extensions_group
 
 document = click.Group("document", help="Document workspace commands.")
 from .ui_deployment import up as _up_cmd, down as _down_cmd
 from .click_comp_configuration import (
     configuration,
-    print_config_table,
-    print_two_col_table,
     register_role_config_subgroup,
 )
-from . import containers
 from .containers import containers_cli
 from .graph import graph
 from .llm import llm
@@ -39,7 +36,7 @@ from .llm_observability import llm_observability
 from .click_comp_neo4j import neo4j
 from .configuration_deployer import init as _deployer_init
 from .configuration_doc_steward import init as _doc_steward_init
-from .next_steps import has_heuristics_for_role, command_viable, register_command_precondition, print_next_steps
+from .next_steps import has_heuristics_for_role, register_command_precondition, print_next_steps
 _ACTIVE_ROLE_OBJ = ROLE_REGISTRY.detect_role()
 _ACTIVE_ROLE: str | None = _ACTIVE_ROLE_OBJ.name or None
 _ACTIVE_COMPONENTS = ROLE_REGISTRY.role_components(_ACTIVE_ROLE_OBJ)
@@ -56,8 +53,7 @@ register_command_precondition("jejune doctor", _doctor_viable)
 # Component registry
 # ---------------------------------------------------------------------------
 
-from .component_base import base_comp
-COMP_REGISTRY = base_comp.registry
+from .component_registry import REGISTRY as COMP_REGISTRY
 
 _CONTRIBUTOR_COMMANDS = ["doctor", "configuration", "role", "containers", "ecosystem", "next"]
 _DOC_STEWARD_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert", "manifest"]
@@ -254,7 +250,7 @@ def build(no_cache: bool) -> None:
     components = ROLE_REGISTRY.role_components(_ACTIVE_ROLE_OBJ) or set()
     builders = [
         inst for inst in COMP_REGISTRY
-        if isinstance(inst, cont_comp) and inst.name in components and inst.build_context
+        if isinstance(inst, cont_comp) and inst in components and inst.build_context
     ]
     if not builders:
         raise click.UsageError(
@@ -274,7 +270,7 @@ from .component_with_config import conf_comp as _component
 class _PluginComp(_component):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        type(self).registry.add(self)
+        COMP_REGISTRY.add(self)
 
     def check(self) -> tuple[str, str]:
         return "ok", ""

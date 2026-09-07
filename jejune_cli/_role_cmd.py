@@ -1,7 +1,7 @@
 """Role command group for the jejune CLI."""
 import click
 
-from .role import ROLE_REGISTRY
+from .role_registry import ROLE_REGISTRY
 
 
 @click.group(invoke_without_command=True, short_help="Show or list roles")
@@ -14,13 +14,13 @@ def role(ctx):
     if ctx.invoked_subcommand is not None:
         return
     active_role = ROLE_REGISTRY.detect_role()
-    active_components = ROLE_REGISTRY.role_components(active_role)
+    role_components = ROLE_REGISTRY.role_components(active_role)
     if active_role:
         click.echo(f"role:   {click.style(active_role.name, fg='cyan')}")
     else:
         click.echo(f"role:   {click.style('(none)', fg='yellow')}")
-    if active_components:
-        click.echo(f"shows:  {', '.join(sorted(active_components))}")
+    if role_components:
+        click.echo(f"shows:  {', '.join(sorted(c.name for c in role_components))}")
     else:
         click.echo("shows:  all components")
 

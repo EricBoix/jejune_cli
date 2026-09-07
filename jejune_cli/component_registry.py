@@ -15,6 +15,28 @@ class ComponentRegistry:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._comps = []
+            cls._instance._comps.append(comp_network())
+            cls._instance._comps.append(comp_command_git())
+            cls._instance._comps.append(comp_command_docker())
+            cls._instance._comps.append(comp_command_uv())
+            cls._instance._comps.append(comp_server_pypi())
+            cls._instance._comps.append(comp_server_docker_hub())
+            cls._instance._comps.append(comp_server_git())
+            cls._instance._comps.append(comp_server_llm())
+            cls._instance._comps.append(comp_server_llm_observability())
+            cls._instance._comps.append(comp_extensions())
+            cls._instance._comps.append(comp_ecosystem())
+            cls._instance._comps.append(comp_catalog())
+            cls._instance._comps.append(comp_manifest())
+            cls._instance._comps.append(comp_docs_server())
+            cls._instance._comps.append(comp_kg_viewer())
+            cls._instance._comps.append(comp_md_browser())
+            cls._instance._comps.append(comp_convert())
+            cls._instance._comps.append(comp_neo4j())
+            cls._instance._comps.append(comp_graph())
+            cls._instance._comps.append(comp_neo4j_to_rdf_ttl())
+            cls._instance._comps.append(comp_deployment())
+            cls._instance._sort()
         return cls._instance
 
     def add(self, comp: base_comp) -> None:
@@ -59,21 +81,23 @@ class ComponentRegistry:
     def __len__(self) -> int:
         return len(self._comps)
 
-    def active_set(self, starting: set[str] | None) -> set[str]:
-        """Return names of components reachable from *starting* via active deps."""
-        active: set[str] = set()
+    def sorted_active_set(
+        self, starting: "frozenset[base_comp] | None"
+    ) -> "list[base_comp]":
+        """Components reachable from *starting* via active deps, in topological order."""
+        active: set[base_comp] = set()
 
         def activate(comp: base_comp) -> None:
-            if comp.name in active:
+            if comp in active:
                 return
-            active.add(comp.name)
+            active.add(comp)
             for dep in comp.active_deps():
                 activate(dep)
 
         for inst in self._comps:
-            if starting is None or inst.name in starting:
+            if starting is None or inst in starting:
                 activate(inst)
-        return active
+        return self.sorted_subset(list(active))
 
     def sorted_subset(self, components: list[base_comp]) -> list[base_comp]:
         """Return *components* in the registry's topological order."""
@@ -87,9 +111,34 @@ class ComponentRegistry:
         """Assert every dep instance referenced by a component is registered."""
         for inst in self._comps:
             for dep in inst.all_deps():
-                assert self.get(dep.name) is dep, (
-                    f"{inst.name}.dependencies contains unregistered instance {dep.name!r}"
-                )
+                assert (
+                    self.get(dep.name) is dep
+                ), f"{inst.name}.dependencies contains unregistered instance {dep.name!r}"
 
+
+# Component class imports — placed after ComponentRegistry to avoid circular
+# import (component modules do `from .component_registry import
+# ComponentRegistry` at load time).
+from .component_ext_network import comp_network
+from .component_ext_command_git import comp_command_git
+from .component_ext_command_docker import comp_command_docker
+from .component_ext_command_uv import comp_command_uv
+from .component_ext_server_pypi import comp_server_pypi
+from .component_ext_server_docker_hub import comp_server_docker_hub
+from .component_ext_server_git import comp_server_git
+from .component_ext_server_llm import comp_server_llm
+from .component_ext_server_llm_observability import comp_server_llm_observability
+from .component_ext_extensions import comp_extensions
+from .component_ecosystem import comp_ecosystem
+from .component_catalog import comp_catalog
+from .component_manifest import comp_manifest
+from .component_cont_docs_server import comp_docs_server
+from .component_cont_kg_viewer import comp_kg_viewer
+from .component_cont_md_browser import comp_md_browser
+from .component_cont_convert import comp_convert
+from .component_cont_neo4j import comp_neo4j
+from .component_cont_graph import comp_graph
+from .component_cont_neo4j_to_rdf_ttl import comp_neo4j_to_rdf_ttl
+from .component_deployment import comp_deployment
 
 REGISTRY: ComponentRegistry = ComponentRegistry()

@@ -9,7 +9,9 @@ from .click_comp_configuration import (
     print_config_status,
 )
 
-from .component_cont_neo4j import neo4j_comp
+from .component_registry import REGISTRY as COMP_REGISTRY
+from .click_comp_neo4j_to_rdf_ttl import dump_turtle
+neo4j_comp = COMP_REGISTRY.get("neo4j")
 
 
 
@@ -264,4 +266,4 @@ def restore(results_dir, dump_filename):
     click.echo("Restore complete.")
 
 
-from . import click_comp_neo4j_to_rdf_ttl  # noqa: E402, F401
+neo4j.add_command(dump_turtle)

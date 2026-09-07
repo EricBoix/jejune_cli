@@ -9,22 +9,23 @@ from urllib.parse import urlparse
 import click
 
 from . import containers
-from .component_base import base_comp
-COMP_REGISTRY = base_comp.registry
+from .component_registry import REGISTRY as COMP_REGISTRY
 
 
 def _container_running(name: str) -> bool:
     result = subprocess.run(
         ["docker", "inspect", "-f", "{{.State.Running}}", name],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     return result.returncode == 0 and result.stdout.strip() == "true"
+
 
 _META_URL = "viewer_url"
 
 
 class _ViewGroup(click.Group):
-    """Group that treats an unrecognised first argument as a file URL rather
+    """Group that treats an unrecognized first argument as a file URL rather
     than raising 'No such command'."""
 
     def invoke(self, ctx: click.Context) -> object:
@@ -37,7 +38,9 @@ class _ViewGroup(click.Group):
 
 
 _VIEWER_IMAGE = "jejune:kg_graph_viewer"
-_VIEWER_GITHUB = COMP_REGISTRY.get("git-server").remote_git_url("jejune_kg-graph_viewer")
+_VIEWER_GITHUB = COMP_REGISTRY.get("git-server").remote_git_url(
+    "jejune_kg-graph_viewer"
+)
 _VIEWER_DATA = Path.home() / ".jejune" / "viewer_data"
 _VIEWER_NAME_PREFIX = "jejune_kg_viewer_"
 _VIEWER_COMPONENT = "graph-view"
@@ -66,27 +69,38 @@ def _build_viewer_image() -> None:
     if viewer_dir:
         path = Path(viewer_dir).resolve()
         _run(
-            "docker", "build",
-            "-t", _VIEWER_IMAGE,
-            "-f", str(path / "DockerContext" / "Dockerfile"),
+            "docker",
+            "build",
+            "-t",
+            _VIEWER_IMAGE,
+            "-f",
+            str(path / "DockerContext" / "Dockerfile"),
             str(path),
         )
     else:
         _run(
-            "docker", "build",
-            "-t", _VIEWER_IMAGE,
-            "-f", "DockerContext/Dockerfile",
+            "docker",
+            "build",
+            "-t",
+            _VIEWER_IMAGE,
+            "-f",
+            "DockerContext/Dockerfile",
             _VIEWER_GITHUB,
         )
 
 
 def _launch_container(container: str, port: int) -> None:
     _run(
-        "docker", "run",
-        "--rm", "--detach",
-        "--name", container,
-        "--publish", f"{port}:80",
-        "-v", f"{_VIEWER_DATA}:/usr/share/nginx/html/data",
+        "docker",
+        "run",
+        "--rm",
+        "--detach",
+        "--name",
+        container,
+        "--publish",
+        f"{port}:80",
+        "-v",
+        f"{_VIEWER_DATA}:/usr/share/nginx/html/data",
         _VIEWER_IMAGE,
     )
 
@@ -106,7 +120,9 @@ def _parse_file_url(url: str) -> Path:
     elif parsed.scheme == "":
         local = Path(url)
     else:
-        raise click.ClickException(f"Only local paths and file:// URLs are supported, got: {url!r}")
+        raise click.ClickException(
+            f"Only local paths and file:// URLs are supported, got: {url!r}"
+        )
     local = local.resolve()
     if not local.exists():
         raise click.ClickException(f"File not found: {local}")
@@ -159,7 +175,11 @@ def _cmd_list() -> None:
         name = entry["container"]
         port = entry["port"]
         running = _container_running(name)
-        status = click.style("running", fg="green") if running else click.style("stopped", fg="yellow")
+        status = (
+            click.style("running", fg="green")
+            if running
+            else click.style("stopped", fg="yellow")
+        )
         click.echo(f"  id={entry['id']}  {name}  port={port}  {status}")
 
 
@@ -209,7 +229,9 @@ def view_stop(target):
         try:
             vid = int(target)
         except ValueError:
-            raise click.ClickException(f"Invalid target {target!r}: use an integer id or 'all'")
+            raise click.ClickException(
+                f"Invalid target {target!r}: use an integer id or 'all'"
+            )
         to_stop = [e for e in mine if e["id"] == vid]
         if not to_stop:
             raise click.ClickException(f"No viewer with id {vid}")

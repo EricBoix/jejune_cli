@@ -2,13 +2,16 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
+
+if TYPE_CHECKING:
+    from .component_base import base_comp
 
 
 @dataclass
 class Role:
     name: str
-    components: frozenset[str]
+    components: "frozenset[base_comp]"
     includes: tuple[str, ...]
     section_title: str
     detector: Callable[[], bool] | None = None
@@ -36,11 +39,15 @@ class Role:
         return (cwd / "docker-compose.yml").is_file() and (cwd / "catalog.yaml").is_file()
 
 
+from .component_registry import REGISTRY as COMP_REGISTRY
+
 NO_ROLE = Role(name="", components=frozenset(), includes=(), section_title="")
 
 CONTRIBUTOR = Role(
     name="contributor",
-    components=frozenset({"ecosystem", "network", "git-command", "git-server"}),
+    components=frozenset(filter(None, (
+        COMP_REGISTRY.get(n) for n in ("ecosystem", "network", "git-command", "git-server")
+    ))),
     includes=(),
     section_title="Contributor commands",
     description="base ecosystem role",
@@ -48,45 +55,28 @@ CONTRIBUTOR = Role(
 
 DOC_STEWARD = Role(
     name="doc-steward",
-    components=frozenset(
-        {
-            "docker-command",
-            "docker-hub-server",
-            "pypi-server",
-            "neo4j",
-            "llm",
-            "llm-observability",
-            "graph",
-            "convert",
-            "manifest",
-        }
-    ),
+    components=frozenset(filter(None, (
+        COMP_REGISTRY.get(n) for n in (
+            "docker-command", "docker-hub-server", "pypi-server",
+            "neo4j", "llm", "llm-observability", "graph", "convert", "manifest",
+        )
+    ))),
     includes=("contributor",),
     section_title="Doc-steward commands",
     description="document authoring",
     detector=Role._is_doc_steward_cwd,
 )
 
-# "deployment" = built-in; UI service names come from installed check/ plugins.
 DEPLOYER = Role(
     name="deployer",
-    components=frozenset(
-        {
-            "docker-command",
-            "uv-command",
-            "extensions",
-            "catalog",
-            "deployment",
-            "docs-server",
-            "kg-viewer",
-            "md-browser",
-        }
-    ),
+    components=frozenset(filter(None, (
+        COMP_REGISTRY.get(n) for n in (
+            "docker-command", "uv-command", "extensions",
+            "catalog", "deployment", "docs-server", "kg-viewer", "md-browser",
+        )
+    ))),
     includes=("contributor",),
     section_title="Deployer commands",
     description="service deployment",
     detector=Role._is_deployer_cwd,
 )
-
-# Re-export so existing callers keep working without import changes.
-from .role_registry import ROLE_REGISTRY  # noqa: E402, F401

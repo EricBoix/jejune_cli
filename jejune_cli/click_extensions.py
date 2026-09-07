@@ -4,6 +4,7 @@ import importlib.metadata
 import click
 
 from .extensions_registry import _ROLE_PACKAGES, _do_extensions_install, _extensions_installed
+from .role_registry import ROLE_REGISTRY
 
 
 @click.group("extensions", invoke_without_command=True,
@@ -18,8 +19,6 @@ def extensions_group(ctx: click.Context) -> None:
 @extensions_group.command("status")
 def extensions_status() -> None:
     """Show which extensions are installed for the current role."""
-    from .role import ROLE_REGISTRY
-
     role = ROLE_REGISTRY.detect_role()
     pkgs = _ROLE_PACKAGES.get(role.name if role else None, [])
     if not pkgs:
@@ -35,8 +34,6 @@ def extensions_status() -> None:
 @extensions_group.command("install")
 def extensions_install() -> None:
     """Install extensions for the current role (local clone or git remote)."""
-    from .role import ROLE_REGISTRY
-
     role = ROLE_REGISTRY.detect_role()
     if (role.name if role else None) not in _ROLE_PACKAGES:
         click.echo(click.style("No extensions defined for the current role.", fg="yellow"))

@@ -5,7 +5,8 @@ import urllib.request
 
 import click
 
-from .component_ext_server_llm import llm_comp
+from .component_registry import REGISTRY as COMP_REGISTRY
+llm_comp = COMP_REGISTRY.get("llm")
 from .click_comp_configuration import print_config_hint, print_config_status
 
 _TEST_PROMPT = "How are you today?"

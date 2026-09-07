@@ -5,20 +5,20 @@ from typing import Literal
 
 from .configuration import configuration
 from .component_with_config import conf_comp as component
+from .component_registry import ComponentRegistry
 
 RepoTier = Literal["root", "tmp", "remote"]
 
 
 class comp_ecosystem(component):
     def __init__(self) -> None:
-        git_server = type(self).registry.get("git-server")
+        git_server = ComponentRegistry().get("git-server")
         super().__init__(
             name="ecosystem",
             configuration=configuration("edit .jejune/ecosystem-env-config and set JEJUNE_ROOT_DIR", env_vars=["JEJUNE_ROOT_DIR"], max_severity="warn"),
         )
         self._git_server = git_server
         self.conditional_dependencies = [(self.ecosystem_needs_remote, git_server)]
-        type(self).registry.add(self)
 
     def repo_status(
         self,
@@ -68,7 +68,7 @@ class comp_ecosystem(component):
         return results
 
     def ecosystem_needs_remote(self) -> bool:
-        from .role import ROLE_REGISTRY
+        from .role_registry import ROLE_REGISTRY
         role = ROLE_REGISTRY.detect_role()
         root_dir, tmp_dir = self.resolve_dirs()
         active = ROLE_REGISTRY.role_components(role)
@@ -76,8 +76,8 @@ class comp_ecosystem(component):
             return False
         return any(
             self.repo_status(name, root_dir, tmp_dir)[0] == "remote"
-            for comp in type(self).registry
-            if comp.name in active
+            for comp in ComponentRegistry()
+            if comp in active
             for name, _, _ in getattr(comp, "repos", [])
         )
 
@@ -85,4 +85,3 @@ class comp_ecosystem(component):
         return "ok", ""
 
 
-comp_ecosystem()

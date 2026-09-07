@@ -3,11 +3,11 @@ from pathlib import Path
 
 import click
 
-from .click_comp_neo4j import neo4j
-from .component_cont_neo4j_to_rdf_ttl import neo4j_to_rdf_ttl_comp
+from .component_registry import REGISTRY as COMP_REGISTRY
+neo4j_to_rdf_ttl_comp = COMP_REGISTRY.get("neo4j-to-rdf-ttl")
 
 
-@neo4j.command("dump-turtle")
+@click.command("dump-turtle")
 @click.argument("output_dir", type=click.Path())
 @click.argument("filename")
 def dump_turtle(output_dir, filename):

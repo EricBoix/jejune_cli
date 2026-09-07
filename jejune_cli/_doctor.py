@@ -7,6 +7,7 @@ from ._health import run_all
 from .click_comp_configuration import (
     print_two_col_table,
 )
+from .role_registry import ROLE_REGISTRY
 
 # ---------------------------------------------------------------------------
 # Display constants
@@ -24,14 +25,11 @@ _UI_PLUGIN_NAMES: frozenset[str] = frozenset(("docs-server", "kg-viewer", "md-br
 
 
 # ---------------------------------------------------------------------------
-# Component registry initialisation
+# Component registry
 # ---------------------------------------------------------------------------
 
 from .component_base import base_comp
-COMP_REGISTRY = base_comp.registry
-
-base_comp.initialize_registry()
-
+from .component_registry import REGISTRY as COMP_REGISTRY
 
 COMP_REGISTRY.validate()
 
@@ -81,10 +79,8 @@ def _resolve_avail_hint(inst: base_comp, fallback: str = "") -> str:
 
 
 def _avail_all_visible() -> list[base_comp]:
-    from .role import ROLE_REGISTRY
     role = ROLE_REGISTRY.detect_role()
-    active = COMP_REGISTRY.active_set(ROLE_REGISTRY.role_components(role))
-    return COMP_REGISTRY.sorted_subset([c for c in COMP_REGISTRY if c.name in active])
+    return COMP_REGISTRY.sorted_active_set(ROLE_REGISTRY.role_components(role))
 
 
 def _build_avail_rows(
@@ -211,7 +207,6 @@ def doctor(verbose: bool):
     """
     from ._env import dot_jejune
     from .plugin import _REGISTRY as _PLUGIN_REGISTRY
-    from .role import ROLE_REGISTRY
 
     active_role_obj = ROLE_REGISTRY.detect_role()
     active_role = active_role_obj.name if active_role_obj else None
@@ -230,27 +225,25 @@ def doctor(verbose: bool):
     config_results, avail_results = run_all(components=active_components)
 
     _plugin_names = {p.name for p in _PLUGIN_REGISTRY}
-    _builtin = frozenset(COMP_REGISTRY.names())
+    _builtin = frozenset(COMP_REGISTRY)
     if active_components is not None:
         _seen_config = {c for c, _, _ in config_results}
         _seen_avail  = {c for c, _, _ in avail_results}
-        for name in sorted(active_components - _builtin):
-            if name not in _plugin_names:
-                if name not in _seen_config:
-                    config_results.append((name, "warn", "extension not installed"))
-                if name not in _seen_avail:
-                    avail_results.append((name, "warn", "extension not installed"))
+        for comp in sorted(active_components - _builtin, key=lambda c: c.name):
+            if comp.name not in _plugin_names:
+                if comp.name not in _seen_config:
+                    config_results.append((comp.name, "warn", "extension not installed"))
+                if comp.name not in _seen_avail:
+                    avail_results.append((comp.name, "warn", "extension not installed"))
 
     by_config = {comp: (status, msg) for comp, status, msg in config_results}
 
-    visible_components: list[base_comp] = COMP_REGISTRY.sorted_subset(
-        [c for c in COMP_REGISTRY if c.name in COMP_REGISTRY.active_set(active_components)]
-    )
+    visible_components: list[base_comp] = COMP_REGISTRY.sorted_active_set(active_components)
     visible_names = {c.name for c in visible_components}
     ext_names: list[str] = [
-        name
-        for name in (sorted(active_components - _builtin) if active_components else [])
-        if name not in visible_names
+        comp.name
+        for comp in (sorted(active_components - _builtin, key=lambda c: c.name) if active_components else [])
+        if comp.name not in visible_names
     ]
 
     config_rows: list[tuple[str, str, str, str]] = []
@@ -287,7 +280,6 @@ def doctor(verbose: bool):
 # ---------------------------------------------------------------------------
 
 def _active_components():
-    from .role import ROLE_REGISTRY
     role = ROLE_REGISTRY.detect_role()
     return ROLE_REGISTRY.role_components(role)
 

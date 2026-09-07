@@ -9,7 +9,5 @@ class comp_command_docker(ext_command):
             command=["docker", "info"],
             hint="install Docker Desktop (https://docs.docker.com/get-docker/)",
         )
-        type(self).registry.add(self)
 
 
-comp_command_docker()

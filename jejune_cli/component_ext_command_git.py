@@ -1,7 +1,6 @@
 """git-command component."""
 from .component_ext_command import ext_command
-from .component_base import base_comp
-COMP_REGISTRY = base_comp.registry
+from .component_registry import ComponentRegistry
 
 
 class comp_command_git(ext_command):
@@ -11,12 +10,10 @@ class comp_command_git(ext_command):
             command=["git", "--version"],
             hint="install git (https://git-scm.com)",
         )
-        type(self).registry.add(self)
 
     def check(self) -> tuple[str, str]:
-        if not COMP_REGISTRY.get("ecosystem").ecosystem_needs_remote():
+        if not ComponentRegistry().get("ecosystem").ecosystem_needs_remote():
             return "ok", ""
         return super().check()
 
 
-comp_command_git()

@@ -1,33 +1,17 @@
 import os
-import subprocess
 import urllib.error
 import urllib.request
 
 import click
 
-from .component_ext_server_llm_observability import llm_obs_comp
+from .component_registry import REGISTRY as COMP_REGISTRY
 from .click_comp_configuration import (
     print_config_check,
     print_config_hint,
     print_config_status,
 )
 
-_CONTAINER = "jejune_llm_observability"
-_IMAGE = "jaegertracing/all-in-one"
-_OTLP_PORT = 4318
-_UI_PORT = 16686
-
-
-def container_running() -> tuple[bool, str]:
-    """Return (is_running, message) for the LLM observability container."""
-    result = subprocess.run(
-        ["docker", "inspect", "-f", "{{.State.Running}}", _CONTAINER],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0 or result.stdout.strip() != "true":
-        return False, "not started"
-    return True, "ok"
+llm_obs_comp = COMP_REGISTRY.get("llm-observability")
 
 
 def llm_observability_available() -> tuple[bool, str]:
@@ -35,7 +19,7 @@ def llm_observability_available() -> tuple[bool, str]:
     cfg_status, *_ = llm_obs_comp.configuration.check()
     if cfg_status != "ok":
         return False, "not configured"
-    return container_running()
+    return llm_obs_comp.is_running()
 
 
 @click.group("llm-observability", short_help="Manage the LLM observability backend")
@@ -64,32 +48,25 @@ def hint_config():
 @llm_observability.command("start")
 @click.option(
     "--otlp-port",
-    default=_OTLP_PORT,
+    default=llm_obs_comp.otlp_port,
     show_default=True,
     help="OTLP HTTP receiver port (must match TRACELOOP_BASE_URL).",
 )
-@click.option("--ui-port", default=_UI_PORT, show_default=True, help="Jaeger UI port.")
+@click.option("--ui-port", default=llm_obs_comp.ui_port, show_default=True, help="Jaeger UI port.")
 def start(otlp_port, ui_port):
     """Start the LLM observability Docker container (Jaeger all-in-one).
 
     Receives OTLP traces from `graph extract` via TRACELOOP_BASE_URL.
     """
-    click.echo(f"Starting {_CONTAINER} ...")
-    result = subprocess.run(
-        [
-            "docker",
-            "run",
-            "--rm",
-            "--detach",
-            "--name",
-            _CONTAINER,
-            "--publish",
-            f"{otlp_port}:{_OTLP_PORT}",
-            "--publish",
-            f"{ui_port}:{_UI_PORT}",
-            _IMAGE,
-        ]
-    )
+    import subprocess
+    click.echo(f"Starting {llm_obs_comp.container_name} ...")
+    result = subprocess.run([
+        "docker", "run", "--rm", "--detach",
+        "--name", llm_obs_comp.container_name,
+        "--publish", f"{otlp_port}:{llm_obs_comp.otlp_port}",
+        "--publish", f"{ui_port}:{llm_obs_comp.ui_port}",
+        llm_obs_comp.image_name,
+    ])
     if result.returncode != 0:
         raise SystemExit(result.returncode)
     click.echo(f"  OTLP receiver : http://localhost:{otlp_port}")
@@ -99,11 +76,7 @@ def start(otlp_port, ui_port):
 @llm_observability.command("stop")
 def stop():
     """Stop and remove the LLM observability Docker container."""
-    click.echo(f"Stopping {_CONTAINER} ...")
-    subprocess.run(["docker", "stop", _CONTAINER], stderr=subprocess.DEVNULL)
-    click.echo(f"Removing {_CONTAINER} ...")
-    subprocess.run(["docker", "rm", _CONTAINER], stderr=subprocess.DEVNULL)
-    click.echo("LLM observability stopped.")
+    llm_obs_comp.stop()
 
 
 @llm_observability.command("check-availability")
@@ -114,7 +87,7 @@ def check_availability():
         click.echo(f"  {click.style('not configured', fg='yellow')}  {llm_obs_comp.configuration.hint}")
         return
     running = ok
-    url = os.environ.get("TRACELOOP_BASE_URL", f"http://localhost:{_OTLP_PORT}")
+    url = os.environ.get("TRACELOOP_BASE_URL", f"http://localhost:{llm_obs_comp.otlp_port}")
     try:
         with urllib.request.urlopen(url, timeout=5):
             reachable = True

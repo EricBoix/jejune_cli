@@ -24,7 +24,7 @@ def next_cmd(ctx):
         if command_viable("jejune doctor"):
             click.echo("No next steps detected. Run `jejune doctor` for system status.")
         else:
-            from .role import ROLE_REGISTRY
+            from .role_registry import ROLE_REGISTRY
             active_role = ROLE_REGISTRY.detect_role()
             if (not active_role or active_role.is_doc_steward()) and not dot_jejune().is_dir():
                 click.echo(
@@ -108,7 +108,7 @@ def _graph_available() -> bool:
 
 
 def _graph_extract_command() -> str:
-    from .component_cont_neo4j import neo4j_comp
+    from .component_registry import REGISTRY as COMP_REGISTRY; neo4j_comp = COMP_REGISTRY.get("neo4j")
     cmd = "jejune graph extract"
     if not neo4j_comp.db_is_empty():
         cmd += " (warning: database is not empty)"
@@ -116,18 +116,18 @@ def _graph_extract_command() -> str:
 
 
 def _neo4j_running() -> bool:
-    from .component_cont_neo4j import neo4j_comp
+    from .component_registry import REGISTRY as COMP_REGISTRY; neo4j_comp = COMP_REGISTRY.get("neo4j")
     ok, _ = neo4j_comp.is_running()
     return ok
 
 
 def _neo4j_not_empty() -> bool:
-    from .component_cont_neo4j import neo4j_comp
+    from .component_registry import REGISTRY as COMP_REGISTRY; neo4j_comp = COMP_REGISTRY.get("neo4j")
     return not neo4j_comp.db_is_empty()
 
 
 def _neo4j_configured() -> bool:
-    from .component_cont_neo4j import neo4j_comp
+    from .component_registry import REGISTRY as COMP_REGISTRY; neo4j_comp = COMP_REGISTRY.get("neo4j")
     status, *_ = neo4j_comp.configuration.check()
     return status == "ok"
 
@@ -149,8 +149,7 @@ def _is_catalog_installed() -> bool:
     except Exception:
         return True  # no catalog.yaml → nothing to install
     try:
-        from .component_base import base_comp
-        COMP_REGISTRY = base_comp.registry
+        from .component_registry import REGISTRY as COMP_REGISTRY
         eco = COMP_REGISTRY.get("ecosystem")
         eco_root, eco_tmp = eco.resolve_dirs()
         return all(
@@ -167,7 +166,7 @@ def _is_deployment_installed() -> bool:
 
 
 def _is_jejune_workspace_cwd() -> bool:
-    from .role import ROLE_REGISTRY
+    from .role_registry import ROLE_REGISTRY
     role = ROLE_REGISTRY.detect_role()
     return bool(role)
 

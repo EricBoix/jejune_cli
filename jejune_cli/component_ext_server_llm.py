@@ -1,6 +1,7 @@
 """LLM server component."""
 from .configuration import configuration
 from .component_ext_server import ext_server
+from .component_registry import ComponentRegistry
 
 
 class comp_server_llm(ext_server):
@@ -8,14 +9,13 @@ class comp_server_llm(ext_server):
         super().__init__(
             name="llm",
             api_url="",
-            dependencies=[type(self).registry.get("network")],
+            dependencies=[ComponentRegistry().get("network")],
             hint="run `jejune llm status-config`",
             configuration=configuration(
                 "edit .jejune/env-secrets",
                 env_vars=["LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"],
             ),
         )
-        type(self).registry.add(self)
 
     def check(self) -> tuple[str, str]:
         from .llm import llm_check_availability
@@ -25,4 +25,3 @@ class comp_server_llm(ext_server):
         return "warn" if msg == "not configured" else "error", msg
 
 
-llm_comp = comp_server_llm()

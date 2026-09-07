@@ -7,7 +7,7 @@ def deployment():
 
 
 # Deployment commands live in ui_deployment.py; imported here to stay in this group.
-from .ui_deployment import ui_configure, ui_list, up, down, build, status  # noqa: E402, F401
+from .ui_deployment import ui_list, up, down, build, status
 
 
 @deployment.command("install")

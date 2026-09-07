@@ -9,7 +9,5 @@ class comp_command_uv(ext_command):
             command=["uv", "--version"],
             hint="install uv (https://docs.astral.sh/uv/getting-started/installation/)",
         )
-        type(self).registry.add(self)
 
 
-comp_command_uv()

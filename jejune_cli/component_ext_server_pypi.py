@@ -3,6 +3,7 @@ import urllib.error
 import urllib.request
 
 from .component_ext_server import ext_server
+from .component_registry import ComponentRegistry
 
 _PYPI_API_URL = "https://pypi.org/pypi/pip/json"
 
@@ -12,9 +13,8 @@ class comp_server_pypi(ext_server):
         super().__init__(
             name="pypi-server",
             api_url=_PYPI_API_URL,
-            dependencies=[type(self).registry.get("network")],
+            dependencies=[ComponentRegistry().get("network")],
         )
-        type(self).registry.add(self)
 
     def check(self) -> tuple[str, str]:
         try:
@@ -28,4 +28,3 @@ class comp_server_pypi(ext_server):
             return "error", f"PyPI not reachable: {exc}"
 
 
-comp_server_pypi()
