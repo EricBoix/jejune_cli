@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 
 import click
-import yaml
 
 from ._env import load_deployment_env
 from .extensions_registry import _DEPLOYER_CHECK_PACKAGES, _extensions_installed
@@ -55,16 +54,6 @@ def _check_ui_services() -> list[tuple[str, bool, str]]:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _full_catalog_path(deployments_dir: Path) -> Path | None:
-    """Locate full-catalog.yaml in the sibling jejune_catalog repo."""
-    candidate = deployments_dir.parent / "jejune_catalog" / "full-catalog.yaml"
-    return candidate if candidate.exists() else None
-
-
-def _has_private_repos(catalog_path: Path) -> bool:
-    data = yaml.safe_load(catalog_path.read_text()) or {}
-    return any(not doc.get("public", True) for doc in data.get("documents", []))
 
 
 def _docker_compose_content(has_private: bool, name: str) -> str:
@@ -184,7 +173,8 @@ def ui_configure(deployments_dir, name):
     (dot_jejune / "origin").write_text(f"{deploy_dir}\n")
     shutil.copy(_T_UI / "env-config", dot_jejune / "env-config")
 
-    full_catalog = _full_catalog_path(deployments_dir)
+    catalog_comp = COMP_REGISTRY.get("catalog")
+    full_catalog = catalog_comp.full_catalog_path(deployments_dir)
     if full_catalog:
         shutil.copy(full_catalog, deploy_dir / "catalog.yaml")
         click.echo(f"Seeded catalog.yaml from {full_catalog}")
@@ -196,7 +186,7 @@ def ui_configure(deployments_dir, name):
             (deploy_dir / "catalog.yaml").write_text("documents: []\n")
         click.echo("Seeded catalog.yaml from built-in template — populate manually.")
 
-    has_private = _has_private_repos(deploy_dir / "catalog.yaml")
+    has_private = catalog_comp.has_private_repos(deploy_dir / "catalog.yaml")
     (deploy_dir / "docker-compose.yml").write_text(_docker_compose_content(has_private, name))
     shutil.copy(_T_UI / "deployment.env", deploy_dir / "deployment.env")
 
