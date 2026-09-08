@@ -125,13 +125,6 @@ def _deployment_installed() -> bool:
     return _is_deployment_installed()
 
 
-register_precondition("deployer role detected",        DEPLOYER.is_deployer)
-register_precondition("deployment config is default",  _deploy_config_is_default)
-register_precondition("deployment images missing",     _deploy_images_missing)
-register_precondition("deployment containers running", _deploy_containers_running)
-register_precondition("deployment services available", _deploy_services_available)
-
-
 def _docs_server_url() -> str:
     port = "8765"
     env_file = Path(".") / "deployment.env"
@@ -144,86 +137,93 @@ def _docs_server_url() -> str:
     return f"http://localhost:{port}"
 
 
-register_heuristic(HeuristicStep(
-    label="Install docker desktop",
-    command=COMP_REGISTRY.get("docker-command").hint, order=2,
-    conditions=[DEPLOYER.is_deployer],
-    anti_conditions=[_docker_available],
-), roles={"deployer"})
+def register_heuristics() -> None:
+    register_precondition("deployer role detected",        DEPLOYER.is_deployer)
+    register_precondition("deployment config is default",  _deploy_config_is_default)
+    register_precondition("deployment images missing",     _deploy_images_missing)
+    register_precondition("deployment containers running", _deploy_containers_running)
+    register_precondition("deployment services available", _deploy_services_available)
 
-register_heuristic(HeuristicStep(
-    label="Wrap up configuration",
-    command="edit config files", order=5,
-    conditions=[DEPLOYER.is_deployer, _deploy_config_is_default],
-    anti_conditions=[],
-), roles={"deployer"})
-
-register_heuristic(HeuristicStep(
-    label="Fix deployment catalog", command="jejune catalog check", order=6,
-    conditions=[DEPLOYER.is_deployer, _deploy_catalog_check_fails],
-    anti_conditions=[_deploy_catalog_needs_configuration],
-), roles={"deployer"})
-
-register_heuristic(HeuristicStep(
-    label="Build deployment", command="jejune build", order=10,
-    conditions=[DEPLOYER.is_deployer, _docker_available, _deploy_images_missing, _deployment_installed],
-    anti_conditions=[_deploy_catalog_check_fails],
-), roles={"deployer"})
-
-register_heuristic(HeuristicStep(
-    label="Start deployment", command="jejune up", order=20,
-    conditions=[DEPLOYER.is_deployer, _docker_available],
-    anti_conditions=[_deploy_images_missing, _deploy_containers_running],
-), roles={"deployer"})
-
-register_heuristic(HeuristicStep(
-    label="Install deployer CLI extensions",
-    command="jejune extensions install", order=22,
-    conditions=[DEPLOYER.is_deployer, _extensions_available, _deploy_containers_running],
-    anti_conditions=[_extensions_installed],
-), roles={"deployer"})
-
-register_heuristic(HeuristicStep(
-    label="Check deployment status", command="jejune deployment status", order=25,
-    conditions=[DEPLOYER.is_deployer, _extensions_available, _deploy_containers_running, _extensions_installed],
-    anti_conditions=[_deploy_services_available],
-), roles={"deployer"})
-
-register_heuristic(HeuristicStep(
-    label="Browse docs server",
-    command=lambda: f"web-browse UI at {_docs_server_url()}", order=30,
-    conditions=[DEPLOYER.is_deployer, _deploy_containers_running, _deploy_services_available],
-    anti_conditions=[],
-), roles={"deployer"})
-
-register_heuristic(HeuristicStep(
-    label="Deployment running stop", command="jejune down", order=35,
-    conditions=[DEPLOYER.is_deployer, _docker_available, _deploy_containers_running],
-    anti_conditions=[],
-), roles={"deployer"})
-
-_dep_fix_pairs: list[tuple[base_comp, str]] = [
-    (inst, inst.hint)
-    for inst in COMP_REGISTRY
-    if isinstance(inst, ext_comp) and inst.hint
-]
-_EXISTING_DEP_STEPS: frozenset[str] = frozenset({"docker-command", "extensions"})
-for _dep_inst, _label in _dep_fix_pairs:
-    if _dep_inst.name in _EXISTING_DEP_STEPS:
-        continue
     register_heuristic(HeuristicStep(
-        label=_label,
-        command=_label,
+        label="Install docker desktop",
+        command=COMP_REGISTRY.get("docker-command").hint, order=2,
         conditions=[DEPLOYER.is_deployer],
-        anti_conditions=[requires_component(_dep_inst.name)],
+        anti_conditions=[_docker_available],
     ), roles={"deployer"})
 
-_dep_topo = COMP_REGISTRY.sorted_subset([inst for inst, _ in _dep_fix_pairs])
-_n = len(_dep_topo)
-register_role_ordering("deployer", {
-    label: (_dep_topo.index(inst) - _n) * 10
-    for inst, label in _dep_fix_pairs
-} | {"Install deployment": -2, "Wrap up configuration": -1})
+    register_heuristic(HeuristicStep(
+        label="Wrap up configuration",
+        command="edit config files", order=5,
+        conditions=[DEPLOYER.is_deployer, _deploy_config_is_default],
+        anti_conditions=[],
+    ), roles={"deployer"})
+
+    register_heuristic(HeuristicStep(
+        label="Fix deployment catalog", command="jejune catalog check", order=6,
+        conditions=[DEPLOYER.is_deployer, _deploy_catalog_check_fails],
+        anti_conditions=[_deploy_catalog_needs_configuration],
+    ), roles={"deployer"})
+
+    register_heuristic(HeuristicStep(
+        label="Build deployment", command="jejune build", order=10,
+        conditions=[DEPLOYER.is_deployer, _docker_available, _deploy_images_missing, _deployment_installed],
+        anti_conditions=[_deploy_catalog_check_fails],
+    ), roles={"deployer"})
+
+    register_heuristic(HeuristicStep(
+        label="Start deployment", command="jejune up", order=20,
+        conditions=[DEPLOYER.is_deployer, _docker_available],
+        anti_conditions=[_deploy_images_missing, _deploy_containers_running],
+    ), roles={"deployer"})
+
+    register_heuristic(HeuristicStep(
+        label="Install deployer CLI extensions",
+        command="jejune extensions install", order=22,
+        conditions=[DEPLOYER.is_deployer, _extensions_available, _deploy_containers_running],
+        anti_conditions=[_extensions_installed],
+    ), roles={"deployer"})
+
+    register_heuristic(HeuristicStep(
+        label="Check deployment status", command="jejune deployment status", order=25,
+        conditions=[DEPLOYER.is_deployer, _extensions_available, _deploy_containers_running, _extensions_installed],
+        anti_conditions=[_deploy_services_available],
+    ), roles={"deployer"})
+
+    register_heuristic(HeuristicStep(
+        label="Browse docs server",
+        command=lambda: f"web-browse UI at {_docs_server_url()}", order=30,
+        conditions=[DEPLOYER.is_deployer, _deploy_containers_running, _deploy_services_available],
+        anti_conditions=[],
+    ), roles={"deployer"})
+
+    register_heuristic(HeuristicStep(
+        label="Deployment running stop", command="jejune down", order=35,
+        conditions=[DEPLOYER.is_deployer, _docker_available, _deploy_containers_running],
+        anti_conditions=[],
+    ), roles={"deployer"})
+
+    dep_fix_pairs: list[tuple[base_comp, str]] = [
+        (inst, inst.hint)
+        for inst in COMP_REGISTRY
+        if isinstance(inst, ext_comp) and inst.hint
+    ]
+    existing = frozenset({"docker-command", "extensions"})
+    for dep_inst, label in dep_fix_pairs:
+        if dep_inst.name in existing:
+            continue
+        register_heuristic(HeuristicStep(
+            label=label,
+            command=label,
+            conditions=[DEPLOYER.is_deployer],
+            anti_conditions=[requires_component(dep_inst.name)],
+        ), roles={"deployer"})
+
+    dep_topo = COMP_REGISTRY.sorted_subset([inst for inst, _ in dep_fix_pairs])
+    n = len(dep_topo)
+    register_role_ordering("deployer", {
+        label: (dep_topo.index(inst) - n) * 10
+        for inst, label in dep_fix_pairs
+    } | {"Install deployment": -2, "Wrap up configuration": -1})
 
 
 # ---------------------------------------------------------------------------

@@ -1,24 +1,15 @@
-from pathlib import Path
-
 import click
 
-from ._env import EXTRACT_ENV_VARS, docker_env_args
 from .component_registry import REGISTRY as COMP_REGISTRY
 from .click_comp_configuration import print_config_hint, print_config_status
-from .click_kg_viewer import view
-from .llm import llm_available as _llm_available
-_llm_obs_comp = COMP_REGISTRY.get("llm-observability")
+from .click_cont_comp_kg_view import view
+
 graph_comp = COMP_REGISTRY.get("graph")
-_neo4j_comp = COMP_REGISTRY.get("neo4j")
+_llm_obs_comp = COMP_REGISTRY.get("llm-observability")
 
-_BUILD_KG_IMAGE = "jejune:extract_knowledge_graph"
-
-_CHUNKS_JSON = "/data/_chunks.json"
-
-_SPLITTERS = {
-    "headers":    "split_by_headers.py",
-    "paragraphs": "split_by_paragraphs.py",
-    "sentences":  "split_by_sentences.py",
+_DEP_HINTS = {
+    "neo4j": "run `jejune neo4j start`",
+    "llm":   "run `jejune llm status`",
 }
 
 _PREFLIGHT_SKIP = {
@@ -27,59 +18,16 @@ _PREFLIGHT_SKIP = {
     "view", "split", "build",
 }
 
-_DEP_HINTS = {
-    "neo4j": "run `jejune neo4j start`",
-    "llm":   "run `jejune llm status`",
-}
-
-
-def _preflight() -> None:
-    running, _ = _neo4j_comp.is_running()
-    if not running:
-        raise click.ClickException(
-            "neo4j is not running — refer to `jejune neo4j start --help`"
-        )
-
-    available, msg = _llm_available()
-    if not available:
-        raise click.ClickException(
-            f"llm is not available ({msg}) — refer to `jejune llm status`"
-        )
-
-
-def _run(*cmd: str) -> None:
-    """Run a command with streamed output; propagate its exit code on failure."""
-    import subprocess
-
-    result = subprocess.run(list(cmd))
-    if result.returncode != 0:
-        raise SystemExit(result.returncode)
-
-
-def _graph_dep_statuses() -> dict[str, tuple[bool, str]]:
-    """Run required-dep checks once; shared by graph_available and *-availability commands."""
-    return {"neo4j": _neo4j_comp.is_running(), "llm": _llm_available()}
-
-
-def graph_available() -> tuple[bool, str]:
-    """Return (ok, msg) for graph availability; consumed by catalog.run_all()."""
-    deps = _graph_dep_statuses()
-    if all(ok for ok, _ in deps.values()):
-        return True, "ok"
-    return False, "; ".join(f"{dep}: {msg}" for dep, (ok, msg) in deps.items() if not ok)
-
 
 @click.group(short_help="Build and export the knowledge graph")
 @click.pass_context
 def graph(ctx):
     """Build and export the knowledge graph for the current jejune_doc_<name> repository."""
     if ctx.invoked_subcommand not in _PREFLIGHT_SKIP:
-        _preflight()
+        graph_comp.preflight()
 
 
 graph.add_command(view)
-
-
 
 
 @graph.command("build")
@@ -93,7 +41,7 @@ def graph_build(no_cache: bool):
 @graph.command("check-availability")
 def check_availability():
     """Show graph availability status with optional-dep detail."""
-    ok, msg = graph_available()
+    ok, msg = graph_comp.is_running()
     status = click.style("ok", fg="green") if ok else click.style(msg, fg="red")
     lo_ok, _ = _llm_obs_comp.is_running()
     opt = click.style("llm-observability", fg="green" if lo_ok else "yellow")
@@ -103,15 +51,15 @@ def check_availability():
 @graph.command("status-availability")
 def status_availability():
     """Show graph availability status."""
-    ok, _ = graph_available()
+    ok, _ = graph_comp.is_running()
     click.echo(f"graph: {click.style('ok', fg='green') if ok else click.style('error', fg='red')}")
 
 
 @graph.command("hint-availability")
 def hint_availability():
     """Show how to fix unavailable graph dependencies."""
-    deps = _graph_dep_statuses()
-    failing = [dep for dep, (ok, _) in deps.items() if not ok]
+    statuses = graph_comp.dep_statuses()
+    failing = [dep for dep, (ok, _) in statuses.items() if not ok]
     if not failing:
         click.echo(click.style("all graph dependencies are available", fg="green"))
         return
@@ -122,6 +70,7 @@ def hint_availability():
 @graph.command("check-config")
 def check_config():
     """Show per-variable configuration detail for the graph component."""
+    from .click_comp_configuration import print_config_check
     print_config_check(graph_comp.configuration)
 
 
@@ -141,7 +90,7 @@ def hint_config():
 @click.argument("doc_dir", default=".", type=click.Path(exists=True, file_okay=False))
 @click.option(
     "--splitter",
-    type=click.Choice(list(_SPLITTERS)),
+    type=click.Choice(list(graph_comp.SPLITTERS)),
     default="headers",
     show_default=True,
     help="Splitting strategy.",
@@ -160,22 +109,7 @@ def split(doc_dir, splitter, output, no_cache, extra_args):
 
     EXTRA_ARGS are forwarded verbatim to the splitter (e.g. --output_dir /data).
     """
-    doc_dir = Path(doc_dir).resolve()
-    graph_comp.build(no_cache=no_cache)
-
-    output_args = ("--output", output) if output is not None else ()
-    click.echo(f"Splitting with {_SPLITTERS[splitter]} ...")
-    _run(
-        "docker", "run", "--rm", "--tty",
-        "--network", "host",
-        "-v", f"{doc_dir}:/data",
-        "--name", "jejune_split",
-        _BUILD_KG_IMAGE,
-        _SPLITTERS[splitter],
-        "--catalog", "/data/manifest.yaml",
-        *output_args,
-        *extra_args,
-    )
+    graph_comp.run_split(doc_dir, splitter, output, no_cache, extra_args)
 
 
 @graph.command("extract", context_settings={"ignore_unknown_options": True})
@@ -204,32 +138,4 @@ def extract(doc_dir, no_cache, extra_args):
     Requires a running Neo4j instance (`jejune neo4j start`).
     Credentials and LLM settings are read from .jejune/env-secrets / environment.
     """
-    doc_dir = Path(doc_dir).resolve()
-    graph_comp.build(no_cache=no_cache)
-
-    _docker_run = (
-        "docker", "run", "--rm", "--tty",
-        "--network", "host",
-        "-v", f"{doc_dir}:/data",
-    )
-
-    click.echo("Splitting document into chunks ...")
-    _run(
-        *_docker_run,
-        "--name", "jejune_split",
-        _BUILD_KG_IMAGE,
-        _SPLITTERS["headers"],
-        "--catalog", "/data/manifest.yaml",
-        "--output", _CHUNKS_JSON,
-    )
-
-    click.echo("Running extraction ...")
-    _run(
-        *_docker_run,
-        "--name", "jejune_extract_knowledge_graph",
-        *docker_env_args(EXTRACT_ENV_VARS),
-        _BUILD_KG_IMAGE,
-        "extract_kg_graph.py",
-        "--load_json_document", _CHUNKS_JSON,
-        *extra_args,
-    )
+    graph_comp.run_extract(doc_dir, no_cache, extra_args)

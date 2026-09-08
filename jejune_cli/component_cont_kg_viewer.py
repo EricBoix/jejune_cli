@@ -22,6 +22,7 @@ class comp_kg_viewer(cont_comp):
         super().__init__(
             name="kg-viewer",
             image_name="jejune:kg_graph_viewer",
+            dockerfile="DockerContext/Dockerfile",
             service_name="kg-graph-viewer",
             dependencies=[ComponentRegistry().get("ecosystem"), ComponentRegistry().get("docker-command")],
             hint="run `jejune deployment install`",
@@ -40,14 +41,8 @@ class comp_kg_viewer(cont_comp):
         if not context:
             from .component_registry import REGISTRY
             context = REGISTRY.get("git-server").remote_git_url("jejune_kg-graph_viewer")
-        click.echo(f"Building {self.image_name} ...")
-        extra = ["--no-cache"] if no_cache else []
-        result = subprocess.run([
-            "docker", "build", *extra, "-t", self.image_name,
-            "-f", "DockerContext/Dockerfile", context,
-        ])
-        if result.returncode != 0:
-            raise SystemExit(result.returncode)
+        self.build_context = context
+        super().build(no_cache)
 
     def _adhoc_containers(self) -> list[dict]:
         return containers.json_for_component(self.name)

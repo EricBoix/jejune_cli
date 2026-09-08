@@ -10,7 +10,7 @@ from .click_comp_configuration import (
 )
 
 from .component_registry import REGISTRY as COMP_REGISTRY
-from .click_comp_neo4j_to_rdf_ttl import dump_turtle
+from .click_cont_comp_neo4j_to_rdf_ttl import dump_turtle
 neo4j_comp = COMP_REGISTRY.get("neo4j")
 
 

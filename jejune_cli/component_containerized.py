@@ -20,6 +20,7 @@ class cont_comp(component):
         name: str,
         image_name: str,
         build_context: str = "",
+        dockerfile: str | None = None,
         dependencies: list[str] | None = None,
         optional_dependencies: list[str] | None = None,
         configuration: configuration | None = None,
@@ -35,7 +36,14 @@ class cont_comp(component):
         )
         self.image_name = image_name
         self.build_context = build_context
+        self.dockerfile = dockerfile
         self.service_name = service_name
+
+    def _run(self, *cmd: str) -> None:
+        """Run a command, raising SystemExit on non-zero return code."""
+        result = subprocess.run(list(cmd))
+        if result.returncode != 0:
+            raise SystemExit(result.returncode)
 
     def build(self, no_cache: bool = False) -> None:
         """Build the Docker image from build_context. No-op when build_context is empty."""
@@ -43,11 +51,8 @@ class cont_comp(component):
             return
         click.echo(f"Building {self.image_name} ...")
         extra = ["--no-cache"] if no_cache else []
-        result = subprocess.run(
-            ["docker", "build", *extra, "-t", self.image_name, self.build_context]
-        )
-        if result.returncode != 0:
-            raise SystemExit(result.returncode)
+        dockerfile_args = ["-f", self.dockerfile] if self.dockerfile else []
+        self._run("docker", "build", *extra, *dockerfile_args, "-t", self.image_name, self.build_context)
 
     def is_built(self) -> bool:
         """Return True if the Docker image named image_name exists locally."""

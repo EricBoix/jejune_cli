@@ -29,11 +29,11 @@ from .click_comp_configuration import (
     register_role_config_subgroup,
 )
 from .containers import containers_cli
-from .graph import graph
+from .click_cont_comp_graph import graph
 from .llm import llm
 from .manifest import manifest
 from .llm_observability import llm_observability
-from .click_comp_neo4j import neo4j
+from .click_cont_comp_neo4j import neo4j
 from .configuration_deployer import init as _deployer_init
 from .configuration_doc_steward import init as _doc_steward_init
 from .next_steps import has_heuristics_for_role, register_command_precondition, print_next_steps

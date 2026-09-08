@@ -80,8 +80,8 @@ def _matches(step: HeuristicStep) -> bool:
 
 
 def _load_providers() -> None:
-    from . import ui_deployment  # noqa: F401 — side-effect: registers deployer heuristics
-    from . import click_comp_neo4j  # noqa: F401
+    from . import ui_deployment
+    ui_deployment.register_heuristics()
 
 
 def _step_viable(s: HeuristicStep) -> bool:

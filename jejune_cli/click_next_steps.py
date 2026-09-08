@@ -102,8 +102,8 @@ def next_state_cmd(list_preconditions: bool) -> None:
 # ---------------------------------------------------------------------------
 
 def _graph_available() -> bool:
-    from .graph import graph_available
-    ok, _ = graph_available()
+    from .component_registry import REGISTRY as COMP_REGISTRY
+    ok, _ = COMP_REGISTRY.get("graph").is_running()
     return ok
 
 
