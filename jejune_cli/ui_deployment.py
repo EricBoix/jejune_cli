@@ -10,68 +10,23 @@ import click
 import yaml
 
 from ._env import load_deployment_env
-from .deployer_extensions import (
-    _DEPLOYER_CHECK_PACKAGES,
-    _extensions_installed,
-)
-from .component_ext import ext_comp
-from ._doctor import (
-    requires_component,
-)
-
-from .component_base import base_comp
-from .role import DEPLOYER
+from .extensions_registry import _DEPLOYER_CHECK_PACKAGES, _extensions_installed
 from .role_registry import ROLE_REGISTRY
 from .component_registry import REGISTRY as COMP_REGISTRY
-
-_extensions_available = requires_component("extensions")
-from .next_steps import HeuristicStep, print_next_steps, register_heuristic, register_precondition, register_role_ordering
-
-
-_docker_available = requires_component("docker-command")
+from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 
 _TEMPLATES = Path(__file__).parent / "templates"
 _T_UI = _TEMPLATES / "deployer" / "ui-deployment"
 
+_UI_SERVICES = ("docs-server", "kg-graph-viewer", "markdown-browser")
+
 
 def _trivial_catalog_content() -> str | None:
-    """Return the trivial catalog template content from the installed catalog plugin."""
     try:
         from importlib.resources import files
         return (files("jejune_catalog_check") / "templates" / "trivial-catalog.yaml").read_text()
     except Exception:
         return None
-
-_UI_SERVICES = ("docs-server", "kg-graph-viewer", "markdown-browser")
-
-
-# ---------------------------------------------------------------------------
-# Heuristic conditions for `jejune next`
-# ---------------------------------------------------------------------------
-
-def _deploy_catalog_needs_configuration() -> bool:
-    """True when catalog.yaml is still the unedited trivial template."""
-    catalog = Path(".") / "catalog.yaml"
-    if not catalog.exists():
-        return False
-    template = _trivial_catalog_content()
-    if template is None:
-        return False
-    return catalog.read_text() == template
-
-
-def _deploy_env_is_default() -> bool:
-    """True when deployment.env still matches the scaffold template."""
-    env_file = Path(".") / "deployment.env"
-    template = _T_UI / "deployment.env"
-    if not env_file.exists() or not template.exists():
-        return False
-    return env_file.read_text() == template.read_text()
-
-
-def _deploy_config_is_default() -> bool:
-    """True when catalog.yaml or deployment.env is still at template defaults."""
-    return _deploy_catalog_needs_configuration() or _deploy_env_is_default()
 
 
 def _deploy_images_missing() -> bool:
@@ -86,13 +41,6 @@ def _deploy_images_missing() -> bool:
     return False
 
 
-def _deploy_containers_running() -> bool:
-    from . import containers as _c
-    name = Path(".").resolve().name.lower()
-    return all(_c.is_running(f"jejune-{name}-{svc}-1") for svc in _UI_SERVICES)
-
-
-
 def _check_ui_services() -> list[tuple[str, bool, str]]:
     from .plugin import _REGISTRY
     plugins = {p.name: p for p in _REGISTRY}
@@ -102,128 +50,6 @@ def _check_ui_services() -> list[tuple[str, bool, str]]:
         ok, msg = p.check_availability() if (p and p.check_availability) else (False, "not installed")
         results.append((name, ok, msg))
     return results
-
-
-def _deploy_services_available() -> bool:
-    return _extensions_installed() and all(ok for _, ok, _ in _check_ui_services())
-
-
-def _deploy_catalog_check_fails() -> bool:
-    """True when the deployment catalog.yaml fails validation."""
-    try:
-        from jejune_catalog._impl import _check_deployment_impl
-        cwd = Path.cwd()
-        full_cat = cwd.parent.parent / "jejune_catalog" / "full-catalog.yaml"
-        results = _check_deployment_impl(cwd, full_cat)
-        return any(not ok for _, ok, _ in results)
-    except Exception:
-        return False
-
-
-def _deployment_installed() -> bool:
-    from .click_next_steps import _is_deployment_installed
-    return _is_deployment_installed()
-
-
-def _docs_server_url() -> str:
-    port = "8765"
-    env_file = Path(".") / "deployment.env"
-    if env_file.exists():
-        for line in env_file.read_text().splitlines():
-            line = line.strip()
-            if line.startswith("DOCS_SERVER_PORT="):
-                port = line.split("=", 1)[1].strip()
-                break
-    return f"http://localhost:{port}"
-
-
-def register_heuristics() -> None:
-    register_precondition("deployer role detected",        DEPLOYER.is_deployer)
-    register_precondition("deployment config is default",  _deploy_config_is_default)
-    register_precondition("deployment images missing",     _deploy_images_missing)
-    register_precondition("deployment containers running", _deploy_containers_running)
-    register_precondition("deployment services available", _deploy_services_available)
-
-    register_heuristic(HeuristicStep(
-        label="Install docker desktop",
-        command=COMP_REGISTRY.get("docker-command").hint, order=2,
-        conditions=[DEPLOYER.is_deployer],
-        anti_conditions=[_docker_available],
-    ), roles={"deployer"})
-
-    register_heuristic(HeuristicStep(
-        label="Wrap up configuration",
-        command="edit config files", order=5,
-        conditions=[DEPLOYER.is_deployer, _deploy_config_is_default],
-        anti_conditions=[],
-    ), roles={"deployer"})
-
-    register_heuristic(HeuristicStep(
-        label="Fix deployment catalog", command="jejune catalog check", order=6,
-        conditions=[DEPLOYER.is_deployer, _deploy_catalog_check_fails],
-        anti_conditions=[_deploy_catalog_needs_configuration],
-    ), roles={"deployer"})
-
-    register_heuristic(HeuristicStep(
-        label="Build deployment", command="jejune build", order=10,
-        conditions=[DEPLOYER.is_deployer, _docker_available, _deploy_images_missing, _deployment_installed],
-        anti_conditions=[_deploy_catalog_check_fails],
-    ), roles={"deployer"})
-
-    register_heuristic(HeuristicStep(
-        label="Start deployment", command="jejune up", order=20,
-        conditions=[DEPLOYER.is_deployer, _docker_available],
-        anti_conditions=[_deploy_images_missing, _deploy_containers_running],
-    ), roles={"deployer"})
-
-    register_heuristic(HeuristicStep(
-        label="Install deployer CLI extensions",
-        command="jejune extensions install", order=22,
-        conditions=[DEPLOYER.is_deployer, _extensions_available, _deploy_containers_running],
-        anti_conditions=[_extensions_installed],
-    ), roles={"deployer"})
-
-    register_heuristic(HeuristicStep(
-        label="Check deployment status", command="jejune deployment status", order=25,
-        conditions=[DEPLOYER.is_deployer, _extensions_available, _deploy_containers_running, _extensions_installed],
-        anti_conditions=[_deploy_services_available],
-    ), roles={"deployer"})
-
-    register_heuristic(HeuristicStep(
-        label="Browse docs server",
-        command=lambda: f"web-browse UI at {_docs_server_url()}", order=30,
-        conditions=[DEPLOYER.is_deployer, _deploy_containers_running, _deploy_services_available],
-        anti_conditions=[],
-    ), roles={"deployer"})
-
-    register_heuristic(HeuristicStep(
-        label="Deployment running stop", command="jejune down", order=35,
-        conditions=[DEPLOYER.is_deployer, _docker_available, _deploy_containers_running],
-        anti_conditions=[],
-    ), roles={"deployer"})
-
-    dep_fix_pairs: list[tuple[base_comp, str]] = [
-        (inst, inst.hint)
-        for inst in COMP_REGISTRY
-        if isinstance(inst, ext_comp) and inst.hint
-    ]
-    existing = frozenset({"docker-command", "extensions"})
-    for dep_inst, label in dep_fix_pairs:
-        if dep_inst.name in existing:
-            continue
-        register_heuristic(HeuristicStep(
-            label=label,
-            command=label,
-            conditions=[DEPLOYER.is_deployer],
-            anti_conditions=[requires_component(dep_inst.name)],
-        ), roles={"deployer"})
-
-    dep_topo = COMP_REGISTRY.sorted_subset([inst for inst, _ in dep_fix_pairs])
-    n = len(dep_topo)
-    register_role_ordering("deployer", {
-        label: (dep_topo.index(inst) - n) * 10
-        for inst, label in dep_fix_pairs
-    } | {"Install deployment": -2, "Wrap up configuration": -1})
 
 
 # ---------------------------------------------------------------------------
@@ -379,7 +205,7 @@ def ui_configure(deployments_dir, name):
         shutil.copy(_T_UI / "secrets.env.template", deploy_dir / "secrets.env.template")
 
     click.echo(f"Created {deploy_dir}")
-    print_next_steps(cwd=deploy_dir)
+    HEURISTIC_STEP_REGISTRY.print_next_steps(cwd=deploy_dir)
 
 
 @click.command("list")
@@ -427,7 +253,7 @@ def build(deploy_dir_name: str | None, no_cache: bool) -> None:
 def up(deploy_dir_name: str | None) -> None:
     """Start a UI deployment in detached mode."""
     from . import containers as _containers
-    from .deployer_extensions import _do_extensions_install
+    from .extensions_registry import _do_extensions_install
     deploy_dir = _deployment_dir(deploy_dir_name)
     deploy_name = deploy_dir.resolve().name.lower()
     container_names = [f"jejune-{deploy_name}-{svc}-1" for svc in _UI_SERVICES]

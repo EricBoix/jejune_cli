@@ -20,7 +20,7 @@ def init(dir_name: str | None) -> None:
     """
     from pathlib import Path
     from .extensions_registry import _do_extensions_install, _extensions_installed
-    from .next_steps import print_next_steps
+    from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
     from .ui_deployment import ui_configure
     effective_name = dir_name or Path.cwd().name
     click.get_current_context().invoke(
@@ -32,7 +32,7 @@ def init(dir_name: str | None) -> None:
     cd_hint = None
     if dir_name and dir_name not in (".", str(Path.cwd())):
         cd_hint = [f"First: cd {effective_name}"]
-    print_next_steps(preamble=cd_hint)
+    HEURISTIC_STEP_REGISTRY.print_next_steps(preamble=cd_hint)
 
 
 @click.group("deployer", short_help="Deployer role workspace")

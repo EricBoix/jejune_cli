@@ -2,15 +2,7 @@
 import click
 
 from ._env import dot_jejune
-from .next_steps import (
-    HeuristicStep,
-    command_viable,
-    evaluate,
-    evaluate_state,
-    register_command_precondition,
-    register_heuristic,
-    register_precondition,
-)
+from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 
 
 @click.group("next", invoke_without_command=True, short_help="Show suggested next actions given the current context.")
@@ -19,9 +11,9 @@ def next_cmd(ctx):
     """Show suggested next actions given the current context."""
     if ctx.invoked_subcommand is not None:
         return
-    steps = evaluate()
+    steps = HEURISTIC_STEP_REGISTRY.evaluate()
     if not steps:
-        if command_viable("jejune doctor"):
+        if HEURISTIC_STEP_REGISTRY.command_viable("jejune doctor"):
             click.echo("No next steps detected. Run `jejune doctor` for system status.")
         else:
             from .role_registry import ROLE_REGISTRY
@@ -46,7 +38,8 @@ def next_cmd(ctx):
               help="List all registered preconditions with their current status.")
 def next_state_cmd(list_preconditions: bool) -> None:
     """Show condition evaluation for all registered heuristic rules."""
-    from .next_steps import _NAMED_PRECONDITIONS, _PRECONDITIONS
+    _NAMED_PRECONDITIONS = HEURISTIC_STEP_REGISTRY.named_preconditions
+    _PRECONDITIONS = HEURISTIC_STEP_REGISTRY.command_preconditions
 
     if list_preconditions:
         if _NAMED_PRECONDITIONS:
@@ -77,7 +70,7 @@ def next_state_cmd(list_preconditions: bool) -> None:
             click.echo("No preconditions registered.")
         return
 
-    entries = evaluate_state()
+    entries = HEURISTIC_STEP_REGISTRY.evaluate_state()
     if not entries:
         click.echo("No heuristic rules registered.")
         return
@@ -97,142 +90,3 @@ def next_state_cmd(list_preconditions: bool) -> None:
         click.echo()
 
 
-# ---------------------------------------------------------------------------
-# Heuristic condition functions
-# ---------------------------------------------------------------------------
-
-def _graph_available() -> bool:
-    from .component_registry import REGISTRY as COMP_REGISTRY
-    ok, _ = COMP_REGISTRY.get("graph").is_running()
-    return ok
-
-
-def _graph_extract_command() -> str:
-    from .component_registry import REGISTRY as COMP_REGISTRY; neo4j_comp = COMP_REGISTRY.get("neo4j")
-    cmd = "jejune graph extract"
-    if not neo4j_comp.db_is_empty():
-        cmd += " (warning: database is not empty)"
-    return cmd
-
-
-def _neo4j_running() -> bool:
-    from .component_registry import REGISTRY as COMP_REGISTRY; neo4j_comp = COMP_REGISTRY.get("neo4j")
-    ok, _ = neo4j_comp.is_running()
-    return ok
-
-
-def _neo4j_not_empty() -> bool:
-    from .component_registry import REGISTRY as COMP_REGISTRY; neo4j_comp = COMP_REGISTRY.get("neo4j")
-    return not neo4j_comp.db_is_empty()
-
-
-def _neo4j_configured() -> bool:
-    from .component_registry import REGISTRY as COMP_REGISTRY; neo4j_comp = COMP_REGISTRY.get("neo4j")
-    status, *_ = neo4j_comp.configuration.check()
-    return status == "ok"
-
-
-def _manifest_ok() -> bool:
-    from pathlib import Path
-    from .test import _check_doc_yaml
-    errors, _ = _check_doc_yaml(Path.cwd())
-    return not errors
-
-
-def _is_catalog_installed() -> bool:
-    try:
-        from jejune_catalog._commands import _load_catalog_docs
-    except ImportError:
-        return True  # catalog plugin absent — nothing to install
-    try:
-        docs = _load_catalog_docs(None)
-    except Exception:
-        return True  # no catalog.yaml → nothing to install
-    try:
-        from .component_registry import REGISTRY as COMP_REGISTRY
-        eco = COMP_REGISTRY.get("ecosystem")
-        eco_root, eco_tmp = eco.resolve_dirs()
-        return all(
-            eco.repo_status(doc["name"], eco_root, eco_tmp)[0] in ("root", "tmp")
-            for doc in docs
-        )
-    except Exception:
-        return False
-
-
-def _is_deployment_installed() -> bool:
-    from .deployer_extensions import _extensions_installed
-    return _is_catalog_installed() and _extensions_installed()
-
-
-def _is_jejune_workspace_cwd() -> bool:
-    from .role_registry import ROLE_REGISTRY
-    role = ROLE_REGISTRY.detect_role()
-    return bool(role)
-
-
-# ---------------------------------------------------------------------------
-# Registration — called from main.py after plugins are loaded so ROLES is
-# complete (plugins may register additional roles).
-# ---------------------------------------------------------------------------
-
-def register_heuristics() -> None:
-    """Register all CLI heuristics. Must be called after _load_plugins()."""
-    register_precondition("deployment installed", _is_deployment_installed)
-
-    register_command_precondition("jejune neo4j dump-turtle", _neo4j_running)
-    register_command_precondition("jejune graph split", _manifest_ok)
-
-    register_heuristic(HeuristicStep(
-        label="Connect to a jejune workspace directory",
-        command="cd <jejune_doc_or_deploy_dir>",
-        anti_conditions=[_is_jejune_workspace_cwd],
-    ), roles={None})
-
-    register_heuristic(HeuristicStep(
-        label="Create document workspace directory",
-        command="jejune document init --help",
-        anti_conditions=[_is_jejune_workspace_cwd],
-    ), roles={None})
-
-    register_heuristic(HeuristicStep(
-        label="Create deployment workspace directory",
-        command="jejune deployment init --help",
-        anti_conditions=[_is_jejune_workspace_cwd],
-    ), roles={None})
-
-    from ._doctor import requires_component
-    from .role import DEPLOYER
-    register_heuristic(HeuristicStep(
-        label="Install deployment",
-        command="jejune deployment install",
-        conditions=[DEPLOYER.is_deployer],
-        anti_conditions=[_is_deployment_installed],
-    ), roles={"deployer"})
-
-    register_heuristic(HeuristicStep(
-        label="Start Neo4j",
-        command="jejune neo4j start --help",
-        order=10,
-        conditions=[requires_component("neo4j"), _neo4j_configured],
-        anti_conditions=[_neo4j_running],
-    ), roles={"doc-steward"})
-
-    register_heuristic(HeuristicStep(
-        label="Extract the knowledge graph",
-        command=_graph_extract_command,
-        conditions=[requires_component("graph"), _graph_available],
-        anti_conditions=[_neo4j_not_empty],
-    ), roles={"doc-steward"})
-
-    register_heuristic(HeuristicStep(
-        label="Dump the graph to Turtle",
-        command="jejune neo4j dump-turtle",
-        conditions=[_neo4j_running, _neo4j_not_empty],
-    ), roles={"doc-steward"})
-
-    register_heuristic(HeuristicStep(
-        label="Visualize the graph with neo4j UI",
-        command="open http://localhost:7474 in a browser",
-        conditions=[_neo4j_running, _neo4j_not_empty],
-    ), roles={"doc-steward"})

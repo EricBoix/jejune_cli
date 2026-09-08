@@ -19,6 +19,9 @@ _ROLE_PACKAGES: dict[str, list[tuple[str, str, str]]] = {
 }
 
 
+_DEPLOYER_CHECK_PACKAGES: list[tuple[str, str, str]] = _ROLE_PACKAGES["deployer"]
+
+
 def _install_one(repo_name: str, check_subpath: str, plugin_name: str) -> None:
     from .component_registry import REGISTRY as COMP_REGISTRY
 

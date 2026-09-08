@@ -7,7 +7,7 @@ import click
 
 from ._env import dot_jejune
 from .extensions_registry import _do_extensions_install, _extensions_installed
-from .next_steps import print_next_steps
+from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 
 _TEMPLATES = Path(__file__).parent / "templates" / "doc-steward"
 _ECOSYSTEM_TEMPLATE = Path(__file__).parent / "templates" / "ecosystem" / "env-config"
@@ -71,7 +71,7 @@ def init(dir_name: str | None) -> None:
     cd_hint = None
     if dir_name and dir_name not in (".", str(Path.cwd())) and target.resolve() != Path.cwd().resolve():
         cd_hint = [f"First: cd {dir_name}"]
-    print_next_steps(preamble=cd_hint)
+    HEURISTIC_STEP_REGISTRY.print_next_steps(preamble=cd_hint)
 
 
 @click.group("doc-steward", short_help="Doc-steward role workspace")

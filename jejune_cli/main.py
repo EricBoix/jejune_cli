@@ -13,7 +13,7 @@ from ._doctor import (
     config_status_availability,
     doctor,
 )
-from .click_next_steps import next_cmd, register_heuristics
+from .click_next_steps import next_cmd
 from ._role_cmd import role
 from .convert import convert, convert_configured
 from .plugin import JejunePlugin, _REGISTRY
@@ -36,7 +36,7 @@ from .llm_observability import llm_observability
 from .click_cont_comp_neo4j import neo4j
 from .configuration_deployer import init as _deployer_init
 from .configuration_doc_steward import init as _doc_steward_init
-from .next_steps import has_heuristics_for_role, register_command_precondition, print_next_steps
+from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 _ACTIVE_ROLE_OBJ = ROLE_REGISTRY.detect_role()
 _ACTIVE_ROLE: str | None = _ACTIVE_ROLE_OBJ.name or None
 _ACTIVE_COMPONENTS = ROLE_REGISTRY.role_components(_ACTIVE_ROLE_OBJ)
@@ -46,7 +46,7 @@ def _doctor_viable() -> bool:
     return not (_ACTIVE_ROLE in (None, "doc-steward") and not dot_jejune().is_dir())
 
 
-register_command_precondition("jejune doctor", _doctor_viable)
+HEURISTIC_STEP_REGISTRY.register_command_precondition("jejune doctor", _doctor_viable)
 
 
 # ---------------------------------------------------------------------------
@@ -83,10 +83,10 @@ class _JejuneGroup(click.Group):
             result = super().invoke(ctx)
         except SystemExit as exc:
             if exc.code == 0 and cmd_name != "next":
-                print_next_steps()
+                HEURISTIC_STEP_REGISTRY.print_next_steps()
             raise
         if cmd_name != "next":
-            print_next_steps()
+            HEURISTIC_STEP_REGISTRY.print_next_steps()
         return result
 
     def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
@@ -100,7 +100,7 @@ class _JejuneGroup(click.Group):
 
         _hidden_unless_configured = {
             "convert": lambda: convert_configured() or Path.cwd().joinpath("full-catalog.yaml").exists(),
-            "next": lambda: has_heuristics_for_role(_ACTIVE_ROLE),
+            "next": lambda: HEURISTIC_STEP_REGISTRY.has_heuristics_for_role(_ACTIVE_ROLE),
         }
 
         def _row(name: str) -> tuple[str, str] | None:
@@ -334,4 +334,3 @@ def _register_plugin_role(plugin: JejunePlugin) -> None:
 
 
 _load_plugins()
-register_heuristics()
