@@ -47,23 +47,14 @@ def _docker_compose_content(has_private: bool, name: str) -> str:
     )
 
 
-def _run_compose(deploy_dir: Path, *args: str) -> None:
-    sys.exit(COMP_REGISTRY.get("deployment").run_compose(deploy_dir, *args))
-
-
-
-
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
 
 @click.command("status")
-@click.argument("deploy_dir_name", required=False, metavar="DEPLOY_DIR_NAME",
-                type=click.Path(exists=True, file_okay=False))
-def status(deploy_dir_name: str | None) -> None:
+def status() -> None:
     """Show HTTP availability of the three UI deployment services."""
-    deploy_dir = _deployment_dir(deploy_dir_name)
-    load_deployment_env(deploy_dir)
+    load_deployment_env(Path("."))
     if not _extensions_installed():
         click.echo(click.style("Check extensions not installed.", fg="red"), err=True)
         click.echo("Run: jejune extensions install", err=True)
@@ -150,29 +141,20 @@ def ui_list(deployments_dir):
         click.echo(f"  {d.name}  [{status}]")
 
 
-def _deployment_dir(deploy_dir_name: str | None) -> Path:
-    """Resolve DEPLOY_DIR_NAME, defaulting to CWD when omitted."""
-    return Path(deploy_dir_name) if deploy_dir_name is not None else Path(".")
-
-
 @click.command("build")
-@click.argument("deploy_dir_name", required=False, metavar="DEPLOY_DIR_NAME",
-                type=click.Path(exists=True, file_okay=False))
 @click.option("--no-cache", is_flag=True, default=False,
               help="Do not use cache when building images.")
-def build(deploy_dir_name: str | None, no_cache: bool) -> None:
+def build(no_cache: bool) -> None:
     """Build Docker images for a UI deployment."""
-    COMP_REGISTRY.get("deployment").build(_deployment_dir(deploy_dir_name), no_cache=no_cache)
+    COMP_REGISTRY.get("deployment").build(Path("."), no_cache=no_cache)
 
 
 @click.command("up")
-@click.argument("deploy_dir_name", required=False, metavar="DEPLOY_DIR_NAME",
-                type=click.Path(exists=True, file_okay=False))
-def up(deploy_dir_name: str | None) -> None:
+def up() -> None:
     """Start a UI deployment in detached mode."""
     from . import containers as _containers
     from .extensions_registry import _do_extensions_install
-    deploy_dir = _deployment_dir(deploy_dir_name)
+    deploy_dir = Path(".")
     deploy_name = deploy_dir.resolve().name.lower()
     deployment = COMP_REGISTRY.get("deployment")
     container_names = [f"jejune-{deploy_name}-{svc}-1" for svc in deployment.service_names]
@@ -187,8 +169,6 @@ def up(deploy_dir_name: str | None) -> None:
 
 
 @click.command("down")
-@click.argument("deploy_dir_name", required=False, metavar="DEPLOY_DIR_NAME",
-                type=click.Path(exists=True, file_okay=False))
-def down(deploy_dir_name: str | None) -> None:
+def down() -> None:
     """Stop a UI deployment."""
-    _run_compose(_deployment_dir(deploy_dir_name), "down")
+    sys.exit(COMP_REGISTRY.get("deployment").run_compose(Path("."), "down"))
