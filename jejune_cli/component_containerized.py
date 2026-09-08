@@ -134,6 +134,11 @@ class cont_comp(component):
         cls._coordination.unregister(*names)
 
     @classmethod
+    def image_build_status(cls, components: list) -> "dict[str, bool]":
+        """Return {name: is_built()} for every cont_comp in *components*."""
+        return {inst.name: inst.is_built() for inst in components if isinstance(inst, cls)}
+
+    @classmethod
     def existing_component_containers(cls) -> list[dict]:
         """Return all cont_comp containers currently present in Docker."""
         from .component_registry import REGISTRY

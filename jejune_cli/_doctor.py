@@ -1,8 +1,8 @@
 """Doctor command and availability display helpers."""
+
 import click
 
 from ._health import run_all
-from .heuristic_step import HeuristicCondition
 from .click_comp_configuration import (
     print_two_col_table,
 )
@@ -15,65 +15,29 @@ from .role_registry import ROLE_REGISTRY
 _STATUS_RANK: dict[str, int] = {"error": 2, "warn": 1, "ok": 0}
 _STATUS_FG: dict[str, str] = {"ok": "green", "warn": "yellow", "error": "red"}
 _STATUS_ICON: dict[str, tuple[str, str]] = {
-    "ok":    ("✓", "green"),
-    "warn":  ("–", "yellow"),
+    "ok": ("✓", "green"),
+    "warn": ("–", "yellow"),
     "error": ("✗", "red"),
 }
 
-_UI_PLUGIN_NAMES: frozenset[str] = frozenset(("docs-server", "kg-viewer", "md-browser"))
-
-
-# ---------------------------------------------------------------------------
-# Component registry
-# ---------------------------------------------------------------------------
-
 from .component_base import base_comp
 from .component_registry import REGISTRY as COMP_REGISTRY
-
-COMP_REGISTRY.validate()
-
-# ---------------------------------------------------------------------------
-# Component availability
-# ---------------------------------------------------------------------------
-
-
-def component_available(inst: base_comp, _seen: set[str] | None = None) -> bool:
-    """Return True if *inst* and all its transitive active deps are available."""
-    if _seen is None:
-        _seen = set()
-    if inst.name in _seen:
-        return True
-    _seen.add(inst.name)
-    for dep in inst.active_deps():
-        if not component_available(dep, _seen):
-            return False
-    return inst.is_available()
-
-
-def requires_component(name: str) -> HeuristicCondition:
-    """Return a named condition predicate that checks *name* and its transitive deps."""
-    def _check() -> bool:
-        inst = COMP_REGISTRY.get(name)
-        return inst is not None and component_available(inst)
-    _check.__name__ = f"{name.replace('-', '_')}_available"
-    return _check
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
-
-
 def _resolve_avail_hint(inst: base_comp, fallback: str = "") -> str:
     from .plugin import _REGISTRY as _PLUGIN_REGISTRY
-    if inst.name in _UI_PLUGIN_NAMES and any(p.name == inst.name for p in _PLUGIN_REGISTRY):
-        try:
-            images_missing = not COMP_REGISTRY.get("deployment").is_available()
-            return "run `jejune build`" if images_missing else "run `jejune up`"
-        except Exception:
-            return "run `jejune up`"
+
+    deployment = COMP_REGISTRY.get("deployment")
+    is_ui_dep = deployment is not None and any(
+        dep.name == inst.name for dep in deployment.dependencies
+    )
+    if is_ui_dep and any(p.name == inst.name for p in _PLUGIN_REGISTRY):
+        images_missing = not deployment.is_available()
+        return "run `jejune build`" if images_missing else "run `jejune up`"
     return inst.hint or fallback
 
 
@@ -99,7 +63,8 @@ def _build_avail_rows(
             else:
                 active_deps = inst.active_deps()
                 failing_deps = [
-                    dep for dep in active_deps
+                    dep
+                    for dep in active_deps
                     if by_avail.get(dep.name, ("ok",))[0] != "ok"
                 ]
                 hint = "" if failing_deps else _resolve_avail_hint(inst)
@@ -112,27 +77,19 @@ def _build_avail_rows(
                     key=lambda s: _STATUS_RANK.get(s, 0),
                     default="ok",
                 )
-                failing = [dep.name for dep in active_deps if by_avail.get(dep.name, ("ok", ""))[0] != "ok"]
+                failing = [
+                    dep.name
+                    for dep in active_deps
+                    if by_avail.get(dep.name, ("ok", ""))[0] != "ok"
+                ]
                 check = "" if worst == "ok" else "deps: " + ", ".join(failing)
                 rows.append((comp, worst, check, ""))
-    for name in (ext_names or []):
+    for name in ext_names or []:
         if name in by_avail:
             status, msg = by_avail[name]
             rows.append((name, status, msg if status != "ok" else "", ""))
     return rows
 
-
-def _collect_img_status(visible: list[base_comp]) -> dict[str, bool]:
-    """Return {comp: image_built} for cont_comp components with is_built registered."""
-    from .component_containerized import cont_comp
-    result: dict[str, bool] = {}
-    for inst in visible:
-        if isinstance(inst, cont_comp):
-            try:
-                result[inst.name] = inst.is_built()
-            except Exception:
-                pass
-    return result
 
 
 def _print_health_table(
@@ -144,27 +101,25 @@ def _print_health_table(
     if not config_rows:
         return
     by_avail = {r[0]: r for r in avail_rows}
-    _COL_COMP  = "Component"
-    _COL_CFG   = "Config"
-    _COL_IMG   = "Img"
+    _COL_COMP = "Component"
+    _COL_CFG = "Config"
+    _COL_IMG = "Img"
     _COL_AVAIL = "Avail"
-    _COL_ACT   = "Action"
-    _W_COMP  = max(len(_COL_COMP), max(len(r[0]) for r in config_rows))
-    _W_CFG   = len(_COL_CFG)
-    _W_IMG   = len(_COL_IMG)
+    _COL_ACT = "Action"
+    _W_COMP = max(len(_COL_COMP), max(len(r[0]) for r in config_rows))
+    _W_CFG = len(_COL_CFG)
+    _W_IMG = len(_COL_IMG)
     _W_AVAIL = len(_COL_AVAIL)
     rows: list[tuple[str, str, bool | None, str | None, str]] = []
     for comp, c_status, _, c_hint in config_rows:
         avail = by_avail.get(comp)
         a_status = avail[1] if avail else None
-        a_hint   = avail[3] if avail else ""
+        a_hint = avail[3] if avail else ""
         action = c_hint or (a_hint if a_status and a_status != "ok" else "")
         img = img_status.get(comp)
         rows.append((comp, c_status, img, a_status, action))
     _W_ACT = max(len(_COL_ACT), max(len(r[4]) for r in rows))
-    divider_len = (
-        _W_COMP + 2 + _W_CFG + 2 + _W_IMG + 2 + _W_AVAIL + 2 + _W_ACT
-    )
+    divider_len = _W_COMP + 2 + _W_CFG + 2 + _W_IMG + 2 + _W_AVAIL + 2 + _W_ACT
     click.echo(
         f"  {_COL_COMP:<{_W_COMP}}  {_COL_CFG:<{_W_CFG}}"
         f"  {_COL_IMG:<{_W_IMG}}  {_COL_AVAIL:<{_W_AVAIL}}  {_COL_ACT}"
@@ -190,8 +145,14 @@ def _print_health_table(
 # Doctor command
 # ---------------------------------------------------------------------------
 
+
 @click.command()
-@click.option("--verbose", is_flag=True, default=False, help="Show all components, including those that are available.")
+@click.option(
+    "--verbose",
+    is_flag=True,
+    default=False,
+    help="Show all components, including those that are available.",
+)
 def doctor(verbose: bool):
     """Report component configuration and availability. Inspired by `brew doctor`.
 
@@ -227,28 +188,40 @@ def doctor(verbose: bool):
     _builtin = frozenset(COMP_REGISTRY)
     if active_components is not None:
         _seen_config = {c for c, _, _ in config_results}
-        _seen_avail  = {c for c, _, _ in avail_results}
+        _seen_avail = {c for c, _, _ in avail_results}
         for comp in sorted(active_components - _builtin, key=lambda c: c.name):
             if comp.name not in _plugin_names:
                 if comp.name not in _seen_config:
-                    config_results.append((comp.name, "warn", "extension not installed"))
+                    config_results.append(
+                        (comp.name, "warn", "extension not installed")
+                    )
                 if comp.name not in _seen_avail:
                     avail_results.append((comp.name, "warn", "extension not installed"))
 
     by_config = {comp: (status, msg) for comp, status, msg in config_results}
 
-    visible_components: list[base_comp] = COMP_REGISTRY.sorted_active_set(active_components)
+    visible_components: list[base_comp] = COMP_REGISTRY.sorted_active_set(
+        active_components
+    )
     visible_names = {c.name for c in visible_components}
     ext_names: list[str] = [
         comp.name
-        for comp in (sorted(active_components - _builtin, key=lambda c: c.name) if active_components else [])
+        for comp in (
+            sorted(active_components - _builtin, key=lambda c: c.name)
+            if active_components
+            else []
+        )
         if comp.name not in visible_names
     ]
 
     config_rows: list[tuple[str, str, str, str]] = []
     for comp in visible_components:
         status, msg = by_config.get(comp.name, ("ok", "ok"))
-        hint = (comp.configuration.hint or "") if status != "ok" and hasattr(comp, 'configuration') else ""
+        hint = (
+            (comp.configuration.hint or "")
+            if status != "ok" and hasattr(comp, "configuration")
+            else ""
+        )
         config_rows.append((comp.name, status, msg if status != "ok" else "", hint))
 
     avail_rows = _build_avail_rows(avail_results, visible_components, ext_names)
@@ -263,11 +236,13 @@ def doctor(verbose: bool):
         avail_ok = {comp for comp, status, _, _ in avail_rows if status == "ok"}
         mandatory_names = {c.name for c in visible_components if c.mandatory}
         config_rows = [
-            row for row in config_rows
+            row
+            for row in config_rows
             if row[0] in mandatory_names or row[0] not in avail_ok
         ]
 
-    img_status = _collect_img_status(visible_components)
+    from .component_containerized import cont_comp
+    img_status = cont_comp.image_build_status(visible_components)
     _print_health_table(config_rows, avail_rows, img_status)
     if active_role in (None, "doc-steward"):
         click.echo()
@@ -277,6 +252,7 @@ def doctor(verbose: bool):
 # ---------------------------------------------------------------------------
 # Availability subcommands (wired into `jejune configuration` by main.py)
 # ---------------------------------------------------------------------------
+
 
 def _active_components():
     role = ROLE_REGISTRY.detect_role()
@@ -289,7 +265,9 @@ def config_check_availability():
     _, avail_results = run_all(components=_active_components())
     rows = _build_avail_rows(avail_results, _avail_all_visible())
     if not rows:
-        click.echo(click.style("No availability data for the current role.", fg="yellow"))
+        click.echo(
+            click.style("No availability data for the current role.", fg="yellow")
+        )
         return
     styled = [
         (click.style(comp, fg=_STATUS_FG.get(status, "white")), check)
@@ -304,7 +282,9 @@ def config_status_availability():
     _, avail_results = run_all(components=_active_components())
     rows = _build_avail_rows(avail_results, _avail_all_visible())
     if not rows:
-        click.echo(click.style("No availability data for the current role.", fg="yellow"))
+        click.echo(
+            click.style("No availability data for the current role.", fg="yellow")
+        )
         return
     styled = [
         (comp, click.style(status, fg=_STATUS_FG.get(status, "white")))

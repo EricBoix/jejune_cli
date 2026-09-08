@@ -37,6 +37,7 @@ class ComponentRegistry:
             cls._instance._comps.append(comp_neo4j_to_rdf_ttl())
             cls._instance._comps.append(comp_deployment())
             cls._instance._sort()
+            cls._instance.validate()
         return cls._instance
 
     def add(self, comp: base_comp) -> None:

@@ -28,6 +28,15 @@ class base_comp(ABC):
         """Return True when check() reports ok or warn (non-error)."""
         return self.check()[0] != "error"
 
+    def is_deeply_available(self, _seen: set[str] | None = None) -> bool:
+        """Return True if this component and all transitive active deps are available."""
+        if _seen is None:
+            _seen = set()
+        if self.name in _seen:
+            return True
+        _seen.add(self.name)
+        return all(dep.is_deeply_available(_seen) for dep in self.active_deps()) and self.is_available()
+
     def ordering_deps(self) -> "list[base_comp]":
         """Required + conditional deps; used for topological ordering (optional excluded)."""
         return self.dependencies + [d for _, d in self.conditional_dependencies]

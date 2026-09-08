@@ -49,7 +49,7 @@ def _manifest_ok() -> bool:
 
 
 def register_heuristics() -> None:
-    from ._doctor import requires_component
+    from .heuristic_step import ComponentCondition
 
     HEURISTIC_STEP_REGISTRY.register_precondition("catalog-contributor extension installed", _extensions_installed)
 
@@ -60,14 +60,14 @@ def register_heuristics() -> None:
         label="Start Neo4j",
         command="jejune neo4j start --help",
         order=10,
-        conditions=[requires_component("neo4j"), _neo4j_configured],
+        conditions=[ComponentCondition("neo4j"), _neo4j_configured],
         anti_conditions=[_neo4j_running],
     ), roles={"doc-steward"})
 
     HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
         label="Extract the knowledge graph",
         command=_graph_extract_command,
-        conditions=[requires_component("graph"), _graph_available],
+        conditions=[ComponentCondition("graph"), _graph_available],
         anti_conditions=[_neo4j_not_empty],
     ), roles={"doc-steward"})
 

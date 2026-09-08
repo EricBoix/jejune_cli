@@ -10,6 +10,19 @@ class HeuristicCondition(Protocol):
     def __call__(self) -> bool: ...
 
 
+class ComponentCondition:
+    """HeuristicCondition that checks a component and its transitive deps are available."""
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+        self.__name__ = f"{name.replace('-', '_')}_available"
+
+    def __call__(self) -> bool:
+        from .component_registry import REGISTRY
+        inst = REGISTRY.get(self._name)
+        return inst is not None and inst.is_deeply_available()
+
+
 @dataclass
 class HeuristicStep:
     label: str
