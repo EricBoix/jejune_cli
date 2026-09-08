@@ -63,3 +63,11 @@ class comp_deployment(component):
             env=self._build_env(deploy_dir),
         )
         return result.returncode
+
+    def build(self, deploy_dir: Path, no_cache: bool = False) -> None:
+        if no_cache:
+            subprocess.run(["docker", "builder", "prune", "--force"], check=True)
+        os.environ.update(self._build_env(deploy_dir))
+        for dep in self.dependencies:
+            if hasattr(dep, "build"):
+                dep.build(no_cache=no_cache)

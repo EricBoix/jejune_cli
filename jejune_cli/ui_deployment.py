@@ -2,7 +2,6 @@
 
 import os
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -48,21 +47,8 @@ def _docker_compose_content(has_private: bool, name: str) -> str:
     )
 
 
-def _resolve_deploy_dir(deployments_dir: str, name: str) -> Path:
-    return Path(deployments_dir).resolve() / name
-
-
 def _run_compose(deploy_dir: Path, *args: str) -> None:
     sys.exit(COMP_REGISTRY.get("deployment").run_compose(deploy_dir, *args))
-
-
-def _build_deployment_images(no_cache: bool = False) -> None:
-    if no_cache:
-        subprocess.run(["docker", "builder", "prune", "--force"], check=True)
-    extra = ["--no-cache"] if no_cache else []
-    rc = COMP_REGISTRY.get("deployment").run_compose(_deployment_dir(None), "build", *extra)
-    if rc != 0:
-        raise SystemExit(rc)
 
 
 
@@ -176,13 +162,7 @@ def _deployment_dir(deploy_dir_name: str | None) -> Path:
               help="Do not use cache when building images.")
 def build(deploy_dir_name: str | None, no_cache: bool) -> None:
     """Build Docker images for a UI deployment."""
-    if no_cache:
-        # --no-cache on `docker compose build` only skips the image-layer cache.
-        # BuildKit keeps a separate source cache for git context fetches; prune it
-        # first so that "load git source" steps are also re-executed from scratch.
-        subprocess.run(["docker", "builder", "prune", "--force"], check=True)
-    extra = ["--no-cache"] if no_cache else []
-    _run_compose(_deployment_dir(deploy_dir_name), "build", *extra)
+    COMP_REGISTRY.get("deployment").build(_deployment_dir(deploy_dir_name), no_cache=no_cache)
 
 
 @click.command("up")

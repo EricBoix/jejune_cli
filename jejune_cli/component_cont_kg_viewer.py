@@ -1,5 +1,4 @@
 """kg-viewer containerized component."""
-import os
 import shutil
 import socket
 import subprocess
@@ -35,14 +34,6 @@ class comp_kg_viewer(cont_comp):
     def is_running(self) -> tuple[bool, str]:
         deploy_name = Path(".").resolve().name.lower()
         return super().is_running(f"jejune-{deploy_name}-{self.service_name}-1")
-
-    def build(self, no_cache: bool = False) -> None:
-        context = os.environ.get("KG_GRAPH_VIEWER_CONTEXT")
-        if not context:
-            from .component_registry import REGISTRY
-            context = REGISTRY.get("git-server").remote_git_url("jejune_kg-graph_viewer")
-        self.build_context = context
-        super().build(no_cache)
 
     def _adhoc_containers(self) -> list[dict]:
         return containers.json_for_component(self.name)

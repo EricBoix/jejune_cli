@@ -1,6 +1,8 @@
 """Containerized component: adds Docker image information."""
 
+import os
 import subprocess
+from pathlib import Path
 
 import click
 
@@ -46,7 +48,18 @@ class cont_comp(component):
             raise SystemExit(result.returncode)
 
     def build(self, no_cache: bool = False) -> None:
-        """Build the Docker image from build_context. No-op when build_context is empty."""
+        """Build the Docker image, resolving build_context from self.repos when needed."""
+        if not self.build_context:
+            repos = getattr(self, "repos", None)
+            if repos:
+                repo_name, subpath, env_key = repos[0]
+                context = os.environ.get(env_key)
+                if context:
+                    self.build_context = str(Path(context) / subpath) if subpath else context
+                else:
+                    from .component_registry import REGISTRY
+                    ref = f"main:{subpath}" if subpath else None
+                    self.build_context = REGISTRY.get("git-server").remote_git_url(repo_name, ref)
         if not self.build_context:
             return
         click.echo(f"Building {self.image_name} ...")
