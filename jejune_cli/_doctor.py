@@ -1,9 +1,8 @@
 """Doctor command and availability display helpers."""
-from typing import Callable
-
 import click
 
 from ._health import run_all
+from .heuristic_step import HeuristicCondition
 from .click_comp_configuration import (
     print_two_col_table,
 )
@@ -51,7 +50,7 @@ def component_available(inst: base_comp, _seen: set[str] | None = None) -> bool:
     return inst.is_available()
 
 
-def requires_component(name: str) -> Callable[[], bool]:
+def requires_component(name: str) -> HeuristicCondition:
     """Return a named condition predicate that checks *name* and its transitive deps."""
     def _check() -> bool:
         inst = COMP_REGISTRY.get(name)
@@ -70,9 +69,9 @@ def requires_component(name: str) -> Callable[[], bool]:
 def _resolve_avail_hint(inst: base_comp, fallback: str = "") -> str:
     from .plugin import _REGISTRY as _PLUGIN_REGISTRY
     if inst.name in _UI_PLUGIN_NAMES and any(p.name == inst.name for p in _PLUGIN_REGISTRY):
-        from .ui_deployment import _deploy_images_missing
         try:
-            return "run `jejune build`" if _deploy_images_missing() else "run `jejune up`"
+            images_missing = not COMP_REGISTRY.get("deployment").is_available()
+            return "run `jejune build`" if images_missing else "run `jejune up`"
         except Exception:
             return "run `jejune up`"
     return inst.hint or fallback

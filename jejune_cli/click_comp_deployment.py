@@ -1,4 +1,4 @@
-"""UI deployment commands — attached to the `deployment` group by deployment.py."""
+"""Deployment CLI group and commands."""
 
 import os
 import shutil
@@ -8,48 +8,18 @@ from pathlib import Path
 import click
 
 from ._env import load_deployment_env
-from .extensions_registry import _extensions_installed
 from .component_registry import REGISTRY as COMP_REGISTRY
+from .extensions_registry import _extensions_installed
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 
 _TEMPLATES = Path(__file__).parent / "templates"
 _T_UI = _TEMPLATES / "deployer" / "ui-deployment"
 
-def _trivial_catalog_content() -> str | None:
-    try:
-        from importlib.resources import files
-        return (files("jejune_catalog_check") / "templates" / "trivial-catalog.yaml").read_text()
-    except Exception:
-        return None
 
+@click.group(short_help="Manage deployments")
+def deployment():
+    """Manage deployments — collections of active jejune_doc_* repositories (collection-level)."""
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _docker_compose_content(has_private: bool, name: str) -> str:
-    build_secrets = (
-        "      secrets:\n        - catalog\n        - gh_token\n"
-        if has_private else
-        "      secrets:\n        - catalog\n"
-    )
-    gh_secret_def = (
-        "  gh_token:\n    file: \"${GH_TOKEN_FILE:-~/.github_token}\"\n"
-        if has_private else ""
-    )
-    template = (_T_UI / "docker-compose.yml").read_text()
-    return (
-        template
-        .replace("{{NAME}}", name)
-        .replace("{{BUILD_SECRETS}}", build_secrets)
-        .replace("{{GH_SECRET_DEF}}", gh_secret_def)
-    )
-
-
-# ---------------------------------------------------------------------------
-# Commands
-# ---------------------------------------------------------------------------
 
 @click.command("status")
 def status() -> None:
@@ -104,7 +74,7 @@ def ui_configure(deployments_dir, name):
         shutil.copy(full_catalog, deploy_dir / "catalog.yaml")
         click.echo(f"Seeded catalog.yaml from {full_catalog}")
     else:
-        template = _trivial_catalog_content()
+        template = catalog_comp.trivial_catalog_content()
         if template:
             (deploy_dir / "catalog.yaml").write_text(template)
         else:
@@ -112,7 +82,9 @@ def ui_configure(deployments_dir, name):
         click.echo("Seeded catalog.yaml from built-in template — populate manually.")
 
     has_private = catalog_comp.has_private_repos(deploy_dir / "catalog.yaml")
-    (deploy_dir / "docker-compose.yml").write_text(_docker_compose_content(has_private, name))
+    (deploy_dir / "docker-compose.yml").write_text(
+        COMP_REGISTRY.get("deployment").generate_docker_compose(has_private, name, _T_UI)
+    )
     shutil.copy(_T_UI / "deployment.env", deploy_dir / "deployment.env")
 
     if has_private:
@@ -156,12 +128,12 @@ def up() -> None:
     from .extensions_registry import _do_extensions_install
     deploy_dir = Path(".")
     deploy_name = deploy_dir.resolve().name.lower()
-    deployment = COMP_REGISTRY.get("deployment")
-    container_names = [f"jejune-{deploy_name}-{svc}-1" for svc in deployment.service_names]
+    deployment_comp = COMP_REGISTRY.get("deployment")
+    container_names = [f"jejune-{deploy_name}-{svc}-1" for svc in deployment_comp.service_names]
     _containers.unregister(*container_names)
     for cname in container_names:
         _containers.register(deploy_name, cname)
-    rc = deployment.run_compose(deploy_dir, "--project-name", f"jejune-{deploy_name}", "up", "-d")
+    rc = deployment_comp.run_compose(deploy_dir, "--project-name", f"jejune-{deploy_name}", "up", "-d")
     if rc == 0 and not _extensions_installed():
         click.echo("\nInstalling deployer CLI extensions...")
         _do_extensions_install()
@@ -172,3 +144,23 @@ def up() -> None:
 def down() -> None:
     """Stop a UI deployment."""
     sys.exit(COMP_REGISTRY.get("deployment").run_compose(Path("."), "down"))
+
+
+@click.command("install")
+def deployment_install() -> None:
+    """Install all deployment components: catalog repos and check extensions."""
+    from .extensions_registry import _do_extensions_install
+    try:
+        from jejune_catalog._commands import _do_catalog_install
+        click.echo("Installing catalog repositories...")
+        _do_catalog_install()
+    except ImportError:
+        click.echo(click.style(
+            "  catalog plugin not installed — skipping", fg="yellow"
+        ))
+    click.echo("Installing deployer extensions...")
+    _do_extensions_install()
+
+
+for _cmd in (status, ui_list, build, up, down, deployment_install):
+    deployment.add_command(_cmd)

@@ -7,7 +7,7 @@ from ._doctor import requires_component
 from .component_base import base_comp
 from .component_ext import ext_comp
 from .component_registry import REGISTRY as COMP_REGISTRY
-from .extensions_registry import _DEPLOYER_CHECK_PACKAGES, _extensions_installed
+from .extensions_registry import _extensions_installed
 from .heuristic_step import HeuristicStep
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 from .role import DEPLOYER
@@ -20,19 +20,11 @@ _T_UI = Path(__file__).parent / "templates" / "deployer" / "ui-deployment"
 _UI_SERVICES = ("docs-server", "kg-graph-viewer", "markdown-browser")
 
 
-def _trivial_catalog_content() -> str | None:
-    try:
-        from importlib.resources import files
-        return (files("jejune_catalog_check") / "templates" / "trivial-catalog.yaml").read_text()
-    except Exception:
-        return None
-
-
 def _deploy_catalog_needs_configuration() -> bool:
     catalog = Path(".") / "catalog.yaml"
     if not catalog.exists():
         return False
-    template = _trivial_catalog_content()
+    template = COMP_REGISTRY.get("catalog").trivial_catalog_content()
     if template is None:
         return False
     return catalog.read_text() == template
@@ -56,9 +48,14 @@ def _deploy_containers_running() -> bool:
     return all(_c.is_running(f"jejune-{name}-{svc}-1") for svc in _UI_SERVICES)
 
 
+def _deploy_images_missing() -> bool:
+    return not COMP_REGISTRY.get("deployment").is_available()
+
+
 def _deploy_services_available() -> bool:
-    from .ui_deployment import _check_ui_services
-    return _extensions_installed() and all(ok for _, ok, _ in _check_ui_services())
+    return _extensions_installed() and all(
+        ok for _, ok, _ in COMP_REGISTRY.get("deployment").check_ui_services()
+    )
 
 
 def _deploy_catalog_check_fails() -> bool:
@@ -109,8 +106,6 @@ def _is_deployment_installed() -> bool:
 
 
 def register_heuristics() -> None:
-    from .ui_deployment import _deploy_images_missing
-
     HEURISTIC_STEP_REGISTRY.register_precondition("deployer extensions installed",   _extensions_installed)
     HEURISTIC_STEP_REGISTRY.register_precondition("deployer role detected",          DEPLOYER.is_deployer)
     HEURISTIC_STEP_REGISTRY.register_precondition("deployment config is default",    _deploy_config_is_default)

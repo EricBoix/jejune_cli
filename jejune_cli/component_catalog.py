@@ -23,4 +23,11 @@ class comp_catalog(component):
         data = yaml.safe_load(catalog_path.read_text()) or {}
         return any(not doc.get("public", True) for doc in data.get("documents", []))
 
+    def trivial_catalog_content(self) -> str | None:
+        try:
+            from importlib.resources import files
+            return (files("jejune_catalog_check") / "templates" / "trivial-catalog.yaml").read_text()
+        except Exception:
+            return None
+
 

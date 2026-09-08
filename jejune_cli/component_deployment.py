@@ -64,6 +64,24 @@ class comp_deployment(component):
         )
         return result.returncode
 
+    def generate_docker_compose(self, has_private: bool, name: str, template_dir: Path) -> str:
+        build_secrets = (
+            "      secrets:\n        - catalog\n        - gh_token\n"
+            if has_private else
+            "      secrets:\n        - catalog\n"
+        )
+        gh_secret_def = (
+            "  gh_token:\n    file: \"${GH_TOKEN_FILE:-~/.github_token}\"\n"
+            if has_private else ""
+        )
+        template = (template_dir / "docker-compose.yml").read_text()
+        return (
+            template
+            .replace("{{NAME}}", name)
+            .replace("{{BUILD_SECRETS}}", build_secrets)
+            .replace("{{GH_SECRET_DEF}}", gh_secret_def)
+        )
+
     def build(self, deploy_dir: Path, no_cache: bool = False) -> None:
         if no_cache:
             subprocess.run(["docker", "builder", "prune", "--force"], check=True)

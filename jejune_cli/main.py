@@ -18,12 +18,11 @@ from ._role_cmd import role
 from .convert import convert, convert_configured
 from .plugin import JejunePlugin, _REGISTRY
 from .role_registry import ROLE_REGISTRY
-from .deployment import deployment
+from .click_comp_deployment import deployment, up as _up_cmd, down as _down_cmd
 from .click_comp_ecosystem import ecosystem
 from .click_extensions import extensions_group
 
 document = click.Group("document", help="Document workspace commands.")
-from .ui_deployment import up as _up_cmd, down as _down_cmd
 from .click_comp_configuration import (
     configuration,
     register_role_config_subgroup,

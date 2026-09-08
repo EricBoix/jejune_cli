@@ -21,7 +21,7 @@ def init(dir_name: str | None) -> None:
     from pathlib import Path
     from .extensions_registry import _do_extensions_install, _extensions_installed
     from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
-    from .ui_deployment import ui_configure
+    from .click_comp_deployment import ui_configure
     effective_name = dir_name or Path.cwd().name
     click.get_current_context().invoke(
         ui_configure, deployments_dir=".", name=effective_name

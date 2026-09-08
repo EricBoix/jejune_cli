@@ -3,35 +3,33 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Callable
-
 import click
 
-from .heuristic_step import HeuristicStep
+from .heuristic_step import HeuristicCondition, HeuristicStep
 
 
 class HeuristicStepRegistry:
     def __init__(self) -> None:
         self._steps: list[HeuristicStep] = []
         self._roles_with_heuristics: set[str | None] = set()
-        self._command_preconditions: dict[str, Callable[[], bool]] = {}
-        self._named_preconditions: dict[str, Callable[[], bool]] = {}
+        self._command_preconditions: dict[str, HeuristicCondition] = {}
+        self._named_preconditions: dict[str, HeuristicCondition] = {}
         self._role_orderings: dict[str | None, dict[str, int]] = {}
         self._next_steps_printed: bool = False
         self._providers_loaded: bool = False
 
-    def register_command_precondition(self, command: str, check: Callable[[], bool]) -> None:
+    def register_command_precondition(self, command: str, check: HeuristicCondition) -> None:
         self._command_preconditions[command] = check
 
-    def register_precondition(self, name: str, check: Callable[[], bool]) -> None:
+    def register_precondition(self, name: str, check: HeuristicCondition) -> None:
         self._named_preconditions[name] = check
 
     @property
-    def named_preconditions(self) -> dict[str, Callable[[], bool]]:
+    def named_preconditions(self) -> dict[str, HeuristicCondition]:
         return self._named_preconditions
 
     @property
-    def command_preconditions(self) -> dict[str, Callable[[], bool]]:
+    def command_preconditions(self) -> dict[str, HeuristicCondition]:
         return self._command_preconditions
 
     def command_viable(self, command: str) -> bool:
