@@ -5,7 +5,7 @@ import click
 from ._env import EXTRACT_ENV_VARS, docker_env_args
 from .component_registry import REGISTRY as COMP_REGISTRY
 from .click_comp_configuration import print_config_hint, print_config_status
-from .graph_view import view
+from .click_kg_viewer import view
 from .llm import llm_available as _llm_available
 _llm_obs_comp = COMP_REGISTRY.get("llm-observability")
 graph_comp = COMP_REGISTRY.get("graph")

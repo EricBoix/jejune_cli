@@ -7,7 +7,7 @@ class comp_md_browser(cont_comp):
     def __init__(self) -> None:
         super().__init__(
             name="md-browser",
-            image_name="jejune-markdown-browser",
+            image_name="jejune:markdown-browser",
             service_name="markdown-browser",
             dependencies=[ComponentRegistry().get("ecosystem"), ComponentRegistry().get("docker-command")],
             hint="run `jejune deployment install`",

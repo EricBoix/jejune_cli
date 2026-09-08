@@ -99,6 +99,11 @@ def for_component(component: str) -> list[dict]:
     return [e for e in all_entries() if e["component"] == component]
 
 
+def json_for_component(component: str) -> list[dict]:
+    """Return entries for *component* from the JSON registry (not live Docker state)."""
+    return [e for e in _load() if e["component"] == component]
+
+
 def print_containers_table(prefix: str = "  ") -> None:
     """Print the managed-containers table.
 
