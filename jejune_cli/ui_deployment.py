@@ -9,16 +9,12 @@ from pathlib import Path
 import click
 
 from ._env import load_deployment_env
-from .extensions_registry import _DEPLOYER_CHECK_PACKAGES, _extensions_installed
-from .role_registry import ROLE_REGISTRY
+from .extensions_registry import _extensions_installed
 from .component_registry import REGISTRY as COMP_REGISTRY
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 
 _TEMPLATES = Path(__file__).parent / "templates"
 _T_UI = _TEMPLATES / "deployer" / "ui-deployment"
-
-_UI_SERVICES = ("docs-server", "kg-graph-viewer", "markdown-browser")
-
 
 def _trivial_catalog_content() -> str | None:
     try:
@@ -26,29 +22,6 @@ def _trivial_catalog_content() -> str | None:
         return (files("jejune_catalog_check") / "templates" / "trivial-catalog.yaml").read_text()
     except Exception:
         return None
-
-
-def _deploy_images_missing() -> bool:
-    name = Path(".").resolve().name  # preserve case — matches {{NAME}} in docker-compose.yml image tags
-    for svc in _UI_SERVICES:
-        r = subprocess.run(
-            ["docker", "images", "-q", f"jejune:{name}-{svc}"],
-            capture_output=True, text=True,
-        )
-        if not (r.returncode == 0 and r.stdout.strip()):
-            return True
-    return False
-
-
-def _check_ui_services() -> list[tuple[str, bool, str]]:
-    from .plugin import _REGISTRY
-    plugins = {p.name: p for p in _REGISTRY}
-    results = []
-    for _, _, name in _DEPLOYER_CHECK_PACKAGES:
-        p = plugins.get(name)
-        ok, msg = p.check_availability() if (p and p.check_availability) else (False, "not installed")
-        results.append((name, ok, msg))
-    return results
 
 
 # ---------------------------------------------------------------------------
@@ -79,40 +52,15 @@ def _resolve_deploy_dir(deployments_dir: str, name: str) -> Path:
     return Path(deployments_dir).resolve() / name
 
 
-def _compose_returncode(deploy_dir: Path, *args: str) -> int:
-    eco = COMP_REGISTRY.get("ecosystem")
-    env = os.environ.copy()
-    root_dir, tmp_dir = eco.resolve_dirs(deploy_dir)
-    if root_dir:
-        env["JEJUNE_ROOT_DIR"] = str(root_dir)
-
-    from .role import NO_ROLE
-    active = ROLE_REGISTRY.role_components(ROLE_REGISTRY._roles.get("deployer", NO_ROLE))
-    repos = [] if active is None else [
-        r for comp in COMP_REGISTRY if comp in active
-        for r in getattr(comp, "repos", [])
-    ]
-    for name, subpath, key in repos:
-        if key:
-            env[key] = eco.resolve(name, root_dir, tmp_dir, subpath)
-
-    result = subprocess.run(
-        ["docker", "compose", "--env-file", "deployment.env", *args],
-        cwd=deploy_dir,
-        env=env,
-    )
-    return result.returncode
-
-
 def _run_compose(deploy_dir: Path, *args: str) -> None:
-    sys.exit(_compose_returncode(deploy_dir, *args))
+    sys.exit(COMP_REGISTRY.get("deployment").run_compose(deploy_dir, *args))
 
 
 def _build_deployment_images(no_cache: bool = False) -> None:
     if no_cache:
         subprocess.run(["docker", "builder", "prune", "--force"], check=True)
     extra = ["--no-cache"] if no_cache else []
-    rc = _compose_returncode(_deployment_dir(None), "build", *extra)
+    rc = COMP_REGISTRY.get("deployment").run_compose(_deployment_dir(None), "build", *extra)
     if rc != 0:
         raise SystemExit(rc)
 
@@ -134,7 +82,7 @@ def status(deploy_dir_name: str | None) -> None:
         click.echo(click.style("Check extensions not installed.", fg="red"), err=True)
         click.echo("Run: jejune extensions install", err=True)
         raise SystemExit(1)
-    results = _check_ui_services()
+    results = COMP_REGISTRY.get("deployment").check_ui_services()
     from .plugin import _REGISTRY
     plugin_port = {
         p.name: os.environ.get(p.config_vars[0], "?")
@@ -246,11 +194,12 @@ def up(deploy_dir_name: str | None) -> None:
     from .extensions_registry import _do_extensions_install
     deploy_dir = _deployment_dir(deploy_dir_name)
     deploy_name = deploy_dir.resolve().name.lower()
-    container_names = [f"jejune-{deploy_name}-{svc}-1" for svc in _UI_SERVICES]
+    deployment = COMP_REGISTRY.get("deployment")
+    container_names = [f"jejune-{deploy_name}-{svc}-1" for svc in deployment.service_names]
     _containers.unregister(*container_names)
     for cname in container_names:
         _containers.register(deploy_name, cname)
-    rc = _compose_returncode(deploy_dir, "--project-name", f"jejune-{deploy_name}", "up", "-d")
+    rc = deployment.run_compose(deploy_dir, "--project-name", f"jejune-{deploy_name}", "up", "-d")
     if rc == 0 and not _extensions_installed():
         click.echo("\nInstalling deployer CLI extensions...")
         _do_extensions_install()
