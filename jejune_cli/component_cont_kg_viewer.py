@@ -1,14 +1,13 @@
 """kg-viewer containerized component."""
+import os
 import shutil
 import socket
-import subprocess
 import webbrowser
 from pathlib import Path
 from urllib.parse import urlparse
 
 import click
 
-from . import containers
 from .component_containerized import cont_comp
 from .component_registry import ComponentRegistry
 
@@ -23,7 +22,7 @@ class comp_kg_viewer(cont_comp):
             image_name="jejune:kg_graph_viewer",
             dockerfile="DockerContext/Dockerfile",
             service_name="kg-graph-viewer",
-            dependencies=[ComponentRegistry().get("ecosystem"), ComponentRegistry().get("docker-command")],
+            dependencies=[ComponentRegistry().get("ecosystem")],
             hint="run `jejune deployment install`",
         )
         self.repos = [("jejune_kg-graph_viewer", None, "KG_GRAPH_VIEWER_CONTEXT")]
@@ -34,9 +33,6 @@ class comp_kg_viewer(cont_comp):
     def is_running(self) -> tuple[bool, str]:
         deploy_name = Path(".").resolve().name.lower()
         return super().is_running(f"jejune-{deploy_name}-{self.service_name}-1")
-
-    def _adhoc_containers(self) -> list[dict]:
-        return containers.json_for_component(self.name)
 
     def _free_port(self, start: int = 8080) -> int:
         for port in range(start, 9000):
@@ -49,15 +45,13 @@ class comp_kg_viewer(cont_comp):
         raise click.ClickException("No free port found in range 8080-9000")
 
     def _launch(self, container: str, port: int) -> None:
-        result = subprocess.run([
-            "docker", "run", "--rm", "--detach",
-            "--name", container,
-            "--publish", f"{port}:80",
-            "-v", f"{_VIEWER_DATA}:/usr/share/nginx/html/data",
-            self.image_name,
-        ])
-        if result.returncode != 0:
-            raise SystemExit(result.returncode)
+        rc = self._docker.run_detached(
+            container, self.image_name,
+            publish=[f"{port}:80"],
+            volumes=[f"{_VIEWER_DATA}:/usr/share/nginx/html/data"],
+        )
+        if rc != 0:
+            raise SystemExit(rc)
 
     def _parse_file_url(self, url: str) -> Path:
         parsed = urlparse(url)
@@ -78,6 +72,7 @@ class comp_kg_viewer(cont_comp):
     def _open_browser(self, url: str) -> None:
         browser = os.environ.get("JEJUNE_BROWSER")
         if browser:
+            import subprocess
             subprocess.Popen([browser, url])
         else:
             webbrowser.open(url)
@@ -87,17 +82,16 @@ class comp_kg_viewer(cont_comp):
         _VIEWER_DATA.mkdir(parents=True, exist_ok=True)
         shutil.copy2(local_path, _VIEWER_DATA / local_path.name)
 
-        mine = self._adhoc_containers()
+        mine = self.json_entries()
         last = next(
-            (e for e in reversed(mine) if cont_comp.is_running(self, e["container"])[0]),
+            (e for e in reversed(mine) if self._docker.is_running(e["container"])[0]),
             None,
         )
 
         if new_server or last is None:
             self.build()
             port = self._free_port()
-            entry = containers.register_with_name(
-                self.name,
+            entry = self.register_with_name(
                 lambda eid: f"{_VIEWER_NAME_PREFIX}{eid}",
                 port=port,
             )
@@ -111,14 +105,14 @@ class comp_kg_viewer(cont_comp):
         self._open_browser(viewer_url)
 
     def list_views(self) -> None:
-        mine = self._adhoc_containers()
+        mine = self.json_entries()
         if not mine:
             click.echo("No viewer containers on record.")
             return
         for entry in mine:
             name = entry["container"]
             port = entry["port"]
-            running = cont_comp.is_running(self, name)[0]
+            running = self._docker.is_running(name)[0]
             status = (
                 click.style("running", fg="green")
                 if running
@@ -127,7 +121,7 @@ class comp_kg_viewer(cont_comp):
             click.echo(f"  id={entry['id']}  {name}  port={port}  {status}")
 
     def stop_views(self, target: str | None) -> None:
-        mine = self._adhoc_containers()
+        mine = self.json_entries()
         if not mine:
             click.echo("No viewer containers on record.")
             return
@@ -150,6 +144,6 @@ class comp_kg_viewer(cont_comp):
         for entry in to_stop:
             name = entry["container"]
             click.echo(f"Stopping {name} ...")
-            subprocess.run(["docker", "stop", name], stderr=subprocess.DEVNULL)
+            self._docker.stop_container(name)
 
-        containers.unregister(*(e["container"] for e in to_stop))
+        self.unregister_containers(*(e["container"] for e in to_stop))

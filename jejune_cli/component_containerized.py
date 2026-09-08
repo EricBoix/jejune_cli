@@ -1,13 +1,14 @@
 """Containerized component: adds Docker image information."""
 
 import os
-import subprocess
 from pathlib import Path
 
 import click
 
 from .component_with_config import conf_comp as component
 from .configuration import configuration
+from .containers_cross_process_coordination import CONTAINER_COORDINATION
+from .component_ext_command_docker import DOCKER_COMMAND
 
 
 class cont_comp(component):
@@ -17,21 +18,24 @@ class cont_comp(component):
     Subclasses whose container naming or build process differs override these.
     """
 
+    _coordination = CONTAINER_COORDINATION
+    _docker = DOCKER_COMMAND
+
     def __init__(
         self,
         name: str,
         image_name: str,
         build_context: str = "",
         dockerfile: str | None = None,
-        dependencies: list[str] | None = None,
-        optional_dependencies: list[str] | None = None,
+        dependencies: list | None = None,
+        optional_dependencies: list | None = None,
         configuration: configuration | None = None,
         hint: str | None = None,
         service_name: str | None = None,
     ) -> None:
         super().__init__(
             name=name,
-            dependencies=dependencies,
+            dependencies=[self._docker] + (dependencies or []),
             optional_dependencies=optional_dependencies,
             hint=hint,
             configuration=configuration,
@@ -40,12 +44,6 @@ class cont_comp(component):
         self.build_context = build_context
         self.dockerfile = dockerfile
         self.service_name = service_name
-
-    def _run(self, *cmd: str) -> None:
-        """Run a command, raising SystemExit on non-zero return code."""
-        result = subprocess.run(list(cmd))
-        if result.returncode != 0:
-            raise SystemExit(result.returncode)
 
     def build(self, no_cache: bool = False) -> None:
         """Build the Docker image, resolving build_context from self.repos when needed."""
@@ -63,18 +61,14 @@ class cont_comp(component):
         if not self.build_context:
             return
         click.echo(f"Building {self.image_name} ...")
-        extra = ["--no-cache"] if no_cache else []
-        dockerfile_args = ["-f", self.dockerfile] if self.dockerfile else []
-        self._run("docker", "build", *extra, *dockerfile_args, "-t", self.image_name, self.build_context)
+        self._docker.build_image(
+            self.image_name, self.build_context,
+            dockerfile=self.dockerfile, no_cache=no_cache,
+        )
 
     def is_built(self) -> bool:
         """Return True if the Docker image named image_name exists locally."""
-        r = subprocess.run(
-            ["docker", "images", "-q", self.image_name],
-            capture_output=True,
-            text=True,
-        )
-        return bool(r.returncode == 0 and r.stdout.strip())
+        return self._docker.image_exists(self.image_name)
 
     @property
     def container_name(self) -> str:
@@ -83,49 +77,19 @@ class cont_comp(component):
 
     def is_running(self, container_name: str | None = None) -> tuple[bool, str]:
         """Return (running, message) by inspecting the named container."""
-        name = container_name if container_name is not None else self.container_name
-        result = subprocess.run(
-            ["docker", "inspect", "-f", "{{.State.Running}}", name],
-            capture_output=True,
-            text=True,
+        return self._docker.is_running(
+            container_name if container_name is not None else self.container_name
         )
-        if result.returncode == 0 and result.stdout.strip() == "true":
-            return True, "ok"
-        return False, "not started"
 
     def exists(self) -> bool:
         """Return True if the container exists in Docker (running or stopped)."""
-        return (
-            subprocess.run(
-                ["docker", "inspect", self.container_name],
-                capture_output=True,
-            ).returncode
-            == 0
-        )
-
-    def register(self, **meta) -> dict:
-        """Add this component's container to the jejune container registry."""
-        from . import containers as _c
-
-        return _c.register(self.name, self.container_name, **meta)
-
-    def register_with_name(self, name_factory, **meta) -> dict:
-        """Register this component with a dynamically-named container."""
-        from . import containers as _c
-
-        return _c.register_with_name(self.name, name_factory, **meta)
-
-    def unregister(self) -> None:
-        """Remove this component's container from the jejune registry."""
-        from . import containers as _c
-
-        _c.unregister(self.container_name)
+        return self._docker.container_exists(self.container_name)
 
     def stop(self) -> None:
         """Stop and remove the Docker container, then unregister it."""
         click.echo(f"Stopping {self.image_name} ...")
-        subprocess.run(["docker", "stop", self.container_name], stderr=subprocess.DEVNULL)
-        subprocess.run(["docker", "rm", self.container_name], stderr=subprocess.DEVNULL)
+        self._docker.stop_container(self.container_name)
+        self._docker.remove_container(self.container_name)
         self.unregister()
         click.echo(f"{self.image_name} stopped.")
 
@@ -140,3 +104,41 @@ class cont_comp(component):
     def check(self) -> tuple[str, str]:
         ok, msg = self.is_running()
         return ("ok", "") if ok else ("error", msg)
+
+    # --- coordination helpers ---
+
+    def register(self, **meta) -> dict:
+        """Add this component's container to the jejune container registry."""
+        return self._coordination.register(self.name, self.container_name, **meta)
+
+    def register_with_name(self, name_factory, **meta) -> dict:
+        """Register this component with a dynamically-named container."""
+        return self._coordination.register_with_name(self.name, name_factory, **meta)
+
+    def unregister(self) -> None:
+        """Remove this component's container from the jejune registry."""
+        self._coordination.unregister(self.container_name)
+
+    def json_entries(self) -> list[dict]:
+        """Return JSON registry entries for this component."""
+        return self._coordination.json_for_component(self.name)
+
+    @classmethod
+    def register_container(cls, component: str, container: str, **meta) -> dict:
+        """Register an external container (e.g. a docker-compose service) by name."""
+        return cls._coordination.register(component, container, **meta)
+
+    @classmethod
+    def unregister_containers(cls, *names: str) -> None:
+        """Unregister multiple containers by name."""
+        cls._coordination.unregister(*names)
+
+    @classmethod
+    def existing_component_containers(cls) -> list[dict]:
+        """Return all cont_comp containers currently present in Docker."""
+        from .component_registry import REGISTRY
+        return [
+            {"component": inst.name, "container": inst.container_name}
+            for inst in REGISTRY
+            if isinstance(inst, cls) and cls._docker.container_exists(inst.container_name)
+        ]

@@ -14,7 +14,7 @@ from ._doctor import (
     doctor,
 )
 from .click_next_steps import next_cmd
-from ._role_cmd import role
+from .click_role_registry import role
 from .convert import convert, convert_configured
 from .plugin import JejunePlugin, _REGISTRY
 from .role_registry import ROLE_REGISTRY
@@ -27,7 +27,7 @@ from .click_comp_configuration import (
     configuration,
     register_role_config_subgroup,
 )
-from .containers import containers_cli
+from .click_containers import containers_cli
 from .click_cont_comp_graph import graph
 from .llm import llm
 from .manifest import manifest

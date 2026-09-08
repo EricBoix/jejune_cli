@@ -124,15 +124,15 @@ def build(no_cache: bool) -> None:
 @click.command("up")
 def up() -> None:
     """Start a UI deployment in detached mode."""
-    from . import containers as _containers
+    from .component_containerized import cont_comp
     from .extensions_registry import _do_extensions_install
     deploy_dir = Path(".")
     deploy_name = deploy_dir.resolve().name.lower()
     deployment_comp = COMP_REGISTRY.get("deployment")
     container_names = [f"jejune-{deploy_name}-{svc}-1" for svc in deployment_comp.service_names]
-    _containers.unregister(*container_names)
+    cont_comp.unregister_containers(*container_names)
     for cname in container_names:
-        _containers.register(deploy_name, cname)
+        cont_comp.register_container(deploy_name, cname)
     rc = deployment_comp.run_compose(deploy_dir, "--project-name", f"jejune-{deploy_name}", "up", "-d")
     if rc == 0 and not _extensions_installed():
         click.echo("\nInstalling deployer CLI extensions...")

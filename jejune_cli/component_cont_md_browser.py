@@ -9,7 +9,7 @@ class comp_md_browser(cont_comp):
             name="md-browser",
             image_name="jejune:markdown-browser",
             service_name="markdown-browser",
-            dependencies=[ComponentRegistry().get("ecosystem"), ComponentRegistry().get("docker-command")],
+            dependencies=[ComponentRegistry().get("ecosystem")],
             hint="run `jejune deployment install`",
         )
         self.repos = [("jejune_markdown_browser", "DockerContext", "MARKDOWN_BROWSER_CONTEXT")]

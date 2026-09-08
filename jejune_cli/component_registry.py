@@ -17,7 +17,7 @@ class ComponentRegistry:
             cls._instance._comps = []
             cls._instance._comps.append(comp_network())
             cls._instance._comps.append(comp_command_git())
-            cls._instance._comps.append(comp_command_docker())
+            cls._instance._comps.append(DOCKER_COMMAND)
             cls._instance._comps.append(comp_command_uv())
             cls._instance._comps.append(comp_server_pypi())
             cls._instance._comps.append(comp_server_docker_hub())
@@ -121,7 +121,7 @@ class ComponentRegistry:
 # ComponentRegistry` at load time).
 from .component_ext_network import comp_network
 from .component_ext_command_git import comp_command_git
-from .component_ext_command_docker import comp_command_docker
+from .component_ext_command_docker import DOCKER_COMMAND
 from .component_ext_command_uv import comp_command_uv
 from .component_ext_server_pypi import comp_server_pypi
 from .component_ext_server_docker_hub import comp_server_docker_hub

@@ -43,9 +43,9 @@ def _deploy_config_is_default() -> bool:
 
 
 def _deploy_containers_running() -> bool:
-    from . import containers as _c
+    from .component_ext_command_docker import DOCKER_COMMAND
     name = Path(".").resolve().name.lower()
-    return all(_c.is_running(f"jejune-{name}-{svc}-1") for svc in _UI_SERVICES)
+    return all(DOCKER_COMMAND.is_running(f"jejune-{name}-{svc}-1")[0] for svc in _UI_SERVICES)
 
 
 def _deploy_images_missing() -> bool:
