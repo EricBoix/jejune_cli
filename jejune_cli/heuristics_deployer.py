@@ -75,30 +75,6 @@ def _docs_server_url() -> str:
     return f"http://localhost:{port}"
 
 
-def _is_catalog_installed() -> bool:
-    try:
-        from jejune_catalog._commands import _load_catalog_docs
-    except ImportError:
-        return True  # catalog plugin absent — nothing to install
-    try:
-        docs = _load_catalog_docs(None)
-    except Exception:
-        return True  # no catalog.yaml → nothing to install
-    try:
-        eco = COMP_REGISTRY.get("ecosystem")
-        eco_root, eco_tmp = eco.resolve_dirs()
-        return all(
-            eco.repo_status(doc["name"], eco_root, eco_tmp)[0] in ("root", "tmp")
-            for doc in docs
-        )
-    except Exception:
-        return False
-
-
-def _is_deployment_installed() -> bool:
-    return _is_catalog_installed() and PLUGIN_PACKAGE_CATALOG.packages_installed()
-
-
 def register_heuristics() -> None:
     HEURISTIC_STEP_REGISTRY.register_precondition("deployer plugin-packages installed",   PLUGIN_PACKAGE_CATALOG.packages_installed)
     HEURISTIC_STEP_REGISTRY.register_precondition("deployer role detected",          DEPLOYER.is_deployer)
@@ -106,14 +82,6 @@ def register_heuristics() -> None:
     HEURISTIC_STEP_REGISTRY.register_precondition("deployment images missing",       _deploy_images_missing)
     HEURISTIC_STEP_REGISTRY.register_precondition("deployment containers running",   _deploy_containers_running)
     HEURISTIC_STEP_REGISTRY.register_precondition("deployment services available",   _deploy_services_available)
-    HEURISTIC_STEP_REGISTRY.register_precondition("deployment installed",            _is_deployment_installed)
-
-    HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
-        label="Install deployment",
-        command="jejune deployment install",
-        conditions=[DEPLOYER.is_deployer],
-        anti_conditions=[_is_deployment_installed],
-    ), roles={"deployer"})
 
     HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
         label="Install docker desktop",
@@ -137,7 +105,7 @@ def register_heuristics() -> None:
 
     HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
         label="Build deployment", command="jejune build", order=10,
-        conditions=[DEPLOYER.is_deployer, ComponentCondition("docker-command"), _deploy_images_missing, _is_deployment_installed],
+        conditions=[DEPLOYER.is_deployer, ComponentCondition("docker-command"), _deploy_images_missing, PLUGIN_PACKAGE_CATALOG.packages_installed],
         anti_conditions=[_deploy_catalog_check_fails],
     ), roles={"deployer"})
 
@@ -195,4 +163,4 @@ def register_heuristics() -> None:
     HEURISTIC_STEP_REGISTRY.register_role_ordering("deployer", {
         inst.hint: (i - len(_ext_deps)) * 10
         for i, inst in enumerate(_ext_deps)
-    } | {"Install deployment": -2, "Wrap up configuration": -1})
+    } | {"Wrap up configuration": -1})
