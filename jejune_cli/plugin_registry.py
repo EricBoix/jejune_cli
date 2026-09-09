@@ -139,13 +139,13 @@ class PluginRegistry:
                 continue
             self.register_plugin_component(plugin)
 
-        from .component_registry import ComponentRegistry
+        from .component_registry import ComponentRegistry, _LazyComp
 
         reg = ComponentRegistry()
         for comp in reg:
             for pname in getattr(comp, "plugin_deps", []):
                 inst = reg.get(pname)
-                if inst is not None and inst not in comp.dependencies:
+                if inst is not None and not isinstance(inst, _LazyComp) and inst not in comp.dependencies:
                     comp.dependencies.append(inst)
         if any(getattr(c, "plugin_deps", []) for c in reg):
             reg._sort()
