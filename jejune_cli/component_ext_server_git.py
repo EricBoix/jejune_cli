@@ -26,9 +26,9 @@ class comp_server_git(ext_server):
         url = f"{_REPO_ROOT_DIR}/{name}.git"
         return f"{url}#{fragment}" if fragment else url
 
-    def remote_pip_url(self, name: str, subpath: str) -> str:
-        """Return the pip-install git URL for a repo subdirectory."""
-        return f"git+{_REPO_ROOT_DIR}/{name}.git#subdirectory={subpath}"
+    def remote_pip_url(self, name: str) -> str:
+        """Return the pip-install git URL for a repo."""
+        return f"git+{_REPO_ROOT_DIR}/{name}.git"
 
     def check(self, timeout: int = 5) -> tuple[str, str]:
         try:

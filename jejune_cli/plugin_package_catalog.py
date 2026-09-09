@@ -4,7 +4,6 @@ from __future__ import annotations
 import importlib.metadata
 import subprocess
 import sys
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import click
@@ -25,12 +24,12 @@ class plugin_package_catalog:
     """
 
     def __init__(self) -> None:
-        self._registered: dict[str, tuple[str, str]] = {}
+        self._registered: dict[str, str] = {}
 
     def register(self, plugin: "plugin_description") -> None:
         """Record a plugin's install metadata.  Called by PluginRegistry."""
         if plugin.repo_name:
-            self._registered[plugin.name] = (plugin.repo_name, plugin.check_subpath)
+            self._registered[plugin.name] = plugin.repo_name
 
     def _expected_plugin_names(self, role: str | None) -> set[str]:
         """Collect plugin_deps from all components active for *role*."""
@@ -77,33 +76,26 @@ class plugin_package_catalog:
             r = ROLE_REGISTRY.detect_role()
             role = r.name if r else None
         for name in self._expected_plugin_names(role):
-            info = self._registered.get(name)
-            if info is None:
+            repo_name = self._registered.get(name)
+            if repo_name is None:
                 click.echo(
                     f"  {name}: {click.style('install info unknown', fg='red')}"
                     " — install manually or load the plugin first"
                 )
                 continue
-            self._install_package(info[0], info[1], name)
+            self._install_package(repo_name, name)
 
-    def _install_package(
-        self, repo_name: str, check_subpath: str, plugin_name: str
-    ) -> None:
+    def _install_package(self, repo_name: str, plugin_name: str) -> None:
         from .component_registry import REGISTRY as COMP_REGISTRY
 
         eco = COMP_REGISTRY.get("ecosystem")
         root_dir, tmp_dir = eco.resolve_dirs()
         tier, base = eco.repo_status(repo_name, root_dir, tmp_dir)
         if tier == "remote":
-            git_url = COMP_REGISTRY.get("git-server").remote_pip_url(
-                repo_name, check_subpath
-            )
+            git_url = COMP_REGISTRY.get("git-server").remote_pip_url(repo_name)
             cmd = ["uv", "pip", "install", "--python", sys.executable, git_url]
         else:
-            cmd = [
-                "uv", "pip", "install", "--python", sys.executable,
-                "-e", str(Path(base) / check_subpath),
-            ]
+            cmd = ["uv", "pip", "install", "--python", sys.executable, "-e", base]
         result = subprocess.run(cmd)
         label = (
             click.style("installed", fg="green")

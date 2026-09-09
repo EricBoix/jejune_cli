@@ -79,12 +79,6 @@ class plugin_description:
     when it is not yet installed.  Leave empty for plugins whose install location
     is managed outside the catalog.
     """
-    check_subpath: str = "check"
-    """Subdirectory inside *repo_name* that contains the installable package.
-
-    Defaults to ``"check"``, the project-wide convention for lightweight plugin
-    packages.
-    """
     """Full component instance to register in COMP_REGISTRY.
 
     When set, PluginRegistry uses this instance directly instead of creating a
