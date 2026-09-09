@@ -70,7 +70,13 @@ class cont_comp(component):
 
     def is_built(self) -> bool:
         """Return True if the Docker image named image_name exists locally."""
-        return self._docker.image_exists(self.image_name)
+        if self._docker.image_exists(self.image_name):
+            return True
+        if self.service_name:
+            from pathlib import Path
+            deploy_name = Path(".").resolve().name.lower()
+            return self._docker.image_exists(f"jejune:{deploy_name}-{self.service_name}")
+        return False
 
     @property
     def container_name(self) -> str:
