@@ -245,6 +245,8 @@ def build(no_cache: bool) -> None:
     Each component that owns a Docker image registers its builder automatically.
     Use `jejune deployment build <dir>` to build a specific deployment directory.
     """
+    if _ACTIVE_ROLE == "deployer":
+        raise SystemExit(COMP_REGISTRY.get("deployment").build(Path("."), no_cache=no_cache))
     from .component_containerized import cont_comp
     components = ROLE_REGISTRY.role_components(_ACTIVE_ROLE_OBJ) or set()
     component_names = {c.name for c in components}

@@ -118,7 +118,7 @@ def ui_list(deployments_dir):
               help="Do not use cache when building images.")
 def build(no_cache: bool) -> None:
     """Build Docker images for a UI deployment."""
-    COMP_REGISTRY.get("deployment").build(Path("."), no_cache=no_cache)
+    sys.exit(COMP_REGISTRY.get("deployment").build(Path("."), no_cache=no_cache))
 
 
 @click.command("up")

@@ -82,10 +82,8 @@ class comp_deployment(component):
             .replace("{{GH_SECRET_DEF}}", gh_secret_def)
         )
 
-    def build(self, deploy_dir: Path, no_cache: bool = False) -> None:
+    def build(self, deploy_dir: Path, no_cache: bool = False) -> int:
         if no_cache:
             subprocess.run(["docker", "builder", "prune", "--force"], check=True)
-        os.environ.update(self._build_env(deploy_dir))
-        for dep in self.dependencies:
-            if hasattr(dep, "build"):
-                dep.build(no_cache=no_cache)
+        compose_args = ["build", "--no-cache"] if no_cache else ["build"]
+        return self.run_compose(deploy_dir, *compose_args)
