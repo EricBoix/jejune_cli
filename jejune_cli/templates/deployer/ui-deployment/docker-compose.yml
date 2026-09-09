@@ -9,9 +9,8 @@ services:
       dockerfile: Dockerfile
       args:
         INCLUDE_PDFS: "${INCLUDE_PDFS:-false}"
-        {{BUILD_SECRETS}}    
-      ports:
-        - "${DOCS_SERVER_PORT:-8765}:8765"
+{{BUILD_SECRETS}}    ports:
+      - "${DOCS_SERVER_PORT:-8765}:8765"
     environment:
       KG_GRAPH_VIEWER_URL: "http://localhost:${KG_PORT:-8080}"
       MARKDOWN_BROWSER_URL: "http://localhost:${MARKDOWN_PORT:-8443}"
