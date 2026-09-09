@@ -2,7 +2,7 @@
 
 import click
 
-from .doctor_health_check import run_all
+from .doctor_health_check import run_all, run_avail
 from .click_comp_configuration import (
     print_two_col_table,
 )
@@ -12,7 +12,6 @@ from .role_registry import ROLE_REGISTRY
 # Display constants
 # ---------------------------------------------------------------------------
 
-_STATUS_RANK: dict[str, int] = {"error": 2, "warn": 1, "ok": 0}
 _STATUS_FG: dict[str, str] = {"ok": "green", "warn": "yellow", "error": "red"}
 _STATUS_ICON: dict[str, tuple[str, str]] = {
     "ok": ("✓", "green"),
@@ -21,6 +20,7 @@ _STATUS_ICON: dict[str, tuple[str, str]] = {
 }
 
 from .component_base import base_comp
+from .component_ext import ext_comp
 from .component_registry import REGISTRY as COMP_REGISTRY
 from .plugin_registry import PLUGIN_REGISTRY
 
@@ -40,55 +40,30 @@ def _resolve_avail_hint(inst: base_comp, fallback: str = "") -> str:
     return inst.hint or fallback
 
 
-def _avail_all_visible() -> list[base_comp]:
-    role = ROLE_REGISTRY.detect_role()
-    return COMP_REGISTRY.sorted_active_set(ROLE_REGISTRY.role_components(role))
-
-
 def _build_avail_rows(
     avail_results: list[tuple[str, str, str]],
     all_visible: list[base_comp],
-    ext_names: list[str] | None = None,
 ) -> list[tuple[str, str, str, str]]:
     """Build (comp, status, check, hint) rows for the availability table."""
     by_avail = {comp: (status, msg) for comp, status, msg in avail_results}
     rows: list[tuple[str, str, str, str]] = []
     for inst in all_visible:
         comp = inst.name
-        if comp in by_avail:
-            status, msg = by_avail[comp]
-            if status == "ok":
-                rows.append((comp, status, "", ""))
-            else:
-                active_deps = inst.active_deps()
-                failing_deps = [
-                    dep
-                    for dep in active_deps
-                    if by_avail.get(dep.name, ("ok",))[0] != "ok"
-                ]
-                hint = "" if failing_deps else _resolve_avail_hint(inst)
-                rows.append((comp, status, msg, hint))
+        if comp not in by_avail:
+            continue
+        status, msg = by_avail[comp]
+        if status == "ok":
+            rows.append((comp, status, "", ""))
         else:
             active_deps = inst.active_deps()
-            if active_deps:
-                worst = max(
-                    (by_avail.get(dep.name, ("ok", ""))[0] for dep in active_deps),
-                    key=lambda s: _STATUS_RANK.get(s, 0),
-                    default="ok",
-                )
-                failing = [
-                    dep.name
-                    for dep in active_deps
-                    if by_avail.get(dep.name, ("ok", ""))[0] != "ok"
-                ]
-                check = "" if worst == "ok" else "deps: " + ", ".join(failing)
-                rows.append((comp, worst, check, ""))
-    for name in ext_names or []:
-        if name in by_avail:
-            status, msg = by_avail[name]
-            rows.append((name, status, msg if status != "ok" else "", ""))
+            failing_deps = [
+                dep
+                for dep in active_deps
+                if by_avail.get(dep.name, ("ok",))[0] != "ok"
+            ]
+            hint = "" if failing_deps else _resolve_avail_hint(inst)
+            rows.append((comp, status, msg, hint))
     return rows
-
 
 
 def _print_health_table(
@@ -145,7 +120,6 @@ def _print_health_table(
 # ---------------------------------------------------------------------------
 
 
-
 @click.command()
 @click.option(
     "--verbose",
@@ -179,38 +153,9 @@ def doctor(verbose: bool):
         )
         return
 
-    config_results, avail_results = run_all()
-    active_components = ROLE_REGISTRY.current_role_components()
-
-    _plugin_names = {p.name for p in PLUGIN_REGISTRY.plugins}
-    _builtin = frozenset(COMP_REGISTRY)
-    if active_components is not None:
-        _seen_config = {c for c, _, _ in config_results}
-        _seen_avail = {c for c, _, _ in avail_results}
-        for comp in sorted(active_components - _builtin, key=lambda c: c.name):
-            if comp.name not in _plugin_names:
-                if comp.name not in _seen_config:
-                    config_results.append(
-                        (comp.name, "warn", "extension not installed")
-                    )
-                if comp.name not in _seen_avail:
-                    avail_results.append((comp.name, "warn", "extension not installed"))
+    config_results, avail_results, visible_components = run_all()
 
     by_config = {comp: (status, msg) for comp, status, msg in config_results}
-
-    visible_components: list[base_comp] = COMP_REGISTRY.sorted_active_set(
-        active_components
-    )
-    visible_names = {c.name for c in visible_components}
-    ext_names: list[str] = [
-        comp.name
-        for comp in (
-            sorted(active_components - _builtin, key=lambda c: c.name)
-            if active_components
-            else []
-        )
-        if comp.name not in visible_names
-    ]
 
     config_rows: list[tuple[str, str, str, str]] = []
     for comp in visible_components:
@@ -222,7 +167,7 @@ def doctor(verbose: bool):
         )
         config_rows.append((comp.name, status, msg if status != "ok" else "", hint))
 
-    avail_rows = _build_avail_rows(avail_results, visible_components, ext_names)
+    avail_rows = _build_avail_rows(avail_results, visible_components)
 
     _CONFIG_NOTE = "  Configuration files: .jejune/env-config · .jejune/env-secrets"
 
@@ -232,11 +177,11 @@ def doctor(verbose: bool):
 
     if not verbose:
         avail_ok = {comp for comp, status, _, _ in avail_rows if status == "ok"}
-        mandatory_names = {c.name for c in visible_components if c.mandatory}
+        ext_names_set = {c.name for c in visible_components if isinstance(c, ext_comp)}
         config_rows = [
             row
             for row in config_rows
-            if row[0] in mandatory_names or row[0] not in avail_ok
+            if row[0] not in ext_names_set or row[0] not in avail_ok
         ]
 
     from .component_containerized import cont_comp
@@ -255,8 +200,8 @@ def doctor(verbose: bool):
 @click.command("check-availability")
 def config_check_availability():
     """Per-component availability diagnostic."""
-    _, avail_results = run_all()
-    rows = _build_avail_rows(avail_results, _avail_all_visible())
+    avail_results, visible = run_avail()
+    rows = _build_avail_rows(avail_results, visible)
     if not rows:
         click.echo(
             click.style("No availability data for the current role.", fg="yellow")
@@ -272,8 +217,8 @@ def config_check_availability():
 @click.command("status-availability")
 def config_status_availability():
     """Per-component availability status."""
-    _, avail_results = run_all()
-    rows = _build_avail_rows(avail_results, _avail_all_visible())
+    avail_results, visible = run_avail()
+    rows = _build_avail_rows(avail_results, visible)
     if not rows:
         click.echo(
             click.style("No availability data for the current role.", fg="yellow")
@@ -289,10 +234,10 @@ def config_status_availability():
 @click.command("hint-availability")
 def config_hint_availability():
     """Availability hints for non-ok components."""
-    _, avail_results = run_all()
+    avail_results, visible = run_avail()
     rows = [
         (comp, hint)
-        for comp, _, _, hint in _build_avail_rows(avail_results, _avail_all_visible())
+        for comp, _, _, hint in _build_avail_rows(avail_results, visible)
         if hint
     ]
     if not rows:
