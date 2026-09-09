@@ -9,6 +9,7 @@ from .component_with_config import conf_comp as component
 from .configuration import configuration
 from .containers_cross_process_coordination import CONTAINER_COORDINATION
 from .component_ext_command_docker import DOCKER_COMMAND
+from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 
 
 class cont_comp(component):
@@ -47,17 +48,18 @@ class cont_comp(component):
 
     def build(self, no_cache: bool = False) -> None:
         """Build the Docker image, resolving build_context from self.repos when needed."""
+        from .component_registry import REGISTRY as COMP_REGISTRY
         if not self.build_context:
             repos = getattr(self, "repos", None)
             if repos:
-                repo_name, subpath, env_key = repos[0]
+                subpath, env_key = repos[0]
                 context = os.environ.get(env_key)
                 if context:
                     self.build_context = str(Path(context) / subpath) if subpath else context
                 else:
-                    from .component_registry import REGISTRY
+                    repo_name = PLUGIN_PACKAGE_CATALOG.get(self.name)
                     ref = f"main:{subpath}" if subpath else None
-                    self.build_context = REGISTRY.get("git-server").remote_git_url(repo_name, ref)
+                    self.build_context = COMP_REGISTRY.get("git-server").remote_git_url(repo_name, ref)
         if not self.build_context:
             return
         click.echo(f"Building {self.image_name} ...")
@@ -141,9 +143,9 @@ class cont_comp(component):
     @classmethod
     def existing_component_containers(cls) -> list[dict]:
         """Return all cont_comp containers currently present in Docker."""
-        from .component_registry import REGISTRY
+        from .component_registry import REGISTRY as COMP_REGISTRY
         return [
             {"component": inst.name, "container": inst.container_name}
-            for inst in REGISTRY
+            for inst in COMP_REGISTRY
             if isinstance(inst, cls) and cls._docker.container_exists(inst.container_name)
         ]

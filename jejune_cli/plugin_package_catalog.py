@@ -12,14 +12,20 @@ class plugin_package_catalog:
     """Tracks installable plugin packages and answers install-state queries.
 
     The *expected* set of plugins for a role is derived from ``plugin_deps``
-    declared on active components.  ``_BUILTIN_REPOS`` is the authoritative
+    declared on active components.  ``_PLUGIN_REPOS`` is the authoritative
     mapping from plugin name to source repository — used by ``install_packages``
     to locate a package regardless of whether it is already installed.
     """
 
-    _BUILTIN_REPOS: dict[str, str] = {
+    _PLUGIN_REPOS: dict[str, str] = {
+        "docs-server": "jejune_docs_server",
         "kg-viewer": "jejune_kg-graph_viewer",
+        "md-browser": "jejune_markdown_browser",
     }
+
+    def get(self, plugin_name: str) -> str | None:
+        """Return the source repository name for *plugin_name*, or None."""
+        return self._PLUGIN_REPOS.get(plugin_name)
 
     def _expected_plugin_names(self, role: str | None) -> set[str]:
         """Collect plugin_deps from all components active for *role*."""
@@ -66,11 +72,11 @@ class plugin_package_catalog:
             r = ROLE_REGISTRY.detect_role()
             role = r.name if r else None
         for name in self._expected_plugin_names(role):
-            repo_name = self._BUILTIN_REPOS.get(name)
+            repo_name = self.get(name)
             if repo_name is None:
                 click.echo(
                     f"  {name}: {click.style('install info unknown', fg='red')}"
-                    " — add it to plugin_package_catalog._BUILTIN_REPOS"
+                    " — add it to plugin_package_catalog._PLUGIN_REPOS"
                 )
                 continue
             self._install_package(repo_name, name)

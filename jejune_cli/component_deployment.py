@@ -13,10 +13,8 @@ class comp_deployment(component):
             name="deployment",
             dependencies=[
                 ComponentRegistry().get("catalog"),
-                ComponentRegistry().get("docs-server"),
-                ComponentRegistry().get("md-browser"),
             ],
-            plugin_deps=["kg-viewer"],
+            plugin_deps=["kg-viewer", "md-browser", "docs-server"],
             hint="run `jejune deployment install`",
         )
 

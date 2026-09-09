@@ -63,8 +63,6 @@ class ComponentRegistry:
             cls._instance._comps.append(comp_ecosystem())
             cls._instance._comps.append(comp_catalog())
             cls._instance._comps.append(comp_manifest())
-            cls._instance._comps.append(comp_docs_server())
-            cls._instance._comps.append(comp_md_browser())
             cls._instance._comps.append(comp_convert())
             cls._instance._comps.append(comp_neo4j())
             cls._instance._comps.append(comp_graph())
@@ -171,8 +169,6 @@ from .component_ext_plugin_packages import comp_plugin_packages
 from .component_ecosystem import comp_ecosystem
 from .component_catalog import comp_catalog
 from .component_manifest import comp_manifest
-from .component_cont_docs_server import comp_docs_server
-from .component_cont_md_browser import comp_md_browser
 from .component_cont_convert import comp_convert
 from .component_cont_neo4j import comp_neo4j
 from .component_cont_graph import comp_graph

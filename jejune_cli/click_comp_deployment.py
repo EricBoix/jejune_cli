@@ -91,7 +91,7 @@ def ui_configure(deployments_dir, name):
         (deploy_dir / ".gitignore").write_text("secrets.env\n")
         shutil.copy(_T_UI / "secrets.env.template", deploy_dir / "secrets.env.template")
 
-    click.echo(f"Created {deploy_dir}")
+    click.echo(f"Creating deployment in ./{deploy_dir.name}/ sub-directory")
     HEURISTIC_STEP_REGISTRY.print_next_steps(cwd=deploy_dir)
 
 
