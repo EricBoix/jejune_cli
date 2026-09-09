@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .component_with_config import conf_comp as component
 from .component_registry import ComponentRegistry
+from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 
 
 class comp_deployment(component):
@@ -49,9 +50,10 @@ class comp_deployment(component):
         if root_dir:
             env["JEJUNE_ROOT_DIR"] = str(root_dir)
         for dep in self.dependencies:
-            for name, subpath, key in getattr(dep, "repos", []):
+            repo_name = PLUGIN_PACKAGE_CATALOG.get(dep.name)
+            for subpath, key in getattr(dep, "repos", []):
                 if key:
-                    env[key] = eco.resolve(name, root_dir, tmp_dir, subpath)
+                    env[key] = eco.resolve(repo_name, root_dir, tmp_dir, subpath)
         return env
 
     def run_compose(self, deploy_dir: Path, *args: str) -> int:

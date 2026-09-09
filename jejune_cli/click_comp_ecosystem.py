@@ -4,6 +4,7 @@ import click
 
 from .role_registry import ROLE_REGISTRY
 from .component_registry import REGISTRY as COMP_REGISTRY
+from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 
 
 @click.group(invoke_without_command=True, short_help="Ecosystem repository status")
@@ -39,15 +40,17 @@ def ecosystem_status() -> None:
     # --- Components table ---
     active = ROLE_REGISTRY.role_components(role)
     repos = [] if active is None else [
-        r for comp in COMP_REGISTRY if comp in active
-        for r in getattr(comp, "repos", [])
+        (comp, subpath, env_key)
+        for comp in COMP_REGISTRY if comp in active
+        for subpath, env_key in getattr(comp, "repos", [])
     ]
     click.echo(click.style("  Components", bold=True))
     if not repos:
         click.echo(click.style("    No repositories required for the current role.", fg="yellow"))
     else:
         rows: list[tuple[str, str, str, str]] = []
-        for name, _, _ in repos:
+        for comp, _, _ in repos:
+            name = PLUGIN_PACKAGE_CATALOG.get(comp.name)
             tier, path = eco.repo_status(name, root_dir, tmp_dir)
             if tier == "root":
                 clone_display, remote_display = "[JEJUNE_ROOT_DIR]", ""

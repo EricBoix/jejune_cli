@@ -74,11 +74,12 @@ class comp_ecosystem(component):
         active = ROLE_REGISTRY.role_components(role)
         if active is None:
             return False
+        from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
         return any(
-            self.repo_status(name, root_dir, tmp_dir)[0] == "remote"
+            self.repo_status(PLUGIN_PACKAGE_CATALOG.get(comp.name), root_dir, tmp_dir)[0] == "remote"
             for comp in ComponentRegistry()
             if comp in active
-            for name, _, _ in getattr(comp, "repos", [])
+            if getattr(comp, "repos", [])
         )
 
     def check(self) -> tuple[str, str]:
