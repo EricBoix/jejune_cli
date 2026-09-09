@@ -19,12 +19,14 @@ class conf_comp(base_comp):
         optional_dependencies: list[str] | None = None,
         hint: str | None = None,
         configuration: _configuration | None = None,
+        plugin_deps: list[str] | None = None,
     ) -> None:
         super().__init__(
             name=name,
             dependencies=dependencies,
             optional_dependencies=optional_dependencies,
             hint=hint,
+            plugin_deps=plugin_deps,
         )
         self.configuration = configuration if configuration is not None else _configuration()
 

@@ -12,12 +12,14 @@ class base_comp(ABC):
         dependencies: "list[base_comp] | None" = None,
         optional_dependencies: "list[base_comp] | None" = None,
         hint: str | None = None,
+        plugin_deps: list[str] | None = None,
     ) -> None:
         self.name = name
         self.dependencies: list[base_comp] = dependencies or []
         self.optional_dependencies: list[base_comp] = optional_dependencies or []
         self.conditional_dependencies: list[tuple[Callable[[], bool], base_comp]] = []
         self.hint = hint
+        self.plugin_deps: list[str] = plugin_deps or []
 
     @abstractmethod
     def check(self) -> tuple[str, str]:

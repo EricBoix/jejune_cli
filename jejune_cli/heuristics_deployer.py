@@ -3,10 +3,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .component_base import base_comp
 from .component_ext import ext_comp
 from .component_registry import REGISTRY as COMP_REGISTRY
-from .extensions_registry import _extensions_installed
+from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 from .heuristic_step import ComponentCondition, HeuristicStep
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 from .role import DEPLOYER
@@ -48,7 +47,7 @@ def _deploy_images_missing() -> bool:
 
 
 def _deploy_services_available() -> bool:
-    return _extensions_installed() and all(
+    return PLUGIN_PACKAGE_CATALOG.packages_installed() and all(
         ok for _, ok, _ in COMP_REGISTRY.get("deployment").check_ui_services()
     )
 
@@ -97,11 +96,11 @@ def _is_catalog_installed() -> bool:
 
 
 def _is_deployment_installed() -> bool:
-    return _is_catalog_installed() and _extensions_installed()
+    return _is_catalog_installed() and PLUGIN_PACKAGE_CATALOG.packages_installed()
 
 
 def register_heuristics() -> None:
-    HEURISTIC_STEP_REGISTRY.register_precondition("deployer extensions installed",   _extensions_installed)
+    HEURISTIC_STEP_REGISTRY.register_precondition("deployer plugin-packages installed",   PLUGIN_PACKAGE_CATALOG.packages_installed)
     HEURISTIC_STEP_REGISTRY.register_precondition("deployer role detected",          DEPLOYER.is_deployer)
     HEURISTIC_STEP_REGISTRY.register_precondition("deployment config is default",    _deploy_config_is_default)
     HEURISTIC_STEP_REGISTRY.register_precondition("deployment images missing",       _deploy_images_missing)
@@ -149,15 +148,15 @@ def register_heuristics() -> None:
     ), roles={"deployer"})
 
     HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
-        label="Install deployer CLI extensions",
-        command="jejune extensions install", order=22,
-        conditions=[DEPLOYER.is_deployer, ComponentCondition("extensions"), _deploy_containers_running],
-        anti_conditions=[_extensions_installed],
+        label="Install deployer plugin packages",
+        command="jejune plugin-packages install", order=22,
+        conditions=[DEPLOYER.is_deployer, ComponentCondition("plugin-packages"), _deploy_containers_running],
+        anti_conditions=[PLUGIN_PACKAGE_CATALOG.packages_installed],
     ), roles={"deployer"})
 
     HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
         label="Check deployment status", command="jejune deployment status", order=25,
-        conditions=[DEPLOYER.is_deployer, ComponentCondition("extensions"), _deploy_containers_running, _extensions_installed],
+        conditions=[DEPLOYER.is_deployer, ComponentCondition("plugin-packages"), _deploy_containers_running, PLUGIN_PACKAGE_CATALOG.packages_installed],
         anti_conditions=[_deploy_services_available],
     ), roles={"deployer"})
 
@@ -174,25 +173,26 @@ def register_heuristics() -> None:
         anti_conditions=[],
     ), roles={"deployer"})
 
-    dep_fix_pairs: list[tuple[base_comp, str]] = [
-        (inst, inst.hint)
-        for inst in COMP_REGISTRY
-        if isinstance(inst, ext_comp) and inst.hint
-    ]
-    existing = frozenset({"docker-command", "extensions"})
-    for dep_inst, label in dep_fix_pairs:
-        if dep_inst.name in existing:
+    # One fix step per ext_comp: if unavailable, show its hint as the action.
+    # docker-command and plugin-packages already have explicit steps.
+    _skip = frozenset({"docker-command", "plugin-packages"})
+    for inst in COMP_REGISTRY:
+        if not isinstance(inst, ext_comp) or not inst.hint or inst.name in _skip:
             continue
         HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
-            label=label,
-            command=label,
+            label=inst.hint,
+            command=inst.hint,
             conditions=[DEPLOYER.is_deployer],
-            anti_conditions=[ComponentCondition(dep_inst.name)],
+            anti_conditions=[ComponentCondition(inst.name)],
         ), roles={"deployer"})
 
-    dep_topo = COMP_REGISTRY.sorted_subset([inst for inst, _ in dep_fix_pairs])
-    n = len(dep_topo)
+    # Order ext_comp fix steps by topological dep order so prerequisites appear
+    # first.
+    _ext_deps = COMP_REGISTRY.sorted_subset([
+        inst for inst in COMP_REGISTRY
+        if isinstance(inst, ext_comp) and inst.hint and inst.name not in _skip
+    ])
     HEURISTIC_STEP_REGISTRY.register_role_ordering("deployer", {
-        label: (dep_topo.index(inst) - n) * 10
-        for inst, label in dep_fix_pairs
+        inst.hint: (i - len(_ext_deps)) * 10
+        for i, inst in enumerate(_ext_deps)
     } | {"Install deployment": -2, "Wrap up configuration": -1})

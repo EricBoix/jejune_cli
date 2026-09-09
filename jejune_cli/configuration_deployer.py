@@ -19,16 +19,16 @@ def init(dir_name: str | None) -> None:
     DIR_NAME defaults to the name of the current directory when omitted.
     """
     from pathlib import Path
-    from .extensions_registry import _do_extensions_install, _extensions_installed
+    from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
     from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
     from .click_comp_deployment import ui_configure
     effective_name = dir_name or Path.cwd().name
     click.get_current_context().invoke(
         ui_configure, deployments_dir=".", name=effective_name
     )
-    if not _extensions_installed(role="deployer"):
-        click.echo("\nInstalling deployer extensions...")
-        _do_extensions_install(role="deployer")
+    if not PLUGIN_PACKAGE_CATALOG.packages_installed(role="deployer"):
+        click.echo("\nInstalling deployer plugin packages...")
+        PLUGIN_PACKAGE_CATALOG.install_packages(role="deployer")
     cd_hint = None
     if dir_name and dir_name not in (".", str(Path.cwd())):
         cd_hint = [f"First: cd {effective_name}"]

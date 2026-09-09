@@ -9,7 +9,7 @@ import click
 
 from ._env import load_deployment_env
 from .component_registry import REGISTRY as COMP_REGISTRY
-from .extensions_registry import _extensions_installed
+from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 
 _TEMPLATES = Path(__file__).parent / "templates"
@@ -25,15 +25,15 @@ def deployment():
 def status() -> None:
     """Show HTTP availability of the three UI deployment services."""
     load_deployment_env(Path("."))
-    if not _extensions_installed():
-        click.echo(click.style("Check extensions not installed.", fg="red"), err=True)
-        click.echo("Run: jejune extensions install", err=True)
+    if not PLUGIN_PACKAGE_CATALOG.packages_installed():
+        click.echo(click.style("Check plugin packages not installed.", fg="red"), err=True)
+        click.echo("Run: jejune plugin-packages install", err=True)
         raise SystemExit(1)
     results = COMP_REGISTRY.get("deployment").check_ui_services()
-    from .plugin import _REGISTRY
+    from .plugin_registry import PLUGIN_REGISTRY
     plugin_port = {
         p.name: os.environ.get(p.config_vars[0], "?")
-        for p in _REGISTRY if p.config_vars
+        for p in PLUGIN_REGISTRY.plugins if p.config_vars
     }
     _W = max(len(n) for n, *_ in results)
     for name, ok, msg in results:
@@ -125,7 +125,7 @@ def build(no_cache: bool) -> None:
 def up() -> None:
     """Start a UI deployment in detached mode."""
     from .component_containerized import cont_comp
-    from .extensions_registry import _do_extensions_install
+    from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
     deploy_dir = Path(".")
     deploy_name = deploy_dir.resolve().name.lower()
     deployment_comp = COMP_REGISTRY.get("deployment")
@@ -134,9 +134,9 @@ def up() -> None:
     for cname in container_names:
         cont_comp.register_container(deploy_name, cname)
     rc = deployment_comp.run_compose(deploy_dir, "--project-name", f"jejune-{deploy_name}", "up", "-d")
-    if rc == 0 and not _extensions_installed():
-        click.echo("\nInstalling deployer CLI extensions...")
-        _do_extensions_install()
+    if rc == 0 and not PLUGIN_PACKAGE_CATALOG.packages_installed():
+        click.echo("\nInstalling deployer plugin packages...")
+        PLUGIN_PACKAGE_CATALOG.install_packages()
     sys.exit(rc)
 
 
@@ -148,8 +148,8 @@ def down() -> None:
 
 @click.command("install")
 def deployment_install() -> None:
-    """Install all deployment components: catalog repos and check extensions."""
-    from .extensions_registry import _do_extensions_install
+    """Install all deployment components: catalog repos and plugin packages."""
+    from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
     try:
         from jejune_catalog._commands import _do_catalog_install
         click.echo("Installing catalog repositories...")
@@ -158,8 +158,8 @@ def deployment_install() -> None:
         click.echo(click.style(
             "  catalog plugin not installed — skipping", fg="yellow"
         ))
-    click.echo("Installing deployer extensions...")
-    _do_extensions_install()
+    click.echo("Installing deployer plugin packages...")
+    PLUGIN_PACKAGE_CATALOG.install_packages()
 
 
 for _cmd in (status, ui_list, build, up, down, deployment_install):

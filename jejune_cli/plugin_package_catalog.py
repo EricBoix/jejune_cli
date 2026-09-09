@@ -1,0 +1,116 @@
+"""Catalog of plugin packages — install metadata and install-state queries."""
+from __future__ import annotations
+
+import importlib.metadata
+import subprocess
+import sys
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+import click
+
+if TYPE_CHECKING:
+    from .plugin_description import plugin_description
+
+
+class plugin_package_catalog:
+    """Tracks installable plugin packages and answers install-state queries.
+
+    Populated at runtime by ``PluginRegistry`` as plugins are loaded: each
+    ``plugin_description`` that carries a non-empty ``repo_name`` is registered
+    here so its install location is remembered.
+
+    The *expected* set of plugins for a role is derived from ``plugin_deps``
+    declared on active components — no static config required.
+    """
+
+    def __init__(self) -> None:
+        self._registered: dict[str, tuple[str, str]] = {}
+
+    def register(self, plugin: "plugin_description") -> None:
+        """Record a plugin's install metadata.  Called by PluginRegistry."""
+        if plugin.repo_name:
+            self._registered[plugin.name] = (plugin.repo_name, plugin.check_subpath)
+
+    def _expected_plugin_names(self, role: str | None) -> set[str]:
+        """Collect plugin_deps from all components active for *role*."""
+        if not role:
+            return set()
+        from .role_registry import ROLE_REGISTRY
+        from .component_registry import REGISTRY as COMP_REGISTRY
+        role_obj = ROLE_REGISTRY.get(role)
+        if role_obj is None:
+            return set()
+        role_comps = ROLE_REGISTRY.role_components(role_obj) or frozenset()
+        return {
+            name
+            for comp in COMP_REGISTRY
+            if comp in role_comps
+            for name in getattr(comp, "plugin_deps", [])
+        }
+
+    def expected_plugin_names(self, role: str | None = None) -> list[str]:
+        """Return sorted list of plugin names expected for *role*."""
+        if role is None:
+            from .role_registry import ROLE_REGISTRY
+            r = ROLE_REGISTRY.detect_role()
+            role = r.name if r else None
+        return sorted(self._expected_plugin_names(role))
+
+    def packages_installed(self, role: str | None = None) -> bool:
+        """Return True when all expected plugins for *role* are installed."""
+        if role is None:
+            from .role_registry import ROLE_REGISTRY
+            r = ROLE_REGISTRY.detect_role()
+            role = r.name if r else None
+        expected = self._expected_plugin_names(role)
+        installed = {
+            ep.name
+            for ep in importlib.metadata.entry_points(group="jejune.plugins")
+        }
+        return all(name in installed for name in expected)
+
+    def install_packages(self, role: str | None = None) -> None:
+        """Install all expected plugin packages for *role*."""
+        if role is None:
+            from .role_registry import ROLE_REGISTRY
+            r = ROLE_REGISTRY.detect_role()
+            role = r.name if r else None
+        for name in self._expected_plugin_names(role):
+            info = self._registered.get(name)
+            if info is None:
+                click.echo(
+                    f"  {name}: {click.style('install info unknown', fg='red')}"
+                    " — install manually or load the plugin first"
+                )
+                continue
+            self._install_package(info[0], info[1], name)
+
+    def _install_package(
+        self, repo_name: str, check_subpath: str, plugin_name: str
+    ) -> None:
+        from .component_registry import REGISTRY as COMP_REGISTRY
+
+        eco = COMP_REGISTRY.get("ecosystem")
+        root_dir, tmp_dir = eco.resolve_dirs()
+        tier, base = eco.repo_status(repo_name, root_dir, tmp_dir)
+        if tier == "remote":
+            git_url = COMP_REGISTRY.get("git-server").remote_pip_url(
+                repo_name, check_subpath
+            )
+            cmd = ["uv", "pip", "install", "--python", sys.executable, git_url]
+        else:
+            cmd = [
+                "uv", "pip", "install", "--python", sys.executable,
+                "-e", str(Path(base) / check_subpath),
+            ]
+        result = subprocess.run(cmd)
+        label = (
+            click.style("installed", fg="green")
+            if result.returncode == 0
+            else click.style("failed", fg="red")
+        )
+        click.echo(f"  {plugin_name}: {label}")
+
+
+PLUGIN_PACKAGE_CATALOG = plugin_package_catalog()

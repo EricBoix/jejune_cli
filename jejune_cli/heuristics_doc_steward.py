@@ -1,19 +1,21 @@
 """Doc-steward-role heuristic registrations."""
 from __future__ import annotations
 
-from .extensions_registry import _extensions_installed
-from .heuristic_step import HeuristicStep
+from pathlib import Path
+
+from .component_registry import REGISTRY as COMP_REGISTRY
+from .heuristic_step import ComponentCondition, HeuristicStep
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
+from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
+from .test import _check_doc_yaml
 
 
 def _graph_available() -> bool:
-    from .component_registry import REGISTRY as COMP_REGISTRY
     ok, _ = COMP_REGISTRY.get("graph").is_running()
     return ok
 
 
 def _graph_extract_command() -> str:
-    from .component_registry import REGISTRY as COMP_REGISTRY
     neo4j_comp = COMP_REGISTRY.get("neo4j")
     cmd = "jejune graph extract"
     if not neo4j_comp.db_is_empty():
@@ -22,36 +24,28 @@ def _graph_extract_command() -> str:
 
 
 def _neo4j_running() -> bool:
-    from .component_registry import REGISTRY as COMP_REGISTRY
-    neo4j_comp = COMP_REGISTRY.get("neo4j")
-    ok, _ = neo4j_comp.is_running()
+    ok, _ = COMP_REGISTRY.get("neo4j").is_running()
     return ok
 
 
 def _neo4j_not_empty() -> bool:
-    from .component_registry import REGISTRY as COMP_REGISTRY
-    neo4j_comp = COMP_REGISTRY.get("neo4j")
-    return not neo4j_comp.db_is_empty()
+    return not COMP_REGISTRY.get("neo4j").db_is_empty()
 
 
 def _neo4j_configured() -> bool:
-    from .component_registry import REGISTRY as COMP_REGISTRY
-    neo4j_comp = COMP_REGISTRY.get("neo4j")
-    status, *_ = neo4j_comp.configuration.check()
+    status, *_ = COMP_REGISTRY.get("neo4j").configuration.check()
     return status == "ok"
 
 
 def _manifest_ok() -> bool:
-    from pathlib import Path
-    from .test import _check_doc_yaml
     errors, _ = _check_doc_yaml(Path.cwd())
     return not errors
 
 
 def register_heuristics() -> None:
-    from .heuristic_step import ComponentCondition
-
-    HEURISTIC_STEP_REGISTRY.register_precondition("catalog-contributor extension installed", _extensions_installed)
+    HEURISTIC_STEP_REGISTRY.register_precondition(
+        "catalog-contributor extension installed", PLUGIN_PACKAGE_CATALOG.packages_installed
+    )
 
     HEURISTIC_STEP_REGISTRY.register_command_precondition("jejune neo4j dump-turtle", _neo4j_running)
     HEURISTIC_STEP_REGISTRY.register_command_precondition("jejune graph split", _manifest_ok)

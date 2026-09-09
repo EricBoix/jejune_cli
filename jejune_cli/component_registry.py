@@ -8,6 +8,41 @@ if TYPE_CHECKING:
     from .component_base import base_comp
 
 
+class _LazyComp:
+    """Proxy for a plugin-contributed component not yet loaded.
+
+    Returned by ``ComponentRegistry.get()`` when the name is declared as a
+    ``plugin_dep`` by some component but the plugin has not been loaded yet.
+    Resolves transparently on first attribute access once the plugin is loaded.
+    """
+
+    def __init__(self, name: str) -> None:
+        object.__setattr__(self, "_name", name)
+        object.__setattr__(self, "_resolved", None)
+
+    @property
+    def name(self) -> str:
+        return object.__getattribute__(self, "_name")
+
+    def _resolve(self) -> "base_comp | None":
+        cached = object.__getattribute__(self, "_resolved")
+        if cached is not None:
+            return cached
+        inst = ComponentRegistry().get(object.__getattribute__(self, "_name"))
+        if inst is not None and not isinstance(inst, _LazyComp):
+            object.__setattr__(self, "_resolved", inst)
+            return inst
+        return None
+
+    def __getattr__(self, attr: str):
+        resolved = self._resolve()
+        if resolved is None:
+            raise AttributeError(
+                f"Plugin component {self.name!r} is not yet loaded"
+            )
+        return getattr(resolved, attr)
+
+
 class ComponentRegistry:
     _instance: ClassVar[ComponentRegistry | None] = None
 
@@ -24,12 +59,11 @@ class ComponentRegistry:
             cls._instance._comps.append(comp_server_git())
             cls._instance._comps.append(comp_server_llm())
             cls._instance._comps.append(comp_server_llm_observability())
-            cls._instance._comps.append(comp_extensions())
+            cls._instance._comps.append(comp_plugin_packages())
             cls._instance._comps.append(comp_ecosystem())
             cls._instance._comps.append(comp_catalog())
             cls._instance._comps.append(comp_manifest())
             cls._instance._comps.append(comp_docs_server())
-            cls._instance._comps.append(comp_kg_viewer())
             cls._instance._comps.append(comp_md_browser())
             cls._instance._comps.append(comp_convert())
             cls._instance._comps.append(comp_neo4j())
@@ -67,10 +101,12 @@ class ComponentRegistry:
             visit(name)
         self._comps = result
 
-    def get(self, name: str) -> base_comp | None:
+    def get(self, name: str) -> "base_comp | _LazyComp | None":
         for c in self._comps:
             if c.name == name:
                 return c
+        if any(name in getattr(c, "plugin_deps", []) for c in self._comps):
+            return _LazyComp(name)
         return None
 
     def names(self) -> list[str]:
@@ -112,6 +148,8 @@ class ComponentRegistry:
         """Assert every dep instance referenced by a component is registered."""
         for inst in self._comps:
             for dep in inst.all_deps():
+                if isinstance(dep, _LazyComp):
+                    continue
                 assert (
                     self.get(dep.name) is dep
                 ), f"{inst.name}.dependencies contains unregistered instance {dep.name!r}"
@@ -129,12 +167,11 @@ from .component_ext_server_docker_hub import comp_server_docker_hub
 from .component_ext_server_git import comp_server_git
 from .component_ext_server_llm import comp_server_llm
 from .component_ext_server_llm_observability import comp_server_llm_observability
-from .component_ext_extensions import comp_extensions
+from .component_ext_plugin_packages import comp_plugin_packages
 from .component_ecosystem import comp_ecosystem
 from .component_catalog import comp_catalog
 from .component_manifest import comp_manifest
 from .component_cont_docs_server import comp_docs_server
-from .component_cont_kg_viewer import comp_kg_viewer
 from .component_cont_md_browser import comp_md_browser
 from .component_cont_convert import comp_convert
 from .component_cont_neo4j import comp_neo4j

@@ -2,10 +2,9 @@ import click
 
 from .component_registry import REGISTRY as COMP_REGISTRY
 from .click_comp_configuration import print_config_hint, print_config_status
-from .click_cont_comp_kg_view import view
 
 graph_comp = COMP_REGISTRY.get("graph")
-_llm_obs_comp = COMP_REGISTRY.get("llm-observability")
+llm_obs_comp = COMP_REGISTRY.get("llm-observability")
 
 _DEP_HINTS = {
     "neo4j": "run `jejune neo4j start`",
@@ -27,9 +26,6 @@ def graph(ctx):
         graph_comp.preflight()
 
 
-graph.add_command(view)
-
-
 @graph.command("build")
 @click.option("--no-cache", is_flag=True, default=False,
               help="Do not use Docker layer cache when building.")
@@ -43,7 +39,7 @@ def check_availability():
     """Show graph availability status with optional-dep detail."""
     ok, msg = graph_comp.is_running()
     status = click.style("ok", fg="green") if ok else click.style(msg, fg="red")
-    lo_ok, _ = _llm_obs_comp.is_running()
+    lo_ok, _ = llm_obs_comp.is_running()
     opt = click.style("llm-observability", fg="green" if lo_ok else "yellow")
     click.echo(f"graph: {status}  ({opt} optional)")
 

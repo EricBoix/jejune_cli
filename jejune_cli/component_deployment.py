@@ -14,9 +14,9 @@ class comp_deployment(component):
             dependencies=[
                 ComponentRegistry().get("catalog"),
                 ComponentRegistry().get("docs-server"),
-                ComponentRegistry().get("kg-viewer"),
                 ComponentRegistry().get("md-browser"),
             ],
+            plugin_deps=["kg-viewer"],
             hint="run `jejune deployment install`",
         )
 
@@ -34,11 +34,11 @@ class comp_deployment(component):
         return tuple(dep.service_name for dep in self.dependencies if hasattr(dep, "service_name"))
 
     def check_ui_services(self) -> list[tuple[str, bool, str]]:
-        from .plugin import _REGISTRY
-        from .extensions_registry import _DEPLOYER_CHECK_PACKAGES
-        plugins = {p.name: p for p in _REGISTRY}
+        from .plugin_registry import PLUGIN_REGISTRY
+        from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
+        plugins = {p.name: p for p in PLUGIN_REGISTRY.plugins}
         results = []
-        for _, _, name in _DEPLOYER_CHECK_PACKAGES:
+        for _, _, name in PLUGIN_PACKAGE_CATALOG.packages_for_role("deployer"):
             p = plugins.get(name)
             ok, msg = p.check_availability() if (p and p.check_availability) else (False, "not installed")
             results.append((name, ok, msg))

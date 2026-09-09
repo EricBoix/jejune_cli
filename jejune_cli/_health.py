@@ -13,7 +13,7 @@ def run_all(
     When *components* is given, only those components are checked.
     """
     from .component_with_config import conf_comp as component
-    from .plugin import _REGISTRY as _PLUGIN_REGISTRY
+    from .plugin_registry import PLUGIN_REGISTRY
     from .component_base import base_comp
     from .component_registry import REGISTRY as COMP_REGISTRY
 
@@ -40,7 +40,7 @@ def run_all(
         config.append((inst.name, status, msg))
 
     # Avail: built-in COMP_REGISTRY components (plugins handled separately)
-    _plugin_names = {p.name for p in _PLUGIN_REGISTRY}
+    _plugin_names = {p.name for p in PLUGIN_REGISTRY.plugins}
     for inst in COMP_REGISTRY:
         if not isinstance(inst, base_comp):
             continue
@@ -54,7 +54,7 @@ def run_all(
                 config.append((inst.name, *cfg))
 
     # Plugin availability checks
-    for plugin in _PLUGIN_REGISTRY:
+    for plugin in PLUGIN_REGISTRY.plugins:
         if not _visible_name(plugin.name):
             continue
         if plugin.check_availability is not None:

@@ -22,6 +22,7 @@ _STATUS_ICON: dict[str, tuple[str, str]] = {
 
 from .component_base import base_comp
 from .component_registry import REGISTRY as COMP_REGISTRY
+from .plugin_registry import PLUGIN_REGISTRY
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -29,13 +30,11 @@ from .component_registry import REGISTRY as COMP_REGISTRY
 
 
 def _resolve_avail_hint(inst: base_comp, fallback: str = "") -> str:
-    from .plugin import _REGISTRY as _PLUGIN_REGISTRY
-
     deployment = COMP_REGISTRY.get("deployment")
     is_ui_dep = deployment is not None and any(
         dep.name == inst.name for dep in deployment.dependencies
     )
-    if is_ui_dep and any(p.name == inst.name for p in _PLUGIN_REGISTRY):
+    if is_ui_dep and any(p.name == inst.name for p in PLUGIN_REGISTRY.plugins):
         images_missing = not deployment.is_available()
         return "run `jejune build`" if images_missing else "run `jejune up`"
     return inst.hint or fallback
@@ -166,8 +165,6 @@ def doctor(verbose: bool):
     use --verbose to show all.
     """
     from ._env import dot_jejune
-    from .plugin import _REGISTRY as _PLUGIN_REGISTRY
-
     active_role_obj = ROLE_REGISTRY.detect_role()
     active_role = active_role_obj.name if active_role_obj else None
     active_components = ROLE_REGISTRY.role_components(active_role_obj)
@@ -184,7 +181,7 @@ def doctor(verbose: bool):
 
     config_results, avail_results = run_all(components=active_components)
 
-    _plugin_names = {p.name for p in _PLUGIN_REGISTRY}
+    _plugin_names = {p.name for p in PLUGIN_REGISTRY.plugins}
     _builtin = frozenset(COMP_REGISTRY)
     if active_components is not None:
         _seen_config = {c for c, _, _ in config_results}

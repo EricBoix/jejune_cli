@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from .role import CONTRIBUTOR, DEPLOYER, DOC_STEWARD, NO_ROLE, Role
 
 if TYPE_CHECKING:
-    from .plugin import JejuneRole
+    from .plugin_role_description import plugin_role_description
     from .component_base import base_comp
 
 
@@ -18,7 +18,7 @@ class RoleRegistry:
     def register(self, role: Role) -> None:
         self._roles[role.name] = role
 
-    def register_from_plugin(self, j: "JejuneRole") -> None:
+    def register_from_plugin(self, j: "plugin_role_description") -> None:
         from .component_registry import REGISTRY as COMP_REGISTRY
         components = frozenset(filter(None, (COMP_REGISTRY.get(n) for n in j.components)))
         role = Role(
@@ -42,6 +42,9 @@ class RoleRegistry:
         order: int = 50,
     ) -> None:
         self._pending_help_sections.append((name, stage, order))
+
+    def get(self, name: str) -> "Role | None":
+        return self._roles.get(name)
 
     @property
     def roles(self) -> list[str]:

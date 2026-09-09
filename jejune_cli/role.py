@@ -71,7 +71,7 @@ DEPLOYER = Role(
     name="deployer",
     components=frozenset(filter(None, (
         COMP_REGISTRY.get(n) for n in (
-            "docker-command", "uv-command", "extensions",
+            "docker-command", "uv-command", "plugin-packages",
             "catalog", "deployment", "docs-server", "kg-viewer", "md-browser",
         )
     ))),

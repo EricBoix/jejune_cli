@@ -16,11 +16,12 @@ from ._doctor import (
 from .click_next_steps import next_cmd
 from .click_role_registry import role
 from .convert import convert, convert_configured
-from .plugin import JejunePlugin, _REGISTRY
+from .plugin_description import plugin_description as _PluginDescription
+from .plugin_registry import PLUGIN_REGISTRY
 from .role_registry import ROLE_REGISTRY
 from .click_comp_deployment import deployment, up as _up_cmd, down as _down_cmd
 from .click_comp_ecosystem import ecosystem
-from .click_extensions import extensions_group
+from .click_plugin_package_catalog import plugin_packages_group
 
 document = click.Group("document", help="Document workspace commands.")
 from .click_comp_configuration import (
@@ -117,7 +118,7 @@ class _JejuneGroup(click.Group):
         def _plugin_rows(stage: str) -> list[tuple[str, str]]:
             return [
                 (f"jejune {p.name}", p.group.get_short_help_str(limit=formatter.width))
-                for p in _REGISTRY if p.stage == stage
+                for p in PLUGIN_REGISTRY.plugins if p.stage == stage
             ]
 
         _included = set(ROLE_REGISTRY.includes(_ACTIVE_ROLE))
@@ -188,7 +189,7 @@ cli.add_command(manifest)
 cli.add_command(deployment)
 cli.add_command(document)
 cli.add_command(ecosystem)
-cli.add_command(extensions_group, "extensions")
+cli.add_command(plugin_packages_group, "plugin-packages")
 cli.add_command(convert)
 cli.add_command(availability)
 cli.add_command(doctor)
@@ -263,44 +264,17 @@ def build(no_cache: bool) -> None:
 # Plugin loading
 # ---------------------------------------------------------------------------
 
-from .component_with_config import conf_comp as _component
+
+def _handle_plugin(plugin: "_PluginDescription") -> None:
+    """Post-hook: wire CLI command and role for a single plugin."""
+    cli.add_command(plugin.group, plugin.name)
+    if plugin.role is not None:
+        _register_plugin_role(plugin)
 
 
-class _PluginComp(_component):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        COMP_REGISTRY.add(self)
-
-    def check(self) -> tuple[str, str]:
-        return "ok", ""
-
-
-def _load_plugins() -> None:
+def _finalize_plugins() -> None:
+    """Finalize hook: process pending help sections and refresh active role."""
     global _ACTIVE_ROLE, _ACTIVE_ROLE_OBJ, _ACTIVE_COMPONENTS
-    for ep in importlib.metadata.entry_points(group="jejune.plugins"):
-        try:
-            plugin: JejunePlugin = ep.load()
-        except Exception as exc:
-            click.echo(f"Warning: failed to load plugin {ep.name!r}: {exc}", err=True)
-            continue
-        _REGISTRY.append(plugin)
-        cli.add_command(plugin.group, plugin.name)
-        _PluginComp(
-            name=plugin.name,
-            dependencies=plugin.required_deps or [],
-            hint=plugin.avail_hint,
-        )
-        for dep_name in plugin.optional_deps:
-            inst = COMP_REGISTRY.get(dep_name)
-            if inst:
-                inst.mandatory = False
-        if plugin.config_vars:
-            inst = COMP_REGISTRY.get(plugin.name)
-            if inst is not None:
-                inst.configuration.env_vars = plugin.config_vars
-                inst.configuration.hint = plugin.config_hint
-        if plugin.role is not None:
-            _register_plugin_role(plugin)
     for pending_name, pending_stage, pending_order in ROLE_REGISTRY.pending_help_sections:
         if not any(rn == pending_name for rn, _, _ in _ROLE_HELP_SECTIONS):
             insert_at = next(
@@ -315,8 +289,7 @@ def _load_plugins() -> None:
     _ACTIVE_COMPONENTS = ROLE_REGISTRY.role_components(_ACTIVE_ROLE_OBJ)
 
 
-def _register_plugin_role(plugin: JejunePlugin) -> None:
-    """Register a role contributed by a plugin and insert its help section."""
+def _register_plugin_role(plugin: "_PluginDescription") -> None:
     role_obj = plugin.role
     assert role_obj is not None
     ROLE_REGISTRY.register_from_plugin(role_obj)
@@ -332,4 +305,6 @@ def _register_plugin_role(plugin: JejunePlugin) -> None:
         register_role_config_subgroup(role_obj.config_group)
 
 
-_load_plugins()
+PLUGIN_REGISTRY.add_post_hook(_handle_plugin)
+PLUGIN_REGISTRY.set_finalize_hook(_finalize_plugins)
+PLUGIN_REGISTRY.load_all()
