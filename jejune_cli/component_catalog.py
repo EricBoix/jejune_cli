@@ -26,7 +26,7 @@ class comp_catalog(component):
     def trivial_catalog_content(self) -> str | None:
         try:
             from importlib.resources import files
-            return (files("jejune_catalog_check") / "templates" / "trivial-catalog.yaml").read_text()
+            return (files("jejune_catalog") / "templates" / "trivial-catalog.yaml").read_text()
         except Exception:
             return None
 
