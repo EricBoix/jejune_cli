@@ -26,7 +26,7 @@ wheels = [
 [[package]]
 name = "jejune-catalog"
 version = "0.1.0"
-source = { git = "https://github.com/EricBoix/jejune_catalog#21a4ae08bcccaac420f05f2ce92274ddab1dd5a6" }
+source = { git = "https://github.com/EricBoix/jejune_catalog#ebf7cd3891f089d5b6809c621608ce21684074b9" }
 dependencies = [
     { name = "click" },
     { name = "pyyaml" },
