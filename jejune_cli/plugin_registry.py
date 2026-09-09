@@ -90,18 +90,22 @@ class PluginRegistry:
         self._loaded.add(plugin.name)
         self._plugins.append(plugin)
 
-        from .component_registry import ComponentRegistry
+        from .component_registry import ComponentRegistry, _LazyComp
 
         reg = ComponentRegistry()
         if plugin.component is not None:
             reg.add(plugin.component)
         else:
-            PC = _get_plugin_comp_class()
-            PC(
-                name=plugin.name,
-                dependencies=plugin.required_deps or [],
-                hint=plugin.avail_hint,
-            )
+            existing = reg.get(plugin.name)
+            if existing is None or isinstance(existing, _LazyComp):
+                PC = _get_plugin_comp_class()
+                PC(
+                    name=plugin.name,
+                    dependencies=plugin.required_deps or [],
+                    hint=plugin.avail_hint,
+                )
+            elif plugin.avail_hint and not existing.hint:
+                existing.hint = plugin.avail_hint
 
         for dep_name in plugin.optional_deps:
             inst = reg.get(dep_name)
