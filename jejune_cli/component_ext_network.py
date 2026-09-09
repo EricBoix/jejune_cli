@@ -1,6 +1,5 @@
 """Network connectivity component."""
-import platform
-import subprocess
+import socket
 
 from .component_ext import ext_comp
 from .component_registry import ComponentRegistry
@@ -8,28 +7,24 @@ from .component_registry import ComponentRegistry
 
 class comp_network(ext_comp):
     def __init__(self) -> None:
+        self.remote_server = "www.google.com"
         super().__init__(
             name="network",
-            hint="check internet connectivity (GitHub must be reachable)",
+            hint=f"check internet connectivity (e.g. ping {self.remote_server})",
         )
-        self.remote_server = "www.google.com"
 
     def check(self) -> tuple[str, str]:
         if not ComponentRegistry().get("ecosystem").ecosystem_needs_remote():
             return "ok", ""
-        ok = _ping(self.remote_server)
-        return ("ok", "") if ok else ("error", "GitHub not reachable")
+        ok = _tcp_reachable(self.remote_server)
+        return ("ok", "") if ok else ("error", f"{self.remote_server} not reachable")
 
 
-def _ping(host: str) -> bool:
-    timeout_flag = "-t" if platform.system() == "Darwin" else "-W"
+def _tcp_reachable(host: str, port: int = 443, timeout: float = 3.0) -> bool:
     try:
-        subprocess.run(
-            ["ping", "-c", "1", timeout_flag, "3", host],
-            capture_output=True, check=True,
-        )
-        return True
-    except Exception:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
         return False
 
 
