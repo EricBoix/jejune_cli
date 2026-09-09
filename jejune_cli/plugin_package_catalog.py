@@ -4,32 +4,22 @@ from __future__ import annotations
 import importlib.metadata
 import subprocess
 import sys
-from typing import TYPE_CHECKING
 
 import click
-
-if TYPE_CHECKING:
-    from .plugin_description import plugin_description
 
 
 class plugin_package_catalog:
     """Tracks installable plugin packages and answers install-state queries.
 
-    Populated at runtime by ``PluginRegistry`` as plugins are loaded: each
-    ``plugin_description`` that carries a non-empty ``repo_name`` is registered
-    here so its install location is remembered.
-
     The *expected* set of plugins for a role is derived from ``plugin_deps``
-    declared on active components — no static config required.
+    declared on active components.  ``_BUILTIN_REPOS`` is the authoritative
+    mapping from plugin name to source repository — used by ``install_packages``
+    to locate a package regardless of whether it is already installed.
     """
 
-    def __init__(self) -> None:
-        self._registered: dict[str, str] = {}
-
-    def register(self, plugin: "plugin_description") -> None:
-        """Record a plugin's install metadata.  Called by PluginRegistry."""
-        if plugin.repo_name:
-            self._registered[plugin.name] = plugin.repo_name
+    _BUILTIN_REPOS: dict[str, str] = {
+        "kg-viewer": "jejune_kg-graph_viewer",
+    }
 
     def _expected_plugin_names(self, role: str | None) -> set[str]:
         """Collect plugin_deps from all components active for *role*."""
@@ -76,11 +66,11 @@ class plugin_package_catalog:
             r = ROLE_REGISTRY.detect_role()
             role = r.name if r else None
         for name in self._expected_plugin_names(role):
-            repo_name = self._registered.get(name)
+            repo_name = self._BUILTIN_REPOS.get(name)
             if repo_name is None:
                 click.echo(
                     f"  {name}: {click.style('install info unknown', fg='red')}"
-                    " — install manually or load the plugin first"
+                    " — add it to plugin_package_catalog._BUILTIN_REPOS"
                 )
                 continue
             self._install_package(repo_name, name)

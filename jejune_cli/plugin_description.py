@@ -72,13 +72,6 @@ class plugin_description:
     image_is_built: Callable[[], bool] | None = None
     """() -> bool — returns True when this component's Docker image already exists."""
     component: "base_comp | None" = None
-    repo_name: str = ""
-    """Name of the source repository (e.g. ``"jejune_kg-graph_viewer"``).
-
-    Used by ``PLUGIN_PACKAGE_CATALOG.install_packages()`` to locate the package
-    when it is not yet installed.  Leave empty for plugins whose install location
-    is managed outside the catalog.
-    """
     """Full component instance to register in COMP_REGISTRY.
 
     When set, PluginRegistry uses this instance directly instead of creating a

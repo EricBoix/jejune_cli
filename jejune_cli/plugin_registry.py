@@ -118,9 +118,6 @@ class PluginRegistry:
                 inst.configuration.env_vars = plugin.config_vars
                 inst.configuration.hint = plugin.config_hint
 
-        from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
-        PLUGIN_PACKAGE_CATALOG.register(plugin)
-
         for hook in self._post_hooks:
             hook(plugin)
 
