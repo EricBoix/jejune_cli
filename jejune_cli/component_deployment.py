@@ -37,7 +37,7 @@ class comp_deployment(component):
         from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
         plugins = {p.name: p for p in PLUGIN_REGISTRY.plugins}
         results = []
-        for _, _, name in PLUGIN_PACKAGE_CATALOG.packages_for_role("deployer"):
+        for name in PLUGIN_PACKAGE_CATALOG.expected_plugin_names("deployer"):
             p = plugins.get(name)
             ok, msg = p.check_availability() if (p and p.check_availability) else (False, "not installed")
             results.append((name, ok, msg))
