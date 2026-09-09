@@ -2,7 +2,7 @@
 
 import click
 
-from ._health import run_all
+from .doctor_health_check import run_all
 from .click_comp_configuration import (
     print_two_col_table,
 )
@@ -145,6 +145,7 @@ def _print_health_table(
 # ---------------------------------------------------------------------------
 
 
+
 @click.command()
 @click.option(
     "--verbose",
@@ -166,8 +167,7 @@ def doctor(verbose: bool):
     """
     from ._env import dot_jejune
     active_role_obj = ROLE_REGISTRY.detect_role()
-    active_role = active_role_obj.name if active_role_obj else None
-    active_components = ROLE_REGISTRY.role_components(active_role_obj)
+    active_role = ROLE_REGISTRY.detect_role_name()
 
     d = dot_jejune()
     if (not active_role_obj or active_role_obj.is_doc_steward()) and not d.is_dir():
@@ -179,7 +179,8 @@ def doctor(verbose: bool):
         )
         return
 
-    config_results, avail_results = run_all(components=active_components)
+    config_results, avail_results = run_all()
+    active_components = ROLE_REGISTRY.current_role_components()
 
     _plugin_names = {p.name for p in PLUGIN_REGISTRY.plugins}
     _builtin = frozenset(COMP_REGISTRY)
@@ -251,15 +252,10 @@ def doctor(verbose: bool):
 # ---------------------------------------------------------------------------
 
 
-def _active_components():
-    role = ROLE_REGISTRY.detect_role()
-    return ROLE_REGISTRY.role_components(role)
-
-
 @click.command("check-availability")
 def config_check_availability():
     """Per-component availability diagnostic."""
-    _, avail_results = run_all(components=_active_components())
+    _, avail_results = run_all()
     rows = _build_avail_rows(avail_results, _avail_all_visible())
     if not rows:
         click.echo(
@@ -276,7 +272,7 @@ def config_check_availability():
 @click.command("status-availability")
 def config_status_availability():
     """Per-component availability status."""
-    _, avail_results = run_all(components=_active_components())
+    _, avail_results = run_all()
     rows = _build_avail_rows(avail_results, _avail_all_visible())
     if not rows:
         click.echo(
@@ -293,7 +289,7 @@ def config_status_availability():
 @click.command("hint-availability")
 def config_hint_availability():
     """Availability hints for non-ok components."""
-    _, avail_results = run_all(components=_active_components())
+    _, avail_results = run_all()
     rows = [
         (comp, hint)
         for comp, _, _, hint in _build_avail_rows(avail_results, _avail_all_visible())

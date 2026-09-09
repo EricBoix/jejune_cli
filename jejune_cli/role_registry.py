@@ -70,6 +70,12 @@ class RoleRegistry:
         r = self._roles.get(role_name)
         return r.includes if r else ()
 
+    def current_role_components(self) -> "frozenset[base_comp] | None":
+        return self.role_components(self.detect_role())
+
+    def detect_role_name(self) -> "str | None":
+        return self.detect_role().name or None
+
     def detect_role(self) -> Role:
         override = os.environ.get("JEJUNE_ROLE")
         if override:

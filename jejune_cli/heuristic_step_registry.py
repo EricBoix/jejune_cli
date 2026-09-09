@@ -119,11 +119,11 @@ class HeuristicStepRegistry:
             )
 
         if cwd is None:
-            return _sorted(ROLE_REGISTRY.detect_role().name or None)
+            return _sorted(ROLE_REGISTRY.detect_role_name())
         old = os.getcwd()
         try:
             os.chdir(cwd)
-            return _sorted(ROLE_REGISTRY.detect_role().name or None)
+            return _sorted(ROLE_REGISTRY.detect_role_name())
         finally:
             os.chdir(old)
 
@@ -164,7 +164,7 @@ class HeuristicStepRegistry:
         """Return per-heuristic condition evaluation for diagnostics."""
         self._load_providers()
         from .role_registry import ROLE_REGISTRY
-        active_role = ROLE_REGISTRY.detect_role().name or None
+        active_role = ROLE_REGISTRY.detect_role_name()
 
         def _run() -> list[tuple[HeuristicStep, list[tuple[str, bool]], list[tuple[str, bool]]]]:
             result = []

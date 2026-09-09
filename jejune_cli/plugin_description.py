@@ -77,3 +77,4 @@ class plugin_description:
     When set, PluginRegistry uses this instance directly instead of creating a
     thin _PluginComp wrapper.  The instance must have name == self.name.
     """
+

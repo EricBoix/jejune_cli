@@ -5,7 +5,6 @@ from pathlib import Path
 import click
 
 from ._env import dot_jejune, load_env_files
-from ._health import run_all  # noqa: F401 — re-exported for external callers
 from ._doctor import (
     availability,
     config_check_availability,
@@ -38,7 +37,7 @@ from .configuration_deployer import init as _deployer_init
 from .configuration_doc_steward import init as _doc_steward_init
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 _ACTIVE_ROLE_OBJ = ROLE_REGISTRY.detect_role()
-_ACTIVE_ROLE: str | None = _ACTIVE_ROLE_OBJ.name or None
+_ACTIVE_ROLE: str | None = ROLE_REGISTRY.detect_role_name()
 _ACTIVE_COMPONENTS = ROLE_REGISTRY.role_components(_ACTIVE_ROLE_OBJ)
 
 
@@ -285,7 +284,7 @@ def _finalize_plugins() -> None:
             _ROLE_HELP_SECTIONS.insert(insert_at, (pending_name, [], pending_stage))
             _SECTION_ORDER[pending_name] = pending_order
     _ACTIVE_ROLE_OBJ = ROLE_REGISTRY.detect_role()
-    _ACTIVE_ROLE = _ACTIVE_ROLE_OBJ.name if _ACTIVE_ROLE_OBJ else None
+    _ACTIVE_ROLE = ROLE_REGISTRY.detect_role_name()
     _ACTIVE_COMPONENTS = ROLE_REGISTRY.role_components(_ACTIVE_ROLE_OBJ)
 
 
