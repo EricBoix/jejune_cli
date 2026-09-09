@@ -1,6 +1,5 @@
 """Aggregate health-check used by ``jejune doctor``."""
 
-from .component_registry import REGISTRY as COMP_REGISTRY
 from .component_with_config import conf_comp as component
 from .plugin_registry import PLUGIN_REGISTRY
 from .role_registry import ROLE_REGISTRY
@@ -20,10 +19,9 @@ def run_all() -> tuple[
     config: list[tuple[str, str, str]] = []
     avail:  list[tuple[str, str, str]] = []
 
-    # role components are always sourced in COMP_REGISTRY
     role_comps = ROLE_REGISTRY.current_role_components()
     if role_comps is None:
-        print("This role has not components. How strange")
+        print("This role does not have any components. Inquire on this case.")
         sys.exit()
 
     # First display components with configured env_vars
@@ -40,14 +38,14 @@ def run_all() -> tuple[
             continue
         status, msg = inst.check()
         avail.append((inst.name, status, msg))
-        # Components, that by construction always have a configuration, 
+        # Components, that by construction always have a configuration,
         # additionally display their configuration status:
         if isinstance(inst, component):
             cfg = inst.check_config()
             if cfg is not None:
                 config.append((inst.name, *cfg))
 
-    # Eventually, display plugin components availability checks, filtered 
+    # Eventually, display plugin components availability checks, filtered
     # by role
     role_names = {c.name for c in role_comps} if role_comps is not None else None
     for plugin in PLUGIN_REGISTRY.plugins:

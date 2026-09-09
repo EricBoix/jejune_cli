@@ -247,9 +247,11 @@ def build(no_cache: bool) -> None:
     """
     from .component_containerized import cont_comp
     components = ROLE_REGISTRY.role_components(_ACTIVE_ROLE_OBJ) or set()
+    component_names = {c.name for c in components}
     builders = [
         inst for inst in COMP_REGISTRY
-        if isinstance(inst, cont_comp) and inst in components and inst.build_context
+        if isinstance(inst, cont_comp) and inst.name in component_names
+        and (inst.build_context or getattr(inst, "repos", None))
     ]
     if not builders:
         raise click.UsageError(
