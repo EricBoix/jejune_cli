@@ -2,16 +2,20 @@
 
 import click
 
+from .component_base import base_comp
 from .component_registry import REGISTRY as COMP_REGISTRY
 from .click_theme import ClickTheme
+from .role_registry import ROLE_REGISTRY
 
 
-def build_tree_lines() -> list[str]:
-    by_name = {c.name: c for c in COMP_REGISTRY}
+def build_tree_lines(components: list[base_comp]) -> list[str]:
+    by_name = {c.name: c for c in components}
 
-    # Top-level = not in anyone's required dependencies
-    required: set[str] = {dep.name for comp in COMP_REGISTRY for dep in comp.dependencies}
-    top_level = [c for c in COMP_REGISTRY if c.name not in required]
+    # Top-level within the active set = not required by any other active component
+    required: set[str] = {
+        dep.name for comp in components for dep in comp.dependencies if dep.name in by_name
+    }
+    top_level = [c for c in components if c.name not in required]
 
     visited: set[str] = set()
     status_cache: dict[str, tuple[str, str]] = {}
@@ -56,5 +60,8 @@ def build_tree_lines() -> list[str]:
 @click.command("tree")
 def components_tree() -> None:
     """Show component dependency relationships as an ASCII tree."""
-    for line in build_tree_lines():
+    current_role_active_components: list[base_comp] = COMP_REGISTRY.sorted_active_set(
+        ROLE_REGISTRY.current_role_components()
+    )
+    for line in build_tree_lines(current_role_active_components):
         click.echo(line)
