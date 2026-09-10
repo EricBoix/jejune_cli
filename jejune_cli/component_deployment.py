@@ -16,7 +16,7 @@ class comp_deployment(component):
                 ComponentRegistry().get("catalog"),
                 ComponentRegistry().get("docker-daemon"),
             ],
-            plugin_deps=["kg-viewer", "md-browser", "docs-server"],
+            plugin_deps=["jejune_docs_server", "jejune_kg-graph_viewer", "jejune_markdown_browser"],
             hint="run `jejune deployment install`",
         )
 
@@ -51,7 +51,7 @@ class comp_deployment(component):
         if root_dir:
             env["JEJUNE_ROOT_DIR"] = str(root_dir)
         for dep in self.dependencies:
-            repo_name = PLUGIN_PACKAGE_CATALOG.get(dep.name)
+            repo_name = PLUGIN_PACKAGE_CATALOG.repo_name_for(dep.name)
             for subpath, key in getattr(dep, "repos", []):
                 if key:
                     env[key] = eco.resolve(repo_name, root_dir, tmp_dir, subpath)

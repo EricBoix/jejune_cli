@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, ClassVar
 if TYPE_CHECKING:
     from .component_base import base_comp
 
-
 class _LazyComp:
     """Proxy for a plugin-contributed component not yet loaded.
 
@@ -45,6 +44,24 @@ class _LazyComp:
 
 class ComponentRegistry:
     _instance: ClassVar[ComponentRegistry | None] = None
+    _expected_plugin_names: ClassVar[set[str]] = set()
+    """Plugin names that will be contributed by installed plugin packages.
+
+    Populated once by ``PluginRegistry.load_all()`` (Phase 0) from the
+    ``"jejune.plugins"`` entry-points of already-installed packages.
+    ``get()`` consults this set to return a ``_LazyComp`` proxy for a name
+    that is not yet registered but is known to be on its way.
+    """
+
+    def register_expected_plugin_names(self, names: set[str]) -> None:
+        """Add *names* to the set of plugin component names expected to be loaded.
+
+        Must be called before any code invokes ``get()`` with a plugin name,
+        so that ``get()`` can return a ``_LazyComp`` proxy rather than ``None``
+        for components that are known but not yet registered.  Calling this
+        method multiple times is safe — it accumulates names.
+        """
+        ComponentRegistry._expected_plugin_names.update(names)
 
     def __new__(cls) -> ComponentRegistry:
         if cls._instance is None:
@@ -104,7 +121,7 @@ class ComponentRegistry:
         for c in self._comps:
             if c.name == name:
                 return c
-        if any(name in getattr(c, "plugin_deps", []) for c in self._comps):
+        if name in ComponentRegistry._expected_plugin_names:
             return _LazyComp(name)
         return None
 

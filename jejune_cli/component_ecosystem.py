@@ -80,7 +80,7 @@ class comp_ecosystem(component):
             for comp in ComponentRegistry()
             if comp in active
             if getattr(comp, "repos", [])
-            if (pkg_name := PLUGIN_PACKAGE_CATALOG.get(comp.name)) is not None
+            if (pkg_name := PLUGIN_PACKAGE_CATALOG.repo_name_for(comp.name)) is not None
         )
 
     def check(self) -> tuple[str, str]:

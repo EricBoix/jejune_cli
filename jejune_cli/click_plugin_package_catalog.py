@@ -32,14 +32,16 @@ def plugin_packages_status() -> None:
 
 
 @plugin_packages_group.command("install")
-def plugin_packages_install() -> None:
+@click.option("--no-cache", is_flag=True, default=False,
+              help="Force fresh discovery of plugin repositories (ignore cached pyproject.toml reads).")
+def plugin_packages_install(no_cache: bool) -> None:
     """Install plugin packages for the current role (local clone or git remote)."""
     role = ROLE_REGISTRY.detect_role()
     role_name = role.name if role else None
     if not PLUGIN_PACKAGE_CATALOG.expected_plugin_names(role_name):
         click.echo(click.style("No plugin packages defined for the current role.", fg="yellow"))
         return
-    if PLUGIN_PACKAGE_CATALOG.packages_installed(role_name):
+    if not no_cache and PLUGIN_PACKAGE_CATALOG.packages_installed(role_name):
         click.echo("All plugin packages already installed.")
         return
-    PLUGIN_PACKAGE_CATALOG.install_packages(role_name)
+    PLUGIN_PACKAGE_CATALOG.install_packages(role_name, no_cache=no_cache)

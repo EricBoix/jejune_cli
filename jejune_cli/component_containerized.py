@@ -61,7 +61,7 @@ class cont_comp(component):
                 if context:
                     self.build_context = str(Path(context) / subpath) if subpath else context
                 else:
-                    repo_name = PLUGIN_PACKAGE_CATALOG.get(self.name)
+                    repo_name = PLUGIN_PACKAGE_CATALOG.repo_name_for(self.name)
                     ref = f"main:{subpath}" if subpath else None
                     self.build_context = COMP_REGISTRY.get("git-server").remote_git_url(repo_name, ref)
         if not self.build_context:

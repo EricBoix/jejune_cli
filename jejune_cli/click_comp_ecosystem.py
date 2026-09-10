@@ -50,7 +50,7 @@ def ecosystem_status() -> None:
     else:
         rows: list[tuple[str, str, str, str]] = []
         for comp, _, _ in repos:
-            name = PLUGIN_PACKAGE_CATALOG.get(comp.name) or comp.name
+            name = PLUGIN_PACKAGE_CATALOG.repo_name_for(comp.name) or comp.name
             tier, path = eco.repo_status(name, root_dir, tmp_dir)
             if tier == "root":
                 clone_display, remote_display = "[JEJUNE_ROOT_DIR]", ""
