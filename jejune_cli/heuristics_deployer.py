@@ -11,7 +11,6 @@ from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 from .role import DEPLOYER
 
 _T_UI = Path(__file__).parent / "templates" / "deployer" / "ui-deployment"
-_UI_SERVICES = ("docs-server", "kg-graph-viewer", "markdown-browser")
 
 
 def _deploy_catalog_needs_configuration() -> bool:
@@ -39,7 +38,10 @@ def _deploy_config_is_default() -> bool:
 def _deploy_containers_running() -> bool:
     from .component_ext_command_docker import DOCKER_COMMAND
     name = Path(".").resolve().name.lower()
-    return all(DOCKER_COMMAND.is_running(f"jejune-{name}-{svc}-1")[0] for svc in _UI_SERVICES)
+    return all(
+        DOCKER_COMMAND.is_running(f"jejune-{name}-{svc}-1")[0]
+        for svc in COMP_REGISTRY.get("deployment").service_names
+    )
 
 
 def _deploy_images_missing() -> bool:
