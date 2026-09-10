@@ -91,6 +91,13 @@ def register_heuristics() -> None:
     ), roles={"deployer"})
 
     HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
+        label="Install plugin packages",
+        command="jejune plugin-packages install", order=3,
+        conditions=[DEPLOYER.is_deployer],
+        anti_conditions=[ComponentCondition("plugin-packages")],
+    ), roles={"deployer"})
+
+    HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
         label="Wrap up configuration",
         command="edit config files", order=5,
         conditions=[DEPLOYER.is_deployer, _deploy_config_is_default],
@@ -163,4 +170,4 @@ def register_heuristics() -> None:
     HEURISTIC_STEP_REGISTRY.register_role_ordering("deployer", {
         inst.hint: (i - len(_ext_deps)) * 10
         for i, inst in enumerate(_ext_deps)
-    } | {"Wrap up configuration": -1})
+    } | {"Install plugin packages": -2, "Wrap up configuration": -1})
