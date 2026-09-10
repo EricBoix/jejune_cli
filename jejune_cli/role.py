@@ -57,7 +57,7 @@ DOC_STEWARD = Role(
     name="doc-steward",
     components=frozenset(filter(None, (
         COMP_REGISTRY.get(n) for n in (
-            "docker-command", "docker-hub-server", "pypi-server",
+            "docker-command", "docker-daemon", "docker-hub-server", "pypi-server",
             "neo4j", "llm", "llm-observability", "graph", "convert", "manifest",
         )
     ))),
@@ -71,7 +71,7 @@ DEPLOYER = Role(
     name="deployer",
     components=frozenset(filter(None, (
         COMP_REGISTRY.get(n) for n in (
-            "docker-command", "uv-command", "plugin-packages",
+            "docker-command", "docker-daemon", "uv-command", "plugin-packages",
             "catalog", "deployment", "docs-server", "kg-viewer", "md-browser",
         )
     ))),

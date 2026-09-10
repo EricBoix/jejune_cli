@@ -34,9 +34,13 @@ class cont_comp(component):
         hint: str | None = None,
         service_name: str | None = None,
     ) -> None:
+        # Deferred import to avoid circular import: registry imports this module's subclasses.
+        from .component_registry import ComponentRegistry
+        daemon = ComponentRegistry().get("docker-daemon")
+        deps = [self._docker] + ([daemon] if daemon else []) + (dependencies or [])
         super().__init__(
             name=name,
-            dependencies=[self._docker] + (dependencies or []),
+            dependencies=deps,
             optional_dependencies=optional_dependencies,
             hint=hint,
             configuration=configuration,
