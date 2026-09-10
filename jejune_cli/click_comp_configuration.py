@@ -4,12 +4,7 @@ import click
 
 from .configuration_doc_steward import doc_steward_group as _doc_steward_group
 from .configuration_deployer import deployer_group as _deployer_group
-
-_STATUS_DISPLAY: dict[str, tuple[str, str]] = {
-    "ok":    ("✓", "green"),
-    "warn":  ("–", "yellow"),
-    "error": ("✗", "red"),
-}
+from .click_theme import ClickTheme
 
 
 def print_config_table(
@@ -24,14 +19,14 @@ def print_config_table(
     if not rows:
         return
     _W_C = max(len("Component configuration"), max(len(r[0]) for r in rows))
-    _W_S = max(len("Status"), max(len(_STATUS_DISPLAY.get(r[1], (r[1], ""))[0]) for r in rows))
+    _W_S = max(len("Status"), max(len(ClickTheme.status_icons.get(r[1], (r[1], ""))[0]) for r in rows))
     _W_K = max(len("Check"), max(len(r[2]) for r in rows))
     _W_H = max(len(hint_header), max(len(r[3]) for r in rows))
     divider = "  " + "─" * (_W_C + 2 + _W_S + 2 + _W_K + 2 + _W_H)
     click.echo(f"  {'Component configuration':<{_W_C}}  {'Status':<{_W_S}}  {'Check':<{_W_K}}  {hint_header}")
     click.echo(divider)
     for comp, status, check, hint in rows:
-        text, fg = _STATUS_DISPLAY.get(status, (status, "white"))
+        text, fg = ClickTheme.status_icons.get(status, (status, "white"))
         click.echo(f"  {comp:<{_W_C}}  {click.style(f'{text:<{_W_S}}', fg=fg)}  {check:<{_W_K}}  {hint}")
     if note is not None:
         click.echo(divider)
@@ -212,7 +207,7 @@ def configuration_status():
     styled = [
         (name, click.style(text, fg=fg))
         for name, status, _, _ in checks
-        for text, fg in [_STATUS_DISPLAY.get(status, (status, "white"))]
+        for text, fg in [ClickTheme.status_icons.get(status, (status, "white"))]
     ]
     print_two_col_table(styled, "Component configuration", "Status")
 

@@ -7,17 +7,7 @@ from .click_comp_configuration import (
     print_two_col_table,
 )
 from .role_registry import ROLE_REGISTRY
-
-# ---------------------------------------------------------------------------
-# Display constants
-# ---------------------------------------------------------------------------
-
-_STATUS_FG: dict[str, str] = {"ok": "green", "warn": "yellow", "error": "red"}
-_STATUS_ICON: dict[str, tuple[str, str]] = {
-    "ok": ("✓", "green"),
-    "warn": ("–", "yellow"),
-    "error": ("✗", "red"),
-}
+from .click_theme import ClickTheme
 
 from .component_base import base_comp
 from .component_ext import ext_comp
@@ -100,7 +90,7 @@ def _print_health_table(
     )
     click.echo("  " + "─" * divider_len)
     for comp, c_status, img, a_status, action in rows:
-        c_icon, c_fg = _STATUS_ICON.get(c_status, ("?", "white"))
+        c_icon, c_fg = ClickTheme.status_icons.get(c_status, ("?", "white"))
         c_cell = click.style(c_icon, fg=c_fg) + " " * (_W_CFG - len(c_icon))
         if img is None:
             i_cell = " " * _W_IMG
@@ -108,7 +98,7 @@ def _print_health_table(
             i_icon, i_fg = ("✓", "green") if img else ("✗", "red")
             i_cell = click.style(i_icon, fg=i_fg) + " " * (_W_IMG - len(i_icon))
         if a_status is not None:
-            a_icon, a_fg = _STATUS_ICON.get(a_status, ("?", "white"))
+            a_icon, a_fg = ClickTheme.status_icons.get(a_status, ("?", "white"))
             a_cell = click.style(a_icon, fg=a_fg) + " " * (_W_AVAIL - len(a_icon))
         else:
             a_cell = " " * _W_AVAIL
@@ -208,7 +198,7 @@ def config_check_availability():
         )
         return
     styled = [
-        (click.style(comp, fg=_STATUS_FG.get(status, "white")), check)
+        (click.style(comp, fg=ClickTheme.status_foregrounds.get(status, "white")), check)
         for comp, status, check, _ in rows
     ]
     print_two_col_table(styled, "Component", "Check")
@@ -225,7 +215,7 @@ def config_status_availability():
         )
         return
     styled = [
-        (comp, click.style(status, fg=_STATUS_FG.get(status, "white")))
+        (comp, click.style(status, fg=ClickTheme.status_foregrounds.get(status, "white")))
         for comp, status, _, _ in rows
     ]
     print_two_col_table(styled, "Component", "Status")

@@ -6,7 +6,7 @@ from pathlib import Path
 import click
 import yaml
 
-from ._doctor import _STATUS_FG
+from .click_theme import ClickTheme
 
 
 @click.group("manifest", short_help="Document manifest operations")
@@ -19,7 +19,7 @@ def manifest_check_config():
     """Show manifest.yaml configuration detail (required fields, unknown fields)."""
     from .test import _manifest_config_status
     status, msg = _manifest_config_status(Path.cwd())
-    fg = _STATUS_FG.get(status, "white")
+    fg = ClickTheme.status_foregrounds.get(status, "white")
     click.echo(f"  manifest.yaml  {click.style(status, fg=fg)}")
     if msg:
         click.echo(f"  {msg}")
@@ -30,7 +30,7 @@ def manifest_status_config():
     """Show manifest configuration status."""
     from .test import _manifest_config_status
     status, _ = _manifest_config_status(Path.cwd())
-    click.echo(f"manifest: {click.style(status, fg=_STATUS_FG.get(status, 'white'))}")
+    click.echo(f"manifest: {click.style(status, fg=ClickTheme.status_foregrounds.get(status, 'white'))}")
 
 
 @manifest.command("hint-config")
@@ -50,7 +50,7 @@ def manifest_check_availability():
     from .test import _check_doc_yaml, _manifest_avail_status
     status, msg = _manifest_avail_status(Path.cwd())
     label = "ok" if status == "ok" else msg
-    click.echo(f"  files  {click.style(label, fg=_STATUS_FG.get(status, 'white'))}")
+    click.echo(f"  files  {click.style(label, fg=ClickTheme.status_foregrounds.get(status, 'white'))}")
     _, file_refs = _check_doc_yaml(Path.cwd())
     if file_refs:
         repo = Path.cwd()
@@ -65,7 +65,7 @@ def manifest_status_availability():
     """Show manifest availability status."""
     from .test import _manifest_avail_status
     status, _ = _manifest_avail_status(Path.cwd())
-    click.echo(f"manifest: {click.style(status, fg=_STATUS_FG.get(status, 'white'))}")
+    click.echo(f"manifest: {click.style(status, fg=ClickTheme.status_foregrounds.get(status, 'white'))}")
 
 
 @manifest.command("hint-availability")

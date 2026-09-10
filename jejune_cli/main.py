@@ -20,6 +20,7 @@ from .plugin_registry import PLUGIN_REGISTRY
 from .role_registry import ROLE_REGISTRY
 from .click_comp_deployment import deployment, up as _up_cmd, down as _down_cmd
 from .click_comp_ecosystem import ecosystem
+from .click_components import components
 from .click_plugin_package_catalog import plugin_packages_group
 
 document = click.Group("document", help="Document workspace commands.")
@@ -54,7 +55,7 @@ HEURISTIC_STEP_REGISTRY.register_command_precondition("jejune doctor", _doctor_v
 
 from .component_registry import REGISTRY as COMP_REGISTRY
 
-_CONTRIBUTOR_COMMANDS = ["doctor", "configuration", "role", "containers", "ecosystem", "next"]
+_CONTRIBUTOR_COMMANDS = ["doctor", "configuration", "components", "role", "containers", "ecosystem", "next"]
 _DOC_STEWARD_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert", "manifest"]
 _DEPLOYER_COMPONENTS = ["deployment"]
 
@@ -176,6 +177,7 @@ def cli():
 # ---------------------------------------------------------------------------
 
 cli.add_command(configuration)
+cli.add_command(components)
 configuration.add_command(config_check_availability)
 configuration.add_command(config_status_availability)
 configuration.add_command(config_hint_availability)
