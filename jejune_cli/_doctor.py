@@ -11,6 +11,7 @@ from .click_theme import ClickTheme
 
 from .component_base import base_comp
 from .component_ext import ext_comp
+from .component_ext_server import ext_server
 from .component_registry import REGISTRY as COMP_REGISTRY
 from .plugin_registry import PLUGIN_REGISTRY
 
@@ -167,7 +168,7 @@ def doctor(verbose: bool):
 
     if not verbose:
         avail_ok = {comp for comp, status, _, _ in avail_rows if status == "ok"}
-        ext_names_set = {c.name for c in visible_components if isinstance(c, ext_comp)}
+        ext_names_set = {c.name for c in visible_components if isinstance(c, (ext_comp, ext_server))}
         config_rows = [
             row
             for row in config_rows
