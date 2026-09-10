@@ -143,11 +143,22 @@ class PluginRegistry:
         from .component_registry import ComponentRegistry, _LazyComp
 
         reg = ComponentRegistry()
+        # Resolve plugin_deps: wire resolved plugin instances into comp.dependencies
+        # and implicitly add plugin-packages, since loading plugins requires it.
+        plugin_packages = reg.get("plugin-packages")
         for comp in reg:
-            for pname in getattr(comp, "plugin_deps", []):
+            if not getattr(comp, "plugin_deps", []):
+                continue
+            for pname in comp.plugin_deps:
                 inst = reg.get(pname)
                 if inst is not None and not isinstance(inst, _LazyComp) and inst not in comp.dependencies:
                     comp.dependencies.append(inst)
+            if (
+                plugin_packages is not None
+                and not isinstance(plugin_packages, _LazyComp)
+                and plugin_packages not in comp.dependencies
+            ):
+                comp.dependencies.append(plugin_packages)
         if any(getattr(c, "plugin_deps", []) for c in reg):
             reg._sort()
 
