@@ -8,7 +8,7 @@ class comp_command_docker(ext_command):
     def __init__(self) -> None:
         super().__init__(
             name="docker-command",
-            command=["docker", "info"],
+            command=["docker", "--version"],
             hint="install Docker Desktop (https://docs.docker.com/get-docker/)",
         )
 
