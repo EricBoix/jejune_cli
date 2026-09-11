@@ -146,18 +146,24 @@ class PluginRegistry:
         # Phase 1: load installed entry-points and register their components.
         # When a plugin declares repo_name (its git repo differs from its dist name),
         # supplement discovered so Phase 2 can resolve plugin_deps correctly.
-        for ep in importlib.metadata.entry_points(group="jejune.plugins"):
+        eps = list(importlib.metadata.entry_points(group="jejune.plugins"))
+        if eps:
+            click.echo("Loading plugins...")
+        for ep in eps:
             try:
                 plugin: plugin_description = ep.load()
             except Exception as exc:
                 click.echo(
-                    f"Warning: failed to load plugin {ep.name!r}: {exc}", err=True
+                    f"  Warning: failed to load plugin {ep.name!r}: {exc}", err=True
                 )
                 continue
             self.register_plugin_component(plugin)
+            click.echo(f"  {plugin.name}")
             if plugin.repo_name:
                 repo_key = plugin.repo_name.lower().replace("-", "_")
                 discovered.setdefault(repo_key, plugin.name)
+        if eps:
+            click.echo("Plugins loaded.")
 
         # Phase 2: wire resolved plugin instances into comp.dependencies.
         # plugin_deps holds repo names; translate to plugin names via discovered.
