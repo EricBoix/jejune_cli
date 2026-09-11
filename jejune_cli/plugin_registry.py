@@ -134,16 +134,23 @@ class PluginRegistry:
            lookup.
         3. Calls the finalize hook so ``main.py`` can update active role state.
         """
-        # Phase 0: collect installed plugin entry-point names so COMP_REGISTRY
-        # can return _LazyComp proxies for not-yet-loaded plugin components.
+        # Phase 0: map repo names (held in plugin_deps) to plugin names using
+        # only already-installed entry-points — no cloning or pyproject.toml
+        # reading at startup.  Distribution names are normalized (lower-case,
+        # hyphens → underscores) to match the repo-name convention.
         expected_plugin_names: set[str] = set()
+        discovered: dict[str, str] = {}  # normalized dist name → ep.name
         for ep in importlib.metadata.entry_points(group="jejune.plugins"):
             expected_plugin_names.add(ep.name)
+            if ep.dist is not None:
+                dist_key = ep.dist.name.lower().replace("-", "_")
+                discovered[dist_key] = ep.name
         COMP_REGISTRY.register_expected_plugin_names(expected_plugin_names)
 
         # Phase 1: load installed entry-points and register their components.
-        # When a plugin declares repo_name, record it for _build_env path
-        # resolution (eco.resolve needs the actual git repo directory name).
+        # When a plugin declares repo_name, supplement discovered so Phase 2
+        # can resolve plugin_deps correctly, and record in _plugin_repo_names
+        # for _build_env path resolution.
         for ep in importlib.metadata.entry_points(group="jejune.plugins"):
             try:
                 plugin: plugin_description = ep.load()
@@ -154,19 +161,21 @@ class PluginRegistry:
                 continue
             self.register_plugin_component(plugin)
             if plugin.repo_name:
+                repo_key = plugin.repo_name.lower().replace("-", "_")
+                discovered.setdefault(repo_key, plugin.name)
                 self._plugin_repo_names.setdefault(plugin.name, plugin.repo_name)
 
         # Phase 2: wire resolved plugin instances into comp.dependencies.
-        # plugin_deps holds repo names; translate to entry-point names via
-        # inverted _plugin_repo_names before looking up in COMP_REGISTRY.
-        repo_to_ep: dict[str, str] = {v: k for k, v in self._plugin_repo_names.items()}
+        # plugin_deps holds repo names; translate to plugin names via discovered.
         plugin_packages = COMP_REGISTRY.get("plugin-packages")
         for comp in COMP_REGISTRY:
             if not getattr(comp, "plugin_deps", []):
                 continue
             for repo_name in comp.plugin_deps:
-                ep_name = repo_to_ep.get(repo_name, repo_name)
-                inst = COMP_REGISTRY.get(ep_name)
+                plugin_name = discovered.get(repo_name.lower().replace("-", "_"))
+                if plugin_name is None:
+                    continue
+                inst = COMP_REGISTRY.get(plugin_name)
                 if inst is not None and not isinstance(inst, _LazyComp) and inst not in comp.dependencies:
                     comp.dependencies.append(inst)
             if (

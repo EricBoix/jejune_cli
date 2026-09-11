@@ -12,7 +12,6 @@ from .click_theme import ClickTheme
 from .component_base import base_comp
 from .component_ext import ext_comp
 from .component_ext_server import ext_server
-from .component_registry import REGISTRY as COMP_REGISTRY
 from .plugin_registry import PLUGIN_REGISTRY
 
 # ---------------------------------------------------------------------------
@@ -28,9 +27,10 @@ def _resolve_avail_hint(inst: base_comp, fallback: str = "") -> str:
         and any(p.name == inst.name for p in PLUGIN_REGISTRY.plugins)
     )
     if is_deployer_plugin:
-        deployment = COMP_REGISTRY.get("deployment")
-        images_missing = deployment is None or not deployment.is_available()
-        return "run `jejune build`" if images_missing else "run `jejune up`"
+        from .component_containerized import cont_comp
+        if isinstance(inst, cont_comp) and not inst.is_built():
+            return "run `jejune build`"
+        return "run `jejune up`"
     return inst.hint or fallback
 
 
