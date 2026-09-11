@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import importlib.metadata
+import json
+from pathlib import Path
 from typing import Callable, ClassVar
 
 import click
@@ -122,29 +124,46 @@ class PluginRegistry:
     def load_all(self) -> None:
         """Discover all installed plugin packages and register them.
 
-        0. Collects installed plugin entry-point names so COMP_REGISTRY can
-           return _LazyComp proxies for not-yet-loaded plugin components.
+        0. Reads ``direct_url.json`` (PEP 610) for each installed plugin to map
+           repo names to ep names and populate ``_plugin_repo_names``.  Falls back
+           to the normalized distribution name.
         1. Iterates ``"jejune.plugins"`` entry-points, calls
-           ``register_plugin_component`` for each, and records
-           ``plugin_description.repo_name`` in ``_plugin_repo_names`` for use
-           by ``_build_env`` path resolution.
+           ``register_plugin_component`` for each.  When a plugin sets
+           ``repo_name``, supplements the mapping built in phase 0.
         2. Resolves ``plugin_deps`` declared by built-in components (phase-2
            dependency resolution): ``plugin_deps`` holds repo names, translated
-           to entry-point names via ``_plugin_repo_names`` before COMP_REGISTRY
+           to entry-point names via the phase-0 mapping before COMP_REGISTRY
            lookup.
         3. Calls the finalize hook so ``main.py`` can update active role state.
         """
-        # Phase 0: map repo names (held in plugin_deps) to plugin names using
-        # only already-installed entry-points — no cloning or pyproject.toml
-        # reading at startup.  Distribution names are normalized (lower-case,
-        # hyphens → underscores) to match the repo-name convention.
+        # Phase 0: map repo names (held in plugin_deps) to plugin names.
+        # For editable installs from local dirs, read direct_url.json (PEP 610)
+        # to get the actual cloned repo directory name, which may differ from
+        # the distribution name (e.g. repo "jejune_kg-graph_viewer" distributes
+        # as "jejune-kg-viewer").  Also populate _plugin_repo_names so that
+        # _build_env can resolve build-context paths without cloning.
+        # Fall back to the normalized distribution name for non-editable installs.
         expected_plugin_names: set[str] = set()
-        discovered: dict[str, str] = {}  # normalized dist name → ep.name
+        discovered: dict[str, str] = {}  # normalized repo/dist name → ep.name
         for ep in importlib.metadata.entry_points(group="jejune.plugins"):
             expected_plugin_names.add(ep.name)
-            if ep.dist is not None:
-                dist_key = ep.dist.name.lower().replace("-", "_")
-                discovered[dist_key] = ep.name
+            if ep.dist is None:
+                continue
+            direct_url_text = ep.dist.read_text("direct_url.json")
+            if direct_url_text:
+                try:
+                    data = json.loads(direct_url_text)
+                    url = data.get("url", "")
+                    if url.startswith("file://"):
+                        repo_name = Path(url[7:]).name
+                        repo_key = repo_name.lower().replace("-", "_")
+                        discovered.setdefault(repo_key, ep.name)
+                        self._plugin_repo_names.setdefault(ep.name, repo_name)
+                except (ValueError, KeyError):
+                    pass
+            # Fallback: normalized distribution name (non-editable installs)
+            dist_key = ep.dist.name.lower().replace("-", "_")
+            discovered.setdefault(dist_key, ep.name)
         COMP_REGISTRY.register_expected_plugin_names(expected_plugin_names)
 
         # Phase 1: load installed entry-points and register their components.
