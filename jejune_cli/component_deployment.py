@@ -5,7 +5,6 @@ from pathlib import Path
 
 from .component_with_config import conf_comp as component
 from .component_registry import ComponentRegistry
-from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 
 
 class comp_deployment(component):
@@ -60,8 +59,10 @@ class comp_deployment(component):
             repo_name = (
                 plugin.repo_name
                 if plugin and plugin.repo_name
-                else PLUGIN_PACKAGE_CATALOG.repo_name_for(dep.name)
+                else PLUGIN_REGISTRY.repo_name_for_plugin(dep.name)
             )
+            if repo_name is None:
+                continue
             for subpath, key in repos:
                 if key:
                     env[key] = eco.resolve(repo_name, root_dir, tmp_dir, subpath)

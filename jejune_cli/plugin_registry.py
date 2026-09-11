@@ -49,6 +49,7 @@ class PluginRegistry:
             inst._loaded: set[str] = set()
             inst._post_hooks: list[Callable[[plugin_description], None]] = []
             inst._finalize_hook: Callable[[], None] | None = None
+            inst._plugin_repo_names: dict[str, str] = {}
             cls._instance = inst
         return cls._instance
 
@@ -169,6 +170,7 @@ class PluginRegistry:
                 plugin_name = discovered.get(repo_name.lower().replace("-", "_"))
                 if plugin_name is None:
                     continue
+                self._plugin_repo_names.setdefault(plugin_name, repo_name)
                 inst = COMP_REGISTRY.get(plugin_name)
                 if inst is not None and not isinstance(inst, _LazyComp) and inst not in comp.dependencies:
                     comp.dependencies.append(inst)
@@ -184,6 +186,10 @@ class PluginRegistry:
         # Phase 3: call the finalize hook so main.py can update active role state.
         if self._finalize_hook is not None:
             self._finalize_hook()
+
+    def repo_name_for_plugin(self, plugin_name: str) -> str | None:
+        """Return the actual repo name for *plugin_name*, as used in plugin_deps."""
+        return self._plugin_repo_names.get(plugin_name)
 
     @property
     def plugins(self) -> list[plugin_description]:
