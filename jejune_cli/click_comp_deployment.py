@@ -61,7 +61,10 @@ def ui_configure(deployments_dir, name):
         click.echo(f"Error: {deploy_dir} already exists.", err=True)
         sys.exit(1)
 
-    deploy_dir.mkdir(parents=True)
+    try:
+        deploy_dir.mkdir(parents=True)
+    except OSError as exc:
+        raise click.ClickException(str(exc)) from exc
     dot_jejune = deploy_dir / ".jejune"
     dot_jejune.mkdir()
     shutil.copy(_T_UI / "role", dot_jejune / "role")

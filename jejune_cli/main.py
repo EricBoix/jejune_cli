@@ -312,4 +312,5 @@ def _register_plugin_role(plugin: "_PluginDescription") -> None:
 
 PLUGIN_REGISTRY.add_post_hook(_handle_plugin)
 PLUGIN_REGISTRY.set_finalize_hook(_finalize_plugins)
-PLUGIN_REGISTRY.load_all()
+if _ACTIVE_ROLE_OBJ:
+    PLUGIN_REGISTRY.load_all()

@@ -21,12 +21,15 @@ from .plugin_registry import PLUGIN_REGISTRY
 
 
 def _resolve_avail_hint(inst: base_comp, fallback: str = "") -> str:
-    deployment = COMP_REGISTRY.get("deployment")
-    is_ui_dep = deployment is not None and any(
-        dep.name == inst.name for dep in deployment.dependencies
+    deployer = ROLE_REGISTRY.get("deployer")
+    is_deployer_plugin = (
+        deployer is not None
+        and inst.name in deployer.component_names
+        and any(p.name == inst.name for p in PLUGIN_REGISTRY.plugins)
     )
-    if is_ui_dep and any(p.name == inst.name for p in PLUGIN_REGISTRY.plugins):
-        images_missing = not deployment.is_available()
+    if is_deployer_plugin:
+        deployment = COMP_REGISTRY.get("deployment")
+        images_missing = deployment is None or not deployment.is_available()
         return "run `jejune build`" if images_missing else "run `jejune up`"
     return inst.hint or fallback
 

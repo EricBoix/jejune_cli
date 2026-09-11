@@ -17,7 +17,7 @@ class comp_deployment(component):
                 ComponentRegistry().get("docker-daemon"),
             ],
             plugin_deps=["jejune_docs_server", "jejune_kg-graph_viewer", "jejune_markdown_browser"],
-            hint="run `jejune deployment install`",
+            hint="run `jejune build`",
         )
 
     def check(self) -> tuple[str, str]:
