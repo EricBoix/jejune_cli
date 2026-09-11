@@ -45,14 +45,24 @@ class comp_deployment(component):
         return results
 
     def _build_env(self, deploy_dir: Path) -> dict:
+        from .plugin_registry import PLUGIN_REGISTRY
         eco = ComponentRegistry().get("ecosystem")
         env = os.environ.copy()
         root_dir, tmp_dir = eco.resolve_dirs(deploy_dir)
         if root_dir:
             env["JEJUNE_ROOT_DIR"] = str(root_dir)
+        plugins_by_name = {p.name: p for p in PLUGIN_REGISTRY.plugins}
         for dep in self.dependencies:
-            repo_name = PLUGIN_PACKAGE_CATALOG.repo_name_for(dep.name)
-            for subpath, key in getattr(dep, "repos", []):
+            repos = getattr(dep, "repos", [])
+            if not repos:
+                continue
+            plugin = plugins_by_name.get(dep.name)
+            repo_name = (
+                plugin.repo_name
+                if plugin and plugin.repo_name
+                else PLUGIN_PACKAGE_CATALOG.repo_name_for(dep.name)
+            )
+            for subpath, key in repos:
                 if key:
                     env[key] = eco.resolve(repo_name, root_dir, tmp_dir, subpath)
         return env
