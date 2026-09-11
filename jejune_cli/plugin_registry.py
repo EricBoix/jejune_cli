@@ -123,8 +123,10 @@ class PluginRegistry:
 
         0. Builds a repo-name → plugin-name mapping from already-installed
            entry-points (no cloning or pyproject.toml reading at startup).
-        1. Iterates ``"jejune.plugins"`` entry-points and calls
-           ``register_plugin_component`` for each.
+        1. Iterates ``"jejune.plugins"`` entry-points, calls
+           ``register_plugin_component`` for each, and supplements the
+           repo-name mapping for plugins whose repo name differs from their
+           distribution name (via ``plugin_description.repo_name``).
         2. Resolves ``plugin_deps`` declared by built-in components (phase-2
            dependency resolution): translates repo names to plugin names, then
            wires the resolved component instances into comp.dependencies.
@@ -142,6 +144,8 @@ class PluginRegistry:
         COMP_REGISTRY.register_expected_plugin_names(set(discovered.values()))
 
         # Phase 1: load installed entry-points and register their components.
+        # When a plugin declares repo_name (its git repo differs from its dist name),
+        # supplement discovered so Phase 2 can resolve plugin_deps correctly.
         for ep in importlib.metadata.entry_points(group="jejune.plugins"):
             try:
                 plugin: plugin_description = ep.load()
@@ -151,6 +155,9 @@ class PluginRegistry:
                 )
                 continue
             self.register_plugin_component(plugin)
+            if plugin.repo_name:
+                repo_key = plugin.repo_name.lower().replace("-", "_")
+                discovered.setdefault(repo_key, plugin.name)
 
         # Phase 2: wire resolved plugin instances into comp.dependencies.
         # plugin_deps holds repo names; translate to plugin names via discovered.
@@ -174,6 +181,7 @@ class PluginRegistry:
         if any(getattr(c, "plugin_deps", []) for c in COMP_REGISTRY):
             COMP_REGISTRY._sort()
 
+        # Phase 3: call the finalize hook so main.py can update active role state.
         if self._finalize_hook is not None:
             self._finalize_hook()
 

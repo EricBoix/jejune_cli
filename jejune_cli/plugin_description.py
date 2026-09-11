@@ -77,4 +77,12 @@ class plugin_description:
     When set, PluginRegistry uses this instance directly instead of creating a
     thin _PluginComp wrapper.  The instance must have name == self.name.
     """
+    repo_name: str | None = None
+    """Git repository name when it differs from the distribution package name.
+
+    Used by the plugin registry to map ``plugin_deps`` repo names to plugin
+    names when the distribution name (normalised) does not match the repo name.
+    Example: repo ``jejune_kg-graph_viewer`` distributes as ``jejune-kg-viewer``,
+    so the plugin sets ``repo_name="jejune_kg-graph_viewer"``.
+    """
 

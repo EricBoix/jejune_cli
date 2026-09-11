@@ -119,27 +119,16 @@ class plugin_package_catalog:
         return sorted(self._expected_plugin_names(role))
 
     def packages_installed(self, role: str | None = None) -> bool:
-        """Return True when all expected plugin repos for *role* are installed.
-
-        Checked by distribution name (normalised) against installed entry-points,
-        so no pyproject.toml reading or cloning is needed.
-        """
+        """Return True when all expected plugin packages for *role* are installed."""
         if role is None:
             from .role_registry import ROLE_REGISTRY
             r = ROLE_REGISTRY.detect_role()
             role = r.name if r else None
-        repo_names = self._all_repo_names(role)
-        if not repo_names:
+        expected = self._expected_plugin_names(role)
+        if not expected:
             return True
-        installed_dists = {
-            ep.dist.name.lower().replace("-", "_")
-            for ep in importlib.metadata.entry_points(group="jejune.plugins")
-            if ep.dist is not None
-        }
-        return all(
-            name.lower().replace("-", "_") in installed_dists
-            for name in repo_names
-        )
+        installed = {ep.name for ep in importlib.metadata.entry_points(group="jejune.plugins")}
+        return expected.issubset(installed)
 
     def install_packages(self, role: str | None = None, no_cache: bool = False) -> None:
         """Install all expected plugin packages for *role*."""

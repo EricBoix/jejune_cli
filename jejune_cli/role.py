@@ -11,12 +11,22 @@ if TYPE_CHECKING:
 @dataclass
 class Role:
     name: str
-    components: "frozenset[base_comp]"
+    component_names: frozenset[str]
     includes: tuple[str, ...]
     section_title: str
     detector: Callable[[], bool] | None = None
     description: str = ""
     is_abstract: bool = False
+
+    @property
+    def components(self) -> "frozenset[base_comp]":
+        """Resolve component names against COMP_REGISTRY at call time.
+
+        Evaluated lazily so plugin components registered after module import
+        are included when roles are queried at runtime.
+        """
+        from .component_registry import REGISTRY as COMP_REGISTRY
+        return frozenset(filter(None, (COMP_REGISTRY.get(n) for n in self.component_names)))
 
     def __bool__(self) -> bool:
         return bool(self.name)
@@ -39,15 +49,11 @@ class Role:
         return (cwd / "docker-compose.yml").is_file() and (cwd / "catalog.yaml").is_file()
 
 
-from .component_registry import REGISTRY as COMP_REGISTRY
-
-NO_ROLE = Role(name="", components=frozenset(), includes=(), section_title="")
+NO_ROLE = Role(name="", component_names=frozenset(), includes=(), section_title="")
 
 CONTRIBUTOR = Role(
     name="contributor",
-    components=frozenset(filter(None, (
-        COMP_REGISTRY.get(n) for n in ("ecosystem", "network", "git-command", "git-server")
-    ))),
+    component_names=frozenset(("ecosystem", "network", "git-command", "git-server")),
     includes=(),
     section_title="Contributor commands",
     description="base ecosystem role",
@@ -55,12 +61,10 @@ CONTRIBUTOR = Role(
 
 DOC_STEWARD = Role(
     name="doc-steward",
-    components=frozenset(filter(None, (
-        COMP_REGISTRY.get(n) for n in (
-            "docker-command", "docker-daemon", "docker-hub-server", "pypi-server",
-            "neo4j", "llm", "llm-observability", "graph", "convert", "manifest",
-        )
-    ))),
+    component_names=frozenset((
+        "docker-command", "docker-daemon", "docker-hub-server", "pypi-server",
+        "neo4j", "llm", "llm-observability", "graph", "convert", "manifest",
+    )),
     includes=("contributor",),
     section_title="Doc-steward commands",
     description="document authoring",
@@ -69,12 +73,10 @@ DOC_STEWARD = Role(
 
 DEPLOYER = Role(
     name="deployer",
-    components=frozenset(filter(None, (
-        COMP_REGISTRY.get(n) for n in (
-            "docker-command", "docker-daemon", "uv-command", "plugin-packages",
-            "catalog", "deployment", "docs-server", "kg-viewer", "md-browser",
-        )
-    ))),
+    component_names=frozenset((
+        "docker-command", "docker-daemon", "uv-command", "plugin-packages",
+        "catalog", "deployment", "docs-server", "kg-viewer", "md-browser",
+    )),
     includes=("contributor",),
     section_title="Deployer commands",
     description="service deployment",

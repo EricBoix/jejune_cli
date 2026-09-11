@@ -18,19 +18,17 @@ class RoleRegistry:
     def register(self, role: Role) -> None:
         self._roles[role.name] = role
 
-    def register_from_plugin(self, j: "plugin_role_description") -> None:
-        from .component_registry import REGISTRY as COMP_REGISTRY
-        components = frozenset(filter(None, (COMP_REGISTRY.get(n) for n in j.components)))
+    def register_from_plugin(self, role_desc: "plugin_role_description") -> None:
         role = Role(
-            name=j.name,
-            components=components,
-            includes=j.includes,
-            section_title=j.section_title,
-            detector=j.detect,
-            is_abstract=j.abstract,
+            name=role_desc.name,
+            component_names=role_desc.components,
+            includes=role_desc.includes,
+            section_title=role_desc.section_title,
+            detector=role_desc.detect,
+            is_abstract=role_desc.abstract,
         )
         self._roles[role.name] = role
-        for existing_name, additional_parents in j.extend_includes.items():
+        for existing_name, additional_parents in role_desc.extend_includes.items():
             existing = self._roles.get(existing_name)
             if existing is not None:
                 existing.includes = existing.includes + additional_parents
@@ -196,10 +194,10 @@ class RoleRegistry:
         def _row() -> list[str]:
             return [' '] * W
 
-        def _put(r: list[str], col: int, s: str) -> None:
-            for i, c in enumerate(s):
-                if 0 <= col + i < len(r):
-                    r[col + i] = c
+        def _put(row: list[str], col: int, text: str) -> None:
+            for i, c in enumerate(text):
+                if 0 <= col + i < len(row):
+                    row[col + i] = c
 
         output: list[str] = []
 
