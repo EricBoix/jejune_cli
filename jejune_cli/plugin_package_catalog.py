@@ -18,7 +18,8 @@ class plugin_package_catalog:
     """Tracks installable plugin packages and answers install-state queries.
 
     ``plugin_deps`` on active components holds repository names (e.g.
-    ``"jejune_docs_server"``).  ``_discover`` reads each repo's
+    ``"jejune_docs_server"``); ``_discover`` clones them and reads their
+    ``pyproject.toml`` to derive the entry-point name.  ``_discover`` reads each repo's
     ``pyproject.toml`` at runtime to derive the plugin name — the first key of
     ``[project.entry-points."jejune.plugins"]``.
     """

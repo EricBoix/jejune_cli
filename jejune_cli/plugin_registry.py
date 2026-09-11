@@ -129,8 +129,9 @@ class PluginRegistry:
            ``plugin_description.repo_name`` in ``_plugin_repo_names`` for use
            by ``_build_env`` path resolution.
         2. Resolves ``plugin_deps`` declared by built-in components (phase-2
-           dependency resolution): ``plugin_deps`` holds plugin entry-point
-           names, looked up directly in COMP_REGISTRY.
+           dependency resolution): ``plugin_deps`` holds repo names, translated
+           to entry-point names via ``_plugin_repo_names`` before COMP_REGISTRY
+           lookup.
         3. Calls the finalize hook so ``main.py`` can update active role state.
         """
         # Phase 0: collect installed plugin entry-point names so COMP_REGISTRY
@@ -156,13 +157,16 @@ class PluginRegistry:
                 self._plugin_repo_names.setdefault(plugin.name, plugin.repo_name)
 
         # Phase 2: wire resolved plugin instances into comp.dependencies.
-        # plugin_deps holds plugin entry-point names; look them up directly.
+        # plugin_deps holds repo names; translate to entry-point names via
+        # inverted _plugin_repo_names before looking up in COMP_REGISTRY.
+        repo_to_ep: dict[str, str] = {v: k for k, v in self._plugin_repo_names.items()}
         plugin_packages = COMP_REGISTRY.get("plugin-packages")
         for comp in COMP_REGISTRY:
             if not getattr(comp, "plugin_deps", []):
                 continue
-            for plugin_name in comp.plugin_deps:
-                inst = COMP_REGISTRY.get(plugin_name)
+            for repo_name in comp.plugin_deps:
+                ep_name = repo_to_ep.get(repo_name, repo_name)
+                inst = COMP_REGISTRY.get(ep_name)
                 if inst is not None and not isinstance(inst, _LazyComp) and inst not in comp.dependencies:
                     comp.dependencies.append(inst)
             if (
