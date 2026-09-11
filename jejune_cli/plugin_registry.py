@@ -122,31 +122,27 @@ class PluginRegistry:
     def load_all(self) -> None:
         """Discover all installed plugin packages and register them.
 
-        0. Builds a repo-name → plugin-name mapping from already-installed
-           entry-points (no cloning or pyproject.toml reading at startup).
+        0. Collects installed plugin entry-point names so COMP_REGISTRY can
+           return _LazyComp proxies for not-yet-loaded plugin components.
         1. Iterates ``"jejune.plugins"`` entry-points, calls
-           ``register_plugin_component`` for each, and supplements the
-           repo-name mapping for plugins whose repo name differs from their
-           distribution name (via ``plugin_description.repo_name``).
+           ``register_plugin_component`` for each, and records
+           ``plugin_description.repo_name`` in ``_plugin_repo_names`` for use
+           by ``_build_env`` path resolution.
         2. Resolves ``plugin_deps`` declared by built-in components (phase-2
-           dependency resolution): translates repo names to plugin names, then
-           wires the resolved component instances into comp.dependencies.
+           dependency resolution): ``plugin_deps`` holds plugin entry-point
+           names, looked up directly in COMP_REGISTRY.
         3. Calls the finalize hook so ``main.py`` can update active role state.
         """
-        # Phase 0: map repo names (held in plugin_deps) to plugin names using
-        # only already-installed entry-points — no cloning or pyproject.toml
-        # reading at startup.  Distribution names are normalized (lower-case,
-        # hyphens → underscores) to match the repo-name convention.
-        discovered: dict[str, str] = {}
+        # Phase 0: collect installed plugin entry-point names so COMP_REGISTRY
+        # can return _LazyComp proxies for not-yet-loaded plugin components.
+        expected_plugin_names: set[str] = set()
         for ep in importlib.metadata.entry_points(group="jejune.plugins"):
-            if ep.dist is not None:
-                dist_key = ep.dist.name.lower().replace("-", "_")
-                discovered[dist_key] = ep.name
-        COMP_REGISTRY.register_expected_plugin_names(set(discovered.values()))
+            expected_plugin_names.add(ep.name)
+        COMP_REGISTRY.register_expected_plugin_names(expected_plugin_names)
 
         # Phase 1: load installed entry-points and register their components.
-        # When a plugin declares repo_name (its git repo differs from its dist name),
-        # supplement discovered so Phase 2 can resolve plugin_deps correctly.
+        # When a plugin declares repo_name, record it for _build_env path
+        # resolution (eco.resolve needs the actual git repo directory name).
         for ep in importlib.metadata.entry_points(group="jejune.plugins"):
             try:
                 plugin: plugin_description = ep.load()
@@ -157,20 +153,15 @@ class PluginRegistry:
                 continue
             self.register_plugin_component(plugin)
             if plugin.repo_name:
-                repo_key = plugin.repo_name.lower().replace("-", "_")
-                discovered.setdefault(repo_key, plugin.name)
+                self._plugin_repo_names.setdefault(plugin.name, plugin.repo_name)
 
         # Phase 2: wire resolved plugin instances into comp.dependencies.
-        # plugin_deps holds repo names; translate to plugin names via discovered.
+        # plugin_deps holds plugin entry-point names; look them up directly.
         plugin_packages = COMP_REGISTRY.get("plugin-packages")
         for comp in COMP_REGISTRY:
             if not getattr(comp, "plugin_deps", []):
                 continue
-            for repo_name in comp.plugin_deps:
-                plugin_name = discovered.get(repo_name.lower().replace("-", "_"))
-                if plugin_name is None:
-                    continue
-                self._plugin_repo_names.setdefault(plugin_name, repo_name)
+            for plugin_name in comp.plugin_deps:
                 inst = COMP_REGISTRY.get(plugin_name)
                 if inst is not None and not isinstance(inst, _LazyComp) and inst not in comp.dependencies:
                     comp.dependencies.append(inst)

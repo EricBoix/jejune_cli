@@ -15,7 +15,7 @@ class comp_deployment(component):
                 ComponentRegistry().get("catalog"),
                 ComponentRegistry().get("docker-daemon"),
             ],
-            plugin_deps=["jejune_docs_server", "jejune_kg-graph_viewer", "jejune_markdown_browser"],
+            plugin_deps=["docs-server", "kg-viewer", "md-browser"],
             hint="run `jejune build`",
         )
 

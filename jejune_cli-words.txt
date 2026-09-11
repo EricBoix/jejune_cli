@@ -1,6 +1,7 @@
 # Proper names
 Burbea
 # Ad-hoc/lingo/technical/specific (non) terms
+github
 plantuml
 venv
 
