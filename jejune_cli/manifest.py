@@ -128,7 +128,7 @@ def manifest_slug(manifest_file, full_catalog_path):
         manifest_file = Path.cwd() / "manifest.yaml"
     src = Path(manifest_file)
     if not src.exists():
-        raise click.ClickException(f"not found: {src}")
+        raise click.ClickException("manifest.yaml not found in current working directory")
     doc = yaml.safe_load(src.read_text())
     title = doc.get("title", "")
     authors = doc.get("authors", [])
