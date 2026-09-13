@@ -20,6 +20,8 @@ from .plugin_registry import PLUGIN_REGISTRY
 
 
 def _resolve_avail_hint(inst: base_comp, fallback: str = "") -> str:
+    if inst.name == "catalog":
+        return "run `jejune catalog check`"
     deployer = ROLE_REGISTRY.get("deployer")
     is_deployer_plugin = (
         deployer is not None
