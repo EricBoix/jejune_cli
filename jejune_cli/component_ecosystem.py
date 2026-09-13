@@ -55,6 +55,7 @@ class comp_ecosystem(component):
         self,
         root_dir: Path | None,
         tmp_dir: Path | None,
+        remote_names: list[str] | None = None,
     ) -> list[tuple[str, RepoTier, str, bool]]:
         seen: set[str] = set()
         results: list[tuple[str, RepoTier, str, bool]] = []
@@ -65,6 +66,12 @@ class comp_ecosystem(component):
                 if p.is_dir() and p.name not in seen:
                     seen.add(p.name)
                     results.append((p.name, tier, str(p), (p / "manifest.yaml").exists()))  # type: ignore[arg-type]
+        if remote_names:
+            for name in remote_names:
+                if name not in seen:
+                    seen.add(name)
+                    local = self.ensure_local(name)
+                    results.append((name, "tmp", str(local), (local / "manifest.yaml").exists()))
         return results
 
     def ecosystem_needs_remote(self) -> bool:
@@ -82,6 +89,24 @@ class comp_ecosystem(component):
             if getattr(comp, "repos", [])
             if (pkg_name := PLUGIN_PACKAGE_CATALOG.repo_name_for(comp.name)) is not None
         )
+
+    def ensure_local(self, repo_name: str) -> Path:
+        import subprocess
+        import click
+        root_dir, tmp_dir = self.resolve_dirs()
+        tier, base = self.repo_status(repo_name, root_dir, tmp_dir)
+        if tier in ("root", "tmp"):
+            return Path(base)
+        if tmp_dir is None:
+            from ._env import dot_jejune
+            tmp_dir = dot_jejune() / "tmp"
+            tmp_dir.mkdir(parents=True, exist_ok=True)
+        dest = tmp_dir / repo_name
+        if not dest.exists():
+            git_url = self._git_server.remote_git_url(repo_name)
+            click.echo(f"Cloning {repo_name} ...")
+            subprocess.run(["git", "clone", "--depth", "1", git_url, str(dest)], check=True)
+        return dest
 
     def check(self) -> tuple[str, str]:
         return "ok", ""

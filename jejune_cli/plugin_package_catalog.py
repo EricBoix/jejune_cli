@@ -4,7 +4,6 @@ from __future__ import annotations
 import importlib.metadata
 import subprocess
 import sys
-from pathlib import Path
 
 import click
 
@@ -18,9 +17,9 @@ class plugin_package_catalog:
     """Tracks installable plugin packages and answers install-state queries.
 
     ``plugin_deps`` on active components holds repository names (e.g.
-    ``"jejune_docs_server"``); ``_discover`` clones them and reads their
-    ``pyproject.toml`` to derive the entry-point name.  ``_discover`` reads each repo's
-    ``pyproject.toml`` at runtime to derive the plugin name — the first key of
+    ``"jejune_docs_server"``); ``_discover`` delegates to
+    ``comp_ecosystem.ensure_local()`` to obtain a local path, then reads
+    ``pyproject.toml`` to derive the plugin name — the first key of
     ``[project.entry-points."jejune.plugins"]``.
     """
 
@@ -39,30 +38,14 @@ class plugin_package_catalog:
             return self._discovery_cache
         from .component_registry import REGISTRY as COMP_REGISTRY
         eco = COMP_REGISTRY.get("ecosystem")
-        root_dir, tmp_dir = eco.resolve_dirs()
         result: dict[str, str] = {}
         seen: set[str] = set()
         for repo_name in repo_names:
             if repo_name in seen:
                 continue
             seen.add(repo_name)
-            tier, base = eco.repo_status(repo_name, root_dir, tmp_dir)
-            if tier == "remote":
-                if tmp_dir is None:
-                    from ._env import dot_jejune
-                    tmp_dir = dot_jejune() / "tmp"
-                    tmp_dir.mkdir(parents=True, exist_ok=True)
-                dest = tmp_dir / repo_name
-                if not dest.exists():
-                    git_url = COMP_REGISTRY.get("git-server").remote_git_url(repo_name)
-                    click.echo(f"Cloning {repo_name} ...")
-                    subprocess.run(
-                        ["git", "clone", "--depth", "1", git_url, str(dest)],
-                        check=True,
-                    )
-                pyproject_path = dest / "pyproject.toml"
-            else:
-                pyproject_path = Path(base) / "pyproject.toml"
+            local_path = eco.ensure_local(repo_name)
+            pyproject_path = local_path / "pyproject.toml"
             with open(pyproject_path, "rb") as f:
                 data = tomllib.load(f)
             eps = (

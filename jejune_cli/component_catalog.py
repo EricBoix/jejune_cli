@@ -32,4 +32,9 @@ class comp_catalog(component):
         except Exception:
             return None
 
+    def doc_repo_names(self, catalog_path: Path) -> list[str]:
+        """Return the list of doc repo names declared in *catalog_path*."""
+        data = yaml.safe_load(catalog_path.read_text()) or {}
+        return [doc["name"] for doc in data.get("documents", []) if "name" in doc]
+
 
