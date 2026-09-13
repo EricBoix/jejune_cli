@@ -71,13 +71,21 @@ DOC_STEWARD = Role(
     detector=Role._is_doc_steward_cwd,
 )
 
+DEPLOYMENT_CATALOG = Role(
+    name="deployment-catalog",
+    component_names=frozenset(),
+    includes=(),
+    section_title="",
+    is_abstract=True,
+)
+
 DEPLOYER = Role(
     name="deployer",
     component_names=frozenset((
         "docker-command", "docker-daemon", "uv-command", "plugin-packages",
         "catalog", "deployment", "docs-server", "kg-viewer", "md-browser",
     )),
-    includes=("contributor",),
+    includes=("contributor", "deployment-catalog"),
     section_title="Deployer commands",
     description="service deployment",
     detector=Role._is_deployer_cwd,

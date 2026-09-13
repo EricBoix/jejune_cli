@@ -3,7 +3,7 @@
 import os
 from typing import TYPE_CHECKING
 
-from .role import CONTRIBUTOR, DEPLOYER, DOC_STEWARD, NO_ROLE, Role
+from .role import CONTRIBUTOR, DEPLOYER, DEPLOYMENT_CATALOG, DOC_STEWARD, NO_ROLE, Role
 
 if TYPE_CHECKING:
     from .plugin_role_description import plugin_role_description
@@ -253,4 +253,5 @@ ROLE_REGISTRY = RoleRegistry()
 
 ROLE_REGISTRY.register(CONTRIBUTOR)
 ROLE_REGISTRY.register(DOC_STEWARD)
+ROLE_REGISTRY.register(DEPLOYMENT_CATALOG)
 ROLE_REGISTRY.register(DEPLOYER)
