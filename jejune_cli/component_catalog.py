@@ -12,7 +12,9 @@ class comp_catalog(component):
         super().__init__(name="catalog", dependencies=[ComponentRegistry().get("ecosystem")])
 
     def check(self) -> tuple[str, str]:
-        return "ok", ""
+        from jejune_catalog._impl import _check_availability
+        ok, msg = _check_availability()
+        return ("ok", "") if ok else ("error", msg)
 
     def full_catalog_path(self, deployments_dir: Path) -> Path | None:
         """Locate full-catalog.yaml in the sibling jejune_catalog repo."""
