@@ -89,7 +89,7 @@ class comp_deployment(component):
         template = (template_dir / "docker-compose.yml").read_text()
         return (
             template
-            .replace("{{NAME}}", name)
+            .replace("{{NAME}}", name.lower())
             .replace("{{BUILD_SECRETS}}", build_secrets)
             .replace("{{GH_SECRET_DEF}}", gh_secret_def)
         )
