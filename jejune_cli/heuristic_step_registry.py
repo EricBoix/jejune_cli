@@ -61,18 +61,21 @@ class HeuristicStepRegistry:
         heuristics_doc_steward.register_heuristics()
         heuristics_no_role.register_heuristics()
 
-    def _matches(self, step: HeuristicStep) -> bool:
-        for fn in step.conditions:
+    def _call_cached(self, fn: HeuristicCondition, cache: dict) -> bool:
+        """Call *fn* and cache the result; *fn* is the cache key."""
+        if fn not in cache:
             try:
-                if not fn():
-                    return False
+                cache[fn] = bool(fn())
             except Exception:
+                cache[fn] = False
+        return cache[fn]
+
+    def _matches(self, step: HeuristicStep, cache: dict) -> bool:
+        for fn in step.conditions:
+            if not self._call_cached(fn, cache):
                 return False
         for fn in step.anti_conditions:
-            try:
-                if fn():
-                    return False
-            except Exception:
+            if self._call_cached(fn, cache):
                 return False
         return True
 
@@ -108,13 +111,14 @@ class HeuristicStepRegistry:
     ) -> list[HeuristicStep]:
         self._load_providers()
         from .role_registry import ROLE_REGISTRY
+        cache: dict = {}
 
         def _sorted(active_role: str | None) -> list[HeuristicStep]:
             eff = self._effective_ordering(active_role, ordering)
             def _key(step: HeuristicStep) -> tuple:
                 return self._sort_key(step, active_role, eff)
             return sorted(
-                (s for s in self._steps if self._matches(s) and self._step_viable(s)),
+                (s for s in self._steps if self._matches(s, cache) and self._step_viable(s)),
                 key=_key,
             )
 
@@ -165,23 +169,18 @@ class HeuristicStepRegistry:
         self._load_providers()
         from .role_registry import ROLE_REGISTRY
         active_role = ROLE_REGISTRY.detect_role_name()
+        cache: dict = {}
 
         def _run() -> list[tuple[HeuristicStep, list[tuple[str, bool]], list[tuple[str, bool]]]]:
             result = []
             for step in sorted(self._steps, key=lambda s: self._sort_key(s, active_role, None)):
                 cond_results: list[tuple[str, bool]] = []
                 for fn in step.conditions:
-                    try:
-                        val = fn()
-                    except Exception:
-                        val = False
+                    val = self._call_cached(fn, cache)
                     cond_results.append((fn.__name__, val))
                 anti_results: list[tuple[str, bool]] = []
                 for fn in step.anti_conditions:
-                    try:
-                        val = fn()
-                    except Exception:
-                        val = False
+                    val = self._call_cached(fn, cache)
                     anti_results.append((fn.__name__, val))
                 result.append((step, cond_results, anti_results))
             return result
