@@ -52,7 +52,18 @@ class comp_deployment(conf_comp):
         ]
 
     def occupied_host_ports(self, deploy_dir: Path) -> list[tuple[int, str]]:
-        """Return host_ports entries whose port is already in use."""
+        """Return host_ports entries occupied by a foreign process.
+
+        Ports held by our own running containers are not flagged as conflicts.
+        """
+        if self.service_names:
+            docker = ComponentRegistry().get("docker-command")
+            deploy_name = deploy_dir.resolve().name.lower()
+            if any(
+                docker.is_running(f"jejune-{deploy_name}-{svc}-1")[0]
+                for svc in self.service_names
+            ):
+                return []
         return [
             (port, var)
             for port, var in self.host_ports(deploy_dir)
