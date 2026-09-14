@@ -7,10 +7,20 @@ required_fields:
   slug: string
 optional_fields:
   isbn: string
-file_fields:  # values are repo-relative paths; checked for existence by jejune test
+# All file paths values are repo-relative paths
+file_fields:
+  # Source document (when starting from a pdf)
   - pdf_file
+  # Source document (might be converted out of a pdf source)
   - markdown_file
+  # Chunks delimited by the markdown source structural elements: Chapter (#
+  # headings), Section (## headings), Subsections...
+  - headers_file
+  # Chunks delimited by the paragraphs
+  - paragraphs_file
+  # Chunks are the sentences of the markdown source
   - sentences_file
+  # Resulting knowledge graph in rdf-turtle format
   - turtle_file
 required_file_fields:  # must be present and point to an existing file
   - markdown_file
