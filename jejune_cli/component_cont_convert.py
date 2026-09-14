@@ -1,6 +1,7 @@
 """convert containerized component."""
 from .component_containerized import cont_comp
 from .configuration import configuration
+from .configuration_entry import configuration_entry
 from .convert import validate_convert_dir
 from .component_registry import ComponentRegistry
 
@@ -13,9 +14,10 @@ class comp_convert(cont_comp):
             dependencies=[ComponentRegistry().get("pypi-server")],
             hint="run `jejune convert build`",
             configuration=configuration(
-                "set CONVERT_DOC_DIR in .jejune/env-config",
-                env_vars=["CONVERT_DOC_DIR"],
-                env_var_validator=validate_convert_dir,
+                configuration_entry("CONVERT_DOC_DIR",
+                    hint="set CONVERT_DOC_DIR in .jejune/env-config",
+                    source_file=".jejune/env-config",
+                    env_var_validator=validate_convert_dir)
             ),
         )
 

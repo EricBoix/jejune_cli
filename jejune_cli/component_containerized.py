@@ -5,14 +5,14 @@ from pathlib import Path
 
 import click
 
-from .component_with_config import conf_comp as component
-from .configuration import configuration
+from .component_with_config import conf_comp
+from .configuration import configuration as _configuration
 from .containers_cross_process_coordination import CONTAINER_COORDINATION
 from .component_ext_command_docker import DOCKER_COMMAND
 from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 
 
-class cont_comp(component):
+class cont_comp(conf_comp):
     """Base for components backed by a Docker container.
 
     build() and is_built() use image_name and build_context.
@@ -30,7 +30,7 @@ class cont_comp(component):
         dockerfile: str | None = None,
         dependencies: list | None = None,
         optional_dependencies: list | None = None,
-        configuration: configuration | None = None,
+        configuration: _configuration | None = None,
         hint: str | None = None,
         service_name: str | None = None,
     ) -> None:
@@ -49,6 +49,15 @@ class cont_comp(component):
         self.build_context = build_context
         self.dockerfile = dockerfile
         self.service_name = service_name
+
+    def docker_env_args(self) -> list[str]:
+        """Return [--env KEY=VALUE, ...] for each configured env var present in os.environ."""
+        args: list[str] = []
+        for e in self.configuration:
+            val = os.environ.get(e.env_var)
+            if val is not None:
+                args += ["--env", f"{e.env_var}={val}"]
+        return args
 
     def build(self, no_cache: bool = False) -> None:
         """Build the Docker image, resolving build_context from self.repos when needed."""

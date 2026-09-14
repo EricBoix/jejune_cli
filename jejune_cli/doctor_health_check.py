@@ -62,18 +62,13 @@ def run_all() -> tuple[
     Each result entry is (component_name, status, message).
     """
     avail, visible = run_avail()
-    plugin_names = {p.name for p in PLUGIN_REGISTRY.plugins}
 
     config: list[tuple[str, str, str]] = []
     for inst in visible:
         if not isinstance(inst, component):
             continue
-        if inst.configuration.env_vars:
+        if inst.configuration:
             status, msg, _ = inst.configuration.check()
             config.append((inst.name, status, msg))
-        if inst.name not in plugin_names:
-            cfg = inst.check_config()
-            if cfg is not None:
-                config.append((inst.name, *cfg))
 
     return config, avail, visible

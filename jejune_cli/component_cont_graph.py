@@ -5,6 +5,8 @@ import click
 
 from .component_containerized import cont_comp
 from .component_registry import ComponentRegistry
+from .configuration import configuration
+from .configuration_entry import configuration_entry
 
 
 class comp_graph(cont_comp):
@@ -23,6 +25,15 @@ class comp_graph(cont_comp):
             build_context=git_server.remote_git_url("jejune_extract_knowledge_graph", ":DockerContext"),
             dependencies=[git_server, ComponentRegistry().get("neo4j"), ComponentRegistry().get("llm")],
             optional_dependencies=[ComponentRegistry().get("llm-observability")],
+            configuration=configuration(
+                configuration_entry("NEO4J_URI",           hint="edit .jejune/env-config",   source_file=".jejune/env-config"),
+                configuration_entry("NEO4J_USERNAME",      hint="edit .jejune/env-config",   source_file=".jejune/env-config"),
+                configuration_entry("NEO4J_PASSWORD",      hint="edit .jejune/env-secrets",  source_file=".jejune/env-secrets"),
+                configuration_entry("LLM_MODEL_URL",       hint="edit .jejune/env-secrets",  source_file=".jejune/env-secrets"),
+                configuration_entry("LLM_API_KEY",         hint="edit .jejune/env-secrets",  source_file=".jejune/env-secrets"),
+                configuration_entry("LLM_MODEL_NAME",      hint="edit .jejune/env-secrets",  source_file=".jejune/env-secrets"),
+                configuration_entry("TRACELOOP_BASE_URL",  hint="edit .jejune/env-config",   source_file=".jejune/env-config",  max_severity="warn"),
+            ),
         )
 
     def dep_statuses(self) -> dict[str, tuple[bool, str]]:
@@ -75,7 +86,6 @@ class comp_graph(cont_comp):
         no_cache: bool,
         extra_args: tuple,
     ) -> None:
-        from ._env import EXTRACT_ENV_VARS, docker_env_args
         doc_dir = Path(doc_dir).resolve()
         self.build(no_cache)
         docker_run = (
@@ -96,7 +106,7 @@ class comp_graph(cont_comp):
         self._run(
             *docker_run,
             "--name", "jejune_extract_knowledge_graph",
-            *docker_env_args(EXTRACT_ENV_VARS),
+            *self.docker_env_args(),
             self.image_name,
             "extract_kg_graph.py",
             "--load_json_document", self.CHUNKS_JSON,

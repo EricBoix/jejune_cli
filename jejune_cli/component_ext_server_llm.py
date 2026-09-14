@@ -1,5 +1,6 @@
 """LLM server component."""
 from .configuration import configuration
+from .configuration_entry import configuration_entry
 from .component_ext_server import ext_server
 from .component_registry import ComponentRegistry
 
@@ -12,8 +13,9 @@ class comp_server_llm(ext_server):
             dependencies=[ComponentRegistry().get("network")],
             hint="run `jejune llm status-config`",
             configuration=configuration(
-                "edit .jejune/env-secrets",
-                env_vars=["LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME"],
+                configuration_entry("LLM_MODEL_URL",  hint="edit .jejune/env-secrets", source_file=".jejune/env-secrets"),
+                configuration_entry("LLM_API_KEY",    hint="edit .jejune/env-secrets", source_file=".jejune/env-secrets"),
+                configuration_entry("LLM_MODEL_NAME", hint="edit .jejune/env-secrets", source_file=".jejune/env-secrets"),
             ),
         )
 

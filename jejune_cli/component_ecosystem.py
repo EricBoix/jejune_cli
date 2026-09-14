@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Literal
 
 from .configuration import configuration
+from .configuration_entry import configuration_entry
 from .component_with_config import conf_comp
 # Cannot import COMP_REGISTRY because of circular dependency of imports between
 # comp_ecosystem and ComponentRegistry
@@ -18,7 +19,12 @@ class comp_ecosystem(conf_comp):
         git_server = ComponentRegistry().get("git-server")
         super().__init__(
             name="ecosystem",
-            configuration=configuration("edit .jejune/ecosystem-env-config and set JEJUNE_ROOT_DIR", env_vars=["JEJUNE_ROOT_DIR"], max_severity="warn"),
+            configuration=configuration(
+                configuration_entry("JEJUNE_ROOT_DIR",
+                    hint="edit .jejune/ecosystem-env-config and set JEJUNE_ROOT_DIR",
+                    source_file=".jejune/ecosystem-env-config",
+                    max_severity="warn")
+            ),
         )
         self._git_server = git_server
         self.conditional_dependencies = [(self.ecosystem_needs_remote, git_server)]

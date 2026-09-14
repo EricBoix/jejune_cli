@@ -1,65 +1,50 @@
-"""Configuration of a component: some components required to be configured with a file (or set of files) or possibly environment variables that are known and used by jejune to configure each specific component."""
+"""configuration: aggregate container for configuration_entry instances."""
 
-import os
-from collections.abc import Callable
+from pathlib import Path
 
-_PLACEHOLDER = "CHANGE_ME"
+from .configuration_entry import configuration_entry
 
 
 class configuration:
+    def __init__(self, *entries: configuration_entry) -> None:
+        self.configuration: list[configuration_entry] = list(entries)
 
-    def __init__(
-            self,
-            hint: str | None = None,
-            env_vars: list[str] | None = None,
-            max_severity: str = "error",
-            env_var_validator: Callable[[str], tuple[str, str]] | None = None,
-        ) -> None:
-        self.hint = hint
-        self.env_vars = env_vars or []
-        self.max_severity = max_severity
-        self.env_var_validator = env_var_validator
+    def __bool__(self) -> bool:
+        return bool(self.configuration)
 
-    def check_vars(self) -> list[tuple[str, str]]:
-        """Return [(key, state)] for each env_var.
-
-        state is "ok", "missing", or "placeholder".
-        """
-        result = []
-        for key in self.env_vars:
-            val = os.environ.get(key)
-            if val is None:
-                result.append((key, "missing"))
-            elif _PLACEHOLDER in val:
-                result.append((key, "placeholder"))
-            else:
-                result.append((key, "ok"))
-        return result
+    def __iter__(self):
+        return iter(self.configuration)
 
     def check(self) -> tuple[str, str, str]:
-        """Return (status, msg, hint).
-
-        status: "ok" | "warn" | "error"
-        msg:    raw diagnostic (which vars are missing/wrong)
-        hint:   human-readable remediation stored on this instance
-        """
-        if not self.env_vars:
+        """Return (status, msg, hint) aggregated across all entries."""
+        if not self.configuration:
             return "ok", "", ""
-
-        states = self.check_vars()
-
-        if all(s == "ok" for _, s in states):
-            status, msg = "ok", ""
-        elif all(s in ("missing", "placeholder") for _, s in states):
-            status, msg = "warn", "not configured"
-        else:
-            issues = [f"{k}: {s}" for k, s in states if s != "ok"]
-            status, msg = "error", "; ".join(issues)
-
-        if self.max_severity == "warn" and status == "error":
+        results = [e.check() for e in self.configuration]
+        statuses = {s for s, _ in results}
+        if "error" in statuses:
+            status = "error"
+        elif "warn" in statuses:
             status = "warn"
-        if status == "ok" and self.env_var_validator is not None:
-            val = os.environ.get(self.env_vars[0], "")
-            status, msg = self.env_var_validator(val)
+        else:
+            return "ok", "", ""
+        msgs = "; ".join(
+            f"{e.env_var}: {m}"
+            for e, (_, m) in zip(self.configuration, results)
+            if m
+        )
+        return status, msgs, ", ".join(self.hints())
 
-        return status, msg, self.hint or ""
+    def hints(self) -> list[str]:
+        """Return unique non-None hints from all entries."""
+        seen: set[str] = set()
+        result: list[str] = []
+        for e in self.configuration:
+            if e.hint and e.hint not in seen:
+                seen.add(e.hint)
+                result.append(e.hint)
+        return result
+
+    def load(self, base_dir: Path) -> None:
+        """Load all entry source files into os.environ."""
+        for e in self.configuration:
+            e.load(base_dir)

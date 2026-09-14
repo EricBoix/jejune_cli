@@ -157,7 +157,7 @@ def doctor(verbose: bool):
     for comp in visible_components:
         status, msg = by_config.get(comp.name, ("ok", "ok"))
         hint = (
-            (comp.configuration.hint or "")
+            (", ".join(comp.configuration.hints()) or "")
             if status != "ok" and hasattr(comp, "configuration")
             else ""
         )

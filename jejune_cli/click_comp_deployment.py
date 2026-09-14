@@ -7,7 +7,6 @@ from pathlib import Path
 
 import click
 
-from ._env import load_deployment_env
 from .component_registry import REGISTRY as COMP_REGISTRY
 from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
@@ -24,7 +23,7 @@ def deployment():
 @click.command("status")
 def status() -> None:
     """Show HTTP availability of the three UI deployment services."""
-    load_deployment_env(Path("."))
+    COMP_REGISTRY.get("deployment").configuration.load(Path("."))
     if not PLUGIN_PACKAGE_CATALOG.packages_installed():
         click.echo(click.style("Check plugin packages not installed.", fg="red"), err=True)
         click.echo("Run: jejune plugin-packages install", err=True)
@@ -84,13 +83,13 @@ def ui_configure(deployments_dir, name):
             (deploy_dir / "catalog.yaml").write_text("documents: []\n")
         click.echo("Seeded catalog.yaml from built-in template — populate manually.")
 
-    has_private = catalog_comp.has_private_repos(deploy_dir / "catalog.yaml")
+    deployment_comp = COMP_REGISTRY.get("deployment")
     (deploy_dir / "docker-compose.yml").write_text(
-        COMP_REGISTRY.get("deployment").generate_docker_compose(has_private, name, _T_UI)
+        deployment_comp.generate_docker_compose(deploy_dir, _T_UI)
     )
     shutil.copy(_T_UI / "deployment.env", deploy_dir / "deployment.env")
 
-    if has_private:
+    if deployment_comp.has_private_repos(deploy_dir):
         (deploy_dir / ".gitignore").write_text("secrets.env\n")
         shutil.copy(_T_UI / "secrets.env.template", deploy_dir / "secrets.env.template")
 
@@ -132,6 +131,11 @@ def up() -> None:
     deploy_dir = Path(".")
     deploy_name = deploy_dir.resolve().name.lower()
     deployment_comp = COMP_REGISTRY.get("deployment")
+    busy = deployment_comp.occupied_host_ports(deploy_dir)
+    if busy:
+        for port, var in busy:
+            click.echo(click.style(f"Port {port} ({var}) is already in use.", fg="red"), err=True)
+        raise SystemExit(1)
     container_names = [f"jejune-{deploy_name}-{svc}-1" for svc in deployment_comp.service_names]
     cont_comp.unregister_containers(*container_names)
     for cname in container_names:

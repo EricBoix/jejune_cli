@@ -115,8 +115,12 @@ class PluginRegistry:
         if plugin.config_vars:
             inst = COMP_REGISTRY.get(plugin.name)
             if inst is not None and hasattr(inst, "configuration"):
-                inst.configuration.env_vars = plugin.config_vars
-                inst.configuration.hint = plugin.config_hint
+                from .configuration import configuration
+                from .configuration_entry import configuration_entry
+                inst.configuration = configuration(*(
+                    configuration_entry(v, hint=plugin.config_hint)
+                    for v in plugin.config_vars
+                ))
 
         for hook in self._post_hooks:
             hook(plugin)

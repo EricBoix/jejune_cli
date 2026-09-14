@@ -3,20 +3,30 @@ import os
 import subprocess
 from pathlib import Path
 
-from .component_with_config import conf_comp as component
+from .configuration import configuration
+from .configuration_entry import configuration_entry
+from .component_with_config import conf_comp
 from .component_registry import ComponentRegistry
 
 
-class comp_deployment(component):
+class comp_deployment(conf_comp):
     def __init__(self) -> None:
+        self.network = ComponentRegistry().get("network")
         super().__init__(
             name="deployment",
             dependencies=[
                 ComponentRegistry().get("catalog"),
                 ComponentRegistry().get("docker-daemon"),
+                self.network,
             ],
             plugin_deps=["jejune_docs_server", "jejune_kg-graph_viewer", "jejune_markdown_browser"],
             hint="run `jejune build`",
+            configuration=configuration(
+                configuration_entry("DOCS_SERVER_PORT",      hint="edit deployment.env", source_file="deployment.env"),
+                configuration_entry("KG_PORT",               hint="edit deployment.env", source_file="deployment.env"),
+                configuration_entry("MARKDOWN_PORT",         hint="edit deployment.env", source_file="deployment.env"),
+                configuration_entry("MARKDOWN_TRIGGER_PORT", hint="edit deployment.env", source_file="deployment.env"),
+            ),
         )
 
     def check(self) -> tuple[str, str]:
@@ -31,6 +41,46 @@ class comp_deployment(component):
     @property
     def service_names(self) -> tuple[str, ...]:
         return tuple(dep.service_name for dep in self.dependencies if hasattr(dep, "service_name"))
+
+    def host_ports(self, deploy_dir: Path) -> list[tuple[int, str]]:
+        """Return (host_port, env_var_name) pairs after loading deployment.env."""
+        self.configuration.load(deploy_dir)
+        return [
+            (int(val), e.env_var)
+            for e in self.configuration
+            if (val := os.environ.get(e.env_var))
+        ]
+
+    def occupied_host_ports(self, deploy_dir: Path) -> list[tuple[int, str]]:
+        """Return host_ports entries whose port is already in use."""
+        return [
+            (port, var)
+            for port, var in self.host_ports(deploy_dir)
+            if not self.network.port_free(port)
+        ]
+
+    def has_private_repos(self, deploy_dir: Path) -> bool:
+        return ComponentRegistry().get("catalog").has_private_repos(deploy_dir / "catalog.yaml")
+
+    def generate_docker_compose(self, deploy_dir: Path, template_dir: Path) -> str:
+        name = deploy_dir.resolve().name.lower()
+        has_private = self.has_private_repos(deploy_dir)
+        build_secrets = (
+            "      secrets:\n        - catalog\n        - gh_token\n"
+            if has_private else
+            "      secrets:\n        - catalog\n"
+        )
+        gh_secret_def = (
+            "  gh_token:\n    file: \"${GH_TOKEN_FILE:-~/.github_token}\"\n"
+            if has_private else ""
+        )
+        template = (template_dir / "docker-compose.yml").read_text()
+        return (
+            template
+            .replace("{{NAME}}", name)
+            .replace("{{BUILD_SECRETS}}", build_secrets)
+            .replace("{{GH_SECRET_DEF}}", gh_secret_def)
+        )
 
     def check_ui_services(self) -> list[tuple[str, bool, str]]:
         from .plugin_registry import PLUGIN_REGISTRY
@@ -75,24 +125,6 @@ class comp_deployment(component):
             env=self._build_env(deploy_dir),
         )
         return result.returncode
-
-    def generate_docker_compose(self, has_private: bool, name: str, template_dir: Path) -> str:
-        build_secrets = (
-            "      secrets:\n        - catalog\n        - gh_token\n"
-            if has_private else
-            "      secrets:\n        - catalog\n"
-        )
-        gh_secret_def = (
-            "  gh_token:\n    file: \"${GH_TOKEN_FILE:-~/.github_token}\"\n"
-            if has_private else ""
-        )
-        template = (template_dir / "docker-compose.yml").read_text()
-        return (
-            template
-            .replace("{{NAME}}", name.lower())
-            .replace("{{BUILD_SECRETS}}", build_secrets)
-            .replace("{{GH_SECRET_DEF}}", gh_secret_def)
-        )
 
     def build(self, deploy_dir: Path, no_cache: bool = False) -> int:
         if no_cache:

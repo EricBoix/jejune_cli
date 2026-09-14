@@ -2,9 +2,10 @@
 import subprocess
 from pathlib import Path
 
-from ._env import TTL_ENV_VARS, docker_env_args
 from .component_containerized import cont_comp
 from .component_registry import ComponentRegistry
+from .configuration import configuration
+from .configuration_entry import configuration_entry
 
 
 class comp_neo4j_to_rdf_ttl(cont_comp):
@@ -15,6 +16,11 @@ class comp_neo4j_to_rdf_ttl(cont_comp):
             image_name="jejune:neo4j_to_rdf_ttl",
             build_context=git_server.remote_git_url("jejune_neo4j_to_rdf_ttl", ":DockerContext"),
             dependencies=[git_server, ComponentRegistry().get("docker-hub-server")],
+            configuration=configuration(
+                configuration_entry("NEO4J_URI",      hint="edit .jejune/env-config",   source_file=".jejune/env-config"),
+                configuration_entry("NEO4J_USERNAME", hint="edit .jejune/env-config",   source_file=".jejune/env-config"),
+                configuration_entry("NEO4J_PASSWORD", hint="edit .jejune/env-secrets",  source_file=".jejune/env-secrets"),
+            ),
         )
 
     def dump_turtle(self, output_dir: Path, filename: str) -> None:
@@ -23,7 +29,7 @@ class comp_neo4j_to_rdf_ttl(cont_comp):
             [
                 "docker", "run", "--rm", "--network", "host",
                 "-v", f"{output_dir}:/output",
-                *docker_env_args(TTL_ENV_VARS),
+                *self.docker_env_args(),
                 self.image_name,
                 "neo4j_to_rdf.py",
                 f"/output/{filename}",
@@ -31,5 +37,3 @@ class comp_neo4j_to_rdf_ttl(cont_comp):
         )
         if result.returncode != 0:
             raise SystemExit(result.returncode)
-
-

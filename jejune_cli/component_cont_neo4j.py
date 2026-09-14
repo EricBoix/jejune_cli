@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .component_containerized import cont_comp
 from .configuration import configuration
+from .configuration_entry import configuration_entry
 from .component_registry import ComponentRegistry
 
 
@@ -22,7 +23,11 @@ class comp_neo4j(cont_comp):
             build_context=git_server.remote_git_url("jejune_neo4j_docker"),
             dependencies=[git_server, ComponentRegistry().get("docker-hub-server")],
             hint="run `jejune neo4j start --help`",
-            configuration=configuration("edit .jejune/env-secrets or .jejune/env-config", env_vars=["NEO4J_PASSWORD"])
+            configuration=configuration(
+                configuration_entry("NEO4J_PASSWORD",
+                    hint="edit .jejune/env-secrets or .jejune/env-config",
+                    source_file=".jejune/env-secrets")
+            )
         )
 
     def launch_container(self, data_dir: Path, port: str, credentials: str) -> None:

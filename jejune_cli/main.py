@@ -4,7 +4,8 @@ from pathlib import Path
 
 import click
 
-from ._env import dot_jejune, load_env_files
+from ._env import dot_jejune
+from .component_registry import REGISTRY as _COMP_REGISTRY
 from ._doctor import (
     availability,
     config_check_availability,
@@ -96,7 +97,9 @@ class _JejuneGroup(click.Group):
     def format_commands(
         self, ctx: click.Context, formatter: click.HelpFormatter
     ) -> None:
-        load_env_files()
+        for _comp in _COMP_REGISTRY:
+            if hasattr(_comp, "configuration"):
+                _comp.configuration.load(Path.cwd())
 
         _hidden_unless_configured = {
             "convert": lambda: convert_configured() or Path.cwd().joinpath("full-catalog.yaml").exists(),

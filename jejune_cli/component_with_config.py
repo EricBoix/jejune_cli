@@ -8,8 +8,8 @@ from .configuration import configuration as _configuration
 class conf_comp(base_comp):
     """Component with configuration.
 
-    Subclasses must implement check(). check_config() may be overridden for
-    components whose availability depends on a configuration file check.
+    Subclasses must implement check(). The configuration attribute holds a
+    configuration instance whose entries describe required env vars.
     """
 
     def __init__(
@@ -28,8 +28,4 @@ class conf_comp(base_comp):
             hint=hint,
             plugin_deps=plugin_deps,
         )
-        self.configuration = configuration if configuration is not None else _configuration()
-
-    def check_config(self) -> tuple[str, str] | None:
-        """Return (status, message) for a component-specific config check, or None."""
-        return None
+        self.configuration: _configuration = configuration if configuration is not None else _configuration()

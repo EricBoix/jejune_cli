@@ -2,6 +2,7 @@
 
 import click
 
+from .configuration import configuration
 from .configuration_doc_steward import doc_steward_group as _doc_steward_group
 from .configuration_deployer import deployer_group as _deployer_group
 from .click_theme import ClickTheme
@@ -44,39 +45,42 @@ def print_two_col_table(rows: list[tuple[str, str]], col1: str, col2: str) -> No
         click.echo(f"  {c}{pad}  {v}")
 
 
-def print_config_check(cfg) -> None:
+def print_config_check(config: configuration) -> None:
     """Print detailed per-variable config check for a component's configuration."""
-    if cfg is None or not cfg.env_vars:
+    if not config:
         click.echo(click.style("no configuration required", fg="green"))
         return
-    states = cfg.check_vars()
-    _W = max(len(k) for k, _ in states)
+    _W = max(len(e.env_var) for e in config)
     any_error = False
-    for key, state in states:
-        if state == "missing":
+    for e in config:
+        status, msg = e.check()
+        if msg == "missing":
             label = click.style("not set", fg="yellow")
-        elif state == "placeholder":
+        elif msg == "placeholder":
             label = click.style("placeholder", fg="red")
             any_error = True
         else:
             label = click.style("ok", fg="green")
-        click.echo(f"  {key:<{_W}}  {label}")
+        click.echo(f"  {e.env_var:<{_W}}  {label}")
     if any_error:
         raise SystemExit(1)
 
 
-def print_config_hint(cfg) -> None:
+def print_config_hint(config: configuration) -> None:
     """Print the configuration hint for a component."""
-    if cfg is None:
+    if not config:
         click.echo(click.style("no configuration required", fg="green"))
         return
-    _, _, hint = cfg.check()
-    click.echo(hint if hint else click.style("no configuration required", fg="green"))
+    hints = config.hints()
+    click.echo(", ".join(hints) if hints else click.style("no configuration required", fg="green"))
 
 
-def print_config_status(cfg) -> None:
+def print_config_status(config: configuration) -> None:
     """Print configuration status for a component; exit 1 on error."""
-    status, _, hint = cfg.check() if cfg is not None else ("ok", "", "")
+    if not config:
+        click.echo(click.style("configured", fg="green"))
+        return
+    status, _, hint = config.check()
     if status == "ok":
         click.echo(click.style("configured", fg="green"))
     elif status == "warn":
@@ -164,8 +168,8 @@ def _role_config_checks() -> list[tuple[str, str, str, str]]:
         (comp.name, *comp.configuration.check())
         for comp in COMP_REGISTRY
         if (role_components is None or comp in role_components)
-        and hasattr(comp, 'configuration')
-        and comp.configuration.env_vars
+        and hasattr(comp, "configuration")
+        and comp.configuration
     ]
 
 

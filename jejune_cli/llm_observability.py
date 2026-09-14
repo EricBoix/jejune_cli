@@ -84,7 +84,7 @@ def check_availability():
     """Show detailed llm-observability availability (container state and endpoint reachability)."""
     ok, msg = llm_observability_available()
     if msg == "not configured":
-        click.echo(f"  {click.style('not configured', fg='yellow')}  {llm_obs_comp.configuration.hint}")
+        click.echo(f"  {click.style('not configured', fg='yellow')}  {", ".join(llm_obs_comp.configuration.hints())}")
         return
     running = ok
     url = os.environ.get("TRACELOOP_BASE_URL", f"http://localhost:{llm_obs_comp.otlp_port}")
@@ -123,6 +123,6 @@ def hint_availability():
     if ok:
         click.echo(click.style("llm-observability is running", fg="green"))
     elif msg == "not configured":
-        click.echo(llm_obs_comp.configuration.hint)
+        click.echo(", ".join(llm_obs_comp.configuration.hints()))
     else:
         click.echo("run `jejune llm-observability start`")

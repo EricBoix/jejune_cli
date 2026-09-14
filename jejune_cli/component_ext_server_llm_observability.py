@@ -1,5 +1,6 @@
 """LLM observability server component."""
 from .configuration import configuration
+from .configuration_entry import configuration_entry
 from .component_containerized import cont_comp
 
 
@@ -14,8 +15,9 @@ class comp_server_llm_observability(cont_comp):
             image_name="jaegertracing/all-in-one",
             hint="run `jejune llm-observability start`",
             configuration=configuration(
-                "configure TRACELOOP_BASE_URL in .jejune/env-config",
-                env_vars=["TRACELOOP_BASE_URL"],
+                configuration_entry("TRACELOOP_BASE_URL",
+                    hint="configure TRACELOOP_BASE_URL in .jejune/env-config",
+                    source_file=".jejune/env-config"),
             ),
         )
 

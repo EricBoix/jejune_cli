@@ -19,6 +19,14 @@ class comp_network(ext_comp):
         ok = _tcp_reachable(self.remote_server)
         return ("ok", "") if ok else ("error", f"{self.remote_server} not reachable")
 
+    def port_free(self, port: int) -> bool:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("", port))
+                return True
+            except OSError:
+                return False
+
 
 def _tcp_reachable(host: str, port: int = 443, timeout: float = 3.0) -> bool:
     try:
