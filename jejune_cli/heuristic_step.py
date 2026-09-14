@@ -20,13 +20,7 @@ class ComponentCondition:
     def __call__(self) -> bool:
         from .component_registry import REGISTRY
         inst = REGISTRY.get(self._name)
-        return inst is not None and inst.is_deeply_available()
-
-    def __hash__(self) -> int:
-        return hash(self._name)
-
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, ComponentCondition) and self._name == other._name
+        return inst is not None and inst.is_available()
 
 
 @dataclass
