@@ -6,7 +6,7 @@ import click
 
 from ._env import dot_jejune
 from .component_registry import REGISTRY as _COMP_REGISTRY
-from ._doctor import (
+from .click_doctor import (
     availability,
     config_check_availability,
     config_hint_availability,

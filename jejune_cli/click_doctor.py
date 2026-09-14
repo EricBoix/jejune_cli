@@ -191,8 +191,15 @@ def doctor(verbose: bool):
 
     port_conflict_per_comp: dict[str, str] = {}
     if port_conflict_hints:
+        by_avail_status = {comp: status for comp, status, _, _ in avail_rows}
         for comp in active_components:
             if not hasattr(comp, "configuration"):
+                continue
+            failing_deps = [
+                dep for dep in comp.active_deps()
+                if by_avail_status.get(dep.name, "ok") != "ok"
+            ]
+            if failing_deps:
                 continue
             comp_conflicts = [
                 port_conflict_hints[e.env_var]
