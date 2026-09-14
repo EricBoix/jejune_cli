@@ -5,7 +5,9 @@ from typing import Literal
 
 from .configuration import configuration
 from .component_with_config import conf_comp
-from .component_registry import REGISTRY as COMP_REGISTRY
+# Cannot import COMP_REGISTRY because of circular dependency of imports between
+# comp_ecosystem and ComponentRegistry
+from .component_registry import ComponentRegistry
 from .role_registry import ROLE_REGISTRY
 from .plugin_registry import PLUGIN_REGISTRY
 
@@ -14,7 +16,7 @@ RepoTier = Literal["root", "tmp", "remote"]
 
 class comp_ecosystem(conf_comp):
     def __init__(self) -> None:
-        git_server = COMP_REGISTRY.get("git-server")
+        git_server = ComponentRegistry().get("git-server")
         super().__init__(
             name="ecosystem",
             configuration=configuration("edit .jejune/ecosystem-env-config and set JEJUNE_ROOT_DIR", env_vars=["JEJUNE_ROOT_DIR"], max_severity="warn"),
@@ -84,8 +86,7 @@ class comp_ecosystem(conf_comp):
         root_dir, tmp_dir = self.resolve_dirs()
         return any(
             self.repo_status(pkg_name, root_dir, tmp_dir)[0] == "remote"
-            for comp in COMP_REGISTRY
-            if comp in active
+            for comp in active
             if getattr(comp, "repos", [])
             if (pkg_name := PLUGIN_REGISTRY.repo_name_for_plugin(comp.name)) is not None
         )
