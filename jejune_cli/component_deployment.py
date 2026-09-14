@@ -59,6 +59,18 @@ class comp_deployment(conf_comp):
             if not self.network.port_free(port)
         ]
 
+    def hint_for_occupied_ports(self, base_dir: Path) -> dict[str, str]:
+        """Return {env_var: conflict_hint} for each port in deployment.env already in use."""
+        result = {}
+        for port, var in self.occupied_host_ports(base_dir):
+            entry = next(e for e in self.configuration if e.env_var == var)
+            src = entry.source_file or "deployment.env"
+            result[var] = (
+                f"Port {port} is already in use: configure {var} in {src}"
+                f" to a different non-conflicting port value"
+            )
+        return result
+
     def has_private_repos(self, deploy_dir: Path) -> bool:
         return ComponentRegistry().get("catalog").has_private_repos(deploy_dir / "catalog.yaml")
 

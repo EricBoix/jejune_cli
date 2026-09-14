@@ -44,6 +44,15 @@ class configuration:
                 result.append(e.hint)
         return result
 
+    def effective_hints(self, override_hints: dict[str, str]) -> list[str]:
+        """Return override_hints for matching env vars, falling back to static hints."""
+        overrides = [
+            override_hints[e.env_var]
+            for e in self.configuration
+            if e.env_var in override_hints
+        ]
+        return overrides if overrides else self.hints()
+
     def load(self, base_dir: Path) -> None:
         """Load all entry source files into os.environ."""
         for e in self.configuration:

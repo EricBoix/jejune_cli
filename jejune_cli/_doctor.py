@@ -1,5 +1,7 @@
 """Doctor command and availability display helpers."""
 
+from pathlib import Path
+
 import click
 
 from .doctor_health_check import run_all, run_avail
@@ -151,13 +153,22 @@ def doctor(verbose: bool):
 
     config_results, avail_results, visible_components = run_all()
 
+    deploy_comp = next(
+        (c for c in visible_components if c.name == "deployment"), None
+    )
+    port_conflict_hints: dict[str, str] = (
+        deploy_comp.hint_for_occupied_ports(Path("."))
+        if deploy_comp is not None and hasattr(deploy_comp, "hint_for_occupied_ports")
+        else {}
+    )
+
     by_config = {comp: (status, msg) for comp, status, msg in config_results}
 
     config_rows: list[tuple[str, str, str, str]] = []
     for comp in visible_components:
         status, msg = by_config.get(comp.name, ("ok", "ok"))
         hint = (
-            (", ".join(comp.configuration.hints()) or "")
+            (", ".join(comp.configuration.effective_hints(port_conflict_hints)) or "")
             if status != "ok" and hasattr(comp, "configuration")
             else ""
         )
