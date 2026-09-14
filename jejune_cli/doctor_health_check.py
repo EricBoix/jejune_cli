@@ -31,9 +31,17 @@ def run_avail() -> tuple[list[tuple[str, str, str]], list]:
         status, msg = inst.check()
         avail.append((inst.name, status, msg))
 
+    from .component_containerized import cont_comp
+
     for plugin in PLUGIN_REGISTRY.plugins:
         if plugin.name not in role_names:
             continue
+        inst = COMP_REGISTRY.get(plugin.name)
+        if isinstance(inst, cont_comp):
+            status, msg = inst.check()
+            if status != "ok":
+                avail.append((plugin.name, status, msg))
+                continue
         if plugin.check_availability is not None:
             passed, msg = plugin.check_availability()
             avail.append((plugin.name, "ok" if passed else "error", msg))
