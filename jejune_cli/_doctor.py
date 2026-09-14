@@ -40,12 +40,12 @@ def _resolve_avail_hint(inst: base_comp, fallback: str = "") -> str:
 
 def _build_avail_rows(
     avail_results: list[tuple[str, str, str]],
-    all_visible: list[base_comp],
+    active_components: list[base_comp],
 ) -> list[tuple[str, str, str, str]]:
     """Build (comp, status, check, hint) rows for the availability table."""
     by_avail = {comp: (status, msg) for comp, status, msg in avail_results}
     rows: list[tuple[str, str, str, str]] = []
-    for inst in all_visible:
+    for inst in active_components:
         comp = inst.name
         if comp not in by_avail:
             continue
@@ -56,12 +56,17 @@ def _build_avail_rows(
             for dep in active_deps
             if by_avail.get(dep.name, ("ok",))[0] != "ok"
         ]
+        failing_hint = (
+            "Fix " + ", ".join(d.name for d in failing_deps) + " availability"
+            if failing_deps
+            else ""
+        )
         if status == "ok" and failing_deps:
-            rows.append((comp, "error", "dependency unavailable", ""))
+            rows.append((comp, "error", "dependency unavailable", failing_hint))
         elif status == "ok":
             rows.append((comp, status, "", ""))
         else:
-            hint = "" if failing_deps else _resolve_avail_hint(inst)
+            hint = failing_hint or _resolve_avail_hint(inst)
             rows.append((comp, status, msg, hint))
     return rows
 
@@ -159,10 +164,10 @@ def doctor(verbose: bool):
         )
         return
 
-    config_results, avail_results, visible_components = run_all()
+    config_results, avail_results, active_components = run_all()
 
     deploy_comp = next(
-        (c for c in visible_components if c.name == "deployment"), None
+        (c for c in active_components if c.name == "deployment"), None
     )
     port_conflict_hints: dict[str, str] = (
         deploy_comp.hint_for_occupied_ports(Path("."))
@@ -173,7 +178,7 @@ def doctor(verbose: bool):
     by_config = {comp: (status, msg) for comp, status, msg in config_results}
 
     config_rows: list[tuple[str, str, str, str]] = []
-    for comp in visible_components:
+    for comp in active_components:
         status, msg = by_config.get(comp.name, ("ok", "ok"))
         hint = (
             (", ".join(comp.configuration.effective_hints(port_conflict_hints)) or "")
@@ -182,11 +187,11 @@ def doctor(verbose: bool):
         )
         config_rows.append((comp.name, status, msg if status != "ok" else "", hint))
 
-    avail_rows = _build_avail_rows(avail_results, visible_components)
+    avail_rows = _build_avail_rows(avail_results, active_components)
 
     port_conflict_per_comp: dict[str, str] = {}
     if port_conflict_hints:
-        for comp in visible_components:
+        for comp in active_components:
             if not hasattr(comp, "configuration"):
                 continue
             comp_conflicts = [
@@ -205,7 +210,7 @@ def doctor(verbose: bool):
 
     if not verbose:
         avail_ok = {comp for comp, status, _, _ in avail_rows if status == "ok"}
-        ext_names_set = {c.name for c in visible_components if isinstance(c, (ext_comp, ext_server))}
+        ext_names_set = {c.name for c in active_components if isinstance(c, (ext_comp, ext_server))}
         config_rows = [
             row
             for row in config_rows
@@ -213,7 +218,7 @@ def doctor(verbose: bool):
         ]
 
     from .component_containerized import cont_comp
-    img_status = cont_comp.image_build_status(visible_components)
+    img_status = cont_comp.image_build_status(active_components)
     _print_health_table(config_rows, avail_rows, img_status, port_conflict_per_comp)
     if active_role in (None, "doc-steward"):
         click.echo()
@@ -228,8 +233,8 @@ def doctor(verbose: bool):
 @click.command("check-availability")
 def config_check_availability():
     """Per-component availability diagnostic."""
-    avail_results, visible = run_avail()
-    rows = _build_avail_rows(avail_results, visible)
+    avail_results, active_components = run_avail()
+    rows = _build_avail_rows(avail_results, active_components)
     if not rows:
         click.echo(
             click.style("No availability data for the current role.", fg="yellow")
@@ -245,8 +250,8 @@ def config_check_availability():
 @click.command("status-availability")
 def config_status_availability():
     """Per-component availability status."""
-    avail_results, visible = run_avail()
-    rows = _build_avail_rows(avail_results, visible)
+    avail_results, active_components = run_avail()
+    rows = _build_avail_rows(avail_results, active_components)
     if not rows:
         click.echo(
             click.style("No availability data for the current role.", fg="yellow")
@@ -262,10 +267,10 @@ def config_status_availability():
 @click.command("hint-availability")
 def config_hint_availability():
     """Availability hints for non-ok components."""
-    avail_results, visible = run_avail()
+    avail_results, active_components = run_avail()
     rows = [
         (comp, hint)
-        for comp, _, _, hint in _build_avail_rows(avail_results, visible)
+        for comp, _, _, hint in _build_avail_rows(avail_results, active_components)
         if hint
     ]
     if not rows:
