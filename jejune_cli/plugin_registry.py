@@ -218,6 +218,25 @@ class PluginRegistry:
         """Return the actual repo name for *plugin_name*, as used in plugin_deps."""
         return self._plugin_repo_names.get(plugin_name)
 
+    def plugin_name_for_repo(self, repo_name: str) -> str | None:
+        """Return installed plugin ep name for *repo_name*, or None.
+
+        Uses only locally available metadata — no network or git clone.
+        Checks the reverse of _plugin_repo_names first (populated from
+        direct_url.json for editable installs and from plugin.repo_name),
+        then falls back to matching the normalized distribution name.
+        """
+        key = repo_name.lower().replace("-", "_")
+        for ep_name, repo in self._plugin_repo_names.items():
+            if repo.lower().replace("-", "_") == key:
+                return ep_name
+        for ep in importlib.metadata.entry_points(group="jejune.plugins"):
+            if ep.dist is not None:
+                dist_key = ep.dist.name.lower().replace("-", "_")
+                if dist_key == key:
+                    return ep.name
+        return None
+
     @property
     def plugins(self) -> list[plugin_description]:
         return list(self._plugins)

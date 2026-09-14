@@ -103,16 +103,27 @@ class plugin_package_catalog:
         return sorted(self._expected_plugin_names(role))
 
     def packages_installed(self, role: str | None = None) -> bool:
-        """Return True when all expected plugin packages for *role* are installed."""
+        """Return True when all expected plugin packages for *role* are installed.
+
+        Uses only local metadata — no network calls or git clones.  A repo whose
+        plugin name cannot be resolved from installed-package metadata is treated
+        as not installed (False), which is correct: if the package were installed
+        its repo name would already be present in PLUGIN_REGISTRY.
+        """
         if role is None:
             from .role_registry import ROLE_REGISTRY
             r = ROLE_REGISTRY.detect_role()
             role = r.name if r else None
-        expected = self._expected_plugin_names(role)
-        if not expected:
+        repo_names = self._all_repo_names(role)
+        if not repo_names:
             return True
+        from .plugin_registry import PLUGIN_REGISTRY
         installed = {ep.name for ep in importlib.metadata.entry_points(group="jejune.plugins")}
-        return expected.issubset(installed)
+        for repo_name in repo_names:
+            plugin_name = PLUGIN_REGISTRY.plugin_name_for_repo(repo_name)
+            if plugin_name is None or plugin_name not in installed:
+                return False
+        return True
 
     def install_packages(self, role: str | None = None, no_cache: bool = False) -> None:
         """Install all expected plugin packages for *role*."""
