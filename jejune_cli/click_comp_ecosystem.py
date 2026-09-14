@@ -2,6 +2,7 @@
 
 import click
 
+from .click_theme import ClickTheme
 from .role_registry import ROLE_REGISTRY
 from .component_registry import REGISTRY as COMP_REGISTRY
 from .plugin_registry import PLUGIN_REGISTRY
@@ -48,7 +49,7 @@ def ecosystem_status() -> None:
     if not repos:
         click.echo(click.style("    No repositories required for the current role.", fg="yellow"))
     else:
-        rows: list[tuple[str, str, str, str]] = []
+        rows: list[tuple[str, bool, str, str]] = []
         for comp, _, _ in repos:
             # The following makes the assumption that every component that sets
             # self.repos lives in a plugin repo (which might be a latent
@@ -61,23 +62,18 @@ def ecosystem_status() -> None:
                 clone_display, remote_display = "[.jejune/tmp]", ""
             else:
                 clone_display, remote_display = "", "[REPO_ROOT_DIR]"
-            rows.append((
-                name,
-                "found" if tier in ("root", "tmp") else "not found",
-                clone_display,
-                remote_display,
-            ))
+            rows.append((name, tier in ("root", "tmp"), clone_display, remote_display))
 
+        _ICON_W = 1  # display width of ✓/✗
         _W_N = max(len("Component"),       max(len(r[0]) for r in rows))
-        _W_S = max(len("Status"),          max(len(r[1]) for r in rows))
         _W_C = max(len("Clone directory"), max(len(r[2]) for r in rows))
         _W_R = max(len("Remote repo"),     max(len(r[3]) for r in rows))
-        _STATUS_FG = {"found": "green", "not found": "yellow"}
 
-        click.echo(f"  {'Component':<{_W_N}}  {'Status':<{_W_S}}  {'Clone directory':<{_W_C}}  Remote repo")
-        click.echo("  " + "─" * (_W_N + 2 + _W_S + 2 + _W_C + 2 + _W_R))
-        for name, status, clone_dir, remote_url in rows:
-            status_cell = click.style(f"{status:<{_W_S}}", fg=_STATUS_FG.get(status, "white"))
+        click.echo(f"  {'Component':<{_W_N}}  {'':>{_ICON_W}}  {'Clone directory':<{_W_C}}  Remote repo")
+        click.echo("  " + "─" * (_W_N + 2 + _ICON_W + 2 + _W_C + 2 + _W_R))
+        for name, found, clone_dir, remote_url in rows:
+            icon, fg = ClickTheme.status_icons["ok" if found else "error"]
+            status_cell = click.style(icon, fg=fg)
             click.echo(f"  {name:<{_W_N}}  {status_cell}  {clone_dir:<{_W_C}}  {remote_url}")
 
     # --- Documents table ---
@@ -93,11 +89,13 @@ def ecosystem_status() -> None:
         (name, has_doc, _CLONE_LABEL.get(tier, tier))
         for name, tier, _, has_doc in doc_repos
     ]
+    _ICON_W = 1  # display width of ✓/✗
     _W_DN = max(len("Repository"),      max(len(r[0]) for r in doc_rows))
     _W_DC = max(len("Clone directory"), max(len(r[2]) for r in doc_rows))
 
-    click.echo(f"  {'Repository':<{_W_DN}}  manifest.yaml  Clone directory")
-    click.echo("  " + "─" * (_W_DN + 2 + len("manifest.yaml") + 2 + _W_DC))
+    click.echo(f"  {'Repository':<{_W_DN}}  {'':>{_ICON_W}}  {'Clone directory':<{_W_DC}}")
+    click.echo("  " + "─" * (_W_DN + 2 + _ICON_W + 2 + _W_DC))
     for name, has_doc, clone_dir in doc_rows:
-        doc_cell = click.style("✓", fg="green") if has_doc else click.style("✗", fg="red")
-        click.echo(f"  {name:<{_W_DN}}  {doc_cell}        {clone_dir}")
+        icon, fg = ClickTheme.status_icons["ok" if has_doc else "error"]
+        doc_cell = click.style(icon, fg=fg)
+        click.echo(f"  {name:<{_W_DN}}  {doc_cell}  {clone_dir:<{_W_DC}}")
