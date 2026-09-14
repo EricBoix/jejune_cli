@@ -50,15 +50,17 @@ def _build_avail_rows(
         if comp not in by_avail:
             continue
         status, msg = by_avail[comp]
-        if status == "ok":
+        active_deps = inst.active_deps()
+        failing_deps = [
+            dep
+            for dep in active_deps
+            if by_avail.get(dep.name, ("ok",))[0] != "ok"
+        ]
+        if status == "ok" and failing_deps:
+            rows.append((comp, "error", "dependency unavailable", ""))
+        elif status == "ok":
             rows.append((comp, status, "", ""))
         else:
-            active_deps = inst.active_deps()
-            failing_deps = [
-                dep
-                for dep in active_deps
-                if by_avail.get(dep.name, ("ok",))[0] != "ok"
-            ]
             hint = "" if failing_deps else _resolve_avail_hint(inst)
             rows.append((comp, status, msg, hint))
     return rows
