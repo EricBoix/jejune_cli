@@ -68,11 +68,13 @@ def _print_health_table(
     config_rows: list[tuple[str, str, str, str]],
     avail_rows: list[tuple[str, str, str, str]],
     img_status: dict[str, bool],
+    port_conflict_per_comp: dict[str, str] | None = None,
 ) -> None:
     """Render merged Component | Config | Img | Avail | Action table."""
     if not config_rows:
         return
     by_avail = {r[0]: r for r in avail_rows}
+    port_conflicts = port_conflict_per_comp or {}
     _COL_COMP = "Component"
     _COL_CFG = "Config"
     _COL_IMG = "Img"
@@ -87,7 +89,11 @@ def _print_health_table(
         avail = by_avail.get(comp)
         a_status = avail[1] if avail else None
         a_hint = avail[3] if avail else ""
-        action = c_hint or (a_hint if a_status and a_status != "ok" else "")
+        action = (
+            port_conflicts.get(comp)
+            or c_hint
+            or (a_hint if a_status and a_status != "ok" else "")
+        )
         img = img_status.get(comp)
         rows.append((comp, c_status, img, a_status, action))
     _W_ACT = max(len(_COL_ACT), max(len(r[4]) for r in rows))
@@ -176,6 +182,19 @@ def doctor(verbose: bool):
 
     avail_rows = _build_avail_rows(avail_results, visible_components)
 
+    port_conflict_per_comp: dict[str, str] = {}
+    if port_conflict_hints:
+        for comp in visible_components:
+            if not hasattr(comp, "configuration"):
+                continue
+            comp_conflicts = [
+                port_conflict_hints[e.env_var]
+                for e in comp.configuration
+                if e.env_var in port_conflict_hints
+            ]
+            if comp_conflicts:
+                port_conflict_per_comp[comp.name] = ", ".join(comp_conflicts)
+
     _CONFIG_NOTE = "  Configuration files: .jejune/env-config · .jejune/env-secrets"
 
     role_label = f" [{active_role}]" if active_role else ""
@@ -193,7 +212,7 @@ def doctor(verbose: bool):
 
     from .component_containerized import cont_comp
     img_status = cont_comp.image_build_status(visible_components)
-    _print_health_table(config_rows, avail_rows, img_status)
+    _print_health_table(config_rows, avail_rows, img_status, port_conflict_per_comp)
     if active_role in (None, "doc-steward"):
         click.echo()
         click.echo(_CONFIG_NOTE)

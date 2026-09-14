@@ -17,6 +17,7 @@ class configuration:
 
     def check(self) -> tuple[str, str, str]:
         """Return (status, msg, hint) aggregated across all entries."""
+        self.load(Path("."))
         if not self.configuration:
             return "ok", "", ""
         results = [e.check() for e in self.configuration]

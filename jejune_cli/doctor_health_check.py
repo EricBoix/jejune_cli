@@ -60,15 +60,23 @@ def run_all() -> tuple[
 
     Used by `jejune doctor`, which needs both configuration and availability status.
     Each result entry is (component_name, status, message).
+    Config checks run first: configuration.check() auto-loads source files into
+    os.environ so that the subsequent availability checks use the correct ports.
     """
-    avail, visible = run_avail()
+    role_comps = ROLE_REGISTRY.current_role_components()
+    if role_comps is None:
+        print("This role does not have any components. Inquire on this case.")
+        sys.exit()
+
+    visible = COMP_REGISTRY.sorted_active_set(role_comps)
 
     config: list[tuple[str, str, str]] = []
     for inst in visible:
-        if not isinstance(inst, component):
+        if not isinstance(inst, component) or not inst.configuration:
             continue
-        if inst.configuration:
-            status, msg, _ = inst.configuration.check()
-            config.append((inst.name, status, msg))
+        status, msg, _ = inst.configuration.check()
+        config.append((inst.name, status, msg))
+
+    avail, _ = run_avail()
 
     return config, avail, visible
