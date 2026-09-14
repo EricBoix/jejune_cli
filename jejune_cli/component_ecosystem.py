@@ -4,15 +4,17 @@ from pathlib import Path
 from typing import Literal
 
 from .configuration import configuration
-from .component_with_config import conf_comp as component
-from .component_registry import ComponentRegistry
+from .component_with_config import conf_comp
+from .component_registry import REGISTRY as COMP_REGISTRY
+from .role_registry import ROLE_REGISTRY
+from .plugin_registry import PLUGIN_REGISTRY
 
 RepoTier = Literal["root", "tmp", "remote"]
 
 
-class comp_ecosystem(component):
+class comp_ecosystem(conf_comp):
     def __init__(self) -> None:
-        git_server = ComponentRegistry().get("git-server")
+        git_server = COMP_REGISTRY.get("git-server")
         super().__init__(
             name="ecosystem",
             configuration=configuration("edit .jejune/ecosystem-env-config and set JEJUNE_ROOT_DIR", env_vars=["JEJUNE_ROOT_DIR"], max_severity="warn"),
@@ -75,19 +77,17 @@ class comp_ecosystem(component):
         return results
 
     def ecosystem_needs_remote(self) -> bool:
-        from .role_registry import ROLE_REGISTRY
-        role = ROLE_REGISTRY.detect_role()
-        root_dir, tmp_dir = self.resolve_dirs()
-        active = ROLE_REGISTRY.role_components(role)
+        """Does the ecosystem still need to reach a remote git server?"""
+        active = ROLE_REGISTRY.current_role_components()
         if active is None:
             return False
-        from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
+        root_dir, tmp_dir = self.resolve_dirs()
         return any(
             self.repo_status(pkg_name, root_dir, tmp_dir)[0] == "remote"
-            for comp in ComponentRegistry()
+            for comp in COMP_REGISTRY
             if comp in active
             if getattr(comp, "repos", [])
-            if (pkg_name := PLUGIN_PACKAGE_CATALOG.repo_name_for(comp.name)) is not None
+            if (pkg_name := PLUGIN_REGISTRY.repo_name_for_plugin(comp.name)) is not None
         )
 
     def ensure_local(self, repo_name: str) -> Path:

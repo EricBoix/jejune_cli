@@ -4,7 +4,7 @@ import click
 
 from .role_registry import ROLE_REGISTRY
 from .component_registry import REGISTRY as COMP_REGISTRY
-from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
+from .plugin_registry import PLUGIN_REGISTRY
 
 
 @click.group(invoke_without_command=True, short_help="Ecosystem repository status")
@@ -50,8 +50,11 @@ def ecosystem_status() -> None:
     else:
         rows: list[tuple[str, str, str, str]] = []
         for comp, _, _ in repos:
-            name = PLUGIN_PACKAGE_CATALOG.repo_name_for(comp.name) or comp.name
-            tier, path = eco.repo_status(name, root_dir, tmp_dir)
+            # The following makes the assumption that every component that sets
+            # self.repos lives in a plugin repo (which might be a latent
+            # fragility e.g. for future built-in components)
+            name = PLUGIN_REGISTRY.repo_name_for_plugin(comp.name) or comp.name
+            tier, _ = eco.repo_status(name, root_dir, tmp_dir)
             if tier == "root":
                 clone_display, remote_display = "[JEJUNE_ROOT_DIR]", ""
             elif tier == "tmp":
