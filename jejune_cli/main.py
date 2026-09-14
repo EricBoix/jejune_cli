@@ -172,7 +172,6 @@ def cli():
 
     Run `jejune configuration <role> init` to set up a new workspace.
     """
-    load_env_files()
 
 
 # ---------------------------------------------------------------------------
