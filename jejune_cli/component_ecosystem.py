@@ -9,7 +9,6 @@ from .component_with_config import conf_comp
 # comp_ecosystem and ComponentRegistry
 from .component_registry import ComponentRegistry
 from .role_registry import ROLE_REGISTRY
-from .plugin_registry import PLUGIN_REGISTRY
 
 RepoTier = Literal["root", "tmp", "remote"]
 
@@ -84,6 +83,7 @@ class comp_ecosystem(conf_comp):
         if active is None:
             return False
         root_dir, tmp_dir = self.resolve_dirs()
+        from .plugin_registry import PLUGIN_REGISTRY
         return any(
             self.repo_status(pkg_name, root_dir, tmp_dir)[0] == "remote"
             for comp in active
