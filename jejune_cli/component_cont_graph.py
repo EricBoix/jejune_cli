@@ -18,12 +18,14 @@ class comp_graph(cont_comp):
     }
 
     def __init__(self) -> None:
-        git_server = ComponentRegistry().get("git-server")
+        self._git_server = ComponentRegistry().get("git-server")
+        self._neo4j      = ComponentRegistry().get("neo4j")
+        self._llm        = ComponentRegistry().get("llm")
         super().__init__(
             name="graph",
             image_name="jejune:extract_knowledge_graph",
-            build_context=git_server.remote_git_url("jejune_extract_knowledge_graph", ":DockerContext"),
-            dependencies=[git_server, ComponentRegistry().get("neo4j"), ComponentRegistry().get("llm")],
+            build_context=self._git_server.remote_git_url("jejune_extract_knowledge_graph", ":DockerContext"),
+            dependencies=[self._git_server, self._neo4j, self._llm],
             optional_dependencies=[ComponentRegistry().get("llm-observability")],
             configuration=configuration(
                 configuration_entry("NEO4J_URI",           hint="edit .jejune/env-config",   source_file=".jejune/env-config"),
@@ -37,9 +39,7 @@ class comp_graph(cont_comp):
         )
 
     def dep_statuses(self) -> dict[str, tuple[bool, str]]:
-        from .llm import llm_available
-        neo4j = next(d for d in self.dependencies if d.name == "neo4j")
-        return {"neo4j": neo4j.is_running(), "llm": llm_available()}
+        return {"neo4j": self._neo4j.is_running(), "llm": self._llm.available()}
 
     def is_running(self) -> tuple[bool, str]:
         statuses = self.dep_statuses()

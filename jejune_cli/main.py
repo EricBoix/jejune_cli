@@ -31,7 +31,7 @@ from .click_comp_configuration import (
 )
 from .click_containers import containers_cli
 from .click_cont_comp_graph import graph
-from .llm import llm
+from .click_llm import llm
 from .manifest import manifest
 from .llm_observability import llm_observability
 from .click_cont_comp_neo4j import neo4j
