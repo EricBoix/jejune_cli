@@ -14,7 +14,7 @@ class comp_server_docker_daemon(ext_comp):
     def check(self) -> tuple[str, str]:
         try:
             result = subprocess.run(
-                ["docker", "stats", "--no-stream"],
+                ["docker", "info", "--format", "{{.ID}}"],
                 capture_output=True,
                 timeout=10,
             )
