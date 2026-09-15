@@ -218,6 +218,10 @@ class PluginRegistry:
         """Return the actual repo name for *plugin_name*, as used in plugin_deps."""
         return self._plugin_repo_names.get(plugin_name)
 
+    def register_repo_name(self, plugin_name: str, repo_name: str) -> None:
+        """Record the repo-name → plugin-name mapping (idempotent, first write wins)."""
+        self._plugin_repo_names.setdefault(plugin_name, repo_name)
+
     def plugin_name_for_repo(self, repo_name: str) -> str | None:
         """Return installed plugin ep name for *repo_name*, or None.
 

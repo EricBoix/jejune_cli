@@ -137,14 +137,15 @@ class plugin_package_catalog:
         discovered = self._discover(repo_names, no_cache=no_cache)
         for repo_name in repo_names:
             self._install_package(repo_name, discovered.get(repo_name, repo_name))
-        # Python 3.14+: FastPath.__new__ is lru_cache'd, so each site-packages
-        # directory is scanned once and the result is reused for the process
-        # lifetime.  Packages installed above via subprocess are invisible to
-        # subsequent importlib.metadata.entry_points() calls until those
-        # singletons are evicted.  invalidate_caches() calls
-        # FastPath.__new__.cache_clear(), ensuring packages_installed() (called
-        # by print_next_steps() moments later) sees the freshly installed dists.
-        importlib.metadata.MetadataPathFinder.invalidate_caches()
+        # packages_installed() relies on PLUGIN_REGISTRY.plugin_name_for_repo() to
+        # translate repo names to entry-point names.  That method falls back to
+        # matching the normalised distribution name, which fails when the dist name
+        # differs from the repo name (e.g. repo "jejune_kg-graph_viewer" → dist
+        # "jejune-kg-viewer").  Populate the registry now from the pyproject.toml
+        # data already in hand so the same-process next-steps evaluation is correct.
+        from .plugin_registry import PLUGIN_REGISTRY
+        for repo, plugin in discovered.items():
+            PLUGIN_REGISTRY.register_repo_name(plugin, repo)
 
     def _install_package(self, repo_name: str, plugin_name: str) -> None:
         from .component_registry import REGISTRY as COMP_REGISTRY
