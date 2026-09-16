@@ -4,7 +4,8 @@ import sys
 from pathlib import Path
 
 from .component_registry import REGISTRY as COMP_REGISTRY
-from .component_with_config import conf_comp as component
+from .component_containerized import cont_comp
+from .component_with_config import conf_comp
 from .plugin_registry import PLUGIN_REGISTRY
 from .role_registry import ROLE_REGISTRY
 
@@ -31,8 +32,6 @@ def run_avail() -> tuple[list[tuple[str, str, str]], list]:
             continue
         status, msg = inst.check()
         avail.append((inst.name, status, msg))
-
-    from .component_containerized import cont_comp
 
     for plugin in PLUGIN_REGISTRY.plugins:
         if plugin.name not in role_names:
@@ -73,12 +72,12 @@ def run_all() -> tuple[
     active_components = COMP_REGISTRY.sorted_active_set(role_comps)
 
     for inst in active_components:
-        if isinstance(inst, component) and inst.configuration:
+        if isinstance(inst, conf_comp) and inst.configuration:
             inst.configuration.load(Path("."))
 
     config: list[tuple[str, str, str]] = []
     for inst in active_components:
-        if not isinstance(inst, component) or not inst.configuration:
+        if not isinstance(inst, conf_comp) or not inst.configuration:
             continue
         status, msg, _ = inst.configuration.check()
         config.append((inst.name, status, msg))

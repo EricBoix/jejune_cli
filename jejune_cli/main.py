@@ -35,8 +35,8 @@ from .click_llm import llm
 from .click_manifest import manifest
 from .click_llm_observability import llm_observability
 from .click_cont_comp_neo4j import neo4j
-from .configuration_deployer import init as _deployer_init
-from .configuration_doc_steward import init as _doc_steward_init
+from .click_workspace_deployer import init as _deployer_init
+from .click_workspace_doc_steward import init as _doc_steward_init
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 _ACTIVE_ROLE_OBJ = ROLE_REGISTRY.detect_role()
 _ACTIVE_ROLE: str | None = ROLE_REGISTRY.detect_role_name()

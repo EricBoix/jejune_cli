@@ -3,8 +3,8 @@
 import click
 
 from .configuration import configuration
-from .configuration_doc_steward import doc_steward_group as _doc_steward_group
-from .configuration_deployer import deployer_group as _deployer_group
+from .click_workspace_doc_steward import doc_steward_group as _doc_steward_group
+from .click_workspace_deployer import deployer_group as _deployer_group
 from .click_theme import ClickTheme
 
 
