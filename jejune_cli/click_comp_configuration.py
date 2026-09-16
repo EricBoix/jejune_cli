@@ -50,18 +50,18 @@ def print_config_check(config: configuration) -> None:
     if not config:
         click.echo(click.style("no configuration required", fg="green"))
         return
-    _W = max(len(e.env_var) for e in config)
+    entries = config.entries_check()
+    col_width = max(len(env_var) for env_var, _ in entries)
     any_error = False
-    for e in config:
-        status, msg = e.check()
-        if msg == "missing":
+    for env_var, status in entries:
+        if status == "missing":
             label = click.style("not set", fg="yellow")
-        elif msg == "placeholder":
+        elif status == "placeholder":
             label = click.style("placeholder", fg="red")
             any_error = True
         else:
             label = click.style("ok", fg="green")
-        click.echo(f"  {e.env_var:<{_W}}  {label}")
+        click.echo(f"  {env_var:<{col_width}}  {label}")
     if any_error:
         raise SystemExit(1)
 

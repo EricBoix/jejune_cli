@@ -1,4 +1,8 @@
 """LLM observability server component."""
+import os
+import urllib.error
+import urllib.request
+
 from .configuration import configuration
 from .configuration_entry import configuration_entry
 from .component_containerized import cont_comp
@@ -24,6 +28,25 @@ class comp_server_llm_observability(cont_comp):
     @property
     def container_name(self) -> str:
         return "jejune_llm_observability"
+
+    def available(self) -> tuple[bool, str]:
+        cfg_status, *_ = self.configuration.check()
+        if cfg_status != "ok":
+            return False, "not configured"
+        return self.is_running()
+
+    def otlp_base_url(self) -> str:
+        return os.environ.get("TRACELOOP_BASE_URL", f"http://localhost:{self.otlp_port}")
+
+    def check_endpoint_reachable(self) -> tuple[bool, str]:
+        url = self.otlp_base_url()
+        try:
+            with urllib.request.urlopen(url, timeout=5):
+                return True, url
+        except urllib.error.HTTPError:
+            return True, url
+        except urllib.error.URLError:
+            return False, url
 
     def check(self) -> tuple[str, str]:
         cfg_status, *_ = self.configuration.check()

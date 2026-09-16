@@ -1,7 +1,3 @@
-import os
-import urllib.error
-import urllib.request
-
 import click
 
 from .component_registry import REGISTRY as COMP_REGISTRY
@@ -12,14 +8,6 @@ from .click_comp_configuration import (
 )
 
 llm_obs_comp = COMP_REGISTRY.get("llm-observability")
-
-
-def llm_observability_available() -> tuple[bool, str]:
-    """Config-guard + container check; consumed by catalog.run_all() and *-availability commands."""
-    cfg_status, *_ = llm_obs_comp.configuration.check()
-    if cfg_status != "ok":
-        return False, "not configured"
-    return llm_obs_comp.is_running()
 
 
 @click.group("llm-observability", short_help="Manage the LLM observability backend")
@@ -82,23 +70,15 @@ def stop():
 @llm_observability.command("check-availability")
 def check_availability():
     """Show detailed llm-observability availability (container state and endpoint reachability)."""
-    ok, msg = llm_observability_available()
+    ok, msg = llm_obs_comp.available()
     if msg == "not configured":
         click.echo(f"  {click.style('not configured', fg='yellow')}  {", ".join(llm_obs_comp.configuration.hints())}")
         return
-    running = ok
-    url = os.environ.get("TRACELOOP_BASE_URL", f"http://localhost:{llm_obs_comp.otlp_port}")
-    try:
-        with urllib.request.urlopen(url, timeout=5):
-            reachable = True
-    except urllib.error.HTTPError:
-        reachable = True
-    except urllib.error.URLError:
-        reachable = False
+    reachable, url = llm_obs_comp.check_endpoint_reachable()
     click.echo(
-        f"  container   {click.style('running', fg='green') if running else click.style('not running', fg='yellow')}"
+        f"  container   {click.style('running', fg='green') if ok else click.style('not running', fg='yellow')}"
     )
-    ep_color = "green" if reachable else ("red" if running else "yellow")
+    ep_color = "green" if reachable else ("red" if ok else "yellow")
     click.echo(
         f"  endpoint    {click.style('reachable' if reachable else 'unreachable', fg=ep_color)}  ({url})"
     )
@@ -107,7 +87,7 @@ def check_availability():
 @llm_observability.command("status-availability")
 def status_availability():
     """Show llm-observability availability status."""
-    ok, msg = llm_observability_available()
+    ok, msg = llm_obs_comp.available()
     if ok:
         click.echo(f"llm-observability: {click.style('ok', fg='green')}")
     elif msg == "not configured":
@@ -119,7 +99,7 @@ def status_availability():
 @llm_observability.command("hint-availability")
 def hint_availability():
     """Show how to start llm-observability if it is not running."""
-    ok, msg = llm_observability_available()
+    ok, msg = llm_obs_comp.available()
     if ok:
         click.echo(click.style("llm-observability is running", fg="green"))
     elif msg == "not configured":
