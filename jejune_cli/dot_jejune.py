@@ -7,8 +7,8 @@ class dot_jejune:
     _DOT_JEJUNE: ClassVar[str] = ".jejune"
     _TMP_PATTERN: ClassVar[str] = str(Path(_DOT_JEJUNE) / "tmp") + "/"
 
-    def __init__(self, cwd: Path = Path.cwd()) -> None:
-        self._cwd = cwd
+    def __init__(self, cwd: Path | None = None) -> None:
+        self._cwd = cwd if cwd is not None else Path.cwd()
         self._path = self._cwd / self._DOT_JEJUNE
 
     def __truediv__(self, other) -> Path:
