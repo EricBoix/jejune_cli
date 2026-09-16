@@ -15,7 +15,7 @@ from .click_doctor import (
 )
 from .click_next_steps import next_cmd
 from .click_role_registry import role
-from .convert import convert, convert_configured
+from .click_convert import convert
 from .plugin_description import plugin_description as _PluginDescription
 from .plugin_registry import PLUGIN_REGISTRY
 from .role_registry import ROLE_REGISTRY
@@ -102,7 +102,7 @@ class _JejuneGroup(click.Group):
                 _comp.configuration.load(Path.cwd())
 
         _hidden_unless_configured = {
-            "convert": lambda: convert_configured() or Path.cwd().joinpath("full-catalog.yaml").exists(),
+            "convert": lambda: _COMP_REGISTRY.get("convert").configuration.check()[0] == "ok" or Path.cwd().joinpath("full-catalog.yaml").exists(),
             "next": lambda: HEURISTIC_STEP_REGISTRY.has_heuristics_for_role(_ACTIVE_ROLE),
         }
 

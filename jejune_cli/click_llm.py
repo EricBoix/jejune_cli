@@ -2,45 +2,50 @@ import os
 
 import click
 
-from .component_registry import REGISTRY as COMP_REGISTRY
 from .click_comp_configuration import print_config_hint, print_config_status, print_config_check
 
 
 @click.group(short_help="Manage the LLM inference server")
-def llm():
+@click.pass_context
+def llm(click_ctx):
     """Manage the LLM inference server."""
+    from .component_registry import REGISTRY as COMP_REGISTRY
+    click_ctx.obj = COMP_REGISTRY.get("llm")
 
 
 @llm.command("check-config")
-def check_config():
+@click.pass_obj
+def check_config(comp):
     """Show per-variable configuration detail for the llm component."""
-    print_config_check(COMP_REGISTRY.get("llm").configuration)
+    print_config_check(comp.configuration)
 
 
 @llm.command("status-config")
-def status_config():
+@click.pass_obj
+def status_config(comp):
     """Show llm configuration status."""
-    print_config_status(COMP_REGISTRY.get("llm").configuration)
+    print_config_status(comp.configuration)
 
 
 @llm.command("hint-config")
-def hint_config():
+@click.pass_obj
+def hint_config(comp):
     """Show the configuration hint for the llm component."""
-    print_config_hint(COMP_REGISTRY.get("llm").configuration)
+    print_config_hint(comp.configuration)
 
 
 @llm.command("check-availability")
 @click.option("--prompt", default=None, show_default=True,
               help="Prompt sent to the LLM for the inference round-trip test.")
-def check_availability(prompt):
+@click.pass_obj
+def check_availability(comp, prompt):
     """Show detailed llm availability (five-stage connectivity and inference check)."""
-    comp = COMP_REGISTRY.get("llm")
-    ctx = comp._check_context()
-    if ctx is None:
+    check_ctx = comp._check_context()
+    if check_ctx is None:
         missing = [n for n in ("LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME")
                    if not os.environ.get(n)]
         raise click.ClickException(f"Missing: {', '.join(missing)}")
-    url, api_key, model, server_url, inference_path = ctx
+    url, api_key, model, server_url, inference_path = check_ctx
     effective_prompt = prompt if prompt is not None else comp._TEST_PROMPT
     steps = [
         ("HTTPS connectivity",    lambda: comp.check_server(server_url)),
@@ -58,9 +63,10 @@ def check_availability(prompt):
 
 
 @llm.command("status-availability")
-def status_availability():
+@click.pass_obj
+def status_availability(comp):
     """Show llm availability status."""
-    ok, msg = COMP_REGISTRY.get("llm").check_availability()
+    ok, msg = comp.check_availability()
     if ok:
         click.echo(f"llm: {click.style('ok', fg='green')}")
     elif msg == "not configured":
@@ -70,14 +76,14 @@ def status_availability():
 
 
 @llm.command("hint-availability")
-def hint_availability():
+@click.pass_obj
+def hint_availability(comp):
     """Show how to fix the first failing LLM availability stage."""
-    comp = COMP_REGISTRY.get("llm")
-    ctx = comp._check_context()
-    if ctx is None:
+    check_ctx = comp._check_context()
+    if check_ctx is None:
         click.echo("edit .jejune/env-secrets: set LLM_MODEL_URL, LLM_API_KEY, LLM_MODEL_NAME")
         return
-    url, api_key, model, server_url, inference_path = ctx
+    url, api_key, model, server_url, inference_path = check_ctx
     stages = [
         (lambda: comp.check_server(server_url),
          "verify LLM_MODEL_URL / LLM_SERVER_URL is reachable from this host"),

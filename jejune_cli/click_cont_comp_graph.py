@@ -1,10 +1,9 @@
 import click
 
 from .component_registry import REGISTRY as COMP_REGISTRY
-from .click_comp_configuration import print_config_hint, print_config_status
+from .click_comp_configuration import print_config_check, print_config_hint, print_config_status
 
 graph_comp = COMP_REGISTRY.get("graph")
-llm_obs_comp = COMP_REGISTRY.get("llm-observability")
 
 _DEP_HINTS = {
     "neo4j": "run `jejune neo4j start`",
@@ -22,6 +21,7 @@ _PREFLIGHT_SKIP = {
 @click.pass_context
 def graph(ctx):
     """Build and export the knowledge graph for the current jejune_doc_<name> repository."""
+    ctx.obj = graph_comp
     if ctx.invoked_subcommand not in _PREFLIGHT_SKIP:
         graph_comp.preflight()
 
@@ -29,32 +29,36 @@ def graph(ctx):
 @graph.command("build")
 @click.option("--no-cache", is_flag=True, default=False,
               help="Do not use Docker layer cache when building.")
-def graph_build(no_cache: bool):
+@click.pass_obj
+def graph_build(comp, no_cache: bool):
     """Build the knowledge-graph extraction Docker image."""
-    graph_comp.build(no_cache=no_cache)
+    comp.build(no_cache=no_cache)
 
 
 @graph.command("check-availability")
-def check_availability():
+@click.pass_obj
+def check_availability(comp):
     """Show graph availability status with optional-dep detail."""
-    ok, msg = graph_comp.is_running()
+    ok, msg = comp.is_running()
     status = click.style("ok", fg="green") if ok else click.style(msg, fg="red")
-    lo_ok, _ = llm_obs_comp.is_running()
+    lo_ok, _ = COMP_REGISTRY.get("llm-observability").is_running()
     opt = click.style("llm-observability", fg="green" if lo_ok else "yellow")
     click.echo(f"graph: {status}  ({opt} optional)")
 
 
 @graph.command("status-availability")
-def status_availability():
+@click.pass_obj
+def status_availability(comp):
     """Show graph availability status."""
-    ok, _ = graph_comp.is_running()
+    ok, _ = comp.is_running()
     click.echo(f"graph: {click.style('ok', fg='green') if ok else click.style('error', fg='red')}")
 
 
 @graph.command("hint-availability")
-def hint_availability():
+@click.pass_obj
+def hint_availability(comp):
     """Show how to fix unavailable graph dependencies."""
-    statuses = graph_comp.dep_statuses()
+    statuses = comp.dep_statuses()
     failing = [dep for dep, (ok, _) in statuses.items() if not ok]
     if not failing:
         click.echo(click.style("all graph dependencies are available", fg="green"))
@@ -64,22 +68,24 @@ def hint_availability():
 
 
 @graph.command("check-config")
-def check_config():
+@click.pass_obj
+def check_config(comp):
     """Show per-variable configuration detail for the graph component."""
-    from .click_comp_configuration import print_config_check
-    print_config_check(graph_comp.configuration)
+    print_config_check(comp.configuration)
 
 
 @graph.command("status-config")
-def status_config():
+@click.pass_obj
+def status_config(comp):
     """Show graph configuration status."""
-    print_config_status(graph_comp.configuration)
+    print_config_status(comp.configuration)
 
 
 @graph.command("hint-config")
-def hint_config():
+@click.pass_obj
+def hint_config(comp):
     """Show the configuration hint for the graph component."""
-    print_config_hint(graph_comp.configuration)
+    print_config_hint(comp.configuration)
 
 
 @graph.command("split", context_settings={"ignore_unknown_options": True})
@@ -96,7 +102,8 @@ def hint_config():
 @click.option("--no-cache", is_flag=True, default=False,
               help="Do not use Docker layer cache when building.")
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
-def split(doc_dir, splitter, output, no_cache, extra_args):
+@click.pass_obj
+def split(comp, doc_dir, splitter, output, no_cache, extra_args):
     """Split DOC_DIR's catalog into JSON chunks.
 
     Builds the extraction Docker image and runs the chosen splitter script
@@ -105,7 +112,7 @@ def split(doc_dir, splitter, output, no_cache, extra_args):
 
     EXTRA_ARGS are forwarded verbatim to the splitter (e.g. --output_dir /data).
     """
-    graph_comp.run_split(doc_dir, splitter, output, no_cache, extra_args)
+    comp.run_split(doc_dir, splitter, output, no_cache, extra_args)
 
 
 @graph.command("extract", context_settings={"ignore_unknown_options": True})
@@ -113,7 +120,8 @@ def split(doc_dir, splitter, output, no_cache, extra_args):
 @click.option("--no-cache", is_flag=True, default=False,
               help="Do not use Docker layer cache when building.")
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
-def extract(doc_dir, no_cache, extra_args):
+@click.pass_obj
+def extract(comp, doc_dir, no_cache, extra_args):
     """Run the Markdown → Neo4j knowledge-graph extraction for DOC_DIR.
 
     DOC_DIR is the root of a jejune_doc_<name> repository. The command runs
@@ -134,4 +142,4 @@ def extract(doc_dir, no_cache, extra_args):
     Requires a running Neo4j instance (`jejune neo4j start`).
     Credentials and LLM settings are read from .jejune/env-secrets / environment.
     """
-    graph_comp.run_extract(doc_dir, no_cache, extra_args)
+    comp.run_extract(doc_dir, no_cache, extra_args)
