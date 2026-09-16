@@ -1,11 +1,14 @@
-import importlib.metadata
-import subprocess
 from pathlib import Path
 
 import click
 
+from .click_version import version_option
+from .click_aliases import AliasShim, register_aliases
+from .click_build import build_cmd
 from .dot_jejune import dot_jejune
 from .component_registry import REGISTRY as _COMP_REGISTRY
+from .plugin_registry import PLUGIN_REGISTRY
+from .role_registry import ROLE_REGISTRY
 from .click_doctor import (
     availability,
     config_check_availability,
@@ -17,14 +20,10 @@ from .click_next_steps import next_cmd
 from .click_role_registry import role
 from .click_convert import convert
 from .plugin_description import plugin_description as _PluginDescription
-from .plugin_registry import PLUGIN_REGISTRY
-from .role_registry import ROLE_REGISTRY
-from .click_comp_deployment import deployment, up as _up_cmd, down as _down_cmd
+from .click_comp_deployment import deployment
 from .click_comp_ecosystem import ecosystem
 from .click_components import components
 from .click_plugin_package_catalog import plugin_packages_group
-
-document = click.Group("document", help="Document workspace commands.")
 from .click_comp_configuration import (
     configuration,
     register_role_config_subgroup,
@@ -35,12 +34,9 @@ from .click_llm import llm
 from .click_manifest import manifest
 from .click_llm_observability import llm_observability
 from .click_cont_comp_neo4j import neo4j
-from .click_workspace_deployer import init as _deployer_init
-from .click_workspace_doc_steward import init as _doc_steward_init
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
-_ACTIVE_ROLE_OBJ = ROLE_REGISTRY.detect_role()
+
 _ACTIVE_ROLE: str | None = ROLE_REGISTRY.detect_role_name()
-_ACTIVE_COMPONENTS = ROLE_REGISTRY.role_components(_ACTIVE_ROLE_OBJ)
 
 
 def _doctor_viable() -> bool:
@@ -50,32 +46,42 @@ def _doctor_viable() -> bool:
 HEURISTIC_STEP_REGISTRY.register_command_precondition("jejune doctor", _doctor_viable)
 
 
-# ---------------------------------------------------------------------------
-# Component registry
-# ---------------------------------------------------------------------------
-
-from .component_registry import REGISTRY as COMP_REGISTRY
-
-_CONTRIBUTOR_COMMANDS = ["doctor", "configuration", "components", "role", "containers", "ecosystem", "next"]
-_DOC_STEWARD_COMPONENTS = ["neo4j", "llm", "llm-observability", "graph", "convert", "manifest"]
+_CONTRIBUTOR_COMMANDS = [
+    "doctor",
+    "configuration",
+    "components",
+    "role",
+    "containers",
+    "ecosystem",
+    "next",
+]
+_DOC_STEWARD_COMPONENTS = [
+    "neo4j",
+    "llm",
+    "llm-observability",
+    "graph",
+    "convert",
+    "manifest",
+]
 _DEPLOYER_COMPONENTS = ["deployment"]
 
 _ROLE_HELP_SECTIONS: list[tuple[str, list[str], str | None]] = [
-    ("contributor", _CONTRIBUTOR_COMMANDS,   None),
+    ("contributor", _CONTRIBUTOR_COMMANDS, None),
     ("doc-steward", _DOC_STEWARD_COMPONENTS, "single-document"),
-    ("deployer",    _DEPLOYER_COMPONENTS,    "extension"),
+    ("deployer", _DEPLOYER_COMPONENTS, "extension"),
 ]
 
 _SECTION_ORDER: dict[str, int] = {
     "contributor": 0,
     "doc-steward": 10,
-    "deployer":    90,
+    "deployer": 90,
 }
 
 
 # ---------------------------------------------------------------------------
 # CLI group
 # ---------------------------------------------------------------------------
+
 
 class _JejuneGroup(click.Group):
     def invoke(self, ctx: click.Context) -> object:
@@ -91,8 +97,14 @@ class _JejuneGroup(click.Group):
         return result
 
     def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        prefix = f"Usage [{_ACTIVE_ROLE}]: " if _ACTIVE_ROLE in ROLE_REGISTRY.roles else "Usage: "
-        formatter.write_usage(ctx.command_path, "[OPTIONS] COMPONENT COMMAND [ARGS]...", prefix=prefix)
+        prefix = (
+            f"Usage [{_ACTIVE_ROLE}]: "
+            if _ACTIVE_ROLE in ROLE_REGISTRY.roles
+            else "Usage: "
+        )
+        formatter.write_usage(
+            ctx.command_path, "[OPTIONS] COMPONENT COMMAND [ARGS]...", prefix=prefix
+        )
 
     def format_commands(
         self, ctx: click.Context, formatter: click.HelpFormatter
@@ -102,8 +114,12 @@ class _JejuneGroup(click.Group):
                 _comp.configuration.load(Path.cwd())
 
         _hidden_unless_configured = {
-            "convert": lambda: _COMP_REGISTRY.get("convert").configuration.check()[0] == "ok" or Path.cwd().joinpath("full-catalog.yaml").exists(),
-            "next": lambda: HEURISTIC_STEP_REGISTRY.has_heuristics_for_role(_ACTIVE_ROLE),
+            "convert": lambda: _COMP_REGISTRY.get("convert").configuration.check()[0]
+            == "ok"
+            or Path.cwd().joinpath("full-catalog.yaml").exists(),
+            "next": lambda: HEURISTIC_STEP_REGISTRY.has_heuristics_for_role(
+                _ACTIVE_ROLE
+            ),
         }
 
         def _row(name: str) -> tuple[str, str] | None:
@@ -121,12 +137,16 @@ class _JejuneGroup(click.Group):
         def _plugin_rows(stage: str) -> list[tuple[str, str]]:
             return [
                 (f"jejune {p.name}", p.group.get_short_help_str(limit=formatter.width))
-                for p in PLUGIN_REGISTRY.plugins if p.stage == stage
+                for p in PLUGIN_REGISTRY.plugins
+                if p.stage == stage
             ]
 
         _included = set(ROLE_REGISTRY.includes(_ACTIVE_ROLE))
         for role_name, commands, plugin_stage in _ROLE_HELP_SECTIONS:
-            if _ACTIVE_ROLE in ROLE_REGISTRY.roles and role_name not in {_ACTIVE_ROLE} | _included:
+            if (
+                _ACTIVE_ROLE in ROLE_REGISTRY.roles
+                and role_name not in {_ACTIVE_ROLE} | _included
+            ):
                 continue
             rows = _rows(commands)
             if plugin_stage:
@@ -141,42 +161,21 @@ class _JejuneGroup(click.Group):
                     formatter.write_dl(rows)
 
 
-def _version_string() -> str:
-    version = importlib.metadata.version("jejune-cli")
-    for candidate in Path(__file__).resolve().parents:
-        if (candidate / ".git").is_dir():
-            try:
-                sha = subprocess.run(
-                    ["git", "rev-parse", "--short", "HEAD"],
-                    capture_output=True, text=True, check=True,
-                    cwd=candidate,
-                ).stdout.strip()
-                if sha:
-                    return f"{version} ({sha})"
-            except Exception:
-                pass
-            break
-    try:
-        from ._sha import SHA
-        if SHA:
-            return f"{version} ({SHA})"
-    except ImportError:
-        pass
-    return version
+# ---------------------------------------------------------------------------
+# CLI entry point and wiring
+# ---------------------------------------------------------------------------
+
+document = click.Group("document", help="Document workspace commands.")
 
 
 @click.group(cls=_JejuneGroup)
-@click.version_option(version=_version_string(), prog_name="jejune")
+@version_option
 def cli():
     """jejune — jejuneness workflow CLI.
 
     Run `jejune configuration <role> init` to set up a new workspace.
     """
 
-
-# ---------------------------------------------------------------------------
-# CLI wiring
-# ---------------------------------------------------------------------------
 
 cli.add_command(configuration)
 cli.add_command(components)
@@ -198,73 +197,14 @@ cli.add_command(availability)
 cli.add_command(doctor)
 cli.add_command(role)
 cli.add_command(next_cmd, "next")
+cli.add_command(build_cmd, "build")
 
 # ---------------------------------------------------------------------------
 # Aliases
 # ---------------------------------------------------------------------------
 
-_ALIASES: list[tuple[click.Group, str, click.BaseCommand, str, str]] = [
-    (deployment, "init", _deployer_init,    "configuration deployer init",    "deployer"),
-    (document,   "init", _doc_steward_init, "configuration doc-steward init", "doc-steward"),
-    (cli,        "up",   _up_cmd,        "deployment up",               "deployer"),
-    (cli,        "down", _down_cmd,      "deployment down",             "deployer"),
-]
-
-
-class _AliasShim(click.BaseCommand):
-    """Proxy that delegates execution to a wrapped command but annotates itself as an alias."""
-
-    def __init__(self, wrapped: click.BaseCommand, canonical: str) -> None:
-        super().__init__(name=wrapped.name)
-        self._wrapped = wrapped
-        self._canonical = canonical
-
-    def get_short_help_str(self, limit: int = 150) -> str:
-        return f"alias for: jejune {self._canonical}"
-
-    def make_context(self, info_name, args, parent=None, **extra):
-        return self._wrapped.make_context(info_name, args, parent=parent, **extra)
-
-    def invoke(self, ctx: click.Context):
-        return self._wrapped.invoke(ctx)
-
-    def get_help(self, ctx: click.Context) -> str:
-        return self._wrapped.get_help(ctx)
-
-
-for _alias_group, _alias_name, _alias_cmd, _alias_canonical, _ in _ALIASES:
-    _alias_group.add_command(_AliasShim(_alias_cmd, _alias_canonical), _alias_name)
-
-
-# ---------------------------------------------------------------------------
-# Registry-driven build command
-# ---------------------------------------------------------------------------
-
-@cli.command("build")
-@click.option("--no-cache", is_flag=True, default=False,
-              help="Do not use cache when building images.")
-def build(no_cache: bool) -> None:
-    """Build Docker images for all components in the current role.
-
-    Each component that owns a Docker image registers its builder automatically.
-    Use `jejune deployment build <dir>` to build a specific deployment directory.
-    """
-    if _ACTIVE_ROLE == "deployer":
-        raise SystemExit(COMP_REGISTRY.get("deployment").build(Path("."), no_cache=no_cache))
-    from .component_containerized import cont_comp
-    components = ROLE_REGISTRY.role_components(_ACTIVE_ROLE_OBJ) or set()
-    component_names = {c.name for c in components}
-    builders = [
-        inst for inst in COMP_REGISTRY
-        if isinstance(inst, cont_comp) and inst.name in component_names
-        and (inst.build_context or getattr(inst, "repos", None))
-    ]
-    if not builders:
-        raise click.UsageError(
-            f"'jejune build' has no Docker images registered for role {_ACTIVE_ROLE!r}."
-        )
-    for inst in builders:
-        inst.build(no_cache)
+# _ALIASES is referenced at runtime by _JejuneGroup.format_commands (defined above).
+_ALIASES = register_aliases(cli, document)
 
 
 # ---------------------------------------------------------------------------
@@ -281,19 +221,24 @@ def _handle_plugin(plugin: "_PluginDescription") -> None:
 
 def _finalize_plugins() -> None:
     """Finalize hook: process pending help sections and refresh active role."""
-    global _ACTIVE_ROLE, _ACTIVE_ROLE_OBJ, _ACTIVE_COMPONENTS
-    for pending_name, pending_stage, pending_order in ROLE_REGISTRY.pending_help_sections:
+    global _ACTIVE_ROLE
+    for (
+        pending_name,
+        pending_stage,
+        pending_order,
+    ) in ROLE_REGISTRY.pending_help_sections:
         if not any(rn == pending_name for rn, _, _ in _ROLE_HELP_SECTIONS):
             insert_at = next(
-                (i for i, (rn, _, _) in enumerate(_ROLE_HELP_SECTIONS)
-                 if _SECTION_ORDER.get(rn, 50) > pending_order),
+                (
+                    i
+                    for i, (rn, _, _) in enumerate(_ROLE_HELP_SECTIONS)
+                    if _SECTION_ORDER.get(rn, 50) > pending_order
+                ),
                 len(_ROLE_HELP_SECTIONS),
             )
             _ROLE_HELP_SECTIONS.insert(insert_at, (pending_name, [], pending_stage))
             _SECTION_ORDER[pending_name] = pending_order
-    _ACTIVE_ROLE_OBJ = ROLE_REGISTRY.detect_role()
     _ACTIVE_ROLE = ROLE_REGISTRY.detect_role_name()
-    _ACTIVE_COMPONENTS = ROLE_REGISTRY.role_components(_ACTIVE_ROLE_OBJ)
 
 
 def _register_plugin_role(plugin: "_PluginDescription") -> None:
@@ -302,8 +247,11 @@ def _register_plugin_role(plugin: "_PluginDescription") -> None:
     ROLE_REGISTRY.register_from_plugin(role_obj)
     order = role_obj.order
     insert_at = next(
-        (i for i, (rn, _, _) in enumerate(_ROLE_HELP_SECTIONS)
-         if _SECTION_ORDER.get(rn, 50) > order),
+        (
+            i
+            for i, (rn, _, _) in enumerate(_ROLE_HELP_SECTIONS)
+            if _SECTION_ORDER.get(rn, 50) > order
+        ),
         len(_ROLE_HELP_SECTIONS),
     )
     _ROLE_HELP_SECTIONS.insert(insert_at, (role_obj.name, [], role_obj.help_stage))
@@ -314,5 +262,5 @@ def _register_plugin_role(plugin: "_PluginDescription") -> None:
 
 PLUGIN_REGISTRY.add_post_hook(_handle_plugin)
 PLUGIN_REGISTRY.set_finalize_hook(_finalize_plugins)
-if _ACTIVE_ROLE_OBJ:
+if ROLE_REGISTRY.detect_role():
     PLUGIN_REGISTRY.load_all()
