@@ -7,7 +7,6 @@ from .component_registry import REGISTRY as COMP_REGISTRY
 from .heuristic_step import ComponentCondition, HeuristicStep
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
-from .test import _check_doc_yaml
 
 
 def _graph_available() -> bool:
@@ -38,7 +37,7 @@ def _neo4j_configured() -> bool:
 
 
 def _manifest_ok() -> bool:
-    errors, _ = _check_doc_yaml(Path.cwd())
+    errors, _ = COMP_REGISTRY.get("manifest").check_manifest_referenced_files()
     return not errors
 
 

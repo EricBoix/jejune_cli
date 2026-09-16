@@ -32,7 +32,7 @@ from .click_comp_configuration import (
 from .click_containers import containers_cli
 from .click_cont_comp_graph import graph
 from .click_llm import llm
-from .manifest import manifest
+from .click_manifest import manifest
 from .click_llm_observability import llm_observability
 from .click_cont_comp_neo4j import neo4j
 from .configuration_deployer import init as _deployer_init

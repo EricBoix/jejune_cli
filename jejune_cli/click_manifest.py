@@ -15,10 +15,10 @@ def manifest():
 
 
 @manifest.command("check-config")
-def manifest_check_config():
+def manifest_check_manifest_against_schema():
     """Show manifest.yaml configuration detail (required fields, unknown fields)."""
-    from .test import _manifest_config_status
-    status, msg = _manifest_config_status(Path.cwd())
+    from .component_manifest import comp_manifest
+    status, msg = comp_manifest().check_manifest_against_schema()
     fg = ClickTheme.status_foregrounds.get(status, "white")
     click.echo(f"  manifest.yaml  {click.style(status, fg=fg)}")
     if msg:
@@ -28,16 +28,16 @@ def manifest_check_config():
 @manifest.command("status-config")
 def manifest_status_config():
     """Show manifest configuration status."""
-    from .test import _manifest_config_status
-    status, _ = _manifest_config_status(Path.cwd())
+    from .component_manifest import comp_manifest
+    status, _ = comp_manifest().check_manifest_against_schema()
     click.echo(f"manifest: {click.style(status, fg=ClickTheme.status_foregrounds.get(status, 'white'))}")
 
 
 @manifest.command("hint-config")
 def manifest_hint_config():
     """Show the configuration hint for the manifest component."""
-    from .test import _manifest_config_status
-    status, _ = _manifest_config_status(Path.cwd())
+    from .component_manifest import comp_manifest
+    status, _ = comp_manifest().check_manifest_against_schema()
     if status == "ok":
         click.echo(click.style("manifest.yaml is properly configured", fg="green"))
     else:
@@ -47,32 +47,32 @@ def manifest_hint_config():
 @manifest.command("check-availability")
 def manifest_check_availability():
     """Show manifest availability detail (file references exist on disk)."""
-    from .test import _check_doc_yaml, _manifest_avail_status
-    status, msg = _manifest_avail_status(Path.cwd())
+    from .component_manifest import comp_manifest
+    comp = comp_manifest()
+    status, msg = comp.check_availability()
     label = "ok" if status == "ok" else msg
     click.echo(f"  files  {click.style(label, fg=ClickTheme.status_foregrounds.get(status, 'white'))}")
-    _, file_refs = _check_doc_yaml(Path.cwd())
+    _, file_refs = comp.check_manifest_referenced_files()
     if file_refs:
-        repo = Path.cwd()
         key_width = max(len(k) for k, _ in file_refs)
         for key, rel in file_refs:
-            fg = None if (repo / rel).exists() else "red"
+            fg = None if (comp.doc_repository_directory / rel).exists() else "red"
             click.echo(f"  {click.style(f'{key:<{key_width}}  {rel}', fg=fg)}")
 
 
 @manifest.command("status-availability")
 def manifest_status_availability():
     """Show manifest availability status."""
-    from .test import _manifest_avail_status
-    status, _ = _manifest_avail_status(Path.cwd())
+    from .component_manifest import comp_manifest
+    status, _ = comp_manifest().check_availability()
     click.echo(f"manifest: {click.style(status, fg=ClickTheme.status_foregrounds.get(status, 'white'))}")
 
 
 @manifest.command("hint-availability")
 def manifest_hint_availability():
     """Show how to fix manifest availability issues."""
-    from .test import _manifest_avail_status
-    status, _ = _manifest_avail_status(Path.cwd())
+    from .component_manifest import comp_manifest
+    status, _ = comp_manifest().check_availability()
     if status == "ok":
         click.echo(click.style("all manifest file references found", fg="green"))
     else:
