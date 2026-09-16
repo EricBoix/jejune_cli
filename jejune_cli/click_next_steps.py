@@ -1,7 +1,7 @@
 """Next-step command group and heuristic registrations."""
 import click
 
-from ._env import dot_jejune
+from .dot_jejune import dot_jejune
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 
 

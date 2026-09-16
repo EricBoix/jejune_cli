@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from ._env import dot_jejune
+from .dot_jejune import dot_jejune
 from .component_registry import REGISTRY as _COMP_REGISTRY
 from .click_doctor import (
     availability,

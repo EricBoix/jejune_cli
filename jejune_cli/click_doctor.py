@@ -15,6 +15,7 @@ from .component_base import base_comp
 from .component_ext import ext_comp
 from .component_ext_server import ext_server
 from .plugin_registry import PLUGIN_REGISTRY
+from .dot_jejune import dot_jejune
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -150,7 +151,6 @@ def doctor(verbose: bool):
     Non configurable external components are hidden when available;
     use --verbose to show all.
     """
-    from ._env import dot_jejune
     active_role_obj = ROLE_REGISTRY.detect_role()
     active_role = ROLE_REGISTRY.detect_role_name()
 

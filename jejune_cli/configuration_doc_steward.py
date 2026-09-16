@@ -5,7 +5,7 @@ from pathlib import Path
 
 import click
 
-from ._env import dot_jejune
+from .dot_jejune import dot_jejune
 from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 

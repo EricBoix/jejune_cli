@@ -10,6 +10,7 @@ from .component_with_config import conf_comp
 # comp_ecosystem and ComponentRegistry
 from .component_registry import ComponentRegistry
 from .role_registry import ROLE_REGISTRY
+from .dot_jejune import dot_jejune
 
 RepoTier = Literal["root", "tmp", "remote"]
 
@@ -54,7 +55,6 @@ class comp_ecosystem(conf_comp):
         return self._git_server.remote_git_url(name, f"main:{subpath}" if subpath else None)
 
     def resolve_dirs(self, deploy_dir: Path | None = None) -> tuple[Path | None, Path | None]:
-        from ._env import dot_jejune
         raw_root = os.environ.get("JEJUNE_ROOT_DIR")
         root_dir = Path(raw_root).resolve() if raw_root else None
         tmp = dot_jejune(deploy_dir) / "tmp"
@@ -105,7 +105,6 @@ class comp_ecosystem(conf_comp):
         if tier in ("root", "tmp"):
             return Path(base)
         if tmp_dir is None:
-            from ._env import dot_jejune
             tmp_dir = dot_jejune() / "tmp"
             tmp_dir.mkdir(parents=True, exist_ok=True)
         dest = tmp_dir / repo_name
