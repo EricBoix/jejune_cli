@@ -46,6 +46,11 @@ class plugin_package_catalog:
             seen.add(repo_name)
             local_path = eco.ensure_local(repo_name)
             pyproject_path = local_path / "pyproject.toml"
+            if not pyproject_path.exists():
+                click.echo(
+                    f"  {repo_name}: {click.style('pyproject.toml not found', fg='red')}"
+                )
+                continue
             with open(pyproject_path, "rb") as f:
                 data = tomllib.load(f)
             eps = (
