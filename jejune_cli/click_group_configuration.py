@@ -69,6 +69,9 @@ class _ConfigurationGroup(click.Group):
                 formatter.write_text("Set jejune role and initialise workspace accordingly.")
                 with formatter.section("Roles"):
                     formatter.write_dl(roles)
+        elif roles:
+            with formatter.section("Roles"):
+                formatter.write_dl(roles)
 
 
 @click.group(cls=_ConfigurationGroup, short_help="Manage the .jejune/ configuration")
