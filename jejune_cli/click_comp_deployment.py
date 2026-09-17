@@ -66,7 +66,6 @@ def ui_configure(deployments_dir, name):
         raise click.ClickException(str(exc)) from exc
     dot_jejune = deploy_dir / ".jejune"
     dot_jejune.mkdir()
-    shutil.copy(_T_UI / "role", dot_jejune / "role")
     (dot_jejune / "origin").write_text(f"{deploy_dir}\n")
     shutil.copy(_T_UI / "env-config", dot_jejune / "env-config")
 

@@ -37,13 +37,20 @@ def init(dir_name: str | None) -> None:
 
     created = []
     skipped = []
-    for fname in ("env-config", "env-secrets", "role"):
+    for fname in ("env-config", "env-secrets"):
         dst = d / fname
         if dst.exists():
             skipped.append(fname)
         else:
             shutil.copy2(_TEMPLATES / fname, dst)
             created.append(fname)
+
+    manifest_dst = target / "manifest.yaml"
+    if manifest_dst.exists():
+        skipped.append("manifest.yaml")
+    else:
+        shutil.copy2(_TEMPLATES / "manifest.yaml", manifest_dst)
+        created.append("manifest.yaml")
 
     eco_dst = d / "ecosystem-env-config"
     if eco_dst.exists():

@@ -1,0 +1,14 @@
+title: "Document Title"
+authors:
+  - "Author Name"
+year: 2024
+keywords:
+  - keyword1
+  - keyword2
+### Optional:
+# isbn: "978-..."
+### File references (repo-relative paths):
+# pdf_file: original_data/document.pdf
+# markdown_file: result_data/document.md
+# sentences_file: result_data/sentences.json
+# turtle_file: result_data/graph.ttl

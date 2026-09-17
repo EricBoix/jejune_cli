@@ -1,10 +1,13 @@
 """`jejune manifest` command group — per-document manifest operations."""
 
 import re
+import shutil
 from pathlib import Path
 
 import click
 import yaml
+
+_MANIFEST_TEMPLATE = Path(__file__).parent / "templates" / "doc-steward" / "manifest.yaml"
 
 from .click_theme import ClickTheme
 
@@ -89,23 +92,7 @@ def manifest_sample():
             err=True,
         )
         return
-    _TEMPLATE = (
-        'title: "Document Title"\n'
-        "authors:\n"
-        '  - "Author Name"\n'
-        "year: 2024\n"
-        "keywords:\n"
-        "  - keyword1\n"
-        "  - keyword2\n"
-        "# Optional:\n"
-        "# isbn: \"978-...\"\n"
-        "# File references (repo-relative paths):\n"
-        "# pdf_file: original_data/document.pdf\n"
-        "# markdown_file: result_data/document.md\n"
-        "# sentences_file: result_data/sentences.json\n"
-        "# turtle_file: result_data/graph.ttl\n"
-    )
-    target.write_text(_TEMPLATE)
+    shutil.copy2(_MANIFEST_TEMPLATE, target)
     click.echo(f"Created {target}")
 
 
