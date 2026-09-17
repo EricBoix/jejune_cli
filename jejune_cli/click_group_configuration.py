@@ -22,22 +22,22 @@ def register_role_config_subgroup(group: click.Group) -> None:
 class _ConfigurationGroup(click.Group):
     _ROLE_CTX_KEY = "_jejune_configuration_role"
 
+    def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        prefix = "Usage: "
+        pad = " " * len(prefix)
+        formatter.write_usage(ctx.command_path, "[OPTIONS]", prefix=prefix)
+        formatter.write_usage(ctx.command_path, "COMMAND [OPTIONS]", prefix=pad)
+        formatter.write_usage(ctx.command_path, "ROLE COMMAND [OPTIONS]", prefix=pad)
+
     def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         from .role_registry import ROLE_REGISTRY
         active_role = ROLE_REGISTRY.detect_role()
         ctx.meta[self._ROLE_CTX_KEY] = active_role
-
-        if active_role:
-            formatter.write_usage(
-                ctx.command_path,
-                " ".join(self.collect_usage_pieces(ctx)),
-                prefix=f"Usage [{active_role.name}]: ",
-            )
-            self.format_help_text(ctx, formatter)
-            self.format_options(ctx, formatter)  # calls format_commands internally
-            self.format_epilog(ctx, formatter)
-        else:
-            self.format_commands(ctx, formatter)
+        self.format_usage(ctx, formatter)
+        self.format_help_text(ctx, formatter)
+        self.format_options(ctx, formatter)
+        self.format_commands(ctx, formatter)
+        self.format_epilog(ctx, formatter)
 
     def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         active_role = ctx.meta.get(self._ROLE_CTX_KEY)
@@ -58,18 +58,7 @@ class _ConfigurationGroup(click.Group):
             with formatter.section("Commands"):
                 formatter.write_dl(regular)
 
-        if roles and not active_role:
-            formatter.write_paragraph()
-            formatter.write_usage(
-                "jejune configuration",
-                "ROLE init",
-                prefix="Usage [all roles]: ",
-            )
-            with formatter.indentation():
-                formatter.write_text("Set jejune role and initialise workspace accordingly.")
-                with formatter.section("Roles"):
-                    formatter.write_dl(roles)
-        elif roles:
+        if roles:
             with formatter.section("Roles"):
                 formatter.write_dl(roles)
 
