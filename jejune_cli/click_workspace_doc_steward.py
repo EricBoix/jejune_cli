@@ -33,7 +33,7 @@ def init(dir_name: str | None) -> None:
     """
     target = Path(dir_name) if dir_name else Path.cwd()
     d = dot_jejune(target)
-    d.mkdir(exist_ok=True)
+    d.mkdir(parents=True, exist_ok=True)
 
     created = []
     skipped = []
