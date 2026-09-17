@@ -190,7 +190,7 @@ class comp_server_llm(ext_server):
         return True, "ok"
 
     def check(self) -> tuple[str, str]:
-        ok, msg = self.check_availability()
+        ok, msg = self.available()
         if ok:
             return "ok", ""
         return "warn" if msg == "not configured" else "error", msg
