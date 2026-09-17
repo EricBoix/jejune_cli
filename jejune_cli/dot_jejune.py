@@ -14,6 +14,9 @@ class dot_jejune:
     def __truediv__(self, other) -> Path:
         return self._path / other
 
+    def mkdir(self, **kwargs) -> None:
+        self._path.mkdir(**kwargs)
+
     def is_dir(self) -> bool:
         return self._path.is_dir()
 

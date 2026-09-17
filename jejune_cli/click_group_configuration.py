@@ -22,25 +22,14 @@ def register_role_config_subgroup(group: click.Group) -> None:
 class _ConfigurationGroup(click.Group):
     _ROLE_CTX_KEY = "_jejune_configuration_role"
 
-    def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        prefix = "Usage: "
-        pad = " " * len(prefix)
-        formatter.write_usage(ctx.command_path, "[OPTIONS]", prefix=prefix)
-        formatter.write_usage(ctx.command_path, "COMMAND [OPTIONS]", prefix=pad)
-        formatter.write_usage(ctx.command_path, "ROLE COMMAND [OPTIONS]", prefix=pad)
-
     def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         from .role_registry import ROLE_REGISTRY
-        active_role = ROLE_REGISTRY.detect_role()
-        ctx.meta[self._ROLE_CTX_KEY] = active_role
-        self.format_usage(ctx, formatter)
-        self.format_help_text(ctx, formatter)
-        self.format_options(ctx, formatter)
-        self.format_commands(ctx, formatter)
-        self.format_epilog(ctx, formatter)
+        ctx.meta[self._ROLE_CTX_KEY] = ROLE_REGISTRY.detect_role()
 
-    def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        active_role = ctx.meta.get(self._ROLE_CTX_KEY)
+        option_rows = [
+            rv for param in self.get_params(ctx)
+            if (rv := param.get_help_record(ctx)) is not None
+        ]
 
         regular: list[tuple[str, str]] = []
         roles: list[tuple[str, str]] = []
@@ -49,15 +38,50 @@ class _ConfigurationGroup(click.Group):
             if cmd is None or getattr(cmd, "hidden", False):
                 continue
             entry = (name, cmd.get_short_help_str(limit=formatter.width))
-            if getattr(cmd, '_role_subgroup', False):
+            if getattr(cmd, "_role_subgroup", False):
                 roles.append(entry)
             else:
                 regular.append(entry)
 
+        formatter.write_usage(ctx.command_path, "[OPTIONS]", prefix="Usage: ")
+        with formatter.indentation():
+            if option_rows:
+                formatter.write_text("Options:")
+                with formatter.indentation():
+                    formatter.write_dl(option_rows)
+
+        formatter.write_paragraph()
+        formatter.write_usage(ctx.command_path, "COMMAND [OPTIONS]", prefix="Usage: ")
+        with formatter.indentation():
+            if regular:
+                formatter.write_text("Commands:")
+                with formatter.indentation():
+                    formatter.write_dl(regular)
+
+        formatter.write_paragraph()
+        formatter.write_usage(ctx.command_path, "ROLE COMMAND [OPTIONS]", prefix="Usage: ")
+        with formatter.indentation():
+            if roles:
+                formatter.write_text("Roles:")
+                with formatter.indentation():
+                    formatter.write_dl(roles)
+
+    def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        active_role = ctx.meta.get(self._ROLE_CTX_KEY)
+        regular: list[tuple[str, str]] = []
+        roles: list[tuple[str, str]] = []
+        for name in self.list_commands(ctx):
+            cmd = self.get_command(ctx, name)
+            if cmd is None or getattr(cmd, "hidden", False):
+                continue
+            entry = (name, cmd.get_short_help_str(limit=formatter.width))
+            if getattr(cmd, "_role_subgroup", False):
+                roles.append(entry)
+            else:
+                regular.append(entry)
         if regular and active_role is not None:
             with formatter.section("Commands"):
                 formatter.write_dl(regular)
-
         if roles:
             with formatter.section("Roles"):
                 formatter.write_dl(roles)
