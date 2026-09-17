@@ -21,6 +21,7 @@ class cont_comp(conf_comp):
 
     _coordination = CONTAINER_COORDINATION
     _docker = DOCKER_COMMAND
+    is_external_image: bool = False
 
     def __init__(
         self,
@@ -34,8 +35,10 @@ class cont_comp(conf_comp):
         hint: str | None = None,
         service_name: str | None = None,
     ) -> None:
-        # Deferred import to avoid circular import: registry imports this module's subclasses.
+        # Deferred import to avoid circular import: registry imports this
+        # module's subclasses.
         from .component_registry import ComponentRegistry
+
         daemon = ComponentRegistry().get("docker-daemon")
         deps = [self._docker] + ([daemon] if daemon else []) + (dependencies or [])
         super().__init__(
@@ -62,23 +65,30 @@ class cont_comp(conf_comp):
     def build(self, no_cache: bool = False) -> None:
         """Build the Docker image, resolving build_context from self.repos when needed."""
         from .component_registry import REGISTRY as COMP_REGISTRY
+
         if not self.build_context:
             repos = getattr(self, "repos", None)
             if repos:
                 subpath, env_key = repos[0]
                 context = os.environ.get(env_key)
                 if context:
-                    self.build_context = str(Path(context) / subpath) if subpath else context
+                    self.build_context = (
+                        str(Path(context) / subpath) if subpath else context
+                    )
                 else:
                     repo_name = PLUGIN_PACKAGE_CATALOG.repo_name_for(self.name)
                     ref = f"main:{subpath}" if subpath else None
-                    self.build_context = COMP_REGISTRY.get("git-server").remote_git_url(repo_name, ref)
+                    self.build_context = COMP_REGISTRY.get("git-server").remote_git_url(
+                        repo_name, ref
+                    )
         if not self.build_context:
             return
         click.echo(f"Building {self.image_name} ...")
         self._docker.build_image(
-            self.image_name, self.build_context,
-            dockerfile=self.dockerfile, no_cache=no_cache,
+            self.image_name,
+            self.build_context,
+            dockerfile=self.dockerfile,
+            no_cache=no_cache,
         )
 
     def is_built(self) -> bool:
@@ -87,8 +97,11 @@ class cont_comp(conf_comp):
             return True
         if self.service_name:
             from pathlib import Path
+
             deploy_name = Path(".").resolve().name.lower()
-            return self._docker.image_exists(f"jejune:{deploy_name}-{self.service_name}")
+            return self._docker.image_exists(
+                f"jejune:{deploy_name}-{self.service_name}"
+            )
         return False
 
     @property
@@ -157,14 +170,18 @@ class cont_comp(conf_comp):
     @classmethod
     def image_build_status(cls, components: list) -> "dict[str, bool]":
         """Return {name: is_built()} for every cont_comp in *components*."""
-        return {inst.name: inst.is_built() for inst in components if isinstance(inst, cls)}
+        return {
+            inst.name: inst.is_built() for inst in components if isinstance(inst, cls)
+        }
 
     @classmethod
     def existing_component_containers(cls) -> list[dict]:
         """Return all cont_comp containers currently present in Docker."""
         from .component_registry import REGISTRY as COMP_REGISTRY
+
         return [
             {"component": inst.name, "container": inst.container_name}
             for inst in COMP_REGISTRY
-            if isinstance(inst, cls) and cls._docker.container_exists(inst.container_name)
+            if isinstance(inst, cls)
+            and cls._docker.container_exists(inst.container_name)
         ]

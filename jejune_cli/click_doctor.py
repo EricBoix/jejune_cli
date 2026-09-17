@@ -88,6 +88,7 @@ def _print_health_table(
     avail_rows: list[tuple[str, str, str, str]],
     img_status: dict[str, bool],
     port_conflict_per_comp: dict[str, str] | None = None,
+    external_image_names: set[str] | None = None,
 ) -> None:
     """Render merged Component | Config | Img | Avail | Action table."""
     if not config_rows:
@@ -127,9 +128,15 @@ def _print_health_table(
         c_cell = click.style(c_icon, fg=c_fg) + " " * (_W_CFG - len(c_icon))
         if img is None:
             i_cell = " " * _W_IMG
+        elif img:
+            i_icon, i_fg = "✓", "green"
+            i_cell = click.style(i_icon, fg=i_fg) + " " * (_W_IMG - 1)
+        elif external_image_names and comp in external_image_names:
+            i_icon, i_fg = "–", "yellow"
+            i_cell = click.style(i_icon, fg=i_fg) + " " * (_W_IMG - 1)
         else:
-            i_icon, i_fg = ("✓", "green") if img else ("✗", "red")
-            i_cell = click.style(i_icon, fg=i_fg) + " " * (_W_IMG - len(i_icon))
+            i_icon, i_fg = "✗", "red"
+            i_cell = click.style(i_icon, fg=i_fg) + " " * (_W_IMG - 1)
         if a_status is not None:
             a_icon, a_fg = ClickTheme.status_icons.get(a_status, ("?", "white"))
             a_cell = click.style(a_icon, fg=a_fg) + " " * (_W_AVAIL - len(a_icon))
@@ -237,7 +244,14 @@ def doctor(verbose: bool):
 
     from .component_containerized import cont_comp
     img_status = cont_comp.image_build_status(active_components)
-    _print_health_table(config_rows, avail_rows, img_status, port_conflict_per_comp)
+    external_image_names = {
+        c.name for c in active_components
+        if isinstance(c, cont_comp) and c.is_external_image
+    }
+    _print_health_table(
+        config_rows, avail_rows, img_status,
+        port_conflict_per_comp, external_image_names,
+    )
     if active_role in (None, "doc-steward"):
         click.echo()
         click.echo(_CONFIG_NOTE)

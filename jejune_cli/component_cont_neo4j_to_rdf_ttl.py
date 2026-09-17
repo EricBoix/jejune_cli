@@ -1,4 +1,5 @@
 """neo4j-to-RDF/Turtle containerized component."""
+
 import subprocess
 from pathlib import Path
 
@@ -14,12 +15,29 @@ class comp_neo4j_to_rdf_ttl(cont_comp):
         super().__init__(
             name="neo4j-to-rdf-ttl",
             image_name="jejune:neo4j_to_rdf_ttl",
-            build_context=git_server.remote_git_url("jejune_neo4j_to_rdf_ttl", ":DockerContext"),
-            dependencies=[git_server, ComponentRegistry().get("docker-hub-server")],
+            build_context=git_server.remote_git_url(
+                "jejune_neo4j_to_rdf_ttl", ":DockerContext"
+            ),
+            dependencies=[
+                git_server,
+                ComponentRegistry().get("docker-hub-server"),
+            ],
             configuration=configuration(
-                configuration_entry("NEO4J_URI",      hint="edit .jejune/env-config",   source_file=".jejune/env-config"),
-                configuration_entry("NEO4J_USERNAME", hint="edit .jejune/env-config",   source_file=".jejune/env-config"),
-                configuration_entry("NEO4J_PASSWORD", hint="edit .jejune/env-secrets",  source_file=".jejune/env-secrets"),
+                configuration_entry(
+                    "NEO4J_URI",
+                    hint="edit .jejune/env-config",
+                    source_file=".jejune/env-config",
+                ),
+                configuration_entry(
+                    "NEO4J_USERNAME",
+                    hint="edit .jejune/env-config",
+                    source_file=".jejune/env-config",
+                ),
+                configuration_entry(
+                    "NEO4J_PASSWORD",
+                    hint="edit .jejune/env-secrets",
+                    source_file=".jejune/env-secrets",
+                ),
             ),
         )
 
@@ -27,8 +45,13 @@ class comp_neo4j_to_rdf_ttl(cont_comp):
         """Export the running Neo4j graph to output_dir/filename as RDF/Turtle."""
         result = subprocess.run(
             [
-                "docker", "run", "--rm", "--network", "host",
-                "-v", f"{output_dir}:/output",
+                "docker",
+                "run",
+                "--rm",
+                "--network",
+                "host",
+                "-v",
+                f"{output_dir}:/output",
                 *self.docker_env_args(),
                 self.image_name,
                 "neo4j_to_rdf.py",

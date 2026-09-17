@@ -1,7 +1,9 @@
 # Proper names
 Burbea
+
 # Ad-hoc/lingo/technical/specific (non) terms
 github
+jaegertracing
+otlp
 plantuml
 venv
-

@@ -10,6 +10,7 @@ from .component_containerized import cont_comp
 
 class comp_server_llm_observability(cont_comp):
     mandatory = False
+    is_external_image = True
     otlp_port: int = 4318
     ui_port: int = 16686
 
