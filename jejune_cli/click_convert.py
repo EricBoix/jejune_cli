@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from .click_comp_configuration import print_config_check, print_config_status
+from .click_configuration import print_config_check, print_config_status
 
 
 @click.group(short_help="Convert documents via Docker")

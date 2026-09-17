@@ -5,9 +5,8 @@ from pathlib import Path
 import click
 
 from .doctor_health_check import run_all, run_avail
-from .click_comp_configuration import (
-    print_two_col_table,
-)
+from .click_helpers import print_two_col_table
+from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 from .role_registry import ROLE_REGISTRY
 from .click_theme import ClickTheme
 
@@ -16,6 +15,18 @@ from .component_ext import ext_comp
 from .component_ext_server import ext_server
 from .plugin_registry import PLUGIN_REGISTRY
 from .dot_jejune import dot_jejune
+
+# ---------------------------------------------------------------------------
+# Doctor command precondition
+# ---------------------------------------------------------------------------
+
+
+def _doctor_viable() -> bool:
+    active_role = ROLE_REGISTRY.detect_role_name()
+    return not (active_role in (None, "doc-steward") and not dot_jejune().is_dir())
+
+
+HEURISTIC_STEP_REGISTRY.register_command_precondition("jejune doctor", _doctor_viable)
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -1,7 +1,7 @@
 import click
 
 from .component_registry import REGISTRY as COMP_REGISTRY
-from .click_comp_configuration import (
+from .click_configuration import (
     print_config_check,
     print_config_hint,
     print_config_status,

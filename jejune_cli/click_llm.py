@@ -2,7 +2,7 @@ import os
 
 import click
 
-from .click_comp_configuration import print_config_hint, print_config_status, print_config_check
+from .click_configuration import print_config_hint, print_config_status, print_config_check
 
 
 @click.group(short_help="Manage the LLM inference server")

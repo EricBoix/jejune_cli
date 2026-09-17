@@ -2,92 +2,15 @@
 
 import click
 
-from .configuration import configuration
+from .click_doctor import (
+    config_check_availability,
+    config_hint_availability,
+    config_status_availability,
+)
+from .click_helpers import print_two_col_table
 from .click_workspace_doc_steward import doc_steward_group as _doc_steward_group
 from .click_workspace_deployer import deployer_group as _deployer_group
 from .click_theme import ClickTheme
-
-
-def print_config_table(
-    rows: list[tuple[str, str, str, str]],
-    hint_header: str = "Hint",
-    note: str | None = None,
-) -> None:
-    """Render Component configuration | Status | Check | <hint_header> table.
-
-    When *note* is given a bottom divider is added followed by the note line.
-    """
-    if not rows:
-        return
-    _W_C = max(len("Component configuration"), max(len(r[0]) for r in rows))
-    _W_S = max(len("Status"), max(len(ClickTheme.status_icons.get(r[1], (r[1], ""))[0]) for r in rows))
-    _W_K = max(len("Check"), max(len(r[2]) for r in rows))
-    _W_H = max(len(hint_header), max(len(r[3]) for r in rows))
-    divider = "  " + "─" * (_W_C + 2 + _W_S + 2 + _W_K + 2 + _W_H)
-    click.echo(f"  {'Component configuration':<{_W_C}}  {'Status':<{_W_S}}  {'Check':<{_W_K}}  {hint_header}")
-    click.echo(divider)
-    for comp, status, check, hint in rows:
-        text, fg = ClickTheme.status_icons.get(status, (status, "white"))
-        click.echo(f"  {comp:<{_W_C}}  {click.style(f'{text:<{_W_S}}', fg=fg)}  {check:<{_W_K}}  {hint}")
-    if note is not None:
-        click.echo(divider)
-        click.echo(note)
-
-
-def print_two_col_table(rows: list[tuple[str, str]], col1: str, col2: str) -> None:
-    """Render a two-column table; rows may contain pre-styled strings."""
-    _W_C = max(len(col1), max(len(click.unstyle(r[0])) for r in rows))
-    _W_V = max(len(col2), max(len(click.unstyle(r[1])) for r in rows))
-    click.echo(f"  {col1:<{_W_C}}  {col2}")
-    click.echo("  " + "─" * (_W_C + 2 + _W_V))
-    for c, v in rows:
-        pad = " " * (_W_C - len(click.unstyle(c)))
-        click.echo(f"  {c}{pad}  {v}")
-
-
-def print_config_check(config: configuration) -> None:
-    """Print detailed per-variable config check for a component's configuration."""
-    if not config:
-        click.echo(click.style("no configuration required", fg="green"))
-        return
-    entries = config.entries_check()
-    col_width = max(len(env_var) for env_var, _ in entries)
-    any_error = False
-    for env_var, status in entries:
-        if status == "missing":
-            label = click.style("not set", fg="yellow")
-        elif status == "placeholder":
-            label = click.style("placeholder", fg="red")
-            any_error = True
-        else:
-            label = click.style("ok", fg="green")
-        click.echo(f"  {env_var:<{col_width}}  {label}")
-    if any_error:
-        raise SystemExit(1)
-
-
-def print_config_hint(config: configuration) -> None:
-    """Print the configuration hint for a component."""
-    if not config:
-        click.echo(click.style("no configuration required", fg="green"))
-        return
-    hints = config.hints()
-    click.echo(", ".join(hints) if hints else click.style("no configuration required", fg="green"))
-
-
-def print_config_status(config: configuration) -> None:
-    """Print configuration status for a component; exit 1 on error."""
-    if not config:
-        click.echo(click.style("configured", fg="green"))
-        return
-    status, _, hint = config.check()
-    if status == "ok":
-        click.echo(click.style("configured", fg="green"))
-    elif status == "warn":
-        click.echo(f"{click.style('not configured', fg='yellow')}  {hint}")
-    else:
-        click.echo(f"{click.style('error', fg='red')}  {hint}")
-        raise SystemExit(1)
 
 
 def register_role_config_subgroup(group: click.Group) -> None:
@@ -96,14 +19,13 @@ def register_role_config_subgroup(group: click.Group) -> None:
     configuration.add_command(group)
 
 
-_ROLE_CTX_KEY = "_jejune_configuration_role"
-
-
 class _ConfigurationGroup(click.Group):
+    _ROLE_CTX_KEY = "_jejune_configuration_role"
+
     def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         from .role_registry import ROLE_REGISTRY
         active_role = ROLE_REGISTRY.detect_role()
-        ctx.meta[_ROLE_CTX_KEY] = active_role
+        ctx.meta[self._ROLE_CTX_KEY] = active_role
 
         if active_role:
             formatter.write_usage(
@@ -118,7 +40,7 @@ class _ConfigurationGroup(click.Group):
             self.format_commands(ctx, formatter)
 
     def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        active_role = ctx.meta.get(_ROLE_CTX_KEY)
+        active_role = ctx.meta.get(self._ROLE_CTX_KEY)
 
         regular: list[tuple[str, str]] = []
         roles: list[tuple[str, str]] = []
@@ -154,8 +76,30 @@ def configuration():
     """Manage the .jejune/ configuration (env-config, env-secrets)."""
 
 
-configuration.add_command(_doc_steward_group)
-configuration.add_command(_deployer_group)
+def _print_config_table(
+    rows: list[tuple[str, str, str, str]],
+    hint_header: str = "Hint",
+    note: str | None = None,
+) -> None:
+    """Render Component configuration | Status | Check | <hint_header> table.
+
+    When *note* is given a bottom divider is added followed by the note line.
+    """
+    if not rows:
+        return
+    _W_C = max(len("Component configuration"), max(len(r[0]) for r in rows))
+    _W_S = max(len("Status"), max(len(ClickTheme.status_icons.get(r[1], (r[1], ""))[0]) for r in rows))
+    _W_K = max(len("Check"), max(len(r[2]) for r in rows))
+    _W_H = max(len(hint_header), max(len(r[3]) for r in rows))
+    divider = "  " + "─" * (_W_C + 2 + _W_S + 2 + _W_K + 2 + _W_H)
+    click.echo(f"  {'Component configuration':<{_W_C}}  {'Status':<{_W_S}}  {'Check':<{_W_K}}  {hint_header}")
+    click.echo(divider)
+    for comp, status, check, hint in rows:
+        text, fg = ClickTheme.status_icons.get(status, (status, "white"))
+        click.echo(f"  {comp:<{_W_C}}  {click.style(f'{text:<{_W_S}}', fg=fg)}  {check:<{_W_K}}  {hint}")
+    if note is not None:
+        click.echo(divider)
+        click.echo(note)
 
 
 def _role_config_checks() -> list[tuple[str, str, str, str]]:
@@ -193,12 +137,9 @@ def check():
         (name, status, msg if status == "error" else "", hint if status != "ok" else "")
         for name, status, msg, hint in checks
     ]
-    print_config_table(rows)
+    _print_config_table(rows)
     if any(status == "error" for _, status, _, _ in rows):
         raise SystemExit(1)
-
-
-configuration.add_command(check, "summary")
 
 
 @configuration.command("status-config")
@@ -224,3 +165,11 @@ def configuration_hint():
         click.echo(click.style("all components configured", fg="green"))
         return
     print_two_col_table(rows, "Component configuration", "Hint")
+
+
+configuration.add_command(_doc_steward_group)
+configuration.add_command(_deployer_group)
+configuration.add_command(check, "summary")
+configuration.add_command(config_check_availability)
+configuration.add_command(config_status_availability)
+configuration.add_command(config_hint_availability)
