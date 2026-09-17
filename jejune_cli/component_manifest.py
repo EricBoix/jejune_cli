@@ -11,6 +11,7 @@ class comp_manifest(conf_comp):
 
     def __init__(self, doc_repository_directory: Path = Path.cwd()) -> None:
         super().__init__(name="manifest")
+        self.cli_name = self.name
         self.doc_repository_directory = doc_repository_directory
 
     def _load_doc_schema(self) -> tuple[dict, dict] | None:

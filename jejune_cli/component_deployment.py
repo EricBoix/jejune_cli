@@ -28,6 +28,7 @@ class comp_deployment(conf_comp):
                 configuration_entry("MARKDOWN_TRIGGER_PORT", hint="edit deployment.env", source_file="deployment.env"),
             ),
         )
+        self.cli_name = self.name
 
     def check(self) -> tuple[str, str]:
         for dep in self.dependencies:

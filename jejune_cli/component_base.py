@@ -15,6 +15,7 @@ class base_comp(ABC):
         plugin_deps: list[str] | None = None,
     ) -> None:
         self.name = name
+        self.cli_name: str | None = None
         self.dependencies: list[base_comp] = dependencies or []
         self.optional_dependencies: list[base_comp] = optional_dependencies or []
         self.conditional_dependencies: list[tuple[Callable[[], bool], base_comp]] = []

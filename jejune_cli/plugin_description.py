@@ -39,9 +39,9 @@ class plugin_description:
     check_availability : () -> (ok, message) — runtime probe.
     required_deps      : names of built-in components that must be ok first.
     optional_deps      : names of components that enhance this one.
-    stage              : controls which ``jejune --help`` section lists this
-                         component — ``"single-document"``, ``"collection"``,
-                         or ``"extension"`` (default).
+    target_role        : name of the role section this plugin appears under
+                         in ``jejune --help`` (e.g. ``"doc-steward"``).
+                         ``None`` means it does not appear in any section.
     role               : role contributed by this plugin package.
     build_image        : (no_cache: bool) -> None — builds Docker image.
     image_is_built     : () -> bool — checks if Docker image exists.
@@ -59,12 +59,11 @@ class plugin_description:
     check_availability: Callable[[], tuple[bool, str]] | None = None
     required_deps: list[str] = field(default_factory=list)
     optional_deps: list[str] = field(default_factory=list)
-    stage: str = "extension"
-    """Determines the ``jejune --help`` section for this component.
+    target_role: str | None = None
+    """Role section under which this plugin command appears in ``jejune --help``.
 
-    ``"single-document"``  → "Single-document extension components"
-    ``"collection"``       → "Collection-level extension components"
-    ``"extension"``        → "Extension components" (default)
+    Set to the role name, e.g. ``"doc-steward"`` or ``"deployer"``.
+    ``None`` means the command does not appear in any role section.
     """
     role: plugin_role_description | None = None
     build_image: Callable[[bool], None] | None = None

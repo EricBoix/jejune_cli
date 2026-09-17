@@ -23,6 +23,7 @@ class comp_convert(cont_comp):
                     env_var_validator=self.validate_convert_dir)
             ),
         )
+        self.cli_name = self.name
 
     def build(self, no_cache: bool = False) -> None:
         if self.configuration.check()[0] != "ok":

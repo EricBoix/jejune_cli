@@ -46,38 +46,6 @@ def _doctor_viable() -> bool:
 HEURISTIC_STEP_REGISTRY.register_command_precondition("jejune doctor", _doctor_viable)
 
 
-_CONTRIBUTOR_COMMANDS = [
-    "doctor",
-    "configuration",
-    "components",
-    "role",
-    "containers",
-    "ecosystem",
-    "next",
-]
-_DOC_STEWARD_COMPONENTS = [
-    "neo4j",
-    "llm",
-    "llm-observability",
-    "graph",
-    "convert",
-    "manifest",
-]
-_DEPLOYER_COMPONENTS = ["deployment"]
-
-_ROLE_HELP_SECTIONS: list[tuple[str, list[str], str | None]] = [
-    ("contributor", _CONTRIBUTOR_COMMANDS, None),
-    ("doc-steward", _DOC_STEWARD_COMPONENTS, "single-document"),
-    ("deployer", _DEPLOYER_COMPONENTS, "extension"),
-]
-
-_SECTION_ORDER: dict[str, int] = {
-    "contributor": 0,
-    "doc-steward": 10,
-    "deployer": 90,
-}
-
-
 # ---------------------------------------------------------------------------
 # CLI group
 # ---------------------------------------------------------------------------
@@ -134,30 +102,29 @@ class _JejuneGroup(click.Group):
         def _rows(names: list[str]) -> list[tuple[str, str]]:
             return [r for name in names if (r := _row(name))]
 
-        def _plugin_rows(stage: str) -> list[tuple[str, str]]:
+        def _plugin_rows(role_name: str) -> list[tuple[str, str]]:
             return [
                 (f"jejune {p.name}", p.group.get_short_help_str(limit=formatter.width))
                 for p in PLUGIN_REGISTRY.plugins
-                if p.stage == stage
+                if p.target_role == role_name
             ]
 
         _included = set(ROLE_REGISTRY.includes(_ACTIVE_ROLE))
-        for role_name, commands, plugin_stage in _ROLE_HELP_SECTIONS:
+        for role_obj in ROLE_REGISTRY.display_roles:
             if (
                 _ACTIVE_ROLE in ROLE_REGISTRY.roles
-                and role_name not in {_ACTIVE_ROLE} | _included
+                and role_obj.name not in {_ACTIVE_ROLE} | _included
             ):
                 continue
-            rows = _rows(commands)
-            if plugin_stage:
-                rows += _plugin_rows(plugin_stage)
+            rows = _rows(role_obj.cli_commands)
+            rows += _plugin_rows(role_obj.name)
             rows += [
                 (f"jejune {name}", f"alias for: jejune {canonical}")
                 for grp, name, _, canonical, alias_role in _ALIASES
-                if alias_role == role_name and grp is self
+                if alias_role == role_obj.name and grp is self
             ]
             if rows:
-                with formatter.section(ROLE_REGISTRY.section_title(role_name)):
+                with formatter.section(ROLE_REGISTRY.section_title(role_obj.name)):
                     formatter.write_dl(rows)
 
 
@@ -213,51 +180,16 @@ _ALIASES = register_aliases(cli, document)
 
 
 def _handle_plugin(plugin: "_PluginDescription") -> None:
-    """Post-hook: wire CLI command and role for a single plugin."""
     cli.add_command(plugin.group, plugin.name)
     if plugin.role is not None:
-        _register_plugin_role(plugin)
+        ROLE_REGISTRY.register_from_plugin(plugin.role)
+        if plugin.role.config_group is not None:
+            register_role_config_subgroup(plugin.role.config_group)
 
 
 def _finalize_plugins() -> None:
-    """Finalize hook: process pending help sections and refresh active role."""
     global _ACTIVE_ROLE
-    for (
-        pending_name,
-        pending_stage,
-        pending_order,
-    ) in ROLE_REGISTRY.pending_help_sections:
-        if not any(rn == pending_name for rn, _, _ in _ROLE_HELP_SECTIONS):
-            insert_at = next(
-                (
-                    i
-                    for i, (rn, _, _) in enumerate(_ROLE_HELP_SECTIONS)
-                    if _SECTION_ORDER.get(rn, 50) > pending_order
-                ),
-                len(_ROLE_HELP_SECTIONS),
-            )
-            _ROLE_HELP_SECTIONS.insert(insert_at, (pending_name, [], pending_stage))
-            _SECTION_ORDER[pending_name] = pending_order
     _ACTIVE_ROLE = ROLE_REGISTRY.detect_role_name()
-
-
-def _register_plugin_role(plugin: "_PluginDescription") -> None:
-    role_obj = plugin.role
-    assert role_obj is not None
-    ROLE_REGISTRY.register_from_plugin(role_obj)
-    order = role_obj.order
-    insert_at = next(
-        (
-            i
-            for i, (rn, _, _) in enumerate(_ROLE_HELP_SECTIONS)
-            if _SECTION_ORDER.get(rn, 50) > order
-        ),
-        len(_ROLE_HELP_SECTIONS),
-    )
-    _ROLE_HELP_SECTIONS.insert(insert_at, (role_obj.name, [], role_obj.help_stage))
-    _SECTION_ORDER[role_obj.name] = order
-    if role_obj.config_group is not None:
-        register_role_config_subgroup(role_obj.config_group)
 
 
 PLUGIN_REGISTRY.add_post_hook(_handle_plugin)

@@ -29,6 +29,7 @@ class comp_neo4j(cont_comp):
                     source_file=".jejune/env-secrets")
             )
         )
+        self.cli_name = self.name
 
     def launch_container(self, data_dir: Path, port: str, credentials: str) -> None:
         """Build, start, and wait for the Neo4j container to be ready."""

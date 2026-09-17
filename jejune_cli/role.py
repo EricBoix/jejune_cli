@@ -11,22 +11,27 @@ if TYPE_CHECKING:
 @dataclass
 class Role:
     name: str
-    component_names: frozenset[str]
+    component_names: tuple[str, ...]
     includes: tuple[str, ...]
     section_title: str
     detector: Callable[[], bool] | None = None
     description: str = ""
     is_abstract: bool = False
+    extra_commands: tuple[str, ...] = ()
 
     @property
     def components(self) -> "frozenset[base_comp]":
-        """Resolve component names against COMP_REGISTRY at call time.
-
-        Evaluated lazily so plugin components registered after module import
-        are included when roles are queried at runtime.
-        """
         from .component_registry import REGISTRY as COMP_REGISTRY
         return frozenset(filter(None, (COMP_REGISTRY.get(n) for n in self.component_names)))
+
+    @property
+    def cli_commands(self) -> list[str]:
+        from .component_registry import REGISTRY as COMP_REGISTRY
+        return [
+            comp.cli_name
+            for name in self.component_names
+            if (comp := COMP_REGISTRY.get(name)) is not None and comp.cli_name is not None
+        ] + list(self.extra_commands)
 
     def __bool__(self) -> bool:
         return bool(self.name)
@@ -44,49 +49,10 @@ class Role:
         return (Path.cwd() / "manifest.yaml").is_file()
 
     @staticmethod
-    def _is_deployer_cwd() -> bool:
+    def is_deployer_cwd() -> bool:
         cwd = Path.cwd()
         return (cwd / "docker-compose.yml").is_file() and (cwd / "catalog.yaml").is_file()
 
 
-NO_ROLE = Role(name="", component_names=frozenset(), includes=(), section_title="")
+NO_ROLE = Role(name="", component_names=(), includes=(), section_title="")
 
-CONTRIBUTOR = Role(
-    name="contributor",
-    component_names=frozenset(("ecosystem", "network", "git-command", "git-server")),
-    includes=(),
-    section_title="Contributor commands",
-    description="base ecosystem role",
-)
-
-DOC_STEWARD = Role(
-    name="doc-steward",
-    component_names=frozenset((
-        "docker-command", "docker-daemon", "docker-hub-server", "pypi-server",
-        "neo4j", "llm", "llm-observability", "graph", "convert", "manifest",
-    )),
-    includes=("contributor",),
-    section_title="Doc-steward commands",
-    description="document authoring",
-    detector=Role._is_doc_steward_cwd,
-)
-
-DEPLOYMENT_CATALOG = Role(
-    name="deployment-catalog",
-    component_names=frozenset(),
-    includes=(),
-    section_title="",
-    is_abstract=True,
-)
-
-DEPLOYER = Role(
-    name="deployer",
-    component_names=frozenset((
-        "docker-command", "docker-daemon", "uv-command", "plugin-packages",
-        "catalog", "deployment", "docs-server", "kg-viewer", "md-browser",
-    )),
-    includes=("contributor", "deployment-catalog"),
-    section_title="Deployer commands",
-    description="service deployment",
-    detector=Role._is_deployer_cwd,
-)

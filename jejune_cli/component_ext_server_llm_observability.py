@@ -24,6 +24,7 @@ class comp_server_llm_observability(cont_comp):
                     source_file=".jejune/env-config"),
             ),
         )
+        self.cli_name = self.name
 
     @property
     def container_name(self) -> str:

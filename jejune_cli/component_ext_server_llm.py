@@ -28,6 +28,7 @@ class comp_server_llm(ext_server):
                 configuration_entry("LLM_MODEL_NAME", hint="edit .jejune/env-secrets", source_file=".jejune/env-secrets"),
             ),
         )
+        self.cli_name = self.name
 
     @staticmethod
     def infer_server_url(model_url: str) -> str:

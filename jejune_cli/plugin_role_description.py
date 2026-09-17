@@ -24,10 +24,6 @@ class plugin_role_description:
     detection_reason : human-readable indicator shown by ``jejune role``.
     section_title    : header for this role's section in ``jejune --help``.
     detect           : callable returning True when the cwd belongs to this role.
-    help_stage       : plugin stage used to group plugin commands in ``--help``
-                       (``"single-document"``, ``"collection"``, ``"extension"``).
-    order            : insertion position among help sections (contributor=0,
-                       doc-steward=10, deployer=90; defaults to 50).
     abstract         : if True, the role appears in ``jejune role list`` annotated
                        as abstract but never directly detected.
     config_group     : if set, added as a subgroup of ``jejune configuration``.
@@ -41,8 +37,6 @@ class plugin_role_description:
     detection_reason: str
     section_title: str
     detect: Callable[[], bool]
-    help_stage: str
-    order: int = 50
     abstract: bool = False
     config_group: click.Group | None = None
     extend_includes: dict[str, tuple[str, ...]] = field(default_factory=dict)

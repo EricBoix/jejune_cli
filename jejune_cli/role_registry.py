@@ -3,7 +3,7 @@
 import os
 from typing import TYPE_CHECKING
 
-from .role import CONTRIBUTOR, DEPLOYER, DEPLOYMENT_CATALOG, DOC_STEWARD, NO_ROLE, Role
+from .role import NO_ROLE, Role
 
 if TYPE_CHECKING:
     from .plugin_role_description import plugin_role_description
@@ -13,7 +13,6 @@ if TYPE_CHECKING:
 class RoleRegistry:
     def __init__(self) -> None:
         self._roles: dict[str, Role] = {}
-        self._pending_help_sections: list[tuple[str, str | None, int]] = []
 
     def register(self, role: Role) -> None:
         self._roles[role.name] = role
@@ -21,7 +20,7 @@ class RoleRegistry:
     def register_from_plugin(self, role_desc: "plugin_role_description") -> None:
         role = Role(
             name=role_desc.name,
-            component_names=role_desc.components,
+            component_names=tuple(role_desc.components),
             includes=role_desc.includes,
             section_title=role_desc.section_title,
             detector=role_desc.detect,
@@ -32,14 +31,6 @@ class RoleRegistry:
             existing = self._roles.get(existing_name)
             if existing is not None:
                 existing.includes = existing.includes + additional_parents
-
-    def register_help_section(
-        self,
-        name: str,
-        stage: str | None = None,
-        order: int = 50,
-    ) -> None:
-        self._pending_help_sections.append((name, stage, order))
 
     def get(self, name: str) -> "Role | None":
         return self._roles.get(name)
@@ -53,8 +44,9 @@ class RoleRegistry:
         return {name for name, r in self._roles.items() if r.is_abstract}
 
     @property
-    def pending_help_sections(self) -> list[tuple[str, str | None, int]]:
-        return self._pending_help_sections
+    def display_roles(self) -> "list[Role]":
+        """Non-abstract roles (shown in --help)."""
+        return [r for r in self._roles.values() if not r.is_abstract]
 
     def section_title(self, role_name: str) -> str:
         r = self._roles.get(role_name)
@@ -251,7 +243,4 @@ class RoleRegistry:
 
 ROLE_REGISTRY = RoleRegistry()
 
-ROLE_REGISTRY.register(CONTRIBUTOR)
-ROLE_REGISTRY.register(DOC_STEWARD)
-ROLE_REGISTRY.register(DEPLOYMENT_CATALOG)
-ROLE_REGISTRY.register(DEPLOYER)
+from . import role_definitions  # noqa: E402, F401 — registers built-in roles

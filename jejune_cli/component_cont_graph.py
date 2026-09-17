@@ -37,6 +37,7 @@ class comp_graph(cont_comp):
                 configuration_entry("TRACELOOP_BASE_URL",  hint="edit .jejune/env-config",   source_file=".jejune/env-config",  max_severity="warn"),
             ),
         )
+        self.cli_name = self.name
 
     def dep_statuses(self) -> dict[str, tuple[bool, str]]:
         return {"neo4j": self._neo4j.is_running(), "llm": self._llm.available()}
