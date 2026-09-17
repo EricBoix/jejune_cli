@@ -45,7 +45,7 @@ class configuration_entry:
         if val is None:
             return self.max_severity, "missing"
         if _PLACEHOLDER in val:
-            return "warn", "placeholder"
+            return self.max_severity, "placeholder"
         if self.env_var_validator:
             return self.env_var_validator(val)
         return "ok", ""
