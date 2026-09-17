@@ -141,7 +141,9 @@ class plugin_package_catalog:
             return
         discovered = self._discover(repo_names, no_cache=no_cache)
         for repo_name in repo_names:
-            self._install_package(repo_name, discovered.get(repo_name, repo_name))
+            if repo_name not in discovered:
+                continue
+            self._install_package(repo_name, discovered[repo_name])
         # packages_installed() relies on PLUGIN_REGISTRY.plugin_name_for_repo() to
         # translate repo names to entry-point names.  That method falls back to
         # matching the normalised distribution name, which fails when the dist name
