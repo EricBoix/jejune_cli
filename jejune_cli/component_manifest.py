@@ -87,5 +87,8 @@ class comp_manifest(conf_comp):
             return "warn", "manifest.yaml missing"
         return "error", errors[0]
 
+    def check_config(self) -> tuple[str, str]:
+        return self.check_manifest_against_schema()
+
     def check(self) -> tuple[str, str]:
         return self.check_availability()

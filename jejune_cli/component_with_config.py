@@ -10,6 +10,8 @@ class conf_comp(base_comp):
 
     Subclasses must implement check(). The configuration attribute holds a
     configuration instance whose entries describe required env vars.
+    Subclasses with non-env-var configuration (e.g. YAML schema validation)
+    should override check_config() to return the appropriate status.
     """
 
     def __init__(
@@ -29,3 +31,12 @@ class conf_comp(base_comp):
             plugin_deps=plugin_deps,
         )
         self.configuration: _configuration = configuration if configuration is not None else _configuration()
+
+    def check_config(self) -> tuple[str, str]:
+        """Return (status, msg) for the configuration check.
+
+        Default delegates to self.configuration.check(). Override this in
+        subclasses whose configuration is not expressed as env-var entries.
+        """
+        status, msg, _ = self.configuration.check()
+        return status, msg

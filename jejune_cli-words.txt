@@ -3,6 +3,7 @@ Burbea
 
 # Ad-hoc/lingo/technical/specific (non) terms
 github
+isbn
 jaegertracing
 otlp
 plantuml
