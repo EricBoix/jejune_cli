@@ -100,6 +100,10 @@ def build(conv, no_cache: bool):
         conv.build(no_cache=no_cache)
     except ValueError as exc:
         raise click.ClickException(str(exc)) from exc
+    except subprocess.CalledProcessError as exc:
+        raise click.ClickException(
+            f"Docker build failed (exit code {exc.returncode})"
+        ) from exc
 
 
 @convert.command(
