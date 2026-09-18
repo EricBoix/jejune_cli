@@ -1,6 +1,7 @@
 import click
 
 from .click_comp_deployment import deployment, up as _up_cmd, down as _down_cmd
+from .click_doctor import doctor as _doctor_cmd
 from .click_workspace_deployer import init as _deployer_init
 from .click_workspace_doc_steward import init as _doc_steward_init
 
@@ -33,6 +34,7 @@ def register_aliases(
         (document, "init", _doc_steward_init, "configuration doc-steward init", "doc-steward"),
         (cli, "up", _up_cmd, "deployment up", "deployer"),
         (cli, "down", _down_cmd, "deployment down", "deployer"),
+        (cli, "doctor", _doctor_cmd, "components doctor", ""),
     ]
     for alias_group, alias_name, alias_cmd, alias_canonical, _ in aliases:
         alias_group.add_command(AliasShim(alias_cmd, alias_canonical), alias_name)

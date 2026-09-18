@@ -28,14 +28,14 @@ class plugin_description:
     Mandatory fields
     ----------------
     name  : component name as it will appear in ``jejune --help`` and
-            ``jejune doctor`` (e.g. ``"kg-viewer"``).
+            ``jejune components doctor`` (e.g. ``"kg-viewer"``).
     group : the Click Group that provides the component's subcommands.
 
     Optional fields
     ---------------
     config_vars        : env vars required for this component.
     config_hint        : what to do when they are missing.
-    avail_hint         : shown in doctor Availability table on error.
+    avail_hint         : shown in components doctor Availability table on error.
     check_availability : () -> (ok, message) — runtime probe.
     required_deps      : names of built-in components that must be ok first.
     optional_deps      : names of components that enhance this one.

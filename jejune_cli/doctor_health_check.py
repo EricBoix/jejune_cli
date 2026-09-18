@@ -1,4 +1,4 @@
-"""Aggregate health-check used by ``jejune doctor``."""
+"""Aggregate health-check used by ``jejune components doctor``."""
 
 import sys
 from pathlib import Path
@@ -58,7 +58,7 @@ def run_all() -> tuple[
 ]:
     """Return (config_results, avail_results, active_components_components).
 
-    Used by `jejune doctor`, which needs both configuration and availability status.
+    Used by `jejune components doctor`, which needs both configuration and availability status.
     Each result entry is (component_name, status, message).
     """
     role_comps = ROLE_REGISTRY.current_role_components()
