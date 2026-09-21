@@ -24,8 +24,11 @@ class comp_neo4j(cont_comp):
             dependencies=[git_server, ComponentRegistry().get("docker-hub-server")],
             hint="run `jejune neo4j start --help`",
             configuration=configuration(
+                configuration_entry("NEO4J_USERNAME",
+                    hint="edit .jejune/env-config",
+                    source_file=".jejune/env-config"),
                 configuration_entry("NEO4J_PASSWORD",
-                    hint="edit .jejune/env-secrets or .jejune/env-config",
+                    hint="edit .jejune/env-secrets",
                     source_file=".jejune/env-secrets")
             )
         )
