@@ -80,6 +80,28 @@ class comp_command_docker(ext_command):
         cmd.append(image)
         return subprocess.run(cmd).returncode
 
+    def run_foreground(
+        self,
+        name: str,
+        image: str,
+        volume: str,
+        *cmd_args: str,
+        env_args: list[str] | None = None,
+    ) -> None:
+        """Run a foreground container with streamed output; raise SystemExit on failure."""
+        cmd = [
+            "docker", "run", "--rm", "--tty",
+            "--network", "host",
+            "-v", volume,
+            "--name", name,
+        ]
+        cmd.extend(env_args or [])
+        cmd.append(image)
+        cmd.extend(cmd_args)
+        result = subprocess.run(cmd)
+        if result.returncode != 0:
+            raise SystemExit(result.returncode)
+
     def stop_container(self, name: str) -> None:
         """Stop a running container, ignoring errors."""
         subprocess.run(["docker", "stop", name], stderr=subprocess.DEVNULL)

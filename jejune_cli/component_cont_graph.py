@@ -57,6 +57,10 @@ class comp_graph(cont_comp):
                     f"{dep} is not available ({msg}) — refer to `jejune {dep} status`"
                 )
 
+    @staticmethod
+    def _repo_name(doc_dir: Path) -> str:
+        return doc_dir.name.removeprefix("jejune_doc_")
+
     def run_split(
         self,
         doc_dir: str | Path,
@@ -66,19 +70,14 @@ class comp_graph(cont_comp):
         extra_args: tuple,
     ) -> None:
         doc_dir = Path(doc_dir).resolve()
+        repo_name = self._repo_name(doc_dir)
         self.build(no_cache)
         output_args = ("--output", output) if output is not None else ()
         click.echo(f"Splitting with {self.SPLITTERS[splitter]} ...")
-        self._run(
-            "docker", "run", "--rm", "--tty",
-            "--network", "host",
-            "-v", f"{doc_dir}:/data",
-            "--name", "jejune_split",
-            self.image_name,
-            self.SPLITTERS[splitter],
-            "--catalog", "/data/manifest.yaml",
-            *output_args,
-            *extra_args,
+        self._docker.run_foreground(
+            f"jejune_split_{repo_name}", self.image_name, f"{doc_dir}:/data",
+            self.SPLITTERS[splitter], "--catalog", "/data/manifest.yaml",
+            *output_args, *extra_args,
         )
 
     def run_extract(
@@ -88,28 +87,19 @@ class comp_graph(cont_comp):
         extra_args: tuple,
     ) -> None:
         doc_dir = Path(doc_dir).resolve()
+        repo_name = self._repo_name(doc_dir)
         self.build(no_cache)
-        docker_run = (
-            "docker", "run", "--rm", "--tty",
-            "--network", "host",
-            "-v", f"{doc_dir}:/data",
-        )
+        volume = f"{doc_dir}:/data"
         click.echo("Splitting document into chunks ...")
-        self._run(
-            *docker_run,
-            "--name", "jejune_split",
-            self.image_name,
-            self.SPLITTERS["headers"],
-            "--catalog", "/data/manifest.yaml",
+        self._docker.run_foreground(
+            f"jejune_split_{repo_name}", self.image_name, volume,
+            self.SPLITTERS["headers"], "--catalog", "/data/manifest.yaml",
             "--output", self.CHUNKS_JSON,
         )
         click.echo("Running extraction ...")
-        self._run(
-            *docker_run,
-            "--name", "jejune_extract_knowledge_graph",
-            *self.docker_env_args(),
-            self.image_name,
-            "extract_kg_graph.py",
-            "--load_json_document", self.CHUNKS_JSON,
+        self._docker.run_foreground(
+            f"jejune_extract_knowledge_graph_{repo_name}", self.image_name, volume,
+            "extract_kg_graph.py", "--load_json_document", self.CHUNKS_JSON,
             *extra_args,
+            env_args=self.docker_env_args(),
         )
