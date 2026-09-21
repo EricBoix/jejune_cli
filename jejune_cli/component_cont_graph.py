@@ -61,6 +61,34 @@ class comp_graph(cont_comp):
     def _repo_name(doc_dir: Path) -> str:
         return doc_dir.name.removeprefix("jejune_doc_")
 
+    @staticmethod
+    def _rewrite_load_json_document_path(
+        doc_dir: Path, extra_args: tuple
+    ) -> tuple:
+        """Rewrite the value after --load_json_document to a /data/-prefixed path.
+
+        Handles three forms the caller may pass:
+          - already /data/…         → left unchanged
+          - absolute path under doc_dir → strip doc_dir prefix, prepend /data
+          - relative path / bare name   → prepend /data/
+        """
+        rewritten = list(extra_args)
+        for index, arg in enumerate(rewritten):
+            if arg == "--load_json_document" and index + 1 < len(rewritten):
+                raw_value = rewritten[index + 1]
+                value_path = Path(raw_value)
+                if raw_value.startswith("/data/"):
+                    pass
+                elif value_path.is_absolute():
+                    try:
+                        relative = value_path.relative_to(doc_dir)
+                        rewritten[index + 1] = f"/data/{relative}"
+                    except ValueError:
+                        rewritten[index + 1] = f"/data/{value_path.name}"
+                else:
+                    rewritten[index + 1] = f"/data/{raw_value}"
+        return tuple(rewritten)
+
     def run_split(
         self,
         doc_dir: str | Path,
@@ -92,11 +120,15 @@ class comp_graph(cont_comp):
         volume = f"{doc_dir}:/data"
         if "--load_json_document" not in extra_args:
             load_args: tuple = ("--load_json_document", self.CHUNKS_JSON)
+            extra_args_rewritten = extra_args
         else:
             load_args = ()
+            extra_args_rewritten = self._rewrite_load_json_document_path(
+                doc_dir, extra_args
+            )
         click.echo("Running extraction ...")
         self._docker.run_foreground(
             f"jejune_extract_knowledge_graph_{repo_name}", self.image_name, volume,
-            "extract_kg_graph.py", *load_args, *extra_args,
+            "extract_kg_graph.py", *load_args, *extra_args_rewritten,
             env_args=self.docker_env_args(),
         )
