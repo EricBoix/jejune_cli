@@ -122,22 +122,15 @@ def split(comp, doc_dir, splitter, output, no_cache, extra_args):
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
 @click.pass_obj
 def extract(comp, doc_dir, no_cache, extra_args):
-    """Run the Markdown → Neo4j knowledge-graph extraction for DOC_DIR.
+    """Run the Neo4j knowledge-graph extraction for DOC_DIR.
 
-    DOC_DIR is the root of a jejune_doc_<name> repository. The command runs
-    in two steps using the same Docker image:
+    DOC_DIR is the root of a jejune_doc_<name> repository (mounted as /data).
+    Runs extract_kg_graph.py against the JSON chunks produced by `jejune graph split`.
 
-    \b
-    1. split_by_headers.py  -- splits /data/manifest.yaml into /data/_chunks.json
-    2. extract_kg_graph.py  -- feeds the JSON into Neo4j
+    By default reads /data/_chunks.json. Pass --load_json_document /data/<file>.json
+    via EXTRA_ARGS to use a different pre-split JSON file.
 
-    EXTRA_ARGS are forwarded verbatim to the extractor (step 2), e.g.
-    --load_json_document /data/other.json to blend additional pre-built JSON
-    files alongside the auto-generated chunks.
-
-    To use a different splitter or inspect chunks before extraction, run the
-    splitter container step manually and call this command with the resulting
-    JSON via --load_json_document.
+    EXTRA_ARGS are forwarded verbatim to extract_kg_graph.py.
 
     Requires a running Neo4j instance (`jejune neo4j start`).
     Credentials and LLM settings are read from .jejune/env-secrets / environment.

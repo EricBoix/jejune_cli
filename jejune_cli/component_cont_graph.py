@@ -90,16 +90,13 @@ class comp_graph(cont_comp):
         repo_name = self._repo_name(doc_dir)
         self.build(no_cache)
         volume = f"{doc_dir}:/data"
-        click.echo("Splitting document into chunks ...")
-        self._docker.run_foreground(
-            f"jejune_split_{repo_name}", self.image_name, volume,
-            self.SPLITTERS["headers"], "--catalog", "/data/manifest.yaml",
-            "--output", self.CHUNKS_JSON,
-        )
+        if "--load_json_document" not in extra_args:
+            load_args: tuple = ("--load_json_document", self.CHUNKS_JSON)
+        else:
+            load_args = ()
         click.echo("Running extraction ...")
         self._docker.run_foreground(
             f"jejune_extract_knowledge_graph_{repo_name}", self.image_name, volume,
-            "extract_kg_graph.py", "--load_json_document", self.CHUNKS_JSON,
-            *extra_args,
+            "extract_kg_graph.py", *load_args, *extra_args,
             env_args=self.docker_env_args(),
         )
