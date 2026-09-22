@@ -15,7 +15,7 @@ partition "Knowledge Graph Workflow: PDF to RDF via Docker containers" {
       :Run **Convert/main.py**;
     }
 
-    #Yellow:<<artifact>>\noutput.md\nSentences_as_LangChain_Document.json|
+    #Yellow:<<artifact>>\noutput.md|
 
   fork again
 
