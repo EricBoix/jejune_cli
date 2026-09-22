@@ -111,8 +111,8 @@ def _print_health_table(
         a_hint = avail[3] if avail else ""
         action = (
             port_conflicts.get(comp)
-            or (a_hint if a_status and a_status != "ok" else "")
             or c_hint
+            or (a_hint if a_status and a_status != "ok" else "")
         )
         img = img_status.get(comp)
         rows.append((comp, c_status, img, a_status, action))
