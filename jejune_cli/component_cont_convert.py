@@ -52,7 +52,7 @@ class comp_convert(cont_comp):
         if self.configuration.check()[0] != "ok":
             return "ok", ""
         built, msg = self.image_built()
-        return ("ok", "") if built else ("warn", msg)
+        return ("ok", "") if built else ("error", msg)
 
     @staticmethod
     def validate_convert_dir(val: str) -> tuple[str, str]:
