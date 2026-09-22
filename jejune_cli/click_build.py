@@ -20,8 +20,7 @@ def build_cmd(no_cache: bool) -> None:
     Use `jejune deployment build <dir>` to build a specific deployment directory.
     """
     active_role_obj = ROLE_REGISTRY.detect_role()
-    active_role = ROLE_REGISTRY.detect_role_name()
-    if active_role == "deployer":
+    if ROLE_REGISTRY.role_inherits(active_role_obj, "deployer"):
         raise SystemExit(COMP_REGISTRY.get("deployment").build(Path("."), no_cache=no_cache))
     from .component_containerized import cont_comp
 
@@ -36,7 +35,7 @@ def build_cmd(no_cache: bool) -> None:
     ]
     if not builders:
         raise click.UsageError(
-            f"'jejune build' has no Docker images registered for role {active_role!r}."
+            f"'jejune build' has no Docker images registered for role {active_role_obj.name or None!r}."
         )
     for inst in builders:
         inst.build(no_cache)

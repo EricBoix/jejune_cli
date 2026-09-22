@@ -88,65 +88,65 @@ def register_heuristics() -> None:
     HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
         label="Install docker desktop",
         command=COMP_REGISTRY.get("docker-command").hint, order=2,
-        conditions=[Role.is_deployer_cwd],
+        conditions=[],
         anti_conditions=[ComponentCondition("docker-command")],
     ), roles={"deployer"})
 
     HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
         label="Install plugin packages",
         command="jejune plugin-packages install", order=3,
-        conditions=[Role.is_deployer_cwd],
+        conditions=[],
         anti_conditions=[ComponentCondition("plugin-packages")],
     ), roles={"deployer"})
 
     HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
         label="Wrap up configuration",
         command="edit config files", order=5,
-        conditions=[Role.is_deployer_cwd, _deploy_config_is_default],
+        conditions=[_deploy_config_is_default],
         anti_conditions=[],
     ), roles={"deployer"})
 
     HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
         label="Fix deployment catalog", command="jejune catalog check", order=6,
-        conditions=[Role.is_deployer_cwd, _deploy_catalog_check_fails],
+        conditions=[_deploy_catalog_check_fails],
         anti_conditions=[_deploy_catalog_needs_configuration],
     ), roles={"deployer"})
 
     HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
         label="Build deployment", command="jejune build", order=10,
-        conditions=[Role.is_deployer_cwd, ComponentCondition("docker-command"), _deploy_images_missing, PLUGIN_PACKAGE_CATALOG.packages_installed],
+        conditions=[ComponentCondition("docker-command"), _deploy_images_missing, PLUGIN_PACKAGE_CATALOG.packages_installed],
         anti_conditions=[_deploy_catalog_check_fails],
     ), roles={"deployer"})
 
     HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
         label="Start deployment", command="jejune up", order=20,
-        conditions=[Role.is_deployer_cwd, ComponentCondition("docker-command")],
+        conditions=[ComponentCondition("docker-command")],
         anti_conditions=[_deploy_images_missing, _deploy_containers_running],
     ), roles={"deployer"})
 
     HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
         label="Install deployer plugin packages",
         command="jejune plugin-packages install", order=22,
-        conditions=[Role.is_deployer_cwd, ComponentCondition("plugin-packages"), _deploy_containers_running],
+        conditions=[ComponentCondition("plugin-packages"), _deploy_containers_running],
         anti_conditions=[PLUGIN_PACKAGE_CATALOG.packages_installed],
     ), roles={"deployer"})
 
     HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
         label="Check deployment status", command="jejune deployment status", order=25,
-        conditions=[Role.is_deployer_cwd, ComponentCondition("plugin-packages"), _deploy_containers_running, PLUGIN_PACKAGE_CATALOG.packages_installed],
+        conditions=[ComponentCondition("plugin-packages"), _deploy_containers_running, PLUGIN_PACKAGE_CATALOG.packages_installed],
         anti_conditions=[_deploy_services_available],
     ), roles={"deployer"})
 
     HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
         label="Browse docs server",
         command=lambda: f"web-browse UI at {_docs_server_url()}", order=30,
-        conditions=[Role.is_deployer_cwd, _deploy_containers_running, _deploy_services_available],
+        conditions=[_deploy_containers_running, _deploy_services_available],
         anti_conditions=[],
     ), roles={"deployer"})
 
     HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
         label="Deployment running stop", command="jejune down", order=35,
-        conditions=[Role.is_deployer_cwd, ComponentCondition("docker-command"), _deploy_containers_running],
+        conditions=[ComponentCondition("docker-command"), _deploy_containers_running],
         anti_conditions=[],
     ), roles={"deployer"})
 
@@ -159,7 +159,7 @@ def register_heuristics() -> None:
         HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
             label=inst.hint,
             command=inst.hint,
-            conditions=[Role.is_deployer_cwd],
+            conditions=[],
             anti_conditions=[ComponentCondition(inst.name)],
         ), roles={"deployer"})
 

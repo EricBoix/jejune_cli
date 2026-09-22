@@ -74,11 +74,10 @@ class _RootClickGroup(click.Group):
                 if p.target_role == role_name
             ]
 
-        _included = set(ROLE_REGISTRY.includes(active_role))
         for role_obj in ROLE_REGISTRY.display_roles:
             if (
                 active_role in ROLE_REGISTRY.roles
-                and role_obj.name not in {active_role} | _included
+                and not ROLE_REGISTRY.role_inherits(active_role, role_obj.name)
             ):
                 continue
             rows = _rows(role_obj.cli_commands)

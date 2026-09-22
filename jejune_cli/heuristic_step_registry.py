@@ -79,6 +79,9 @@ class HeuristicStepRegistry:
     def _step_viable(self, step: HeuristicStep) -> bool:
         return callable(step.command) or step.command is None or self.command_viable(step.command)
 
+    def _role_applies(self, step: HeuristicStep, active_role: str | None) -> bool:
+        return not step.roles or active_role in step.roles or None in step.roles
+
     def _role_specificity(self, step: HeuristicStep, active_role: str | None) -> int:
         return len(step.roles - {None, active_role})
 
@@ -114,7 +117,10 @@ class HeuristicStepRegistry:
             def _key(step: HeuristicStep) -> tuple:
                 return self._sort_key(step, active_role, eff)
             return sorted(
-                (s for s in self._steps if self._matches(s) and self._step_viable(s)),
+                (
+                    s for s in self._steps
+                    if self._role_applies(s, active_role) and self._matches(s) and self._step_viable(s)
+                ),
                 key=_key,
             )
 

@@ -13,9 +13,11 @@ if TYPE_CHECKING:
 class RoleRegistry:
     def __init__(self) -> None:
         self._roles: dict[str, Role] = {}
+        self._role_cache: dict[str, Role] = {}
 
     def register(self, role: Role) -> None:
         self._roles[role.name] = role
+        self._role_cache.clear()
 
     def register_from_plugin(self, role_desc: "plugin_role_description") -> None:
         role = Role(
@@ -31,6 +33,7 @@ class RoleRegistry:
             existing = self._roles.get(existing_name)
             if existing is not None:
                 existing.includes = existing.includes + additional_parents
+        self._role_cache.clear()
 
     def get(self, name: str) -> "Role | None":
         return self._roles.get(name)
@@ -67,17 +70,24 @@ class RoleRegistry:
         return self.detect_role().name or None
 
     def detect_role(self) -> Role:
+        cwd = os.getcwd()
+        if cwd in self._role_cache:
+            return self._role_cache[cwd]
         override = os.environ.get("JEJUNE_ROLE")
         if override:
-            return self._roles.get(override, NO_ROLE)
-        for r in self._roles.values():
-            if r.detector is not None:
-                try:
-                    if r.detector():
-                        return r
-                except Exception:
-                    pass
-        return NO_ROLE
+            result = self._roles.get(override, NO_ROLE)
+        else:
+            result = NO_ROLE
+            for r in self._roles.values():
+                if r.detector is not None:
+                    try:
+                        if r.detector():
+                            result = r
+                            break
+                    except Exception:
+                        pass
+        self._role_cache[cwd] = result
+        return result
 
     def role_components(self, role: Role) -> "frozenset[base_comp] | None":
         if not role:

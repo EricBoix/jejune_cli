@@ -23,7 +23,8 @@ from .dot_jejune import dot_jejune
 
 def _doctor_viable() -> bool:
     active_role = ROLE_REGISTRY.detect_role_name()
-    return not (active_role in (None, "doc-steward") and not dot_jejune().is_dir())
+    is_doc_steward_family = active_role is None or ROLE_REGISTRY.role_inherits(active_role, "doc-steward")
+    return not (is_doc_steward_family and not dot_jejune().is_dir())
 
 
 HEURISTIC_STEP_REGISTRY.register_command_precondition("jejune doctor", _doctor_viable)
@@ -173,7 +174,7 @@ def doctor(verbose: bool):
     active_role = ROLE_REGISTRY.detect_role_name()
 
     d = dot_jejune()
-    if (not active_role_obj or active_role_obj.is_doc_steward()) and not d.is_dir():
+    if (not active_role_obj or ROLE_REGISTRY.role_inherits(active_role_obj, "doc-steward")) and not d.is_dir():
         click.echo(
             click.style(
                 "Current working directory is not a jejune workspace.",
@@ -252,7 +253,7 @@ def doctor(verbose: bool):
         config_rows, avail_rows, img_status,
         port_conflict_per_comp, external_image_names,
     )
-    if active_role in (None, "doc-steward"):
+    if active_role is None or ROLE_REGISTRY.role_inherits(active_role, "doc-steward"):
         click.echo()
         click.echo(_CONFIG_NOTE)
 
