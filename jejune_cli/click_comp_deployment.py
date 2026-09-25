@@ -7,7 +7,7 @@ from pathlib import Path
 
 import click
 
-from .component_registry import REGISTRY as COMP_REGISTRY
+from .component_wiring import REGISTRY as COMP_REGISTRY
 from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 

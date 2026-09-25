@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .component_ext import ext_comp
-from .component_registry import REGISTRY as COMP_REGISTRY
+from .component_wiring import REGISTRY as COMP_REGISTRY
 from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 from .heuristic_step import ComponentCondition, HeuristicStep
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY

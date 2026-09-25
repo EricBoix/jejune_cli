@@ -252,5 +252,3 @@ class RoleRegistry:
 
 
 ROLE_REGISTRY = RoleRegistry()
-
-from . import role_definitions  # noqa: E402, F401 — registers built-in roles

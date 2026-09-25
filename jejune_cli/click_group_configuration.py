@@ -121,7 +121,7 @@ def _print_config_table(
 def _role_config_checks() -> list[tuple[str, str, str, str]]:
     """Return (name, status, msg, hint) for every configurable component in the current role."""
     from .role_registry import ROLE_REGISTRY
-    from .component_registry import REGISTRY as COMP_REGISTRY
+    from .component_wiring import REGISTRY as COMP_REGISTRY
     role = ROLE_REGISTRY.detect_role()
     role_components = ROLE_REGISTRY.role_components(role)
     return [

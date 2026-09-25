@@ -3,7 +3,7 @@ from .click_group_root import cli
 from .click_group_configuration import register_role_config_subgroup
 from .plugin_description import plugin_description
 from .plugin_registry import PLUGIN_REGISTRY
-from .role_registry import ROLE_REGISTRY
+from .role_wiring import ROLE_REGISTRY
 
 
 def _handle_plugin(plugin: plugin_description) -> None:

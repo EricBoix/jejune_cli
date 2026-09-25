@@ -9,7 +9,7 @@ from .click_configuration import print_config_hint, print_config_status, print_c
 @click.pass_context
 def llm(click_ctx):
     """Manage the LLM inference server."""
-    from .component_registry import REGISTRY as COMP_REGISTRY
+    from .component_wiring import REGISTRY as COMP_REGISTRY
     click_ctx.obj = COMP_REGISTRY.get("llm")
 
 

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import click
 
-from .component_registry import REGISTRY as COMP_REGISTRY
+from .component_wiring import REGISTRY as COMP_REGISTRY
 from .role_registry import ROLE_REGISTRY
 
 

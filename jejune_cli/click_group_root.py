@@ -3,7 +3,7 @@ from pathlib import Path
 import click
 
 from .click_version import version_option
-from .component_registry import REGISTRY as _COMP_REGISTRY
+from .component_wiring import REGISTRY as _COMP_REGISTRY
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 from .plugin_registry import PLUGIN_REGISTRY
 from .role_registry import ROLE_REGISTRY

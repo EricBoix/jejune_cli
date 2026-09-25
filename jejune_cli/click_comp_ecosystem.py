@@ -4,7 +4,7 @@ import click
 
 from .click_theme import ClickTheme
 from .role_registry import ROLE_REGISTRY
-from .component_registry import REGISTRY as COMP_REGISTRY
+from .component_wiring import REGISTRY as COMP_REGISTRY
 from .plugin_registry import PLUGIN_REGISTRY
 
 

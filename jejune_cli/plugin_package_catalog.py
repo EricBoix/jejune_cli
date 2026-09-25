@@ -36,7 +36,7 @@ class plugin_package_catalog:
             self._discovery_cache = None
         if self._discovery_cache is not None:
             return self._discovery_cache
-        from .component_registry import REGISTRY as COMP_REGISTRY
+        from .component_wiring import REGISTRY as COMP_REGISTRY
         eco = COMP_REGISTRY.get("ecosystem")
         result: dict[str, str] = {}
         seen: set[str] = set()
@@ -81,7 +81,7 @@ class plugin_package_catalog:
         if not role:
             return []
         from .role_registry import ROLE_REGISTRY
-        from .component_registry import REGISTRY as COMP_REGISTRY
+        from .component_wiring import REGISTRY as COMP_REGISTRY
         role_obj = ROLE_REGISTRY.get(role)
         if role_obj is None:
             return []
@@ -155,7 +155,7 @@ class plugin_package_catalog:
             PLUGIN_REGISTRY.register_repo_name(plugin, repo)
 
     def _install_package(self, repo_name: str, plugin_name: str) -> None:
-        from .component_registry import REGISTRY as COMP_REGISTRY
+        from .component_wiring import REGISTRY as COMP_REGISTRY
         eco = COMP_REGISTRY.get("ecosystem")
         root_dir, tmp_dir = eco.resolve_dirs()
         tier, base = eco.repo_status(repo_name, root_dir, tmp_dir)

@@ -18,7 +18,7 @@ class ComponentCondition:
         self.__name__ = f"{name.replace('-', '_')}_available"
 
     def __call__(self) -> bool:
-        from .component_registry import REGISTRY
+        from .component_wiring import REGISTRY
         inst = REGISTRY.get(self._name)
         return inst is not None and inst.is_available()
 

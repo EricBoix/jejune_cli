@@ -64,7 +64,7 @@ class cont_comp(conf_comp):
 
     def build(self, no_cache: bool = False) -> None:
         """Build the Docker image, resolving build_context from self.repos when needed."""
-        from .component_registry import REGISTRY as COMP_REGISTRY
+        from .component_wiring import REGISTRY as COMP_REGISTRY
 
         if not self.build_context:
             repos = getattr(self, "repos", None)
@@ -177,7 +177,7 @@ class cont_comp(conf_comp):
     @classmethod
     def existing_component_containers(cls) -> list[dict]:
         """Return all cont_comp containers currently present in Docker."""
-        from .component_registry import REGISTRY as COMP_REGISTRY
+        from .component_wiring import REGISTRY as COMP_REGISTRY
 
         return [
             {"component": inst.name, "container": inst.container_name}

@@ -3,7 +3,7 @@
 import click
 
 from .component_base import base_comp
-from .component_registry import REGISTRY as COMP_REGISTRY
+from .component_wiring import REGISTRY as COMP_REGISTRY
 from .click_theme import ClickTheme
 from .role_registry import ROLE_REGISTRY
 

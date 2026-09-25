@@ -1,6 +1,6 @@
 import click
 
-from .component_registry import REGISTRY as COMP_REGISTRY
+from .component_wiring import REGISTRY as COMP_REGISTRY
 from .click_configuration import (
     print_config_check,
     print_config_hint,
