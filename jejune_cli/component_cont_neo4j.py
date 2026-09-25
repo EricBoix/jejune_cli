@@ -157,7 +157,7 @@ class comp_neo4j(cont_comp):
             {"statements": [{"statement": "MATCH (n) RETURN count(n) AS count"}]}
         ).encode()
         req = urllib.request.Request(
-            "http://localhost:7474/db/neo4j/tx/commit",
+            self._neo4j_http_api_url(),
             data=payload,
             headers={"Authorization": f"Basic {token}", "Content-Type": "application/json"},
             method="POST",
@@ -214,7 +214,7 @@ class comp_neo4j(cont_comp):
             }
         ).encode()
         req = urllib.request.Request(
-            "http://localhost:7474/db/neo4j/tx/commit",
+            self._neo4j_http_api_url(),
             data=payload,
             headers={"Authorization": f"Basic {token}", "Content-Type": "application/json"},
             method="POST",
