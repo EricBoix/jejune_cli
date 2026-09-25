@@ -1,7 +1,6 @@
 """Aggregate health-check used by ``jejune components doctor``."""
 
 import sys
-from pathlib import Path
 
 from .component_registry import REGISTRY as COMP_REGISTRY
 from .component_containerized import cont_comp
@@ -67,14 +66,6 @@ def run_all() -> tuple[
         sys.exit()
 
     active_components = COMP_REGISTRY.sorted_active_set(role_comps)
-
-    # All source files are pre-loaded into os.environ before any config check
-    # runs, so that plugin components whose env vars are defined in a parent's
-    # source file (e.g. deployment.env) see the values regardless of
-    # topological order.
-    for inst in active_components:
-        if isinstance(inst, conf_comp) and inst.configuration:
-            inst.configuration.load(Path("."))
 
     config: list[tuple[str, str, str]] = []
     for inst in active_components:

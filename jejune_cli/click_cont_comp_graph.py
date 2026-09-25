@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import click
 
 from .component_registry import REGISTRY as COMP_REGISTRY
@@ -23,7 +21,6 @@ _PREFLIGHT_SKIP = {
 @click.pass_context
 def graph(ctx):
     """Build and export the knowledge graph for the current jejune_doc_<name> repository."""
-    graph_comp.configuration.load(Path("."))
     ctx.obj = graph_comp
     if ctx.invoked_subcommand not in _PREFLIGHT_SKIP:
         graph_comp.preflight()

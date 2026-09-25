@@ -23,7 +23,6 @@ def deployment():
 @click.command("status")
 def status() -> None:
     """Show HTTP availability of the three UI deployment services."""
-    COMP_REGISTRY.get("deployment").configuration.load(Path("."))
     if not PLUGIN_PACKAGE_CATALOG.packages_installed():
         click.echo(click.style("Check plugin packages not installed.", fg="red"), err=True)
         click.echo("Run: jejune plugin-packages install", err=True)

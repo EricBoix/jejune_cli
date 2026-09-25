@@ -17,7 +17,6 @@ class configuration:
 
     def check(self) -> tuple[str, str, str]:
         """Return (status, msg, hint) aggregated across all entries."""
-        self.load(Path("."))
         if not self.configuration:
             return "ok", "", ""
         results = [e.check() for e in self.configuration]
@@ -56,7 +55,6 @@ class configuration:
 
     def entries_check(self) -> list[tuple[str, str]]:
         """Return (env_var, status) for each entry; status is 'ok', 'missing', or 'placeholder'."""
-        self.load(Path("."))
         return [(e.env_var, e.check()[1] or "ok") for e in self.configuration]
 
     def load(self, base_dir: Path) -> None:

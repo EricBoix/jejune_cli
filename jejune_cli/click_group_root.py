@@ -42,9 +42,7 @@ class _RootClickGroup(click.Group):
     ) -> None:
         active_role = ROLE_REGISTRY.detect_role_name()
 
-        for comp in _COMP_REGISTRY:
-            if hasattr(comp, "configuration"):
-                comp.configuration.load(Path.cwd())
+        _COMP_REGISTRY.load_all_configurations(Path.cwd())
 
         _hidden_unless_configured = {
             "convert": lambda: _COMP_REGISTRY.get("convert").configuration.check()[0]
@@ -99,3 +97,4 @@ def cli():
 
     Run `jejune configuration <role> init` to set up a new workspace.
     """
+    _COMP_REGISTRY.load_all_configurations(Path.cwd())

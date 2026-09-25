@@ -24,7 +24,6 @@ def _launch_container(data_dir: Path, port: str, credentials: str) -> None:
 @click.group(short_help="Manage the Neo4j instance")
 def neo4j():
     """Manage the Neo4j instance for the current jejune_doc_<name> repository."""
-    neo4j_comp.configuration.load(Path("."))
 
 
 @neo4j.command("check-config")
@@ -262,7 +261,6 @@ def dump(results_dir, dump_filename):
     Keep the (dump, username, password) triplet together.
     """
     results_dir = Path(results_dir).resolve()
-    neo4j_comp.configuration.load(Path("."))
     running, _ = neo4j_comp.is_running()
     if not running:
         raise click.ClickException(

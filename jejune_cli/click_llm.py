@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 
 import click
 
@@ -11,9 +10,7 @@ from .click_configuration import print_config_hint, print_config_status, print_c
 def llm(click_ctx):
     """Manage the LLM inference server."""
     from .component_registry import REGISTRY as COMP_REGISTRY
-    comp = COMP_REGISTRY.get("llm")
-    comp.configuration.load(Path("."))
-    click_ctx.obj = comp
+    click_ctx.obj = COMP_REGISTRY.get("llm")
 
 
 @llm.command("check-config")

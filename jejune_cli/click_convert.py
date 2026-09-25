@@ -18,7 +18,6 @@ def convert(ctx):
     """
     from .component_registry import REGISTRY as COMP_REGISTRY
     ctx.obj = COMP_REGISTRY.get("convert")
-    ctx.obj.configuration.load(Path("."))
 
 
 @convert.command("check-config")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 if TYPE_CHECKING:
@@ -159,6 +160,12 @@ class ComponentRegistry:
         ordered_names = {c.name for c in ordered}
         ordered += [c for c in components if c.name not in ordered_names]
         return ordered
+
+    def load_all_configurations(self, base_dir: Path) -> None:
+        """Load env-file sources for every component that has a configuration."""
+        for comp in self._comps:
+            if hasattr(comp, "configuration"):
+                comp.configuration.load(base_dir)
 
     def validate(self) -> None:
         """Assert every dep instance referenced by a component is registered."""
