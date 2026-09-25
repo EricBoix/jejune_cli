@@ -63,3 +63,8 @@ class configuration:
         """Load all entry source files into os.environ."""
         for e in self.configuration:
             e.load(base_dir)
+
+    def get(self, env_var: str, base_dir: Path = Path(".")) -> str | None:
+        """Return the value of env_var via its declared configuration_entry, or None."""
+        entry = next((e for e in self.configuration if e.env_var == env_var), None)
+        return entry.value(base_dir) if entry else None

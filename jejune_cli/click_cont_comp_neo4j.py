@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 import click
@@ -225,26 +226,83 @@ def delete(data_dir, port, credentials):
     _launch_container(data_dir, port, credentials)
 
 
+_NEO4J_DUMP_FILENAME_MAX_LENGTH = 63
+
+
+def _decorate_dump_filename(
+    dump_filename: str, llm_model_names: list[str]
+) -> tuple[str, bool]:
+    """Raises ValueError if stem+suffix alone exhaust the 63-char Neo4j limit."""
+    safe_models = "_".join(re.sub(r"[^\w\-]", "_", name) for name in llm_model_names)
+    stem = Path(dump_filename).stem
+    suffix = Path(dump_filename).suffix
+    available = _NEO4J_DUMP_FILENAME_MAX_LENGTH - len(stem) - 1 - len(suffix)
+    if available <= 0:
+        raise ValueError(
+            f"'{dump_filename}' stem+suffix already fills the "
+            f"{_NEO4J_DUMP_FILENAME_MAX_LENGTH}-char Neo4j limit; "
+            "cannot append LLM model decoration."
+        )
+    truncated = len(safe_models) > available
+    return f"{stem}.{safe_models[:available]}{suffix}", truncated
+
+
 @neo4j.command("dump")
 @click.argument("results_dir", type=click.Path())
 @click.argument("dump_filename")
 def dump(results_dir, dump_filename):
     """Dump the Neo4j database to RESULTS_DIR/backups/DUMP_FILENAME.
 
-    RESULTS_DIR must contain a database/ subdirectory.
-    Requires Neo4j to be stopped first (run `jejune neo4j stop`).
+    Neo4j must be running. The command queries the LLM model name(s) from
+    the database, decorates DUMP_FILENAME with them, stops Neo4j, performs
+    the dump, then restarts Neo4j.
 
     \b
     Warning: credentials are burnt into the dump file.
     Keep the (dump, username, password) triplet together.
     """
     results_dir = Path(results_dir).resolve()
+    neo4j_comp.configuration.load(Path("."))
+    running, _ = neo4j_comp.is_running()
+    if not running:
+        raise click.ClickException(
+            "Neo4j is not running — start it first with `jejune neo4j start`"
+        )
+    try:
+        llm_model_names = neo4j_comp.query_llm_model_names()
+    except RuntimeError as error:
+        raise click.ClickException(str(error))
+    if llm_model_names:
+        try:
+            dump_filename, was_truncated = _decorate_dump_filename(dump_filename, llm_model_names)
+        except ValueError as error:
+            raise click.ClickException(str(error))
+        if was_truncated:
+            click.echo(
+                f"Warning: LLM model decoration truncated to fit the "
+                f"{_NEO4J_DUMP_FILENAME_MAX_LENGTH}-char Neo4j limit.",
+                err=True,
+            )
+    else:
+        click.echo(
+            "Warning: no llm_model_name attribute found; dump filename not decorated.",
+            err=True,
+        )
+    try:
+        port, credentials = neo4j_comp.resolve_port_credentials(port=None, credentials=None)
+    except ValueError as error:
+        raise click.ClickException(str(error))
+
+    neo4j_comp.stop()
+
     click.echo("Dumping database ...")
     try:
         out = neo4j_comp.dump(results_dir, dump_filename)
-    except RuntimeError as e:
-        raise click.ClickException(str(e))
+    except RuntimeError as error:
+        raise click.ClickException(str(error))
     click.echo(f"Dump written to {out}.")
+
+    _launch_container(results_dir, port, credentials)
 
 
 @neo4j.command("restore")

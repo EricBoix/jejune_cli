@@ -5,6 +5,7 @@ import os
 import subprocess
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -24,12 +25,10 @@ class comp_neo4j(cont_comp):
             dependencies=[git_server, ComponentRegistry().get("docker-hub-server")],
             hint="run `jejune neo4j start --help`",
             configuration=configuration(
-                configuration_entry("NEO4J_USERNAME",
-                    hint="edit .jejune/env-config",
-                    source_file=".jejune/env-config"),
-                configuration_entry("NEO4J_PASSWORD",
-                    hint="edit .jejune/env-secrets",
-                    source_file=".jejune/env-secrets")
+                configuration_entry("NEO4J_URI",       hint="edit .jejune/env-config",  source_file=".jejune/env-config"),
+                configuration_entry("NEO4J_HTTP_PORT", hint="edit .jejune/env-config",  source_file=".jejune/env-config"),
+                configuration_entry("NEO4J_USERNAME",  hint="edit .jejune/env-config",  source_file=".jejune/env-config"),
+                configuration_entry("NEO4J_PASSWORD",  hint="edit .jejune/env-secrets", source_file=".jejune/env-secrets"),
             )
         )
         self.cli_name = self.name
@@ -37,12 +36,13 @@ class comp_neo4j(cont_comp):
     def launch_container(self, data_dir: Path, port: str, credentials: str) -> None:
         """Build, start, and wait for the Neo4j container to be ready."""
         self.build()
+        http_port = self.configuration.get("NEO4J_HTTP_PORT") or "7474"
         (data_dir / "database").mkdir(parents=True, exist_ok=True)
         result = subprocess.run(
             [
                 "docker", "run", "--rm", "--detach",
                 "--name", self.container_name,
-                "--publish", "7474:7474",
+                "--publish", f"{http_port}:7474",
                 "--publish", f"{port}:7687",
                 "--env", f"NEO4J_AUTH={credentials}",
                 "-v", f"{data_dir}/database:/data",
@@ -139,6 +139,14 @@ class comp_neo4j(cont_comp):
         password = os.environ.get("NEO4J_PASSWORD", "")
         return base64.b64encode(f"{user}:{password}".encode()).decode()
 
+    def _neo4j_http_api_url(self) -> str:
+        """Construct the Neo4j HTTP transaction URL from NEO4J_URI and NEO4J_HTTP_PORT."""
+        uri = self.configuration.get("NEO4J_URI") or "bolt://localhost:7687"
+        http_port = self.configuration.get("NEO4J_HTTP_PORT") or "7474"
+        parsed = urllib.parse.urlparse(uri)
+        host = parsed.hostname or "localhost"
+        return f"http://{host}:{http_port}/db/neo4j/tx/commit"
+
     def db_is_empty(self) -> bool:
         """Return True when the running Neo4j database has no nodes; True on any error."""
         running, _ = self.is_running()
@@ -160,6 +168,31 @@ class comp_neo4j(cont_comp):
             return data["results"][0]["data"][0]["row"][0] == 0
         except Exception:
             return True
+
+    def query_llm_model_names(self) -> list[str]:
+        """Return sorted distinct llm_model_name values from non-Document nodes."""
+        token = self._neo4j_auth_token()
+        payload = json.dumps({"statements": [{
+            "statement": (
+                "MATCH (n) WHERE NOT n:Document AND n.llm_model_name IS NOT NULL "
+                "RETURN DISTINCT n.llm_model_name AS llm_model_name "
+                "ORDER BY llm_model_name"
+            )
+        }]}).encode()
+        req = urllib.request.Request(
+            self._neo4j_http_api_url(),
+            data=payload,
+            headers={"Authorization": f"Basic {token}", "Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read())
+        except urllib.error.URLError as error:
+            raise RuntimeError(f"could not reach Neo4j HTTP API: {error.reason}")
+        if data.get("errors"):
+            raise RuntimeError(f"Neo4j error: {data['errors'][0]['message']}")
+        return [row["row"][0] for row in data["results"][0]["data"]]
 
     def stats(self) -> tuple[int, list[tuple[str, int]], int, list[tuple[str, int]]]:
         """Fetch node/relationship counts from the running Neo4j HTTP API."""

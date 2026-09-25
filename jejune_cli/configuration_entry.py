@@ -39,6 +39,11 @@ class configuration_entry:
             if key not in os.environ:
                 os.environ[key] = value.strip()
 
+    def value(self, base_dir: Path = Path(".")) -> str | None:
+        """Load source file then return the env var value (None if absent)."""
+        self.load(base_dir)
+        return os.environ.get(self.env_var)
+
     def check(self) -> tuple[str, str]:
         """Return (status, msg) for this single var."""
         val = os.environ.get(self.env_var)
