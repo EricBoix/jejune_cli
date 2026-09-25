@@ -72,7 +72,8 @@ def check_availability():
     """Show detailed llm-observability availability (container state and endpoint reachability)."""
     ok, msg = llm_obs_comp.available()
     if msg == "not configured":
-        click.echo(f"  {click.style('not configured', fg='yellow')}  {", ".join(llm_obs_comp.configuration.hints())}")
+        hints = ", ".join(llm_obs_comp.configuration.hints())
+        click.echo(f"  {click.style('not configured', fg='yellow')}  {hints}")
         return
     reachable, url = llm_obs_comp.check_endpoint_reachable()
     click.echo(
