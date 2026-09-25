@@ -9,7 +9,6 @@ from .component_with_config import conf_comp
 # Cannot import COMP_REGISTRY because of circular dependency of imports between
 # comp_ecosystem and ComponentRegistry
 from .component_registry import ComponentRegistry
-from .role_registry import ROLE_REGISTRY
 from .dot_jejune import dot_jejune
 
 RepoTier = Literal["root", "tmp", "remote"]
@@ -85,6 +84,7 @@ class comp_ecosystem(conf_comp):
 
     def ecosystem_needs_remote(self) -> bool:
         """Does the ecosystem still need to reach a remote git server?"""
+        from .role_registry import ROLE_REGISTRY
         active = ROLE_REGISTRY.current_role_components()
         if active is None:
             return False
