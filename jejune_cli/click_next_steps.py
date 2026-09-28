@@ -3,6 +3,7 @@ import click
 
 from .dot_jejune import dot_jejune
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
+from .role_registry import ROLE_REGISTRY
 
 
 @click.group("next", invoke_without_command=True, short_help="Show suggested next actions given the current context.")
@@ -16,7 +17,6 @@ def next_cmd(ctx):
         if HEURISTIC_STEP_REGISTRY.command_viable("jejune doctor"):
             click.echo("No next steps detected. Run `jejune doctor` for system status.")
         else:
-            from .role_registry import ROLE_REGISTRY
             active_role = ROLE_REGISTRY.detect_role()
             if (not active_role or active_role.is_doc_steward()) and not dot_jejune().is_dir():
                 click.echo(

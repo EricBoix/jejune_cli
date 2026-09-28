@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
+from .component_registry import ComponentRegistry
+COMP_REGISTRY = ComponentRegistry()
 
 if TYPE_CHECKING:
     from .component_base import base_comp
@@ -21,14 +23,10 @@ class Role:
 
     @property
     def components(self) -> "frozenset[base_comp]":
-        from .component_registry import ComponentRegistry
-        COMP_REGISTRY = ComponentRegistry()
         return frozenset(filter(None, (COMP_REGISTRY.get(n) for n in self.component_names)))
 
     @property
     def cli_commands(self) -> list[str]:
-        from .component_registry import ComponentRegistry
-        COMP_REGISTRY = ComponentRegistry()
         return [
             comp.cli_name
             for name in self.component_names

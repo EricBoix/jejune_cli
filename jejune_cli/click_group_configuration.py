@@ -11,6 +11,9 @@ from .click_helpers import print_two_col_table
 from .click_workspace_doc_steward import doc_steward_group as _doc_steward_group
 from .click_workspace_deployer import deployer_group as _deployer_group
 from .click_theme import ClickTheme
+from .component_registry import ComponentRegistry
+COMP_REGISTRY = ComponentRegistry()
+from .role_registry import ROLE_REGISTRY
 
 
 def register_role_config_subgroup(group: click.Group) -> None:
@@ -23,7 +26,6 @@ class _ConfigurationGroup(click.Group):
     _ROLE_CTX_KEY = "_jejune_configuration_role"
 
     def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        from .role_registry import ROLE_REGISTRY
         ctx.meta[self._ROLE_CTX_KEY] = ROLE_REGISTRY.detect_role()
 
         option_rows = [
@@ -120,9 +122,6 @@ def _print_config_table(
 
 def _role_config_checks() -> list[tuple[str, str, str, str]]:
     """Return (name, status, msg, hint) for every configurable component in the current role."""
-    from .role_registry import ROLE_REGISTRY
-    from .component_registry import ComponentRegistry
-    COMP_REGISTRY = ComponentRegistry()
     role = ROLE_REGISTRY.detect_role()
     role_components = ROLE_REGISTRY.role_components(role)
     return [

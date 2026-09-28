@@ -6,6 +6,7 @@ from pathlib import Path
 import click
 
 from .heuristic_step import HeuristicCondition, HeuristicStep
+from .role_registry import ROLE_REGISTRY
 
 
 class HeuristicStepRegistry:
@@ -99,9 +100,6 @@ class HeuristicStepRegistry:
         cwd: Path | None = None,
         ordering: dict[str, int] | None = None,
     ) -> list[HeuristicStep]:
-
-        from .role_registry import ROLE_REGISTRY
-
         def _sorted(active_role: str | None) -> list[HeuristicStep]:
             eff = self._effective_ordering(active_role, ordering)
             def _key(step: HeuristicStep) -> tuple:
@@ -159,7 +157,6 @@ class HeuristicStepRegistry:
     ) -> list[tuple[HeuristicStep, list[tuple[str, bool]], list[tuple[str, bool]]]]:
         """Return per-heuristic condition evaluation for diagnostics."""
 
-        from .role_registry import ROLE_REGISTRY
         active_role = ROLE_REGISTRY.detect_role_name()
 
         def _run() -> list[tuple[HeuristicStep, list[tuple[str, bool]], list[tuple[str, bool]]]]:
