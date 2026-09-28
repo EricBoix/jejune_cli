@@ -8,8 +8,9 @@ import click
 from .component_with_config import conf_comp
 from .configuration import configuration as _configuration
 from .containers_cross_process_coordination import CONTAINER_COORDINATION
+from .component_registry import ComponentRegistry
+COMP_REGISTRY = ComponentRegistry()
 from .component_ext_command_docker import DOCKER_COMMAND
-from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 
 
 class cont_comp(conf_comp):
@@ -35,11 +36,7 @@ class cont_comp(conf_comp):
         hint: str | None = None,
         service_name: str | None = None,
     ) -> None:
-        # Deferred import to avoid circular import: registry imports this
-        # module's subclasses.
-        from .component_registry import ComponentRegistry
-
-        daemon = ComponentRegistry().get("docker-daemon")
+        daemon = COMP_REGISTRY.get("docker-daemon")
         deps = [self._docker] + ([daemon] if daemon else []) + (dependencies or [])
         super().__init__(
             name=name,
@@ -64,9 +61,6 @@ class cont_comp(conf_comp):
 
     def build(self, no_cache: bool = False) -> None:
         """Build the Docker image, resolving build_context from self.repos when needed."""
-        from .component_registry import ComponentRegistry
-        COMP_REGISTRY = ComponentRegistry()
-
         if not self.build_context:
             repos = getattr(self, "repos", None)
             if repos:
@@ -77,6 +71,7 @@ class cont_comp(conf_comp):
                         str(Path(context) / subpath) if subpath else context
                     )
                 else:
+                    from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
                     repo_name = PLUGIN_PACKAGE_CATALOG.repo_name_for(self.name)
                     ref = f"main:{subpath}" if subpath else None
                     self.build_context = COMP_REGISTRY.get("git-server").remote_git_url(
@@ -175,15 +170,3 @@ class cont_comp(conf_comp):
             inst.name: inst.is_built() for inst in components if isinstance(inst, cls)
         }
 
-    @classmethod
-    def existing_component_containers(cls) -> list[dict]:
-        """Return all cont_comp containers currently present in Docker."""
-        from .component_registry import ComponentRegistry
-        COMP_REGISTRY = ComponentRegistry()
-
-        return [
-            {"component": inst.name, "container": inst.container_name}
-            for inst in COMP_REGISTRY
-            if isinstance(inst, cls)
-            and cls._docker.container_exists(inst.container_name)
-        ]

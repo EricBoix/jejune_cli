@@ -16,7 +16,6 @@ class HeuristicStepRegistry:
         self._named_preconditions: dict[str, HeuristicCondition] = {}
         self._role_orderings: dict[str | None, dict[str, int]] = {}
         self._next_steps_printed: bool = False
-        self._providers_loaded: bool = False
 
     def register_command_precondition(self, command: str, check: HeuristicCondition) -> None:
         self._command_preconditions[command] = check
@@ -51,15 +50,6 @@ class HeuristicStepRegistry:
 
     def has_heuristics_for_role(self, role: str | None) -> bool:
         return role in self._roles_with_heuristics
-
-    def _load_providers(self) -> None:
-        if self._providers_loaded:
-            return
-        self._providers_loaded = True
-        from . import heuristics_deployer, heuristics_doc_steward, heuristics_no_role
-        heuristics_deployer.register_heuristics()
-        heuristics_doc_steward.register_heuristics()
-        heuristics_no_role.register_heuristics()
 
     def _matches(self, step: HeuristicStep) -> bool:
         for fn in step.conditions:
@@ -109,7 +99,7 @@ class HeuristicStepRegistry:
         cwd: Path | None = None,
         ordering: dict[str, int] | None = None,
     ) -> list[HeuristicStep]:
-        self._load_providers()
+
         from .role_registry import ROLE_REGISTRY
 
         def _sorted(active_role: str | None) -> list[HeuristicStep]:
@@ -168,7 +158,7 @@ class HeuristicStepRegistry:
         cwd: Path | None = None,
     ) -> list[tuple[HeuristicStep, list[tuple[str, bool]], list[tuple[str, bool]]]]:
         """Return per-heuristic condition evaluation for diagnostics."""
-        self._load_providers()
+
         from .role_registry import ROLE_REGISTRY
         active_role = ROLE_REGISTRY.detect_role_name()
 
