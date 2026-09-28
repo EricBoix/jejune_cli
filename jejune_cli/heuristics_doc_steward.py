@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .component_wiring import REGISTRY as COMP_REGISTRY
+from .component_registry import ComponentRegistry
+COMP_REGISTRY = ComponentRegistry()
 from .heuristic_step import ComponentCondition, HeuristicStep
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG

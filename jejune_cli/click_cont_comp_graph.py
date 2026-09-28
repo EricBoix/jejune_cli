@@ -1,6 +1,7 @@
 import click
 
-from .component_wiring import REGISTRY as COMP_REGISTRY
+from .component_registry import ComponentRegistry
+COMP_REGISTRY = ComponentRegistry()
 from .click_configuration import print_config_check, print_config_hint, print_config_status
 
 graph_comp = COMP_REGISTRY.get("graph")

@@ -7,6 +7,10 @@ import sys
 
 import click
 
+from .component_registry import ComponentRegistry
+COMP_REGISTRY = ComponentRegistry()
+from .plugin_registry import PLUGIN_REGISTRY
+
 try:
     import tomllib
 except ImportError:  # Python < 3.11
@@ -36,7 +40,6 @@ class plugin_package_catalog:
             self._discovery_cache = None
         if self._discovery_cache is not None:
             return self._discovery_cache
-        from .component_wiring import REGISTRY as COMP_REGISTRY
         eco = COMP_REGISTRY.get("ecosystem")
         result: dict[str, str] = {}
         seen: set[str] = set()
@@ -81,7 +84,6 @@ class plugin_package_catalog:
         if not role:
             return []
         from .role_registry import ROLE_REGISTRY
-        from .component_wiring import REGISTRY as COMP_REGISTRY
         role_obj = ROLE_REGISTRY.get(role)
         if role_obj is None:
             return []
@@ -122,7 +124,6 @@ class plugin_package_catalog:
         repo_names = self._all_repo_names(role)
         if not repo_names:
             return True
-        from .plugin_registry import PLUGIN_REGISTRY
         installed = {ep.name for ep in importlib.metadata.entry_points(group="jejune.plugins")}
         for repo_name in repo_names:
             plugin_name = PLUGIN_REGISTRY.plugin_name_for_repo(repo_name)
@@ -150,12 +151,10 @@ class plugin_package_catalog:
         # differs from the repo name (e.g. repo "jejune_kg-graph_viewer" → dist
         # "jejune-kg-viewer").  Populate the registry now from the pyproject.toml
         # data already in hand so the same-process next-steps evaluation is correct.
-        from .plugin_registry import PLUGIN_REGISTRY
         for repo, plugin in discovered.items():
             PLUGIN_REGISTRY.register_repo_name(plugin, repo)
 
     def _install_package(self, repo_name: str, plugin_name: str) -> None:
-        from .component_wiring import REGISTRY as COMP_REGISTRY
         eco = COMP_REGISTRY.get("ecosystem")
         root_dir, tmp_dir = eco.resolve_dirs()
         tier, base = eco.repo_status(repo_name, root_dir, tmp_dir)

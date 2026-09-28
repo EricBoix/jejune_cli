@@ -2,7 +2,8 @@ from pathlib import Path
 
 import click
 
-from .component_wiring import REGISTRY as COMP_REGISTRY
+from .component_registry import ComponentRegistry
+COMP_REGISTRY = ComponentRegistry()
 from .role_registry import ROLE_REGISTRY
 
 

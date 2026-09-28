@@ -5,7 +5,8 @@ from .component_containerized import cont_comp
 
 
 def _print_containers_table(prefix: str = "  ") -> None:
-    from .component_wiring import REGISTRY as COMP_REGISTRY
+    from .component_registry import ComponentRegistry
+    COMP_REGISTRY = ComponentRegistry()
 
     comps = [inst for inst in COMP_REGISTRY if isinstance(inst, cont_comp)]
     if not comps:

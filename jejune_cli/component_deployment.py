@@ -7,6 +7,8 @@ from .configuration import configuration
 from .configuration_entry import configuration_entry
 from .component_with_config import conf_comp
 from .component_registry import ComponentRegistry
+from .plugin_registry import PLUGIN_REGISTRY
+from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 
 
 class comp_deployment(conf_comp):
@@ -107,8 +109,6 @@ class comp_deployment(conf_comp):
         )
 
     def check_ui_services(self) -> list[tuple[str, bool, str]]:
-        from .plugin_registry import PLUGIN_REGISTRY
-        from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
         plugins = {p.name: p for p in PLUGIN_REGISTRY.plugins}
         results = []
         for name in PLUGIN_PACKAGE_CATALOG.expected_plugin_names("deployer"):
@@ -118,7 +118,6 @@ class comp_deployment(conf_comp):
         return results
 
     def _build_env(self, deploy_dir: Path) -> dict:
-        from .plugin_registry import PLUGIN_REGISTRY
         eco = ComponentRegistry().get("ecosystem")
         env = os.environ.copy()
         root_dir, tmp_dir = eco.resolve_dirs(deploy_dir)

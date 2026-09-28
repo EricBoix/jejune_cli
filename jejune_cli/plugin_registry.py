@@ -8,8 +8,8 @@ from typing import Callable, ClassVar
 
 import click
 
-from .component_registry import _LazyComp
-from .component_wiring import REGISTRY as COMP_REGISTRY
+from .component_registry import ComponentRegistry, _LazyComp
+COMP_REGISTRY = ComponentRegistry()
 from .plugin_description import plugin_description
 
 

@@ -2,7 +2,8 @@
 
 import sys
 
-from .component_wiring import REGISTRY as COMP_REGISTRY
+from .component_registry import ComponentRegistry
+COMP_REGISTRY = ComponentRegistry()
 from .component_containerized import cont_comp
 from .component_with_config import conf_comp
 from .plugin_registry import PLUGIN_REGISTRY

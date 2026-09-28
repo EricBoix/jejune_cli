@@ -21,12 +21,14 @@ class Role:
 
     @property
     def components(self) -> "frozenset[base_comp]":
-        from .component_wiring import REGISTRY as COMP_REGISTRY
+        from .component_registry import ComponentRegistry
+        COMP_REGISTRY = ComponentRegistry()
         return frozenset(filter(None, (COMP_REGISTRY.get(n) for n in self.component_names)))
 
     @property
     def cli_commands(self) -> list[str]:
-        from .component_wiring import REGISTRY as COMP_REGISTRY
+        from .component_registry import ComponentRegistry
+        COMP_REGISTRY = ComponentRegistry()
         return [
             comp.cli_name
             for name in self.component_names

@@ -16,7 +16,8 @@ def convert(ctx):
     DockerContext/ subdirectory exists.  Run `jejune convert check-config`
     to inspect the current configuration status.
     """
-    from .component_wiring import REGISTRY as COMP_REGISTRY
+    from .component_registry import ComponentRegistry
+    COMP_REGISTRY = ComponentRegistry()
     ctx.obj = COMP_REGISTRY.get("convert")
 
 

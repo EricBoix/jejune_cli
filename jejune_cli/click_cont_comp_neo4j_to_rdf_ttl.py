@@ -3,7 +3,8 @@ from pathlib import Path
 
 import click
 
-from .component_wiring import REGISTRY as COMP_REGISTRY
+from .component_registry import ComponentRegistry
+COMP_REGISTRY = ComponentRegistry()
 neo4j_to_rdf_ttl_comp = COMP_REGISTRY.get("neo4j-to-rdf-ttl")
 
 
