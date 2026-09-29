@@ -1,8 +1,6 @@
 """Doc-steward-role heuristic registrations."""
 from __future__ import annotations
 
-from pathlib import Path
-
 from .component_registry import ComponentRegistry
 from .heuristic_step import ComponentCondition, HeuristicStep
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY

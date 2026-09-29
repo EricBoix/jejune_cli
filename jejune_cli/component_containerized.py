@@ -10,6 +10,7 @@ from .configuration import configuration as _configuration
 from .containers_cross_process_coordination import CONTAINER_COORDINATION
 from .component_registry import ComponentRegistry
 from .component_ext_command_docker import DOCKER_COMMAND
+from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 
 
 class cont_comp(conf_comp):
@@ -70,7 +71,6 @@ class cont_comp(conf_comp):
                         str(Path(context) / subpath) if subpath else context
                     )
                 else:
-                    from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
                     repo_name = PLUGIN_PACKAGE_CATALOG.repo_name_for(self.name)
                     ref = f"main:{subpath}" if subpath else None
                     self.build_context = ComponentRegistry().get("git-server").remote_git_url(
@@ -91,8 +91,6 @@ class cont_comp(conf_comp):
         if self._docker.image_exists(self.image_name):
             return True
         if self.service_name:
-            from pathlib import Path
-
             deploy_name = Path(".").resolve().name.lower()
             return self._docker.image_exists(
                 f"jejune:{deploy_name}-{self.service_name}"
