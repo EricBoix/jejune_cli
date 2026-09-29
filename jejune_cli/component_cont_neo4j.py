@@ -97,6 +97,7 @@ class comp_neo4j(cont_comp):
         result = subprocess.run(
             [
                 "docker", "run", "--interactive", "--tty", "--rm",
+                f"--user={os.getuid()}:{os.getgid()}",
                 f"--volume={database_dir}:/data",
                 f"--volume={backups_dir}:/backups",
                 "neo4j/neo4j-admin", "neo4j-admin", "database", "load", "neo4j",
@@ -120,6 +121,7 @@ class comp_neo4j(cont_comp):
         result = subprocess.run(
             [
                 "docker", "run", "--interactive", "--tty", "--rm",
+                f"--user={os.getuid()}:{os.getgid()}",
                 f"--volume={database_dir}:/data",
                 f"--volume={backups_dir}:/output",
                 "neo4j/neo4j-admin", "neo4j-admin", "database", "dump", "neo4j",
