@@ -1,6 +1,6 @@
 import click
 
-from . import component_wiring  # noqa: F401 — populates ComponentRegistry singleton
+from . import wiring  # noqa: F401
 from .click_group_root import cli
 from .click_aliases import register_aliases
 from .click_build import build_cmd
