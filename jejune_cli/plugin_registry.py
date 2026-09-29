@@ -10,27 +10,10 @@ import click
 
 from .component_registry import ComponentRegistry, _LazyComp
 COMP_REGISTRY = ComponentRegistry()
+from .configuration import configuration
+from .configuration_entry import configuration_entry
+from .plugin_comp import PluginComp
 from .plugin_description import plugin_description
-
-
-_PluginCompClass: type | None = None
-
-
-def _get_plugin_comp_class() -> type:
-    global _PluginCompClass
-    if _PluginCompClass is None:
-        from .component_with_config import conf_comp
-
-        class _PC(conf_comp):
-            def __init__(self_, **kwargs):
-                super().__init__(**kwargs)
-                COMP_REGISTRY.add(self_)
-
-            def check(self_) -> tuple[str, str]:
-                return "ok", ""
-
-        _PluginCompClass = _PC
-    return _PluginCompClass
 
 
 class PluginRegistry:
@@ -99,8 +82,7 @@ class PluginRegistry:
         else:
             existing = COMP_REGISTRY.get(plugin.name)
             if existing is None or isinstance(existing, _LazyComp):
-                PC = _get_plugin_comp_class()
-                PC(
+                PluginComp(
                     name=plugin.name,
                     dependencies=plugin.required_deps or [],
                     hint=plugin.avail_hint,
@@ -116,8 +98,6 @@ class PluginRegistry:
         if plugin.config_vars:
             inst = COMP_REGISTRY.get(plugin.name)
             if inst is not None and hasattr(inst, "configuration"):
-                from .configuration import configuration
-                from .configuration_entry import configuration_entry
                 inst.configuration = configuration(*(
                     configuration_entry(v, hint=plugin.config_hint)
                     for v in plugin.config_vars
