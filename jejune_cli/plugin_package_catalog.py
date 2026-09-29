@@ -10,6 +10,7 @@ import click
 from .component_registry import ComponentRegistry
 COMP_REGISTRY = ComponentRegistry()
 from .plugin_registry import PLUGIN_REGISTRY
+from .role_registry import ROLE_REGISTRY
 
 try:
     import tomllib
@@ -83,7 +84,6 @@ class plugin_package_catalog:
         """Collect plugin_deps (repo names) from all components active for *role*."""
         if not role:
             return []
-        from .role_registry import ROLE_REGISTRY
         role_obj = ROLE_REGISTRY.get(role)
         if role_obj is None:
             return []
@@ -104,7 +104,7 @@ class plugin_package_catalog:
     def expected_plugin_names(self, role: str | None = None) -> list[str]:
         """Return sorted list of plugin names expected for *role*."""
         if role is None:
-            from .role_registry import ROLE_REGISTRY
+
             r = ROLE_REGISTRY.detect_role()
             role = r.name if r else None
         return sorted(self._expected_plugin_names(role))
@@ -118,7 +118,7 @@ class plugin_package_catalog:
         its repo name would already be present in PLUGIN_REGISTRY.
         """
         if role is None:
-            from .role_registry import ROLE_REGISTRY
+
             r = ROLE_REGISTRY.detect_role()
             role = r.name if r else None
         repo_names = self._all_repo_names(role)
@@ -134,7 +134,7 @@ class plugin_package_catalog:
     def install_packages(self, role: str | None = None, no_cache: bool = False) -> None:
         """Install all expected plugin packages for *role*."""
         if role is None:
-            from .role_registry import ROLE_REGISTRY
+
             r = ROLE_REGISTRY.detect_role()
             role = r.name if r else None
         repo_names = self._all_repo_names(role)
