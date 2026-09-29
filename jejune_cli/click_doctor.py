@@ -9,12 +9,13 @@ from .click_helpers import print_two_col_table
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 from .role_registry import ROLE_REGISTRY
 from .click_theme import ClickTheme
-
 from .component_base import base_comp
+from .component_containerized import cont_comp
 from .component_ext import ext_comp
 from .component_ext_server import ext_server
 from .plugin_registry import PLUGIN_REGISTRY
 from .dot_jejune import dot_jejune
+from .doctor_column import Column
 
 # ---------------------------------------------------------------------------
 # Doctor command precondition
@@ -30,7 +31,7 @@ def _doctor_viable() -> bool:
 HEURISTIC_STEP_REGISTRY.register_command_precondition("jejune doctor", _doctor_viable)
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Shared availability helper
 # ---------------------------------------------------------------------------
 
 
@@ -44,109 +45,259 @@ def _resolve_avail_hint(inst: base_comp, fallback: str = "") -> str:
         and any(p.name == inst.name for p in PLUGIN_REGISTRY.plugins)
     )
     if is_deployer_plugin:
-        from .component_containerized import cont_comp
         if isinstance(inst, cont_comp) and not inst.is_built():
             return "run `jejune build`"
         return "run `jejune up`"
     return inst.hint or fallback
 
 
-def _build_avail_rows(
+def _failing_dep_names_per_component(
     avail_results: list[tuple[str, str, str]],
     active_components: list[base_comp],
-) -> list[tuple[str, str, str, str, bool]]:
-    """Build (comp, status, check, hint, has_failing_deps) rows for the availability table."""
-    by_avail = {comp: (status, msg) for comp, status, msg in avail_results}
-    rows: list[tuple[str, str, str, str, bool]] = []
+) -> dict[str, list[str]]:
+    by_status = {comp: status for comp, status, _ in avail_results}
+    return {
+        inst.name: [dep.name for dep in inst.active_deps()
+                    if by_status.get(dep.name, "ok") != "ok"]
+        for inst in active_components
+        if inst.name in by_status
+    }
+
+# ---------------------------------------------------------------------------
+# Doctor table column factories
+# ---------------------------------------------------------------------------
+
+
+def _config_column(
+    config_results: list[tuple[str, str, str]],
+    active_components: list[base_comp],
+    port_conflict_hints: dict[str, str],
+) -> Column:
+    by_config = {comp: (status, msg) for comp, status, msg in config_results}
+    cells: dict[str, tuple[str, str]] = {}
     for inst in active_components:
         comp = inst.name
+        status, _ = by_config.get(comp, ("ok", ""))
+        icon, fg = ClickTheme.status_icons.get(status, ("?", "white"))
+        if status != "ok" and hasattr(inst, "configuration"):
+            hint = ", ".join(inst.configuration.effective_hints(port_conflict_hints)) or ""
+        else:
+            hint = ""
+        styled = click.style(icon, fg=fg)
+        cells[comp] = (icon, styled)
+    return Column("Config", cells)
+
+
+def _img_column(
+    active_components: list[base_comp],
+    img_status: dict[str, bool],
+    external_image_names: set[str],
+) -> Column:
+    cells: dict[str, tuple[str, str]] = {}
+    for inst in active_components:
+        comp = inst.name
+        built = img_status.get(comp)
+        if built is None:
+            cells[comp] = ("", "")
+        elif built:
+            icon = "✓"
+            cells[comp] = (icon, click.style(icon, fg="green"))
+        elif comp in external_image_names:
+            icon = "–"
+            cells[comp] = (icon, click.style(icon, fg="yellow"))
+        else:
+            icon = "✗"
+            cells[comp] = (icon, click.style(icon, fg="red"))
+    return Column("Img", cells)
+
+
+def _avail_column(
+    avail_results: list[tuple[str, str, str]],
+    failing_deps: dict[str, list[str]],
+) -> Column:
+    by_avail = {comp: status for comp, status, _ in avail_results}
+    cells: dict[str, tuple[str, str]] = {}
+    for comp, status in by_avail.items():
+        effective_status = "error" if failing_deps.get(comp) else status
+        icon, fg = ClickTheme.status_icons.get(effective_status, ("?", "white"))
+        cells[comp] = (icon, click.style(icon, fg=fg))
+    return Column("Avail", cells)
+
+
+def _action_column(
+    config_results: list[tuple[str, str, str]],
+    avail_results: list[tuple[str, str, str]],
+    active_components: list[base_comp],
+    failing_deps: dict[str, list[str]],
+    port_conflict_per_comp: dict[str, str],
+) -> Column:
+    by_config = {comp: (status, msg) for comp, status, msg in config_results}
+    by_avail = {comp: (status, msg) for comp, status, msg in avail_results}
+    inst_by_name = {inst.name: inst for inst in active_components}
+    cells: dict[str, tuple[str, str]] = {}
+    for comp in inst_by_name:
+        inst = inst_by_name[comp]
+        c_status, _ = by_config.get(comp, ("ok", ""))
+        a_status, a_msg = by_avail.get(comp, ("ok", ""))
+        has_failing_deps = bool(failing_deps.get(comp))
+        if has_failing_deps:
+            a_hint = "Fix " + ", ".join(failing_deps[comp]) + " availability"
+        else:
+            a_hint = _resolve_avail_hint(inst) if a_status != "ok" else ""
+        if c_status != "ok" and hasattr(inst, "configuration"):
+            c_hint = ", ".join(inst.configuration.effective_hints(port_conflict_per_comp)) or ""
+        else:
+            c_hint = ""
+        action = (
+            port_conflict_per_comp.get(comp)
+            or (a_hint if has_failing_deps else "")
+            or c_hint
+            or (a_hint if a_status != "ok" else "")
+        )
+        cells[comp] = (action, action)
+    return Column("Action", cells)
+
+# ---------------------------------------------------------------------------
+# Availability subcommand column factories
+# ---------------------------------------------------------------------------
+
+
+def _avail_check_column(
+    avail_results: list[tuple[str, str, str]],
+    active_components: list[base_comp],
+    failing_deps: dict[str, list[str]],
+) -> Column:
+    """check-availability: items() → (styled_comp, check_text)."""
+    by_avail = {comp: (status, msg) for comp, status, msg in avail_results}
+    inst_by_name = {inst.name: inst for inst in active_components}
+    cells: dict[str, tuple[str, str]] = {}
+    styled_keys: dict[str, str] = {}
+    for comp in inst_by_name:
         if comp not in by_avail:
             continue
         status, msg = by_avail[comp]
-        active_deps = inst.active_deps()
-        failing_deps = [
-            dep
-            for dep in active_deps
-            if by_avail.get(dep.name, ("ok",))[0] != "ok"
-        ]
-        failing_hint = (
-            "Fix " + ", ".join(d.name for d in failing_deps) + " availability"
-            if failing_deps
-            else ""
-        )
-        if status == "ok" and failing_deps:
-            rows.append((comp, "error", "dependency unavailable", failing_hint, True))
-        elif status == "ok":
-            rows.append((comp, status, "", "", False))
+        if failing_deps.get(comp):
+            effective_status = "error"
+            check_text = "dependency unavailable"
         else:
-            hint = failing_hint or _resolve_avail_hint(inst)
-            rows.append((comp, status, msg, hint, bool(failing_deps)))
-    return rows
+            effective_status = status
+            check_text = "" if status == "ok" else msg
+        fg = ClickTheme.status_foregrounds.get(effective_status, "white")
+        styled_keys[comp] = click.style(comp, fg=fg)
+        cells[comp] = (check_text, check_text)
+    return Column("Check", cells, styled_keys)
+
+
+def _avail_status_column(
+    avail_results: list[tuple[str, str, str]],
+    active_components: list[base_comp],
+    failing_deps: dict[str, list[str]],
+) -> Column:
+    """status-availability: items() → (comp, styled_status)."""
+    by_avail = {comp: (status, msg) for comp, status, msg in avail_results}
+    inst_by_name = {inst.name: inst for inst in active_components}
+    cells: dict[str, tuple[str, str]] = {}
+    for comp in inst_by_name:
+        if comp not in by_avail:
+            continue
+        status, _ = by_avail[comp]
+        effective_status = "error" if failing_deps.get(comp) else status
+        fg = ClickTheme.status_foregrounds.get(effective_status, "white")
+        cells[comp] = (effective_status, click.style(effective_status, fg=fg))
+    return Column("Status", cells)
+
+
+def _avail_hint_column(
+    avail_results: list[tuple[str, str, str]],
+    active_components: list[base_comp],
+    failing_deps: dict[str, list[str]],
+) -> Column:
+    """hint-availability: non_empty_items() → (comp, hint)."""
+    by_avail = {comp: (status, msg) for comp, status, msg in avail_results}
+    inst_by_name = {inst.name: inst for inst in active_components}
+    cells: dict[str, tuple[str, str]] = {}
+    for comp, inst in inst_by_name.items():
+        if comp not in by_avail:
+            continue
+        status, _ = by_avail[comp]
+        if failing_deps.get(comp):
+            hint = "Fix " + ", ".join(failing_deps[comp]) + " availability"
+        elif status != "ok":
+            hint = _resolve_avail_hint(inst)
+        else:
+            hint = ""
+        cells[comp] = (hint, hint)
+    return Column("Hint", cells)
+
+# ---------------------------------------------------------------------------
+# Doctor table renderer
+# ---------------------------------------------------------------------------
 
 
 def _print_health_table(
-    config_rows: list[tuple[str, str, str, str]],
-    avail_rows: list[tuple[str, str, str, str, bool]],
-    img_status: dict[str, bool],
-    port_conflict_per_comp: dict[str, str] | None = None,
-    external_image_names: set[str] | None = None,
+    component_names: list[str],
+    columns: list[Column],
 ) -> None:
-    """Render merged Component | Config | Img | Avail | Action table."""
-    if not config_rows:
+    if not component_names:
         return
-    by_avail = {r[0]: r for r in avail_rows}
-    port_conflicts = port_conflict_per_comp or {}
-    _COL_COMP = "Component"
-    _COL_CFG = "Config"
-    _COL_IMG = "Img"
-    _COL_AVAIL = "Avail"
-    _COL_ACT = "Action"
-    _W_COMP = max(len(_COL_COMP), max(len(r[0]) for r in config_rows))
-    _W_CFG = len(_COL_CFG)
-    _W_IMG = len(_COL_IMG)
-    _W_AVAIL = len(_COL_AVAIL)
-    rows: list[tuple[str, str, bool | None, str | None, str]] = []
-    for comp, c_status, _, c_hint in config_rows:
-        avail = by_avail.get(comp)
-        a_status = avail[1] if avail else None
-        a_hint = avail[3] if avail else ""
-        has_failing_deps = avail[4] if avail else False
-        action = (
-            port_conflicts.get(comp)
-            or (a_hint if has_failing_deps else "")
-            or c_hint
-            or (a_hint if a_status and a_status != "ok" else "")
-        )
-        img = img_status.get(comp)
-        rows.append((comp, c_status, img, a_status, action))
-    _W_ACT = max(len(_COL_ACT), max(len(r[4]) for r in rows))
-    divider_len = _W_COMP + 2 + _W_CFG + 2 + _W_IMG + 2 + _W_AVAIL + 2 + _W_ACT
-    click.echo(
-        f"  {_COL_COMP:<{_W_COMP}}  {_COL_CFG:<{_W_CFG}}"
-        f"  {_COL_IMG:<{_W_IMG}}  {_COL_AVAIL:<{_W_AVAIL}}  {_COL_ACT}"
-    )
+    w_comp = max(len("Component"), max(len(name) for name in component_names))
+    headers = "  ".join(col.render_header() for col in columns)
+    divider_len = w_comp + sum(2 + col.width for col in columns)
+    click.echo(f"  {'Component':<{w_comp}}  {headers}")
     click.echo("  " + "─" * divider_len)
-    for comp, c_status, img, a_status, action in rows:
-        c_icon, c_fg = ClickTheme.status_icons.get(c_status, ("?", "white"))
-        c_cell = click.style(c_icon, fg=c_fg) + " " * (_W_CFG - len(c_icon))
-        if img is None:
-            i_cell = " " * _W_IMG
-        elif img:
-            i_icon, i_fg = "✓", "green"
-            i_cell = click.style(i_icon, fg=i_fg) + " " * (_W_IMG - 1)
-        elif external_image_names and comp in external_image_names:
-            i_icon, i_fg = "–", "yellow"
-            i_cell = click.style(i_icon, fg=i_fg) + " " * (_W_IMG - 1)
-        else:
-            i_icon, i_fg = "✗", "red"
-            i_cell = click.style(i_icon, fg=i_fg) + " " * (_W_IMG - 1)
-        if a_status is not None:
-            a_icon, a_fg = ClickTheme.status_icons.get(a_status, ("?", "white"))
-            a_cell = click.style(a_icon, fg=a_fg) + " " * (_W_AVAIL - len(a_icon))
-        else:
-            a_cell = " " * _W_AVAIL
-        click.echo(f"  {comp:<{_W_COMP}}  {c_cell}  {i_cell}  {a_cell}  {action}")
+    for name in component_names:
+        cells = "  ".join(col.render_cell(name) for col in columns)
+        click.echo(f"  {name:<{w_comp}}  {cells}")
 
+# ---------------------------------------------------------------------------
+# Doctor command helpers (extracted from doctor())
+# ---------------------------------------------------------------------------
+
+
+def _resolve_port_conflict_hints(active_components: list[base_comp]) -> dict[str, str]:
+    deploy_comp = next(
+        (c for c in active_components if c.name == "deployment"), None
+    )
+    if deploy_comp is not None and hasattr(deploy_comp, "hint_for_occupied_ports"):
+        return deploy_comp.hint_for_occupied_ports(Path("."))
+    return {}
+
+
+def _compute_port_conflict_per_comp(
+    active_components: list[base_comp],
+    failing_deps: dict[str, list[str]],
+    port_conflict_hints: dict[str, str],
+) -> dict[str, str]:
+    if not port_conflict_hints:
+        return {}
+    port_conflict_per_comp: dict[str, str] = {}
+    for inst in active_components:
+        if not hasattr(inst, "configuration"):
+            continue
+        if failing_deps.get(inst.name):
+            continue
+        comp_conflicts = [
+            port_conflict_hints[entry.env_var]
+            for entry in inst.configuration
+            if entry.env_var in port_conflict_hints
+        ]
+        if comp_conflicts:
+            port_conflict_per_comp[inst.name] = ", ".join(comp_conflicts)
+    return port_conflict_per_comp
+
+
+def _visible_component_names(
+    config_results: list[tuple[str, str, str]],
+    avail_results: list[tuple[str, str, str]],
+    active_components: list[base_comp],
+    verbose: bool,
+) -> list[str]:
+    all_names = [comp for comp, _, _ in config_results]
+    if verbose:
+        return all_names
+    avail_ok = {comp for comp, status, _ in avail_results if status == "ok"}
+    ext_names = {c.name for c in active_components if isinstance(c, (ext_comp, ext_server))}
+    return [name for name in all_names if name not in ext_names or name not in avail_ok]
 
 # ---------------------------------------------------------------------------
 # Doctor command
@@ -186,75 +337,35 @@ def doctor(verbose: bool):
         return
 
     config_results, avail_results, active_components = run_all()
-
-    deploy_comp = next(
-        (c for c in active_components if c.name == "deployment"), None
-    )
-    port_conflict_hints: dict[str, str] = (
-        deploy_comp.hint_for_occupied_ports(Path("."))
-        if deploy_comp is not None and hasattr(deploy_comp, "hint_for_occupied_ports")
-        else {}
-    )
-
-    by_config = {comp: (status, msg) for comp, status, msg in config_results}
-
-    config_rows: list[tuple[str, str, str, str]] = []
-    for comp in active_components:
-        status, msg = by_config.get(comp.name, ("ok", "ok"))
-        hint = (
-            (", ".join(comp.configuration.effective_hints(port_conflict_hints)) or "")
-            if status != "ok" and hasattr(comp, "configuration")
-            else ""
-        )
-        config_rows.append((comp.name, status, msg if status != "ok" else "", hint))
-
-    avail_rows = _build_avail_rows(avail_results, active_components)
-
-    port_conflict_per_comp: dict[str, str] = {}
-    if port_conflict_hints:
-        by_avail_status = {comp: status for comp, status, _, _, _ in avail_rows}
-        for comp in active_components:
-            if not hasattr(comp, "configuration"):
-                continue
-            failing_deps = [
-                dep for dep in comp.active_deps()
-                if by_avail_status.get(dep.name, "ok") != "ok"
-            ]
-            if failing_deps:
-                continue
-            comp_conflicts = [
-                port_conflict_hints[e.env_var]
-                for e in comp.configuration
-                if e.env_var in port_conflict_hints
-            ]
-            if comp_conflicts:
-                port_conflict_per_comp[comp.name] = ", ".join(comp_conflicts)
-
-    _CONFIG_NOTE = "  Configuration files: .jejune/env-config · .jejune/env-secrets"
-
-    role_label = f" [{active_role}]" if active_role else ""
-    click.echo(click.style(f"jejune doctor{role_label}", bold=True))
-    click.echo()
-
-    if not verbose:
-        avail_ok = {comp for comp, status, _, _, _ in avail_rows if status == "ok"}
-        ext_names_set = {c.name for c in active_components if isinstance(c, (ext_comp, ext_server))}
-        config_rows = [
-            row
-            for row in config_rows
-            if row[0] not in ext_names_set or row[0] not in avail_ok
-        ]
-
-    from .component_containerized import cont_comp
-    img_status = cont_comp.image_build_status(active_components)
+    port_conflict_hints    = _resolve_port_conflict_hints(active_components)
+    failing_deps           = _failing_dep_names_per_component(avail_results, active_components)
+    port_conflict_per_comp = _compute_port_conflict_per_comp(
+        active_components, failing_deps, port_conflict_hints)
+    img_status           = cont_comp.image_build_status(active_components)
     external_image_names = {
         c.name for c in active_components
         if isinstance(c, cont_comp) and c.is_external_image
     }
-    _print_health_table(
-        config_rows, avail_rows, img_status,
-        port_conflict_per_comp, external_image_names,
-    )
+    component_names = _visible_component_names(
+        config_results, avail_results, active_components, verbose)
+
+    _CONFIG_NOTE = "  Configuration files: .jejune/env-config · .jejune/env-secrets"
+    role_label = f" [{active_role}]" if active_role else ""
+    click.echo(click.style(f"jejune doctor{role_label}", bold=True))
+    click.echo()
+
+    config_column = _config_column(config_results, active_components, port_conflict_hints)
+    img_column    = _img_column(active_components, img_status, external_image_names)
+    avail_column  = _avail_column(avail_results, failing_deps)
+    action_column = _action_column(config_results, avail_results, active_components,
+                                   failing_deps, port_conflict_per_comp)
+    columns: list[Column] = [
+        config_column,
+        img_column,
+        avail_column,
+        action_column,
+    ]
+    _print_health_table(component_names, columns)
     if active_role is None or ROLE_REGISTRY.role_inherits(active_role, "doc-steward"):
         click.echo()
         click.echo(_CONFIG_NOTE)
@@ -269,45 +380,37 @@ def doctor(verbose: bool):
 def config_check_availability():
     """Per-component availability diagnostic."""
     avail_results, active_components = run_avail()
-    rows = _build_avail_rows(avail_results, active_components)
-    if not rows:
+    failing_deps = _failing_dep_names_per_component(avail_results, active_components)
+    col = _avail_check_column(avail_results, active_components, failing_deps)
+    if not col.items():
         click.echo(
             click.style("No availability data for the current role.", fg="yellow")
         )
         return
-    styled = [
-        (click.style(comp, fg=ClickTheme.status_foregrounds.get(status, "white")), check)
-        for comp, status, check, _, _ in rows
-    ]
-    print_two_col_table(styled, "Component", "Check")
+    print_two_col_table(col.items(), "Component", "Check")
 
 
 @click.command("status-availability")
 def config_status_availability():
     """Per-component availability status."""
     avail_results, active_components = run_avail()
-    rows = _build_avail_rows(avail_results, active_components)
-    if not rows:
+    failing_deps = _failing_dep_names_per_component(avail_results, active_components)
+    col = _avail_status_column(avail_results, active_components, failing_deps)
+    if not col.items():
         click.echo(
             click.style("No availability data for the current role.", fg="yellow")
         )
         return
-    styled = [
-        (comp, click.style(status, fg=ClickTheme.status_foregrounds.get(status, "white")))
-        for comp, status, _, _, _ in rows
-    ]
-    print_two_col_table(styled, "Component", "Status")
+    print_two_col_table(col.items(), "Component", "Status")
 
 
 @click.command("hint-availability")
 def config_hint_availability():
     """Availability hints for non-ok components."""
     avail_results, active_components = run_avail()
-    rows = [
-        (comp, hint)
-        for comp, _, _, hint, _ in _build_avail_rows(avail_results, active_components)
-        if hint
-    ]
+    failing_deps = _failing_dep_names_per_component(avail_results, active_components)
+    col = _avail_hint_column(avail_results, active_components, failing_deps)
+    rows = col.non_empty_items()
     if not rows:
         click.echo(click.style("All components available.", fg="green"))
         return

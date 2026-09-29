@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 
-if TYPE_CHECKING:
-    from .component_base import base_comp
+from .component_base import base_comp
 
 class _LazyComp:
     """Proxy for a plugin-contributed component not yet loaded.

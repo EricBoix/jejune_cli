@@ -5,6 +5,7 @@ import click
 from .component_registry import ComponentRegistry
 COMP_REGISTRY = ComponentRegistry()
 from .role_registry import ROLE_REGISTRY
+from .component_containerized import cont_comp
 
 
 @click.command("build")
@@ -23,8 +24,6 @@ def build_cmd(no_cache: bool) -> None:
     active_role_obj = ROLE_REGISTRY.detect_role()
     if ROLE_REGISTRY.role_inherits(active_role_obj, "deployer"):
         raise SystemExit(COMP_REGISTRY.get("deployment").build(Path("."), no_cache=no_cache))
-    from .component_containerized import cont_comp
-
     active_components = ROLE_REGISTRY.role_components(active_role_obj) or set()
     component_names = {comp.name for comp in active_components}
     builders = [

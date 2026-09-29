@@ -1,7 +1,10 @@
 """Ecosystem component."""
 import os
+import subprocess
 from pathlib import Path
 from typing import Literal
+
+import click
 
 from .configuration import configuration
 from .configuration_entry import configuration_entry
@@ -96,8 +99,6 @@ class comp_ecosystem(conf_comp):
         )
 
     def ensure_local(self, repo_name: str) -> Path:
-        import subprocess
-        import click
         root_dir, tmp_dir = self.resolve_dirs()
         tier, base = self.repo_status(repo_name, root_dir, tmp_dir)
         if tier in ("root", "tmp"):

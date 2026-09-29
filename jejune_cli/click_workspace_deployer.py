@@ -1,6 +1,12 @@
 """Deployer role: configuration data and workspace initialisation."""
 
+from pathlib import Path
+
 import click
+
+from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
+from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
+from .click_comp_deployment import ui_configure
 
 class _DeployerInit(click.Command):
     def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
@@ -18,10 +24,6 @@ def init(dir_name: str | None) -> None:
 
     DIR_NAME defaults to the name of the current directory when omitted.
     """
-    from pathlib import Path
-    from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
-    from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
-    from .click_comp_deployment import ui_configure
     effective_name = dir_name or Path.cwd().name
     click.get_current_context().invoke(
         ui_configure, deployments_dir=".", name=effective_name

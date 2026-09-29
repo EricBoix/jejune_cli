@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .component_ext import ext_comp
+from .component_ext_command_docker import DOCKER_COMMAND
 from .component_registry import ComponentRegistry
 COMP_REGISTRY = ComponentRegistry()
 from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
@@ -37,7 +38,6 @@ def _deploy_config_is_default() -> bool:
 
 
 def _deploy_containers_running() -> bool:
-    from .component_ext_command_docker import DOCKER_COMMAND
     name = Path(".").resolve().name.lower()
     return all(
         DOCKER_COMMAND.is_running(f"jejune-{name}-{svc}-1")[0]

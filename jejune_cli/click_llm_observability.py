@@ -1,3 +1,5 @@
+import subprocess
+
 import click
 
 from .component_registry import ComponentRegistry
@@ -47,7 +49,6 @@ def start(otlp_port, ui_port):
 
     Receives OTLP traces from `graph extract` via TRACELOOP_BASE_URL.
     """
-    import subprocess
     click.echo(f"Starting {llm_obs_comp.container_name} ...")
     result = subprocess.run([
         "docker", "run", "--rm", "--detach",

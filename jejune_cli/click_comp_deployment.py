@@ -12,6 +12,7 @@ COMP_REGISTRY = ComponentRegistry()
 from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 from .plugin_registry import PLUGIN_REGISTRY
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
+from .component_containerized import cont_comp
 
 _TEMPLATES = Path(__file__).parent / "templates"
 _T_UI = _TEMPLATES / "deployer" / "ui-deployment"
@@ -125,7 +126,6 @@ def build(no_cache: bool) -> None:
 @click.command("up")
 def up() -> None:
     """Start a UI deployment in detached mode."""
-    from .component_containerized import cont_comp
     deploy_dir = Path(".")
     deploy_name = deploy_dir.resolve().name.lower()
     deployment_comp = COMP_REGISTRY.get("deployment")

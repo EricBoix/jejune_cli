@@ -1,14 +1,11 @@
 """RoleRegistry singleton and built-in role registrations."""
 
 import os
-from typing import TYPE_CHECKING
 
 from .component_registry import ComponentRegistry
+from .plugin_role_description import plugin_role_description
+from .component_base import base_comp
 from .role import NO_ROLE, Role
-
-if TYPE_CHECKING:
-    from .plugin_role_description import plugin_role_description
-    from .component_base import base_comp
 
 
 class RoleRegistry:

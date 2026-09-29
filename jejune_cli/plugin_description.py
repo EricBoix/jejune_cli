@@ -11,14 +11,12 @@ where ``plugin`` is a ``plugin_description`` instance.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable
+from typing import Callable
 
 import click
 
 from .plugin_role_description import plugin_role_description
-
-if TYPE_CHECKING:
-    from .component_base import base_comp
+from .component_base import base_comp
 
 
 @dataclass
