@@ -10,6 +10,7 @@ import click
 from .component_registry import ComponentRegistry
 COMP_REGISTRY = ComponentRegistry()
 from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
+from .plugin_registry import PLUGIN_REGISTRY
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 
 _TEMPLATES = Path(__file__).parent / "templates"
@@ -29,7 +30,6 @@ def status() -> None:
         click.echo("Run: jejune plugin-packages install", err=True)
         raise SystemExit(1)
     results = COMP_REGISTRY.get("deployment").check_ui_services()
-    from .plugin_registry import PLUGIN_REGISTRY
     plugin_port = {
         p.name: os.environ.get(p.config_vars[0], "?")
         for p in PLUGIN_REGISTRY.plugins if p.config_vars
@@ -126,7 +126,6 @@ def build(no_cache: bool) -> None:
 def up() -> None:
     """Start a UI deployment in detached mode."""
     from .component_containerized import cont_comp
-    from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
     deploy_dir = Path(".")
     deploy_name = deploy_dir.resolve().name.lower()
     deployment_comp = COMP_REGISTRY.get("deployment")
@@ -155,7 +154,6 @@ def down() -> None:
 @click.command("install")
 def deployment_install() -> None:
     """Install all deployment components: catalog repos and plugin packages."""
-    from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
     try:
         from jejune_catalog._commands import _do_catalog_install
         click.echo("Installing catalog repositories...")
