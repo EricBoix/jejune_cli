@@ -2,12 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
-from .component_registry import ComponentRegistry
-COMP_REGISTRY = ComponentRegistry()
-
-if TYPE_CHECKING:
-    from .component_base import base_comp
+from typing import Callable
 
 
 @dataclass
@@ -20,18 +15,6 @@ class Role:
     description: str = ""
     is_abstract: bool = False
     extra_commands: tuple[str, ...] = ()
-
-    @property
-    def components(self) -> "frozenset[base_comp]":
-        return frozenset(filter(None, (COMP_REGISTRY.get(n) for n in self.component_names)))
-
-    @property
-    def cli_commands(self) -> list[str]:
-        return [
-            comp.cli_name
-            for name in self.component_names
-            if (comp := COMP_REGISTRY.get(name)) is not None and comp.cli_name is not None
-        ] + list(self.extra_commands)
 
     def __bool__(self) -> bool:
         return bool(self.name)

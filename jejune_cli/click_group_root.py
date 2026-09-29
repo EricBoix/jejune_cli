@@ -79,7 +79,7 @@ class _RootClickGroup(click.Group):
                 and not ROLE_REGISTRY.role_inherits(active_role, role_obj.name)
             ):
                 continue
-            rows = _rows(role_obj.cli_commands)
+            rows = _rows(ROLE_REGISTRY.role_cli_commands(role_obj))
             rows += _plugin_rows(role_obj.name)
             rows += [
                 (f"jejune {name}", f"alias for: jejune {canonical}")

@@ -3,6 +3,7 @@
 import os
 from typing import TYPE_CHECKING
 
+from .component_registry import ComponentRegistry
 from .role import NO_ROLE, Role
 
 if TYPE_CHECKING:
@@ -90,14 +91,27 @@ class RoleRegistry:
         return result
 
     def role_components(self, role: Role) -> "frozenset[base_comp] | None":
+        """Return the full component set for *role*, including inherited parent components."""
         if not role:
             return None
-        own = role.components
+        registry = ComponentRegistry()
+        def _resolve(r: Role) -> "frozenset[base_comp]":
+            return frozenset(filter(None, (registry.get(n) for n in r.component_names)))
+        own = _resolve(role)
         for parent_name in role.includes:
             parent = self._roles.get(parent_name)
             if parent:
-                own = own | parent.components
+                own = own | _resolve(parent)
         return own or None
+
+    def role_cli_commands(self, role: Role) -> list[str]:
+        """Return CLI command names contributed by *role*'s components plus extra_commands."""
+        registry = ComponentRegistry()
+        return [
+            comp.cli_name
+            for name in role.component_names
+            if (comp := registry.get(name)) is not None and comp.cli_name is not None
+        ] + list(role.extra_commands)
 
     def role_inherits(self, role: "Role | str", parent: str) -> bool:
         if not role:
