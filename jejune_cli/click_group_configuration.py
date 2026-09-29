@@ -12,7 +12,6 @@ from .click_workspace_doc_steward import doc_steward_group as _doc_steward_group
 from .click_workspace_deployer import deployer_group as _deployer_group
 from .click_theme import ClickTheme
 from .component_registry import ComponentRegistry
-COMP_REGISTRY = ComponentRegistry()
 from .role_registry import ROLE_REGISTRY
 
 
@@ -126,7 +125,7 @@ def _role_config_checks() -> list[tuple[str, str, str, str]]:
     role_components = ROLE_REGISTRY.role_components(role)
     return [
         (comp.name, *comp.configuration.check())
-        for comp in COMP_REGISTRY
+        for comp in ComponentRegistry()
         if (role_components is None or comp in role_components)
         and hasattr(comp, "configuration")
         and comp.configuration

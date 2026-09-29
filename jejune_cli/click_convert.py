@@ -6,7 +6,6 @@ import click
 
 from .click_configuration import print_config_check, print_config_status
 from .component_registry import ComponentRegistry
-COMP_REGISTRY = ComponentRegistry()
 
 
 @click.group(short_help="Convert documents via Docker")
@@ -18,7 +17,7 @@ def convert(ctx):
     DockerContext/ subdirectory exists.  Run `jejune convert check-config`
     to inspect the current configuration status.
     """
-    ctx.obj = COMP_REGISTRY.get("convert")
+    ctx.obj = ComponentRegistry().get("convert")
 
 
 @convert.command("check-config")

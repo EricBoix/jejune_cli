@@ -4,19 +4,18 @@ from __future__ import annotations
 from pathlib import Path
 
 from .component_registry import ComponentRegistry
-COMP_REGISTRY = ComponentRegistry()
 from .heuristic_step import ComponentCondition, HeuristicStep
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 
 
 def _graph_available() -> bool:
-    ok, _ = COMP_REGISTRY.get("graph").is_running()
+    ok, _ = ComponentRegistry().get("graph").is_running()
     return ok
 
 
 def _graph_extract_command() -> str:
-    neo4j_comp = COMP_REGISTRY.get("neo4j")
+    neo4j_comp = ComponentRegistry().get("neo4j")
     cmd = "jejune graph extract"
     if not neo4j_comp.db_is_empty():
         cmd += " (warning: database is not empty)"
@@ -24,21 +23,21 @@ def _graph_extract_command() -> str:
 
 
 def _neo4j_running() -> bool:
-    ok, _ = COMP_REGISTRY.get("neo4j").is_running()
+    ok, _ = ComponentRegistry().get("neo4j").is_running()
     return ok
 
 
 def _neo4j_not_empty() -> bool:
-    return not COMP_REGISTRY.get("neo4j").db_is_empty()
+    return not ComponentRegistry().get("neo4j").db_is_empty()
 
 
 def _neo4j_configured() -> bool:
-    status, *_ = COMP_REGISTRY.get("neo4j").configuration.check()
+    status, *_ = ComponentRegistry().get("neo4j").configuration.check()
     return status == "ok"
 
 
 def _manifest_ok() -> bool:
-    errors, _ = COMP_REGISTRY.get("manifest").check_manifest_referenced_files()
+    errors, _ = ComponentRegistry().get("manifest").check_manifest_referenced_files()
     return not errors
 
 

@@ -2,7 +2,6 @@
 import click
 
 from .component_registry import ComponentRegistry
-COMP_REGISTRY = ComponentRegistry()
 from .component_containerized import cont_comp
 
 
@@ -10,14 +9,14 @@ def _existing_component_containers() -> list[dict]:
     """Return all cont_comp containers currently present in Docker."""
     return [
         {"component": inst.name, "container": inst.container_name}
-        for inst in COMP_REGISTRY
+        for inst in ComponentRegistry()
         if isinstance(inst, cont_comp)
         and cont_comp._docker.container_exists(inst.container_name)
     ]
 
 
 def _print_containers_table(prefix: str = "  ") -> None:
-    comps = [inst for inst in COMP_REGISTRY if isinstance(inst, cont_comp)]
+    comps = [inst for inst in ComponentRegistry() if isinstance(inst, cont_comp)]
     if not comps:
         click.echo(f"{prefix}No container components registered.")
         return

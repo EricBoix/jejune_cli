@@ -3,7 +3,6 @@
 import sys
 
 from .component_registry import ComponentRegistry
-COMP_REGISTRY = ComponentRegistry()
 from .component_containerized import cont_comp
 from .component_with_config import conf_comp
 from .plugin_registry import PLUGIN_REGISTRY
@@ -22,7 +21,7 @@ def run_avail() -> tuple[list[tuple[str, str, str]], list]:
         print("This role does not have any components. Inquire on this case.")
         sys.exit()
 
-    active_components = COMP_REGISTRY.sorted_active_set(role_comps)
+    active_components = ComponentRegistry().sorted_active_set(role_comps)
     plugin_names = {p.name for p in PLUGIN_REGISTRY.plugins}
     role_names = {c.name for c in role_comps}
 
@@ -36,7 +35,7 @@ def run_avail() -> tuple[list[tuple[str, str, str]], list]:
     for plugin in PLUGIN_REGISTRY.plugins:
         if plugin.name not in role_names:
             continue
-        inst = COMP_REGISTRY.get(plugin.name)
+        inst = ComponentRegistry().get(plugin.name)
         if isinstance(inst, cont_comp):
             status, msg = inst.check()
             if status != "ok":
@@ -66,7 +65,7 @@ def run_all() -> tuple[
         print("This role does not have any components. Inquire on this case.")
         sys.exit()
 
-    active_components = COMP_REGISTRY.sorted_active_set(role_comps)
+    active_components = ComponentRegistry().sorted_active_set(role_comps)
 
     config: list[tuple[str, str, str]] = []
     for inst in active_components:

@@ -1,10 +1,9 @@
 import click
 
 from .component_registry import ComponentRegistry
-COMP_REGISTRY = ComponentRegistry()
 from .click_configuration import print_config_check, print_config_hint, print_config_status
 
-graph_comp = COMP_REGISTRY.get("graph")
+graph_comp = ComponentRegistry().get("graph")
 
 _DEP_HINTS = {
     "neo4j": "run `jejune neo4j start`",
@@ -42,7 +41,7 @@ def check_availability(comp):
     """Show graph availability status with optional-dep detail."""
     ok, msg = comp.is_running()
     status = click.style("ok", fg="green") if ok else click.style(msg, fg="red")
-    lo_ok, _ = COMP_REGISTRY.get("llm-observability").is_running()
+    lo_ok, _ = ComponentRegistry().get("llm-observability").is_running()
     opt = click.style("llm-observability", fg="green" if lo_ok else "yellow")
     click.echo(f"graph: {status}  ({opt} optional)")
 

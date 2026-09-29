@@ -5,7 +5,6 @@ import click
 from .component_base import base_comp
 from .component_ext import ext_comp
 from .component_registry import ComponentRegistry
-COMP_REGISTRY = ComponentRegistry()
 from .click_theme import ClickTheme
 from .role_registry import ROLE_REGISTRY
 
@@ -13,7 +12,7 @@ from .role_registry import ROLE_REGISTRY
 @click.command("list")
 def components_list() -> None:
     """List all registered components and their availability status."""
-    current_role_active_components: list[base_comp] = COMP_REGISTRY.sorted_active_set(
+    current_role_active_components: list[base_comp] = ComponentRegistry().sorted_active_set(
         ROLE_REGISTRY.current_role_components()
     )
     rows: list[tuple[str, str, str]] = []

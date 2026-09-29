@@ -4,7 +4,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Protocol, runtime_checkable
 from .component_registry import ComponentRegistry
-COMP_REGISTRY = ComponentRegistry()
 
 
 @runtime_checkable
@@ -20,7 +19,7 @@ class ComponentCondition:
         self.__name__ = f"{name.replace('-', '_')}_available"
 
     def __call__(self) -> bool:
-        inst = COMP_REGISTRY.get(self._name)
+        inst = ComponentRegistry().get(self._name)
         return inst is not None and inst.is_available()
 
 

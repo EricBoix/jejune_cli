@@ -4,7 +4,6 @@ import click
 
 from .click_version import version_option
 from .component_registry import ComponentRegistry
-COMP_REGISTRY = ComponentRegistry()
 from .heuristic_step_wiring import HEURISTIC_STEP_REGISTRY
 from .plugin_registry import PLUGIN_REGISTRY
 from .role_registry import ROLE_REGISTRY
@@ -43,10 +42,10 @@ class _RootClickGroup(click.Group):
     ) -> None:
         active_role = ROLE_REGISTRY.detect_role_name()
 
-        COMP_REGISTRY.load_all_configurations(Path.cwd())
+        ComponentRegistry().load_all_configurations(Path.cwd())
 
         _hidden_unless_configured = {
-            "convert": lambda: COMP_REGISTRY.get("convert").configuration.check()[0]
+            "convert": lambda: ComponentRegistry().get("convert").configuration.check()[0]
             == "ok"
             or Path.cwd().joinpath("full-catalog.yaml").exists(),
             "next": lambda: HEURISTIC_STEP_REGISTRY.has_heuristics_for_role(
@@ -98,4 +97,4 @@ def cli():
 
     Run `jejune configuration <role> init` to set up a new workspace.
     """
-    COMP_REGISTRY.load_all_configurations(Path.cwd())
+    ComponentRegistry().load_all_configurations(Path.cwd())

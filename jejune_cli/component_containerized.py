@@ -9,7 +9,6 @@ from .component_with_config import conf_comp
 from .configuration import configuration as _configuration
 from .containers_cross_process_coordination import CONTAINER_COORDINATION
 from .component_registry import ComponentRegistry
-COMP_REGISTRY = ComponentRegistry()
 from .component_ext_command_docker import DOCKER_COMMAND
 
 
@@ -36,7 +35,7 @@ class cont_comp(conf_comp):
         hint: str | None = None,
         service_name: str | None = None,
     ) -> None:
-        daemon = COMP_REGISTRY.get("docker-daemon")
+        daemon = ComponentRegistry().get("docker-daemon")
         deps = [self._docker] + ([daemon] if daemon else []) + (dependencies or [])
         super().__init__(
             name=name,
@@ -74,7 +73,7 @@ class cont_comp(conf_comp):
                     from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
                     repo_name = PLUGIN_PACKAGE_CATALOG.repo_name_for(self.name)
                     ref = f"main:{subpath}" if subpath else None
-                    self.build_context = COMP_REGISTRY.get("git-server").remote_git_url(
+                    self.build_context = ComponentRegistry().get("git-server").remote_git_url(
                         repo_name, ref
                     )
         if not self.build_context:

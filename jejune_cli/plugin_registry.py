@@ -9,7 +9,6 @@ from typing import Callable, ClassVar
 import click
 
 from .component_registry import ComponentRegistry, _LazyComp
-COMP_REGISTRY = ComponentRegistry()
 from .configuration import configuration
 from .configuration_entry import configuration_entry
 from .plugin_comp import PluginComp
@@ -21,7 +20,7 @@ class PluginRegistry:
 
     Plugin packages expose a ``plugin_description`` instance via the
     ``"jejune.plugins"`` entry-point group.  This registry discovers them,
-    registers their components in COMP_REGISTRY, and fires post-hooks so that
+    registers their components in ComponentRegistry(), and fires post-hooks so that
     ``main.py`` can wire CLI commands and roles without creating a circular
     import.
     """
@@ -71,16 +70,16 @@ class PluginRegistry:
                 return
 
     def register_plugin_component(self, plugin: plugin_description) -> None:
-        """Register a plugin in COMP_REGISTRY and fire post-hooks.  Idempotent."""
+        """Register a plugin in ComponentRegistry and fire post-hooks.  Idempotent."""
         if plugin.name in self._loaded:
             return
         self._loaded.add(plugin.name)
         self._plugins.append(plugin)
 
         if plugin.component is not None:
-            COMP_REGISTRY.add(plugin.component)
+            ComponentRegistry().add(plugin.component)
         else:
-            existing = COMP_REGISTRY.get(plugin.name)
+            existing = ComponentRegistry().get(plugin.name)
             if existing is None or isinstance(existing, _LazyComp):
                 PluginComp(
                     name=plugin.name,
@@ -91,12 +90,12 @@ class PluginRegistry:
                 existing.hint = plugin.avail_hint
 
         for dep_name in plugin.optional_deps:
-            inst = COMP_REGISTRY.get(dep_name)
+            inst = ComponentRegistry().get(dep_name)
             if inst:
                 inst.mandatory = False
 
         if plugin.config_vars:
-            inst = COMP_REGISTRY.get(plugin.name)
+            inst = ComponentRegistry().get(plugin.name)
             if inst is not None and hasattr(inst, "configuration"):
                 inst.configuration = configuration(*(
                     configuration_entry(v, hint=plugin.config_hint)
@@ -117,7 +116,7 @@ class PluginRegistry:
            ``repo_name``, supplements the mapping built in phase 0.
         2. Resolves ``plugin_deps`` declared by built-in components (phase-2
            dependency resolution): ``plugin_deps`` holds repo names, translated
-           to entry-point names via the phase-0 mapping before COMP_REGISTRY
+           to entry-point names via the phase-0 mapping before ComponentRegistry
            lookup.
         3. Calls the finalize hook so ``main.py`` can update active role state.
         """
@@ -149,7 +148,7 @@ class PluginRegistry:
             # Fallback: normalized distribution name (non-editable installs)
             dist_key = ep.dist.name.lower().replace("-", "_")
             discovered.setdefault(dist_key, ep.name)
-        COMP_REGISTRY.register_expected_plugin_names(expected_plugin_names)
+        ComponentRegistry().register_expected_plugin_names(expected_plugin_names)
 
         # Phase 1: load installed entry-points and register their components.
         # When a plugin declares repo_name, supplement discovered so Phase 2
@@ -171,15 +170,15 @@ class PluginRegistry:
 
         # Phase 2: wire resolved plugin instances into comp.dependencies.
         # plugin_deps holds repo names; translate to plugin names via discovered.
-        plugin_packages = COMP_REGISTRY.get("plugin-packages")
-        for comp in COMP_REGISTRY:
+        plugin_packages = ComponentRegistry().get("plugin-packages")
+        for comp in ComponentRegistry():
             if not getattr(comp, "plugin_deps", []):
                 continue
             for repo_name in comp.plugin_deps:
                 plugin_name = discovered.get(repo_name.lower().replace("-", "_"))
                 if plugin_name is None:
                     continue
-                inst = COMP_REGISTRY.get(plugin_name)
+                inst = ComponentRegistry().get(plugin_name)
                 if inst is not None and not isinstance(inst, _LazyComp) and inst not in comp.dependencies:
                     comp.dependencies.append(inst)
             if (
@@ -188,8 +187,8 @@ class PluginRegistry:
                 and plugin_packages not in comp.dependencies
             ):
                 comp.dependencies.append(plugin_packages)
-        if any(getattr(c, "plugin_deps", []) for c in COMP_REGISTRY):
-            COMP_REGISTRY._sort()
+        if any(getattr(c, "plugin_deps", []) for c in ComponentRegistry()):
+            ComponentRegistry()._sort()
 
         # Phase 3: call the finalize hook so main.py can update active role state.
         if self._finalize_hook is not None:

@@ -3,14 +3,13 @@ import subprocess
 import click
 
 from .component_registry import ComponentRegistry
-COMP_REGISTRY = ComponentRegistry()
 from .click_configuration import (
     print_config_check,
     print_config_hint,
     print_config_status,
 )
 
-llm_obs_comp = COMP_REGISTRY.get("llm-observability")
+llm_obs_comp = ComponentRegistry().get("llm-observability")
 
 
 @click.group("llm-observability", short_help="Manage the LLM observability backend")

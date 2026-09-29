@@ -5,7 +5,6 @@ import click
 from .click_theme import ClickTheme
 from .role_registry import ROLE_REGISTRY
 from .component_registry import ComponentRegistry
-COMP_REGISTRY = ComponentRegistry()
 from .plugin_registry import PLUGIN_REGISTRY
 
 
@@ -20,7 +19,7 @@ def ecosystem(ctx: click.Context) -> None:
 @ecosystem.command("status")
 def ecosystem_status() -> None:
     """List required repositories and their local/remote resolution status."""
-    eco = COMP_REGISTRY.get("ecosystem")
+    eco = ComponentRegistry().get("ecosystem")
     role = ROLE_REGISTRY.detect_role()
     root_dir, tmp_dir = eco.resolve_dirs()
 
@@ -36,14 +35,14 @@ def ecosystem_status() -> None:
     root_status = click.style("set", fg="green") if root_ok else click.style("not set", fg="yellow")
     click.echo(f"  {'JEJUNE_ROOT_DIR':<{_W}}  {root_val:<50}  {root_status}")
 
-    click.echo(f"  {'REPO_ROOT_DIR':<{_W}}  {COMP_REGISTRY.get('git-server').repo_root_dir()}")
+    click.echo(f"  {'REPO_ROOT_DIR':<{_W}}  {ComponentRegistry().get('git-server').repo_root_dir()}")
     click.echo()
 
     # --- Components table ---
     active = ROLE_REGISTRY.role_components(role)
     repos = [] if active is None else [
         (comp, subpath, env_key)
-        for comp in COMP_REGISTRY if comp in active
+        for comp in ComponentRegistry() if comp in active
         for subpath, env_key in getattr(comp, "repos", [])
     ]
     click.echo(click.style("  Components", bold=True))

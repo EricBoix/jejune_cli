@@ -44,7 +44,7 @@ class plugin_description:
     build_image        : (no_cache: bool) -> None — builds Docker image.
     image_is_built     : () -> bool — checks if Docker image exists.
     component          : optional full base_comp instance to register in
-                         COMP_REGISTRY instead of a thin wrapper.  Use when
+                         ComponentRegistry instead of a thin wrapper.  Use when
                          the plugin contributes a containerized component that
                          needs rich Docker lifecycle methods.
     """
@@ -69,7 +69,7 @@ class plugin_description:
     image_is_built: Callable[[], bool] | None = None
     """() -> bool — returns True when this component's Docker image already exists."""
     component: "base_comp | None" = None
-    """Full component instance to register in COMP_REGISTRY.
+    """Full component instance to register in ComponentRegistry.
 
     When set, PluginRegistry uses this instance directly instead of creating a
     thin _PluginComp wrapper.  The instance must have name == self.name.

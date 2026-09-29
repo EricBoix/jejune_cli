@@ -8,7 +8,6 @@ from pathlib import Path
 import click
 
 from .component_registry import ComponentRegistry
-COMP_REGISTRY = ComponentRegistry()
 from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 from .plugin_registry import PLUGIN_REGISTRY
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
@@ -30,7 +29,7 @@ def status() -> None:
         click.echo(click.style("Check plugin packages not installed.", fg="red"), err=True)
         click.echo("Run: jejune plugin-packages install", err=True)
         raise SystemExit(1)
-    results = COMP_REGISTRY.get("deployment").check_ui_services()
+    results = ComponentRegistry().get("deployment").check_ui_services()
     plugin_port = {
         p.name: os.environ.get(p.config_vars[0], "?")
         for p in PLUGIN_REGISTRY.plugins if p.config_vars
@@ -70,7 +69,7 @@ def ui_configure(deployments_dir, name):
     (dot_jejune / "origin").write_text(f"{deploy_dir}\n")
     shutil.copy(_T_UI / "env-config", dot_jejune / "env-config")
 
-    catalog_comp = COMP_REGISTRY.get("catalog")
+    catalog_comp = ComponentRegistry().get("catalog")
     full_catalog = catalog_comp.full_catalog_path(deployments_dir)
     if full_catalog:
         shutil.copy(full_catalog, deploy_dir / "catalog.yaml")
@@ -83,7 +82,7 @@ def ui_configure(deployments_dir, name):
             (deploy_dir / "catalog.yaml").write_text("documents: []\n")
         click.echo("Seeded catalog.yaml from built-in template — populate manually.")
 
-    deployment_comp = COMP_REGISTRY.get("deployment")
+    deployment_comp = ComponentRegistry().get("deployment")
     (deploy_dir / "docker-compose.yml").write_text(
         deployment_comp.generate_docker_compose(deploy_dir, _T_UI)
     )
@@ -120,7 +119,7 @@ def ui_list(deployments_dir):
               help="Do not use cache when building images.")
 def build(no_cache: bool) -> None:
     """Build Docker images for a UI deployment."""
-    sys.exit(COMP_REGISTRY.get("deployment").build(Path("."), no_cache=no_cache))
+    sys.exit(ComponentRegistry().get("deployment").build(Path("."), no_cache=no_cache))
 
 
 @click.command("up")
@@ -128,7 +127,7 @@ def up() -> None:
     """Start a UI deployment in detached mode."""
     deploy_dir = Path(".")
     deploy_name = deploy_dir.resolve().name.lower()
-    deployment_comp = COMP_REGISTRY.get("deployment")
+    deployment_comp = ComponentRegistry().get("deployment")
     busy = deployment_comp.occupied_host_ports(deploy_dir)
     if busy:
         for port, var in busy:
@@ -148,7 +147,7 @@ def up() -> None:
 @click.command("down")
 def down() -> None:
     """Stop a UI deployment."""
-    sys.exit(COMP_REGISTRY.get("deployment").run_compose(Path("."), "down"))
+    sys.exit(ComponentRegistry().get("deployment").run_compose(Path("."), "down"))
 
 
 @click.command("install")

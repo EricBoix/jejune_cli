@@ -11,9 +11,8 @@ from .click_configuration import (
 )
 
 from .component_registry import ComponentRegistry
-COMP_REGISTRY = ComponentRegistry()
 from .click_cont_comp_neo4j_to_rdf_ttl import dump_turtle
-neo4j_comp = COMP_REGISTRY.get("neo4j")
+neo4j_comp = ComponentRegistry().get("neo4j")
 
 
 def _launch_container(data_dir: Path, port: str, credentials: str) -> None:

@@ -8,7 +8,6 @@ import sys
 import click
 
 from .component_registry import ComponentRegistry
-COMP_REGISTRY = ComponentRegistry()
 from .plugin_registry import PLUGIN_REGISTRY
 from .role_registry import ROLE_REGISTRY
 
@@ -41,7 +40,7 @@ class plugin_package_catalog:
             self._discovery_cache = None
         if self._discovery_cache is not None:
             return self._discovery_cache
-        eco = COMP_REGISTRY.get("ecosystem")
+        eco = ComponentRegistry().get("ecosystem")
         result: dict[str, str] = {}
         seen: set[str] = set()
         for repo_name in repo_names:
@@ -90,7 +89,7 @@ class plugin_package_catalog:
         role_comps = ROLE_REGISTRY.role_components(role_obj) or frozenset()
         return [
             name
-            for comp in COMP_REGISTRY
+            for comp in ComponentRegistry()
             if comp in role_comps
             for name in getattr(comp, "plugin_deps", [])
         ]
@@ -155,11 +154,11 @@ class plugin_package_catalog:
             PLUGIN_REGISTRY.register_repo_name(plugin, repo)
 
     def _install_package(self, repo_name: str, plugin_name: str) -> None:
-        eco = COMP_REGISTRY.get("ecosystem")
+        eco = ComponentRegistry().get("ecosystem")
         root_dir, tmp_dir = eco.resolve_dirs()
         tier, base = eco.repo_status(repo_name, root_dir, tmp_dir)
         if tier == "remote":
-            git_url = COMP_REGISTRY.get("git-server").remote_pip_url(repo_name)
+            git_url = ComponentRegistry().get("git-server").remote_pip_url(repo_name)
             cmd = ["uv", "pip", "install", "--python", sys.executable, git_url]
         else:
             cmd = ["uv", "pip", "install", "--python", sys.executable, "-e", base]

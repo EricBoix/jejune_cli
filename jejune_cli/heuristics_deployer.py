@@ -6,7 +6,6 @@ from pathlib import Path
 from .component_ext import ext_comp
 from .component_ext_command_docker import DOCKER_COMMAND
 from .component_registry import ComponentRegistry
-COMP_REGISTRY = ComponentRegistry()
 from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 from .heuristic_step import ComponentCondition, HeuristicStep
 from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
@@ -19,7 +18,7 @@ def _deploy_catalog_needs_configuration() -> bool:
     catalog = Path(".") / "catalog.yaml"
     if not catalog.exists():
         return False
-    template = COMP_REGISTRY.get("catalog").trivial_catalog_content()
+    template = ComponentRegistry().get("catalog").trivial_catalog_content()
     if template is None:
         return False
     return catalog.read_text() == template
@@ -41,17 +40,17 @@ def _deploy_containers_running() -> bool:
     name = Path(".").resolve().name.lower()
     return all(
         DOCKER_COMMAND.is_running(f"jejune-{name}-{svc}-1")[0]
-        for svc in COMP_REGISTRY.get("deployment").service_names
+        for svc in ComponentRegistry().get("deployment").service_names
     )
 
 
 def _deploy_images_missing() -> bool:
-    return not COMP_REGISTRY.get("deployment").is_available()
+    return not ComponentRegistry().get("deployment").is_available()
 
 
 def _deploy_services_available() -> bool:
     return PLUGIN_PACKAGE_CATALOG.packages_installed() and all(
-        ok for _, ok, _ in COMP_REGISTRY.get("deployment").check_ui_services()
+        ok for _, ok, _ in ComponentRegistry().get("deployment").check_ui_services()
     )
 
 
@@ -88,7 +87,7 @@ def register_heuristics() -> None:
 
     HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
         label="Install docker desktop",
-        command=COMP_REGISTRY.get("docker-command").hint, order=2,
+        command=ComponentRegistry().get("docker-command").hint, order=2,
         conditions=[],
         anti_conditions=[ComponentCondition("docker-command")],
     ), roles={"deployer"})
@@ -154,7 +153,7 @@ def register_heuristics() -> None:
     # One fix step per ext_comp: if unavailable, show its hint as the action.
     # docker-command and plugin-packages already have explicit steps.
     _skip = frozenset({"docker-command", "plugin-packages"})
-    for inst in COMP_REGISTRY:
+    for inst in ComponentRegistry():
         if not isinstance(inst, ext_comp) or not inst.hint or inst.name in _skip:
             continue
         HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
@@ -166,8 +165,8 @@ def register_heuristics() -> None:
 
     # Order ext_comp fix steps by topological dep order so prerequisites appear
     # first.
-    _ext_deps = COMP_REGISTRY.sorted_subset([
-        inst for inst in COMP_REGISTRY
+    _ext_deps = ComponentRegistry().sorted_subset([
+        inst for inst in ComponentRegistry()
         if isinstance(inst, ext_comp) and inst.hint and inst.name not in _skip
     ])
     HEURISTIC_STEP_REGISTRY.register_role_ordering("deployer", {
