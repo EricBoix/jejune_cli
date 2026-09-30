@@ -12,6 +12,7 @@ from .component_base import base_comp
 from .component_containerized import cont_comp
 from .component_ext import ext_comp
 from .component_ext_server import ext_server
+from .component_with_config import conf_comp
 from .plugin_registry import PluginRegistry
 from .role_registry import RoleRegistry
 from .dot_jejune import dot_jejune
@@ -69,6 +70,9 @@ def _config_column(
     cells: dict[str, tuple[str, str]] = {}
     for inst in active_components:
         comp = inst.name
+        if not isinstance(inst, conf_comp):
+            cells[comp] = ("", "")
+            continue
         status, _ = by_config.get(comp, ("ok", ""))
         icon, fg = ClickTheme.status_icons.get(status, ("?", "white"))
         if status != "ok" and hasattr(inst, "configuration"):
@@ -288,7 +292,8 @@ def _visible_component_names(
     active_components: list[base_comp],
     verbose: bool,
 ) -> list[str]:
-    all_names = [comp for comp, _, _ in config_results]
+    has_data = {comp for comp, _, _ in config_results} | {comp for comp, _, _ in avail_results}
+    all_names = [c.name for c in active_components if c.name in has_data]
     if verbose:
         return all_names
     avail_ok = {comp for comp, status, _ in avail_results if status == "ok"}
