@@ -2,15 +2,15 @@ import os
 
 import click
 
+from .app_context import AppContext
 from .click_configuration import print_config_hint, print_config_status, print_config_check
-from .component_registry import ComponentRegistry
 
 
 @click.group(short_help="Manage the LLM inference server")
 @click.pass_context
-def llm(click_ctx):
+def llm(ctx):
     """Manage the LLM inference server."""
-    click_ctx.obj = ComponentRegistry().get("llm")
+    ctx.obj = ctx.find_object(AppContext).component_registry.get("llm")
 
 
 @llm.command("check-config")

@@ -2,10 +2,9 @@
 
 import click
 
+from .app_context import AppContext
 from .component_base import base_comp
-from .component_registry import ComponentRegistry
 from .click_theme import ClickTheme
-from .role_registry import ROLE_REGISTRY
 
 
 def build_tree_lines(components: list[base_comp]) -> list[str]:
@@ -58,10 +57,12 @@ def build_tree_lines(components: list[base_comp]) -> list[str]:
 
 
 @click.command("tree")
-def components_tree() -> None:
+@click.pass_context
+def components_tree(ctx) -> None:
     """Show component dependency relationships as an ASCII tree."""
-    current_role_active_components: list[base_comp] = ComponentRegistry().sorted_active_set(
-        ROLE_REGISTRY.current_role_components()
+    app = ctx.find_object(AppContext)
+    current_role_active_components: list[base_comp] = app.component_registry.sorted_active_set(
+        app.role_registry.current_role_components()
     )
     for line in build_tree_lines(current_role_active_components):
         click.echo(line)

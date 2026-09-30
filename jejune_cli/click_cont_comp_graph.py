@@ -1,9 +1,8 @@
 import click
 
-from .component_registry import ComponentRegistry
+from .app_context import AppContext
 from .click_configuration import print_config_check, print_config_hint, print_config_status
-
-graph_comp = ComponentRegistry().get("graph")
+from .component_cont_graph import comp_graph
 
 _DEP_HINTS = {
     "neo4j": "run `jejune neo4j start`",
@@ -21,6 +20,7 @@ _PREFLIGHT_SKIP = {
 @click.pass_context
 def graph(ctx):
     """Build and export the knowledge graph for the current jejune_doc_<name> repository."""
+    graph_comp = ctx.find_object(AppContext).component_registry.get("graph")
     ctx.obj = graph_comp
     if ctx.invoked_subcommand not in _PREFLIGHT_SKIP:
         graph_comp.preflight()
@@ -36,12 +36,14 @@ def graph_build(comp, no_cache: bool):
 
 
 @graph.command("check-availability")
-@click.pass_obj
-def check_availability(comp):
+@click.pass_context
+def check_availability(ctx):
     """Show graph availability status with optional-dep detail."""
+    comp = ctx.obj
     ok, msg = comp.is_running()
     status = click.style("ok", fg="green") if ok else click.style(msg, fg="red")
-    lo_ok, _ = ComponentRegistry().get("llm-observability").is_running()
+    lo_comp = ctx.find_object(AppContext).component_registry.get("llm-observability")
+    lo_ok, _ = lo_comp.is_running()
     opt = click.style("llm-observability", fg="green" if lo_ok else "yellow")
     click.echo(f"graph: {status}  ({opt} optional)")
 
@@ -92,7 +94,7 @@ def hint_config(comp):
 @click.argument("doc_dir", default=".", type=click.Path(exists=True, file_okay=False))
 @click.option(
     "--splitter",
-    type=click.Choice(list(graph_comp.SPLITTERS)),
+    type=click.Choice(list(comp_graph.SPLITTERS)),
     default="headers",
     show_default=True,
     help="Splitting strategy.",

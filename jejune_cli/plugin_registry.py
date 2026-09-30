@@ -1,14 +1,15 @@
-"""PluginRegistry singleton — discovers, registers, and manages plugin packages."""
+"""PluginRegistry — discovers, registers, and manages plugin packages."""
+
 from __future__ import annotations
 
 import importlib.metadata
 import json
 from pathlib import Path
-from typing import Callable, ClassVar
+from typing import Callable
 
 import click
 
-from .component_registry import ComponentRegistry, _LazyComp
+from .component_registry import ComponentRegistry, _UnresolvedPlugin
 from .configuration import configuration
 from .configuration_entry import configuration_entry
 from .plugin_comp import PluginComp
@@ -16,42 +17,28 @@ from .plugin_description import plugin_description
 
 
 class PluginRegistry:
-    """Singleton registry for all installed plugin packages.
+    """Registry for all installed plugin packages.
 
     Plugin packages expose a ``plugin_description`` instance via the
     ``"jejune.plugins"`` entry-point group.  This registry discovers them,
-    registers their components in ComponentRegistry(), and fires post-hooks so that
-    ``main.py`` can wire CLI commands and roles without creating a circular
-    import.
+    registers their components in ComponentRegistry, and fires post-hooks so that
+    ``app_context.py`` can wire CLI commands and roles.
     """
 
-    _instance: ClassVar[PluginRegistry | None] = None
-
-    def __new__(cls) -> PluginRegistry:
-        if cls._instance is None:
-            inst = super().__new__(cls)
-            inst._plugins: list[plugin_description] = []
-            inst._loaded: set[str] = set()
-            inst._post_hooks: list[Callable[[plugin_description], None]] = []
-            inst._finalize_hook: Callable[[], None] | None = None
-            inst._plugin_repo_names: dict[str, str] = {}
-            cls._instance = inst
-        return cls._instance
+    def __init__(self, component_registry: ComponentRegistry) -> None:
+        self._component_registry = component_registry
+        self._plugins: list[plugin_description] = []
+        self._loaded: set[str] = set()
+        self._post_hooks: list[Callable[[plugin_description], None]] = []
+        self._finalize_hook: Callable[[], None] | None = None
+        self._plugin_repo_names: dict[str, str] = {}
 
     def add_post_hook(self, fn: Callable[[plugin_description], None]) -> None:
-        """Register callback invoked after each plugin is component-registered.
-
-        Used by ``main.py`` to wire ``cli.add_command`` and role registration
-        without importing CLI state into this module.
-        """
+        """Register callback invoked after each plugin is component-registered."""
         self._post_hooks.append(fn)
 
     def set_finalize_hook(self, fn: Callable[[], None]) -> None:
-        """Register callback invoked once after all plugins are loaded.
-
-        Used by ``main.py`` to update active role / help sections after the
-        full plugin load pass completes.
-        """
+        """Register callback invoked once after all plugins are loaded."""
         self._finalize_hook = fn
 
     def ensure_loaded(self, name: str) -> None:
@@ -77,30 +64,33 @@ class PluginRegistry:
         self._plugins.append(plugin)
 
         if plugin.component is not None:
-            ComponentRegistry().add(plugin.component)
+            self._component_registry.add(plugin.component)
         else:
-            existing = ComponentRegistry().get(plugin.name)
-            if existing is None or isinstance(existing, _LazyComp):
-                PluginComp(
+            existing = self._component_registry.get(plugin.name)
+            if existing is None or isinstance(existing, _UnresolvedPlugin):
+                comp = PluginComp(
                     name=plugin.name,
                     dependencies=plugin.required_deps or [],
                     hint=plugin.avail_hint,
                 )
+                self._component_registry.add(comp)
             elif plugin.avail_hint and not existing.hint:
                 existing.hint = plugin.avail_hint
 
         for dep_name in plugin.optional_deps:
-            inst = ComponentRegistry().get(dep_name)
+            inst = self._component_registry.get(dep_name)
             if inst:
                 inst.mandatory = False
 
         if plugin.config_vars:
-            inst = ComponentRegistry().get(plugin.name)
+            inst = self._component_registry.get(plugin.name)
             if inst is not None and hasattr(inst, "configuration"):
-                inst.configuration = configuration(*(
-                    configuration_entry(v, hint=plugin.config_hint)
-                    for v in plugin.config_vars
-                ))
+                inst.configuration = configuration(
+                    *(
+                        configuration_entry(v, hint=plugin.config_hint)
+                        for v in plugin.config_vars
+                    )
+                )
 
         for hook in self._post_hooks:
             hook(plugin)
@@ -109,24 +99,13 @@ class PluginRegistry:
         """Discover all installed plugin packages and register them.
 
         0. Reads ``direct_url.json`` (PEP 610) for each installed plugin to map
-           repo names to ep names and populate ``_plugin_repo_names``.  Falls back
-           to the normalized distribution name.
+           repo names to ep names.  Falls back to the normalized distribution name.
         1. Iterates ``"jejune.plugins"`` entry-points, calls
-           ``register_plugin_component`` for each.  When a plugin sets
-           ``repo_name``, supplements the mapping built in phase 0.
-        2. Resolves ``plugin_deps`` declared by built-in components (phase-2
-           dependency resolution): ``plugin_deps`` holds repo names, translated
-           to entry-point names via the phase-0 mapping before ComponentRegistry
-           lookup.
-        3. Calls the finalize hook so ``main.py`` can update active role state.
+           ``register_plugin_component`` for each.
+        2. Resolves ``plugin_deps`` declared by built-in components.
+        3. Calls the finalize hook.
         """
-        # Phase 0: map repo names (held in plugin_deps) to plugin names.
-        # For editable installs from local dirs, read direct_url.json (PEP 610)
-        # to get the actual cloned repo directory name, which may differ from
-        # the distribution name (e.g. repo "jejune_kg-graph_viewer" distributes
-        # as "jejune-kg-viewer").  Also populate _plugin_repo_names so that
-        # _build_env can resolve build-context paths without cloning.
-        # Fall back to the normalized distribution name for non-editable installs.
+        # Phase 0: map repo names to plugin names.
         expected_plugin_names: set[str] = set()
         discovered: dict[str, str] = {}  # normalized repo/dist name → ep.name
         for ep in importlib.metadata.entry_points(group="jejune.plugins"):
@@ -148,12 +127,9 @@ class PluginRegistry:
             # Fallback: normalized distribution name (non-editable installs)
             dist_key = ep.dist.name.lower().replace("-", "_")
             discovered.setdefault(dist_key, ep.name)
-        ComponentRegistry().register_expected_plugin_names(expected_plugin_names)
+        self._component_registry.register_expected_plugin_names(expected_plugin_names)
 
         # Phase 1: load installed entry-points and register their components.
-        # When a plugin declares repo_name, supplement discovered so Phase 2
-        # can resolve plugin_deps correctly, and record in _plugin_repo_names
-        # for _build_env path resolution.
         for ep in importlib.metadata.entry_points(group="jejune.plugins"):
             try:
                 plugin: plugin_description = ep.load()
@@ -169,28 +145,31 @@ class PluginRegistry:
                 self._plugin_repo_names.setdefault(plugin.name, plugin.repo_name)
 
         # Phase 2: wire resolved plugin instances into comp.dependencies.
-        # plugin_deps holds repo names; translate to plugin names via discovered.
-        plugin_packages = ComponentRegistry().get("plugin-packages")
-        for comp in ComponentRegistry():
+        plugin_packages = self._component_registry.get("plugin-packages")
+        for comp in self._component_registry:
             if not getattr(comp, "plugin_deps", []):
                 continue
             for repo_name in comp.plugin_deps:
                 plugin_name = discovered.get(repo_name.lower().replace("-", "_"))
                 if plugin_name is None:
                     continue
-                inst = ComponentRegistry().get(plugin_name)
-                if inst is not None and not isinstance(inst, _LazyComp) and inst not in comp.dependencies:
+                inst = self._component_registry.get(plugin_name)
+                if (
+                    inst is not None
+                    and not isinstance(inst, _UnresolvedPlugin)
+                    and inst not in comp.dependencies
+                ):
                     comp.dependencies.append(inst)
             if (
                 plugin_packages is not None
-                and not isinstance(plugin_packages, _LazyComp)
+                and not isinstance(plugin_packages, _UnresolvedPlugin)
                 and plugin_packages not in comp.dependencies
             ):
                 comp.dependencies.append(plugin_packages)
-        if any(getattr(c, "plugin_deps", []) for c in ComponentRegistry()):
-            ComponentRegistry()._sort()
+        if any(getattr(c, "plugin_deps", []) for c in self._component_registry):
+            self._component_registry._sort()
 
-        # Phase 3: call the finalize hook so main.py can update active role state.
+        # Phase 3: call the finalize hook.
         if self._finalize_hook is not None:
             self._finalize_hook()
 
@@ -203,13 +182,7 @@ class PluginRegistry:
         self._plugin_repo_names.setdefault(plugin_name, repo_name)
 
     def plugin_name_for_repo(self, repo_name: str) -> str | None:
-        """Return installed plugin ep name for *repo_name*, or None.
-
-        Uses only locally available metadata — no network or git clone.
-        Checks the reverse of _plugin_repo_names first (populated from
-        direct_url.json for editable installs and from plugin.repo_name),
-        then falls back to matching the normalized distribution name.
-        """
+        """Return installed plugin ep name for *repo_name*, or None."""
         key = repo_name.lower().replace("-", "_")
         for ep_name, repo in self._plugin_repo_names.items():
             if repo.lower().replace("-", "_") == key:
@@ -224,6 +197,3 @@ class PluginRegistry:
     @property
     def plugins(self) -> list[plugin_description]:
         return list(self._plugins)
-
-
-PLUGIN_REGISTRY = PluginRegistry()

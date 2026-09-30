@@ -109,6 +109,3 @@ class comp_command_docker(ext_command):
     def remove_container(self, name: str) -> None:
         """Remove a container, ignoring errors."""
         subprocess.run(["docker", "rm", name], stderr=subprocess.DEVNULL)
-
-
-DOCKER_COMMAND = comp_command_docker()

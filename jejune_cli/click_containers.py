@@ -1,22 +1,23 @@
 """Click commands for managing jejune-managed Docker containers."""
 import click
 
-from .component_registry import ComponentRegistry
+from .app_context import AppContext
 from .component_containerized import cont_comp
+from .component_registry import ComponentRegistry
 
 
-def _existing_component_containers() -> list[dict]:
+def _existing_component_containers(component_registry: ComponentRegistry) -> list[dict]:
     """Return all cont_comp containers currently present in Docker."""
     return [
         {"component": inst.name, "container": inst.container_name}
-        for inst in ComponentRegistry()
+        for inst in component_registry
         if isinstance(inst, cont_comp)
         and cont_comp._docker.container_exists(inst.container_name)
     ]
 
 
-def _print_containers_table(prefix: str = "  ") -> None:
-    comps = [inst for inst in ComponentRegistry() if isinstance(inst, cont_comp)]
+def _print_containers_table(component_registry: ComponentRegistry, prefix: str = "  ") -> None:
+    comps = [inst for inst in component_registry if isinstance(inst, cont_comp)]
     if not comps:
         click.echo(f"{prefix}No container components registered.")
         return
@@ -38,19 +39,23 @@ def containers_cli():
 
 
 @containers_cli.command("list")
-def containers_list():
+@click.pass_context
+def containers_list(ctx):
     """List all Docker containers managed by jejune with their status."""
-    entries = _existing_component_containers()
+    app = ctx.find_object(AppContext)
+    entries = _existing_component_containers(app.component_registry)
     if not entries:
         click.echo("No containers on record.")
         return
-    _print_containers_table(prefix="")
+    _print_containers_table(app.component_registry, prefix="")
 
 
 @containers_cli.command("exit")
-def containers_exit():
+@click.pass_context
+def containers_exit(ctx):
     """Stop all detached containers launched by jejune."""
-    entries = _existing_component_containers()
+    app = ctx.find_object(AppContext)
+    entries = _existing_component_containers(app.component_registry)
     if not entries:
         click.echo("No containers on record.")
         return

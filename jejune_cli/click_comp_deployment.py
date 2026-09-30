@@ -7,10 +7,7 @@ from pathlib import Path
 
 import click
 
-from .component_registry import ComponentRegistry
-from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
-from .plugin_registry import PLUGIN_REGISTRY
-from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
+from .app_context import AppContext
 from .component_containerized import cont_comp
 
 _TEMPLATES = Path(__file__).parent / "templates"
@@ -23,16 +20,19 @@ def deployment():
 
 
 @click.command("status")
-def status() -> None:
+@click.pass_context
+def status(ctx) -> None:
     """Show HTTP availability of the three UI deployment services."""
-    if not PLUGIN_PACKAGE_CATALOG.packages_installed():
+    app = ctx.find_object(AppContext)
+    plugin_packages_comp = app.component_registry.get("plugin-packages")
+    if not plugin_packages_comp.packages_installed():
         click.echo(click.style("Check plugin packages not installed.", fg="red"), err=True)
         click.echo("Run: jejune plugin-packages install", err=True)
         raise SystemExit(1)
-    results = ComponentRegistry().get("deployment").check_ui_services()
+    results = app.component_registry.get("deployment").check_ui_services()
     plugin_port = {
         p.name: os.environ.get(p.config_vars[0], "?")
-        for p in PLUGIN_REGISTRY.plugins if p.config_vars
+        for p in app.plugin_registry.plugins if p.config_vars
     }
     _W = max(len(n) for n, *_ in results)
     for name, ok, msg in results:
@@ -45,7 +45,8 @@ def status() -> None:
 @click.command("ui-configure")
 @click.argument("deployments_dir", type=click.Path())
 @click.argument("name")
-def ui_configure(deployments_dir, name):
+@click.pass_context
+def ui_configure(ctx, deployments_dir, name):
     """Scaffold a new UI deployment directory NAME in DEPLOYMENTS_DIR.
 
     Creates catalog.yaml (seeded from the sibling jejune_docs_server repo's
@@ -53,6 +54,7 @@ def ui_configure(deployments_dir, name):
     A .gitignore and secrets.env.template are added only when the catalog
     contains private repositories.
     """
+    app = ctx.find_object(AppContext)
     deployments_dir = Path(deployments_dir)
     deploy_dir = deployments_dir / name
 
@@ -69,7 +71,7 @@ def ui_configure(deployments_dir, name):
     (dot_jejune / "origin").write_text(f"{deploy_dir}\n")
     shutil.copy(_T_UI / "env-config", dot_jejune / "env-config")
 
-    catalog_comp = ComponentRegistry().get("catalog")
+    catalog_comp = app.component_registry.get("catalog")
     full_catalog = catalog_comp.full_catalog_path(deployments_dir)
     if full_catalog:
         shutil.copy(full_catalog, deploy_dir / "catalog.yaml")
@@ -82,7 +84,7 @@ def ui_configure(deployments_dir, name):
             (deploy_dir / "catalog.yaml").write_text("documents: []\n")
         click.echo("Seeded catalog.yaml from built-in template — populate manually.")
 
-    deployment_comp = ComponentRegistry().get("deployment")
+    deployment_comp = app.component_registry.get("deployment")
     (deploy_dir / "docker-compose.yml").write_text(
         deployment_comp.generate_docker_compose(deploy_dir, _T_UI)
     )
@@ -93,7 +95,7 @@ def ui_configure(deployments_dir, name):
         shutil.copy(_T_UI / "secrets.env.template", deploy_dir / "secrets.env.template")
 
     click.echo(f"Creating deployment in ./{deploy_dir.name}/ sub-directory")
-    HEURISTIC_STEP_REGISTRY.print_next_steps(cwd=deploy_dir)
+    app.heuristic_step_registry.print_next_steps(cwd=deploy_dir)
 
 
 @click.command("list")
@@ -110,24 +112,28 @@ def ui_list(deployments_dir):
         return
     for d in dirs:
         has_catalog = (d / "catalog.yaml").exists()
-        status = "ok" if has_catalog else "missing catalog.yaml"
-        click.echo(f"  {d.name}  [{status}]")
+        status_label = "ok" if has_catalog else "missing catalog.yaml"
+        click.echo(f"  {d.name}  [{status_label}]")
 
 
 @click.command("build")
 @click.option("--no-cache", is_flag=True, default=False,
               help="Do not use cache when building images.")
-def build(no_cache: bool) -> None:
+@click.pass_context
+def build(ctx, no_cache: bool) -> None:
     """Build Docker images for a UI deployment."""
-    sys.exit(ComponentRegistry().get("deployment").build(Path("."), no_cache=no_cache))
+    app = ctx.find_object(AppContext)
+    sys.exit(app.component_registry.get("deployment").build(Path("."), no_cache=no_cache))
 
 
 @click.command("up")
-def up() -> None:
+@click.pass_context
+def up(ctx) -> None:
     """Start a UI deployment in detached mode."""
+    app = ctx.find_object(AppContext)
     deploy_dir = Path(".")
     deploy_name = deploy_dir.resolve().name.lower()
-    deployment_comp = ComponentRegistry().get("deployment")
+    deployment_comp = app.component_registry.get("deployment")
     busy = deployment_comp.occupied_host_ports(deploy_dir)
     if busy:
         for port, var in busy:
@@ -138,21 +144,26 @@ def up() -> None:
     for cname in container_names:
         cont_comp.register_container(deploy_name, cname)
     rc = deployment_comp.run_compose(deploy_dir, "--project-name", f"jejune-{deploy_name}", "up", "-d")
-    if rc == 0 and not PLUGIN_PACKAGE_CATALOG.packages_installed():
+    plugin_packages_comp = app.component_registry.get("plugin-packages")
+    if rc == 0 and not plugin_packages_comp.packages_installed():
         click.echo("\nInstalling deployer plugin packages...")
-        PLUGIN_PACKAGE_CATALOG.install_packages()
+        plugin_packages_comp.install_packages()
     sys.exit(rc)
 
 
 @click.command("down")
-def down() -> None:
+@click.pass_context
+def down(ctx) -> None:
     """Stop a UI deployment."""
-    sys.exit(ComponentRegistry().get("deployment").run_compose(Path("."), "down"))
+    app = ctx.find_object(AppContext)
+    sys.exit(app.component_registry.get("deployment").run_compose(Path("."), "down"))
 
 
 @click.command("install")
-def deployment_install() -> None:
+@click.pass_context
+def deployment_install(ctx) -> None:
     """Install all deployment components: catalog repos and plugin packages."""
+    app = ctx.find_object(AppContext)
     try:
         from jejune_catalog._commands import _do_catalog_install
         click.echo("Installing catalog repositories...")
@@ -162,7 +173,7 @@ def deployment_install() -> None:
             "  catalog plugin not installed — skipping", fg="yellow"
         ))
     click.echo("Installing deployer plugin packages...")
-    PLUGIN_PACKAGE_CATALOG.install_packages()
+    app.component_registry.get("plugin-packages").install_packages()
 
 
 for _cmd in (status, ui_list, build, up, down, deployment_install):

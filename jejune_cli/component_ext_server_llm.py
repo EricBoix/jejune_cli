@@ -1,4 +1,5 @@
 """LLM server component."""
+
 import json
 import os
 import urllib.error
@@ -7,7 +8,7 @@ import urllib.request
 from .configuration import configuration
 from .configuration_entry import configuration_entry
 from .component_ext_server import ext_server
-from .component_registry import ComponentRegistry
+from .component_ext_network import comp_network
 
 
 class comp_server_llm(ext_server):
@@ -16,16 +17,28 @@ class comp_server_llm(ext_server):
     _INFERENCE_TIMEOUT = 120
     DEFAULT_INFERENCE_PATH = "/api/chat"
 
-    def __init__(self) -> None:
+    def __init__(self, network: comp_network) -> None:
         super().__init__(
             name="llm",
             api_url="",
-            dependencies=[ComponentRegistry().get("network")],
+            dependencies=[network],
             hint="run `jejune llm status-config`",
             configuration=configuration(
-                configuration_entry("LLM_MODEL_URL",  hint="edit .jejune/env-secrets", source_file=".jejune/env-secrets"),
-                configuration_entry("LLM_API_KEY",    hint="edit .jejune/env-secrets", source_file=".jejune/env-secrets"),
-                configuration_entry("LLM_MODEL_NAME", hint="edit .jejune/env-secrets", source_file=".jejune/env-secrets"),
+                configuration_entry(
+                    "LLM_MODEL_URL",
+                    hint="edit .jejune/env-secrets",
+                    source_file=".jejune/env-secrets",
+                ),
+                configuration_entry(
+                    "LLM_API_KEY",
+                    hint="edit .jejune/env-secrets",
+                    source_file=".jejune/env-secrets",
+                ),
+                configuration_entry(
+                    "LLM_MODEL_NAME",
+                    hint="edit .jejune/env-secrets",
+                    source_file=".jejune/env-secrets",
+                ),
             ),
         )
         self.cli_name = self.name
@@ -119,11 +132,13 @@ class comp_server_llm(ext_server):
     ) -> tuple[bool, str]:
         """Stage 5: does inference succeed? Uses OpenAI-compatible request body."""
         auth = {"Authorization": f"BEARER {api_key}"}
-        payload = json.dumps({
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "stream": False,
-        }).encode()
+        payload = json.dumps(
+            {
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": False,
+            }
+        ).encode()
         req = urllib.request.Request(
             f"{url}{path}",
             data=payload,
@@ -131,7 +146,9 @@ class comp_server_llm(ext_server):
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=comp_server_llm._INFERENCE_TIMEOUT) as resp:
+            with urllib.request.urlopen(
+                req, timeout=comp_server_llm._INFERENCE_TIMEOUT
+            ) as resp:
                 resp.read()
             return True, "ok"
         except urllib.error.HTTPError as e:
@@ -139,10 +156,12 @@ class comp_server_llm(ext_server):
         except urllib.error.URLError as e:
             return False, f"inference failed: {e.reason}"
         except TimeoutError:
-            return False, f"inference timed out after {comp_server_llm._INFERENCE_TIMEOUT}s"
+            return (
+                False,
+                f"inference timed out after {comp_server_llm._INFERENCE_TIMEOUT}s",
+            )
 
     def _check_context(self) -> tuple[str, str, str, str, str] | None:
-        """Resolve check parameters from env vars; return None when not fully configured."""
         url = (os.environ.get("LLM_MODEL_URL") or "").rstrip("/")
         api_key = os.environ.get("LLM_API_KEY") or ""
         model = os.environ.get("LLM_MODEL_NAME") or ""
@@ -150,7 +169,9 @@ class comp_server_llm(ext_server):
             return None
         explicit = os.environ.get("LLM_SERVER_URL")
         server_url = explicit.rstrip("/") if explicit else self.infer_server_url(url)
-        inference_path = os.environ.get("LLM_INFERENCE_ENDPOINT", self.DEFAULT_INFERENCE_PATH)
+        inference_path = os.environ.get(
+            "LLM_INFERENCE_ENDPOINT", self.DEFAULT_INFERENCE_PATH
+        )
         return url, api_key, model, server_url, inference_path
 
     def available(self) -> tuple[bool, str]:
@@ -160,7 +181,7 @@ class comp_server_llm(ext_server):
         environment.  Intended as a preflight guard before launching containers.
         Returns (False, "not configured") when required env vars are absent.
         """
-        url     = (os.environ.get("LLM_MODEL_URL") or "").rstrip("/")
+        url = (os.environ.get("LLM_MODEL_URL") or "").rstrip("/")
         api_key = os.environ.get("LLM_API_KEY") or ""
         if not url or not api_key:
             return False, "not configured"
@@ -194,5 +215,3 @@ class comp_server_llm(ext_server):
         if ok:
             return "ok", ""
         return "warn" if msg == "not configured" else "error", msg
-
-

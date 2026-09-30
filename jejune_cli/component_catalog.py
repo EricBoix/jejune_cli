@@ -4,12 +4,11 @@ from pathlib import Path
 import yaml
 
 from .component_with_config import conf_comp as component
-from .component_registry import ComponentRegistry
 
 
 class comp_catalog(component):
-    def __init__(self) -> None:
-        super().__init__(name="catalog", dependencies=[ComponentRegistry().get("ecosystem")])
+    def __init__(self, ecosystem) -> None:
+        super().__init__(name="catalog", dependencies=[ecosystem])
 
     def check(self) -> tuple[str, str]:
         from jejune_catalog._impl import _check_availability
@@ -36,5 +35,3 @@ class comp_catalog(component):
         """Return the list of doc repo names declared in *catalog_path*."""
         data = yaml.safe_load(catalog_path.read_text()) or {}
         return [doc["name"] for doc in data.get("documents", []) if "name" in doc]
-
-

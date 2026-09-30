@@ -7,21 +7,25 @@ import click
 
 from .component_with_config import conf_comp
 from .configuration import configuration as _configuration
-from .containers_cross_process_coordination import CONTAINER_COORDINATION
-from .component_registry import ComponentRegistry
-from .component_ext_command_docker import DOCKER_COMMAND
-from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 
 
 class cont_comp(conf_comp):
     """Base for components backed by a Docker container.
 
-    build() and is_built() use image_name and build_context.
-    Subclasses whose container naming or build process differs override these.
+    The following class variables are injected by wire_components() before any
+    instance is created:
+      _docker        — comp_command_docker instance
+      _coordination  — ContainerCoordination instance
+      _docker_daemon — docker-daemon component instance
+      _git_server    — git-server component instance (used in build())
+      _plugin_packages       — comp_plugin_packages instance (used in build())
     """
 
-    _coordination = CONTAINER_COORDINATION
-    _docker = DOCKER_COMMAND
+    _docker = None
+    _coordination = None
+    _docker_daemon = None
+    _git_server = None
+    _plugin_packages = None
     is_external_image: bool = False
 
     def __init__(
@@ -36,8 +40,12 @@ class cont_comp(conf_comp):
         hint: str | None = None,
         service_name: str | None = None,
     ) -> None:
-        daemon = ComponentRegistry().get("docker-daemon")
-        deps = [self._docker] + ([daemon] if daemon else []) + (dependencies or [])
+        daemon = cont_comp._docker_daemon
+        deps = (
+            ([cont_comp._docker] if cont_comp._docker else [])
+            + ([daemon] if daemon else [])
+            + (dependencies or [])
+        )
         super().__init__(
             name=name,
             dependencies=deps,
@@ -70,16 +78,16 @@ class cont_comp(conf_comp):
                     self.build_context = (
                         str(Path(context) / subpath) if subpath else context
                     )
-                else:
-                    repo_name = PLUGIN_PACKAGE_CATALOG.repo_name_for(self.name)
+                elif cont_comp._plugin_packages is not None and cont_comp._git_server is not None:
+                    repo_name = cont_comp._plugin_packages.repo_name_for(self.name)
                     ref = f"main:{subpath}" if subpath else None
-                    self.build_context = ComponentRegistry().get("git-server").remote_git_url(
+                    self.build_context = cont_comp._git_server.remote_git_url(
                         repo_name, ref
                     )
         if not self.build_context:
             return
         click.echo(f"Building {self.image_name} ...")
-        self._docker.build_image(
+        cont_comp._docker.build_image(
             self.image_name,
             self.build_context,
             dockerfile=self.dockerfile,
@@ -88,11 +96,11 @@ class cont_comp(conf_comp):
 
     def is_built(self) -> bool:
         """Return True if the Docker image named image_name exists locally."""
-        if self._docker.image_exists(self.image_name):
+        if cont_comp._docker.image_exists(self.image_name):
             return True
         if self.service_name:
             deploy_name = Path(".").resolve().name.lower()
-            return self._docker.image_exists(
+            return cont_comp._docker.image_exists(
                 f"jejune:{deploy_name}-{self.service_name}"
             )
         return False
@@ -104,19 +112,19 @@ class cont_comp(conf_comp):
 
     def is_running(self, container_name: str | None = None) -> tuple[bool, str]:
         """Return (running, message) by inspecting the named container."""
-        return self._docker.is_running(
+        return cont_comp._docker.is_running(
             container_name if container_name is not None else self.container_name
         )
 
     def exists(self) -> bool:
         """Return True if the container exists in Docker (running or stopped)."""
-        return self._docker.container_exists(self.container_name)
+        return cont_comp._docker.container_exists(self.container_name)
 
     def stop(self) -> None:
         """Stop and remove the Docker container, then unregister it."""
         click.echo(f"Stopping {self.image_name} ...")
-        self._docker.stop_container(self.container_name)
-        self._docker.remove_container(self.container_name)
+        cont_comp._docker.stop_container(self.container_name)
+        cont_comp._docker.remove_container(self.container_name)
         self.unregister()
         click.echo(f"{self.image_name} stopped.")
 
@@ -136,19 +144,19 @@ class cont_comp(conf_comp):
 
     def register(self, **meta) -> dict:
         """Add this component's container to the jejune container registry."""
-        return self._coordination.register(self.name, self.container_name, **meta)
+        return cont_comp._coordination.register(self.name, self.container_name, **meta)
 
     def register_with_name(self, name_factory, **meta) -> dict:
         """Register this component with a dynamically-named container."""
-        return self._coordination.register_with_name(self.name, name_factory, **meta)
+        return cont_comp._coordination.register_with_name(self.name, name_factory, **meta)
 
     def unregister(self) -> None:
         """Remove this component's container from the jejune registry."""
-        self._coordination.unregister(self.container_name)
+        cont_comp._coordination.unregister(self.container_name)
 
     def json_entries(self) -> list[dict]:
         """Return JSON registry entries for this component."""
-        return self._coordination.json_for_component(self.name)
+        return cont_comp._coordination.json_for_component(self.name)
 
     @classmethod
     def register_container(cls, component: str, container: str, **meta) -> dict:
@@ -166,4 +174,3 @@ class cont_comp(conf_comp):
         return {
             inst.name: inst.is_built() for inst in components if isinstance(inst, cls)
         }
-

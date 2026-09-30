@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Callable, Protocol, runtime_checkable
+
 from .component_registry import ComponentRegistry
 
 
@@ -14,12 +15,13 @@ class HeuristicCondition(Protocol):
 class ComponentCondition:
     """HeuristicCondition that checks a component and its transitive deps are available."""
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, component_registry: ComponentRegistry) -> None:
         self._name = name
+        self._registry = component_registry
         self.__name__ = f"{name.replace('-', '_')}_available"
 
     def __call__(self) -> bool:
-        inst = ComponentRegistry().get(self._name)
+        inst = self._registry.get(self._name)
         return inst is not None and inst.is_available()
 
 

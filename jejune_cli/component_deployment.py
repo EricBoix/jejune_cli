@@ -6,21 +6,17 @@ from pathlib import Path
 from .configuration import configuration
 from .configuration_entry import configuration_entry
 from .component_with_config import conf_comp
-from .component_registry import ComponentRegistry
-from .plugin_registry import PLUGIN_REGISTRY
-from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
 
 
 class comp_deployment(conf_comp):
-    def __init__(self) -> None:
-        self.network = ComponentRegistry().get("network")
+    def __init__(self, network, catalog_comp, docker_daemon, docker_command, plugin_registry, ecosystem) -> None:
+        self.network = network
+        self._docker_command = docker_command
+        self._plugin_registry = plugin_registry
+        self._ecosystem = ecosystem
         super().__init__(
             name="deployment",
-            dependencies=[
-                ComponentRegistry().get("catalog"),
-                ComponentRegistry().get("docker-daemon"),
-                self.network,
-            ],
+            dependencies=[catalog_comp, docker_daemon, docker_command, network, ecosystem],
             plugin_deps=["jejune_docs_server", "jejune_kg-graph_viewer", "jejune_markdown_browser"],
             hint="run `jejune build`",
             configuration=configuration(
@@ -46,7 +42,6 @@ class comp_deployment(conf_comp):
         return tuple(dep.service_name for dep in self.dependencies if hasattr(dep, "service_name"))
 
     def host_ports(self, deploy_dir: Path) -> list[tuple[int, str]]:
-        """Return (host_port, env_var_name) pairs after loading deployment.env."""
         self.configuration.load(deploy_dir)
         return [
             (int(val), e.env_var)
@@ -55,15 +50,10 @@ class comp_deployment(conf_comp):
         ]
 
     def occupied_host_ports(self, deploy_dir: Path) -> list[tuple[int, str]]:
-        """Return host_ports entries occupied by a foreign process.
-
-        Ports held by our own running containers are not flagged as conflicts.
-        """
         if self.service_names:
-            docker = ComponentRegistry().get("docker-command")
             deploy_name = deploy_dir.resolve().name.lower()
             if any(
-                docker.is_running(f"jejune-{deploy_name}-{svc}-1")[0]
+                self._docker_command.is_running(f"jejune-{deploy_name}-{svc}-1")[0]
                 for svc in self.service_names
             ):
                 return []
@@ -74,7 +64,6 @@ class comp_deployment(conf_comp):
         ]
 
     def hint_for_occupied_ports(self, base_dir: Path) -> dict[str, str]:
-        """Return {env_var: conflict_hint} for each port in deployment.env already in use."""
         result = {}
         for port, var in self.occupied_host_ports(base_dir):
             entry = next(e for e in self.configuration if e.env_var == var)
@@ -86,7 +75,10 @@ class comp_deployment(conf_comp):
         return result
 
     def has_private_repos(self, deploy_dir: Path) -> bool:
-        return ComponentRegistry().get("catalog").has_private_repos(deploy_dir / "catalog.yaml")
+        catalog_dep = next((d for d in self.dependencies if d.name == "catalog"), None)
+        if catalog_dep is None:
+            return False
+        return catalog_dep.has_private_repos(deploy_dir / "catalog.yaml")
 
     def generate_docker_compose(self, deploy_dir: Path, template_dir: Path) -> str:
         name = deploy_dir.resolve().name.lower()
@@ -109,21 +101,21 @@ class comp_deployment(conf_comp):
         )
 
     def check_ui_services(self) -> list[tuple[str, bool, str]]:
-        plugins = {p.name: p for p in PLUGIN_REGISTRY.plugins}
-        results = []
-        for name in PLUGIN_PACKAGE_CATALOG.expected_plugin_names("deployer"):
-            p = plugins.get(name)
-            ok, msg = p.check_availability() if (p and p.check_availability) else (False, "not installed")
-            results.append((name, ok, msg))
-        return results
+        relevant = [
+            p for p in self._plugin_registry.plugins
+            if self._plugin_registry.repo_name_for_plugin(p.name) in self.plugin_deps
+        ]
+        return [
+            (p.name, *p.check_availability()) if p.check_availability else (p.name, False, "not installed")
+            for p in relevant
+        ]
 
     def _build_env(self, deploy_dir: Path) -> dict:
-        eco = ComponentRegistry().get("ecosystem")
         env = os.environ.copy()
-        root_dir, tmp_dir = eco.resolve_dirs(deploy_dir)
+        root_dir, tmp_dir = self._ecosystem.resolve_dirs(deploy_dir)
         if root_dir:
             env["JEJUNE_ROOT_DIR"] = str(root_dir)
-        plugins_by_name = {p.name: p for p in PLUGIN_REGISTRY.plugins}
+        plugins_by_name = {p.name: p for p in self._plugin_registry.plugins}
         for dep in self.dependencies:
             repos = getattr(dep, "repos", [])
             if not repos:
@@ -132,13 +124,13 @@ class comp_deployment(conf_comp):
             repo_name = (
                 plugin.repo_name
                 if plugin and plugin.repo_name
-                else PLUGIN_REGISTRY.repo_name_for_plugin(dep.name)
+                else self._plugin_registry.repo_name_for_plugin(dep.name)
             )
             if repo_name is None:
                 continue
             for subpath, key in repos:
                 if key:
-                    env[key] = eco.resolve(repo_name, root_dir, tmp_dir, subpath)
+                    env[key] = self._ecosystem.resolve(repo_name, root_dir, tmp_dir, subpath)
         return env
 
     def run_compose(self, deploy_dir: Path, *args: str) -> int:

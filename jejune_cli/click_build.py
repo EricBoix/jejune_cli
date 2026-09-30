@@ -2,8 +2,7 @@ from pathlib import Path
 
 import click
 
-from .component_registry import ComponentRegistry
-from .role_registry import ROLE_REGISTRY
+from .app_context import AppContext
 from .component_containerized import cont_comp
 
 
@@ -14,20 +13,21 @@ from .component_containerized import cont_comp
     default=False,
     help="Do not use cache when building images.",
 )
-def build_cmd(no_cache: bool) -> None:
+@click.pass_obj
+def build_cmd(app: AppContext, no_cache: bool) -> None:
     """Build Docker images for all components in the current role.
 
     Each component that owns a Docker image registers its builder automatically.
     Use `jejune deployment build <dir>` to build a specific deployment directory.
     """
-    active_role_obj = ROLE_REGISTRY.detect_role()
-    if ROLE_REGISTRY.role_inherits(active_role_obj, "deployer"):
-        raise SystemExit(ComponentRegistry().get("deployment").build(Path("."), no_cache=no_cache))
-    active_components = ROLE_REGISTRY.role_components(active_role_obj) or set()
+    active_role_obj = app.role_registry.detect_role()
+    if app.role_registry.role_inherits(active_role_obj, "deployer"):
+        raise SystemExit(app.component_registry.get("deployment").build(Path("."), no_cache=no_cache))
+    active_components = app.role_registry.role_components(active_role_obj) or set()
     component_names = {comp.name for comp in active_components}
     builders = [
         inst
-        for inst in ComponentRegistry()
+        for inst in app.component_registry
         if isinstance(inst, cont_comp)
         and inst.name in component_names
         and (inst.build_context or getattr(inst, "repos", None))

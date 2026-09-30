@@ -7,12 +7,11 @@ from .click_doctor import (
     config_hint_availability,
     config_status_availability,
 )
+from .app_context import AppContext
 from .click_helpers import print_two_col_table
 from .click_workspace_doc_steward import doc_steward_group as _doc_steward_group
 from .click_workspace_deployer import deployer_group as _deployer_group
 from .click_theme import ClickTheme
-from .component_registry import ComponentRegistry
-from .role_registry import ROLE_REGISTRY
 
 
 def register_role_config_subgroup(group: click.Group) -> None:
@@ -25,7 +24,8 @@ class _ConfigurationGroup(click.Group):
     _ROLE_CTX_KEY = "_jejune_configuration_role"
 
     def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        ctx.meta[self._ROLE_CTX_KEY] = ROLE_REGISTRY.detect_role()
+        app = ctx.find_object(AppContext)
+        ctx.meta[self._ROLE_CTX_KEY] = app.role_registry.detect_role() if app else None
 
         option_rows = [
             rv for param in self.get_params(ctx)
@@ -119,13 +119,13 @@ def _print_config_table(
         click.echo(note)
 
 
-def _role_config_checks() -> list[tuple[str, str, str, str]]:
+def _role_config_checks(app: AppContext) -> list[tuple[str, str, str, str]]:
     """Return (name, status, msg, hint) for every configurable component in the current role."""
-    role = ROLE_REGISTRY.detect_role()
-    role_components = ROLE_REGISTRY.role_components(role)
+    role = app.role_registry.detect_role()
+    role_components = app.role_registry.role_components(role)
     return [
         (comp.name, *comp.configuration.check())
-        for comp in ComponentRegistry()
+        for comp in app.component_registry
         if (role_components is None or comp in role_components)
         and hasattr(comp, "configuration")
         and comp.configuration
@@ -133,7 +133,8 @@ def _role_config_checks() -> list[tuple[str, str, str, str]]:
 
 
 @configuration.command("check-config")
-def check():
+@click.pass_context
+def check(ctx):
     """Verify configuration variables by component group.
 
     Reports each group (neo4j, llm) independently:\n
@@ -144,7 +145,7 @@ def check():
     Checks os.environ, which already includes values loaded from
     .jejune/env-config and .jejune/env-secrets at startup.
     """
-    checks = _role_config_checks()
+    checks = _role_config_checks(ctx.find_object(AppContext))
     if not checks:
         click.echo(click.style("no configuration required for the current role", fg="green"))
         return
@@ -158,9 +159,10 @@ def check():
 
 
 @configuration.command("status-config")
-def configuration_status():
+@click.pass_context
+def configuration_status(ctx):
     """Per-component configuration status."""
-    checks = _role_config_checks()
+    checks = _role_config_checks(ctx.find_object(AppContext))
     if not checks:
         click.echo(click.style("no configuration required for the current role", fg="green"))
         return
@@ -173,9 +175,10 @@ def configuration_status():
 
 
 @configuration.command("hint-config")
-def configuration_hint():
+@click.pass_context
+def configuration_hint(ctx):
     """Configuration hints for non-ok components."""
-    rows = [(name, hint) for name, status, _, hint in _role_config_checks() if status != "ok" and hint]
+    rows = [(name, hint) for name, status, _, hint in _role_config_checks(ctx.find_object(AppContext)) if status != "ok" and hint]
     if not rows:
         click.echo(click.style("all components configured", fg="green"))
         return

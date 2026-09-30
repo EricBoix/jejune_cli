@@ -1,4 +1,5 @@
 """Catalog of plugin packages — install metadata and install-state queries."""
+
 from __future__ import annotations
 
 import importlib.metadata
@@ -7,30 +8,33 @@ import sys
 
 import click
 
-from .component_registry import ComponentRegistry
-from .plugin_registry import PLUGIN_REGISTRY
-from .role_registry import ROLE_REGISTRY
-
 try:
     import tomllib
 except ImportError:  # Python < 3.11
     import tomli as tomllib  # type: ignore[no-reuse-import]
 
+from .component_registry import ComponentRegistry
+from .plugin_registry import PluginRegistry
+from .role_registry import RoleRegistry
+
 
 class plugin_package_catalog:
-    """Tracks installable plugin packages and answers install-state queries.
+    """Tracks installable plugin packages and answers install-state queries."""
 
-    ``plugin_deps`` on active components holds repository names (e.g.
-    ``"jejune_docs_server"``); ``_discover`` delegates to
-    ``comp_ecosystem.ensure_local()`` to obtain a local path, then reads
-    ``pyproject.toml`` to derive the plugin name — the first key of
-    ``[project.entry-points."jejune.plugins"]``.
-    """
-
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        component_registry: ComponentRegistry,
+        role_registry: RoleRegistry,
+        plugin_registry: PluginRegistry,
+    ) -> None:
+        self._component_registry = component_registry
+        self._role_registry = role_registry
+        self._plugin_registry = plugin_registry
         self._discovery_cache: dict[str, str] | None = None
 
-    def _discover(self, repo_names: list[str], no_cache: bool = False) -> dict[str, str]:
+    def _discover(
+        self, repo_names: list[str], no_cache: bool = False
+    ) -> dict[str, str]:
         """Return {repo_name: plugin_name} from each repo's pyproject.toml.
 
         Clones repos not available locally, reporting each clone to the user.
@@ -40,7 +44,7 @@ class plugin_package_catalog:
             self._discovery_cache = None
         if self._discovery_cache is not None:
             return self._discovery_cache
-        eco = ComponentRegistry().get("ecosystem")
+        eco = self._component_registry.get("ecosystem")
         result: dict[str, str] = {}
         seen: set[str] = set()
         for repo_name in repo_names:
@@ -83,13 +87,13 @@ class plugin_package_catalog:
         """Collect plugin_deps (repo names) from all components active for *role*."""
         if not role:
             return []
-        role_obj = ROLE_REGISTRY.get(role)
+        role_obj = self._role_registry.get(role)
         if role_obj is None:
             return []
-        role_comps = ROLE_REGISTRY.role_components(role_obj) or frozenset()
+        role_comps = self._role_registry.role_components(role_obj) or frozenset()
         return [
             name
-            for comp in ComponentRegistry()
+            for comp in self._component_registry
             if comp in role_comps
             for name in getattr(comp, "plugin_deps", [])
         ]
@@ -103,29 +107,23 @@ class plugin_package_catalog:
     def expected_plugin_names(self, role: str | None = None) -> list[str]:
         """Return sorted list of plugin names expected for *role*."""
         if role is None:
-
-            r = ROLE_REGISTRY.detect_role()
+            r = self._role_registry.detect_role()
             role = r.name if r else None
         return sorted(self._expected_plugin_names(role))
 
     def packages_installed(self, role: str | None = None) -> bool:
-        """Return True when all expected plugin packages for *role* are installed.
-
-        Uses only local metadata — no network calls or git clones.  A repo whose
-        plugin name cannot be resolved from installed-package metadata is treated
-        as not installed (False), which is correct: if the package were installed
-        its repo name would already be present in PLUGIN_REGISTRY.
-        """
+        """Return True when all expected plugin packages for *role* are installed."""
         if role is None:
-
-            r = ROLE_REGISTRY.detect_role()
+            r = self._role_registry.detect_role()
             role = r.name if r else None
         repo_names = self._all_repo_names(role)
         if not repo_names:
             return True
-        installed = {ep.name for ep in importlib.metadata.entry_points(group="jejune.plugins")}
+        installed = {
+            ep.name for ep in importlib.metadata.entry_points(group="jejune.plugins")
+        }
         for repo_name in repo_names:
-            plugin_name = PLUGIN_REGISTRY.plugin_name_for_repo(repo_name)
+            plugin_name = self._plugin_registry.plugin_name_for_repo(repo_name)
             if plugin_name is None or plugin_name not in installed:
                 return False
         return True
@@ -133,8 +131,7 @@ class plugin_package_catalog:
     def install_packages(self, role: str | None = None, no_cache: bool = False) -> None:
         """Install all expected plugin packages for *role*."""
         if role is None:
-
-            r = ROLE_REGISTRY.detect_role()
+            r = self._role_registry.detect_role()
             role = r.name if r else None
         repo_names = self._all_repo_names(role)
         if not repo_names:
@@ -144,21 +141,17 @@ class plugin_package_catalog:
             if repo_name not in discovered:
                 continue
             self._install_package(repo_name, discovered[repo_name])
-        # packages_installed() relies on PLUGIN_REGISTRY.plugin_name_for_repo() to
-        # translate repo names to entry-point names.  That method falls back to
-        # matching the normalised distribution name, which fails when the dist name
-        # differs from the repo name (e.g. repo "jejune_kg-graph_viewer" → dist
-        # "jejune-kg-viewer").  Populate the registry now from the pyproject.toml
-        # data already in hand so the same-process next-steps evaluation is correct.
         for repo, plugin in discovered.items():
-            PLUGIN_REGISTRY.register_repo_name(plugin, repo)
+            self._plugin_registry.register_repo_name(plugin, repo)
 
     def _install_package(self, repo_name: str, plugin_name: str) -> None:
-        eco = ComponentRegistry().get("ecosystem")
+        eco = self._component_registry.get("ecosystem")
         root_dir, tmp_dir = eco.resolve_dirs()
         tier, base = eco.repo_status(repo_name, root_dir, tmp_dir)
         if tier == "remote":
-            git_url = ComponentRegistry().get("git-server").remote_pip_url(repo_name)
+            git_url = self._component_registry.get("git-server").remote_pip_url(
+                repo_name
+            )
             cmd = ["uv", "pip", "install", "--python", sys.executable, git_url]
         else:
             cmd = ["uv", "pip", "install", "--python", sys.executable, "-e", base]
@@ -169,6 +162,3 @@ class plugin_package_catalog:
             else click.style("failed", fg="red")
         )
         click.echo(f"  {plugin_name}: {label}")
-
-
-PLUGIN_PACKAGE_CATALOG = plugin_package_catalog()

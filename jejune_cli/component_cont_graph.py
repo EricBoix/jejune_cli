@@ -1,10 +1,10 @@
 """graph containerized component."""
+
 from pathlib import Path
 
 import click
 
 from .component_containerized import cont_comp
-from .component_registry import ComponentRegistry
 from .configuration import configuration
 from .configuration_entry import configuration_entry
 
@@ -12,29 +12,59 @@ from .configuration_entry import configuration_entry
 class comp_graph(cont_comp):
     CHUNKS_JSON = "/data/_chunks.json"
     SPLITTERS = {
-        "headers":    "split_by_headers.py",
+        "headers": "split_by_headers.py",
         "paragraphs": "split_by_paragraphs.py",
-        "sentences":  "split_by_sentences.py",
+        "sentences": "split_by_sentences.py",
     }
 
-    def __init__(self) -> None:
-        self._git_server = ComponentRegistry().get("git-server")
-        self._neo4j      = ComponentRegistry().get("neo4j")
-        self._llm        = ComponentRegistry().get("llm")
+    def __init__(self, git_server, neo4j, llm, llm_observability) -> None:
+        self._neo4j = neo4j
+        self._llm = llm
         super().__init__(
             name="graph",
             image_name="jejune:extract_knowledge_graph",
-            build_context=self._git_server.remote_git_url("jejune_extract_knowledge_graph", ":DockerContext"),
-            dependencies=[self._git_server, self._neo4j, self._llm],
-            optional_dependencies=[ComponentRegistry().get("llm-observability")],
+            build_context=git_server.remote_git_url(
+                "jejune_extract_knowledge_graph", ":DockerContext"
+            ),
+            dependencies=[git_server, neo4j, llm],
+            optional_dependencies=[llm_observability],
             configuration=configuration(
-                configuration_entry("NEO4J_URI",           hint="edit .jejune/env-config",   source_file=".jejune/env-config"),
-                configuration_entry("NEO4J_USERNAME",      hint="edit .jejune/env-config",   source_file=".jejune/env-config"),
-                configuration_entry("NEO4J_PASSWORD",      hint="edit .jejune/env-secrets",  source_file=".jejune/env-secrets"),
-                configuration_entry("LLM_MODEL_URL",       hint="edit .jejune/env-secrets",  source_file=".jejune/env-secrets"),
-                configuration_entry("LLM_API_KEY",         hint="edit .jejune/env-secrets",  source_file=".jejune/env-secrets"),
-                configuration_entry("LLM_MODEL_NAME",      hint="edit .jejune/env-secrets",  source_file=".jejune/env-secrets"),
-                configuration_entry("TRACELOOP_BASE_URL",  hint="edit .jejune/env-config",   source_file=".jejune/env-config",  max_severity="warn"),
+                configuration_entry(
+                    "NEO4J_URI",
+                    hint="edit .jejune/env-config",
+                    source_file=".jejune/env-config",
+                ),
+                configuration_entry(
+                    "NEO4J_USERNAME",
+                    hint="edit .jejune/env-config",
+                    source_file=".jejune/env-config",
+                ),
+                configuration_entry(
+                    "NEO4J_PASSWORD",
+                    hint="edit .jejune/env-secrets",
+                    source_file=".jejune/env-secrets",
+                ),
+                configuration_entry(
+                    "LLM_MODEL_URL",
+                    hint="edit .jejune/env-secrets",
+                    source_file=".jejune/env-secrets",
+                ),
+                configuration_entry(
+                    "LLM_API_KEY",
+                    hint="edit .jejune/env-secrets",
+                    source_file=".jejune/env-secrets",
+                ),
+                configuration_entry(
+                    "LLM_MODEL_NAME",
+                    hint="edit .jejune/env-secrets",
+                    source_file=".jejune/env-secrets",
+                ),
+                configuration_entry(
+                    "TRACELOOP_BASE_URL",
+                    hint="edit .jejune/env-config",
+                    source_file=".jejune/env-config",
+                    max_severity="warn",
+                ),
             ),
         )
         self.cli_name = self.name
@@ -62,9 +92,7 @@ class comp_graph(cont_comp):
         return doc_dir.name.removeprefix("jejune_doc_")
 
     @staticmethod
-    def _rewrite_load_json_document_path(
-        doc_dir: Path, extra_args: tuple
-    ) -> tuple:
+    def _rewrite_load_json_document_path(doc_dir: Path, extra_args: tuple) -> tuple:
         """Rewrite the value after --load_json_document to a /data/-prefixed path.
 
         Handles three forms the caller may pass:
@@ -102,10 +130,15 @@ class comp_graph(cont_comp):
         self.build(no_cache)
         output_args = ("--output", output) if output is not None else ()
         click.echo(f"Splitting with {self.SPLITTERS[splitter]} ...")
-        self._docker.run_foreground(
-            f"jejune_split_{repo_name}", self.image_name, f"{doc_dir}:/data",
-            self.SPLITTERS[splitter], "--catalog", "/data/manifest.yaml",
-            *output_args, *extra_args,
+        cont_comp._docker.run_foreground(
+            f"jejune_split_{repo_name}",
+            self.image_name,
+            f"{doc_dir}:/data",
+            self.SPLITTERS[splitter],
+            "--catalog",
+            "/data/manifest.yaml",
+            *output_args,
+            *extra_args,
         )
 
     def run_extract(
@@ -127,8 +160,12 @@ class comp_graph(cont_comp):
                 doc_dir, extra_args
             )
         click.echo("Running extraction ...")
-        self._docker.run_foreground(
-            f"jejune_extract_knowledge_graph_{repo_name}", self.image_name, volume,
-            "extract_kg_graph.py", *load_args, *extra_args_rewritten,
+        cont_comp._docker.run_foreground(
+            f"jejune_extract_knowledge_graph_{repo_name}",
+            self.image_name,
+            volume,
+            "extract_kg_graph.py",
+            *load_args,
+            *extra_args_rewritten,
             env_args=self.docker_env_args(),
         )

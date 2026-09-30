@@ -3,21 +3,23 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import ClassVar
 
 from .component_base import base_comp
 
-class _LazyComp:
-    """Proxy for a plugin-contributed component not yet loaded.
 
-    Returned by ``ComponentRegistry.get()`` when the name is declared as a
-    ``plugin_dep`` by some component but the plugin has not been loaded yet.
-    Resolves transparently on first attribute access once the plugin is loaded.
+class _UnresolvedPlugin:
+    """Sentinel for a plugin component that is expected but not yet registered.
+
+    Returned by ``ComponentRegistry.get()`` when the name is in
+    ``_expected_plugin_names`` but no real component instance has been added.
+    Used as an isinstance sentinel in ``plugin_registry`` to distinguish
+    "known but absent" from a real component.
     """
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, registry: "ComponentRegistry") -> None:
         object.__setattr__(self, "_name", name)
         object.__setattr__(self, "_resolved", None)
+        object.__setattr__(self, "_registry", registry)
 
     @property
     def name(self) -> str:
@@ -27,8 +29,9 @@ class _LazyComp:
         cached = object.__getattribute__(self, "_resolved")
         if cached is not None:
             return cached
-        inst = ComponentRegistry().get(object.__getattribute__(self, "_name"))
-        if inst is not None and not isinstance(inst, _LazyComp):
+        registry = object.__getattribute__(self, "_registry")
+        inst = registry.get(object.__getattribute__(self, "_name"))
+        if inst is not None and not isinstance(inst, _UnresolvedPlugin):
             object.__setattr__(self, "_resolved", inst)
             return inst
         return None
@@ -43,31 +46,19 @@ class _LazyComp:
 
 
 class ComponentRegistry:
-    _instance: ClassVar[ComponentRegistry | None] = None
-    _expected_plugin_names: ClassVar[set[str]] = set()
-    """Plugin names that will be contributed by installed plugin packages.
-
-    Populated once by ``PluginRegistry.load_all()`` (Phase 0) from the
-    ``"jejune.plugins"`` entry-points of already-installed packages.
-    ``get()`` consults this set to return a ``_LazyComp`` proxy for a name
-    that is not yet registered but is known to be on its way.
-    """
+    def __init__(self) -> None:
+        self._comps: list[base_comp] = []
+        self._expected_plugin_names: set[str] = set()
 
     def register_expected_plugin_names(self, names: set[str]) -> None:
         """Add *names* to the set of plugin component names expected to be loaded.
 
         Must be called before any code invokes ``get()`` with a plugin name,
-        so that ``get()`` can return a ``_LazyComp`` proxy rather than ``None``
+        so that ``get()`` can return a ``_UnresolvedPlugin`` proxy rather than ``None``
         for components that are known but not yet registered.  Calling this
         method multiple times is safe — it accumulates names.
         """
-        ComponentRegistry._expected_plugin_names.update(names)
-
-    def __new__(cls) -> ComponentRegistry:
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._comps = []
-        return cls._instance
+        self._expected_plugin_names.update(names)
 
     def add(self, comp: base_comp) -> None:
         self._comps.append(comp)
@@ -96,12 +87,12 @@ class ComponentRegistry:
             visit(name)
         self._comps = result
 
-    def get(self, name: str) -> "base_comp | _LazyComp | None":
+    def get(self, name: str) -> "base_comp | _UnresolvedPlugin | None":
         for c in self._comps:
             if c.name == name:
                 return c
-        if name in ComponentRegistry._expected_plugin_names:
-            return _LazyComp(name)
+        if name in self._expected_plugin_names:
+            return _UnresolvedPlugin(name, self)
         return None
 
     def names(self) -> list[str]:
@@ -149,9 +140,8 @@ class ComponentRegistry:
         """Assert every dep instance referenced by a component is registered."""
         for inst in self._comps:
             for dep in inst.all_deps():
-                if isinstance(dep, _LazyComp):
+                if isinstance(dep, _UnresolvedPlugin):
                     continue
                 assert (
                     self.get(dep.name) is dep
                 ), f"{inst.name}.dependencies contains unregistered instance {dep.name!r}"
-

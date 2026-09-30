@@ -1,7 +1,7 @@
 """Role command group for the jejune CLI."""
 import click
 
-from .role_registry import ROLE_REGISTRY
+from .app_context import AppContext
 
 
 @click.group(invoke_without_command=True, short_help="Show or list roles")
@@ -13,8 +13,9 @@ def role(ctx):
     """
     if ctx.invoked_subcommand is not None:
         return
-    active_role = ROLE_REGISTRY.detect_role()
-    role_components = ROLE_REGISTRY.role_components(active_role)
+    app = ctx.find_object(AppContext)
+    active_role = app.role_registry.detect_role()
+    role_components = app.role_registry.role_components(active_role)
     if active_role:
         click.echo(f"role:   {click.style(active_role.name, fg='cyan')}")
     else:
@@ -26,16 +27,18 @@ def role(ctx):
 
 
 @role.command("list")
-def role_list():
+@click.pass_context
+def role_list(ctx):
     """List all known roles with their detection mode."""
-    active = ROLE_REGISTRY.detect_role()
-    abstract = ROLE_REGISTRY.abstract_roles
+    app = ctx.find_object(AppContext)
+    active = app.role_registry.detect_role()
+    abstract = app.role_registry.abstract_roles
     rows: list[tuple[bool, str, str, str]] = []
-    for r in ROLE_REGISTRY.roles:
-        role_obj = ROLE_REGISTRY._roles[r]
-        display = f"{r} (abstract)" if r in abstract else r
+    for role_name in app.role_registry.roles:
+        role_obj = app.role_registry._roles[role_name]
+        display = f"{role_name} (abstract)" if role_name in abstract else role_name
         detection = "auto-detected" if role_obj.detector is not None else "inherited only"
-        rows.append((role_obj is active, display, ROLE_REGISTRY.description(r), detection))
+        rows.append((role_obj is active, display, app.role_registry.description(role_name), detection))
 
     w_name = max(len(row[1]) for row in rows)
     w_desc = max(len(row[2]) for row in rows)
@@ -48,7 +51,9 @@ def role_list():
 
 
 @role.command("hierarchy")
-def role_hierarchy():
+@click.pass_context
+def role_hierarchy(ctx):
     """Display the role inheritance hierarchy as a UML inheritance diagram."""
-    for line in ROLE_REGISTRY.build_hierarchy_lines():
+    app = ctx.find_object(AppContext)
+    for line in app.role_registry.build_hierarchy_lines():
         click.echo(line)

@@ -1,4 +1,4 @@
-"""HeuristicStepRegistry singleton."""
+"""HeuristicStepRegistry."""
 from __future__ import annotations
 
 import os
@@ -6,11 +6,12 @@ from pathlib import Path
 import click
 
 from .heuristic_step import HeuristicCondition, HeuristicStep
-from .role_registry import ROLE_REGISTRY
+from .role_registry import RoleRegistry
 
 
 class HeuristicStepRegistry:
-    def __init__(self) -> None:
+    def __init__(self, role_registry: RoleRegistry) -> None:
+        self._role_registry = role_registry
         self._steps: list[HeuristicStep] = []
         self._roles_with_heuristics: set[str | None] = set()
         self._command_preconditions: dict[str, HeuristicCondition] = {}
@@ -113,11 +114,11 @@ class HeuristicStepRegistry:
             )
 
         if cwd is None:
-            return _sorted(ROLE_REGISTRY.detect_role_name())
+            return _sorted(self._role_registry.detect_role_name())
         old = os.getcwd()
         try:
             os.chdir(cwd)
-            return _sorted(ROLE_REGISTRY.detect_role_name())
+            return _sorted(self._role_registry.detect_role_name())
         finally:
             os.chdir(old)
 
@@ -157,7 +158,7 @@ class HeuristicStepRegistry:
     ) -> list[tuple[HeuristicStep, list[tuple[str, bool]], list[tuple[str, bool]]]]:
         """Return per-heuristic condition evaluation for diagnostics."""
 
-        active_role = ROLE_REGISTRY.detect_role_name()
+        active_role = self._role_registry.detect_role_name()
 
         def _run() -> list[tuple[HeuristicStep, list[tuple[str, bool]], list[tuple[str, bool]]]]:
             result = []
@@ -187,6 +188,3 @@ class HeuristicStepRegistry:
             return _run()
         finally:
             os.chdir(old)
-
-
-HEURISTIC_STEP_REGISTRY = HeuristicStepRegistry()

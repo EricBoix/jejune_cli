@@ -6,15 +6,14 @@ from pathlib import Path
 from .component_containerized import cont_comp
 from .configuration import configuration
 from .configuration_entry import configuration_entry
-from .component_registry import ComponentRegistry
 
 
 class comp_convert(cont_comp):
-    def __init__(self) -> None:
+    def __init__(self, pypi_server) -> None:
         super().__init__(
             name="convert",
             image_name="jejune-convert",
-            dependencies=[ComponentRegistry().get("pypi-server")],
+            dependencies=[pypi_server],
             hint="run `jejune convert build`",
             configuration=configuration(
                 configuration_entry("CONVERT_DOC_DIR",
@@ -56,7 +55,6 @@ class comp_convert(cont_comp):
 
     @staticmethod
     def validate_convert_dir(val: str) -> tuple[str, str]:
-        """Validate that val points to a Dockerfile or a directory containing DockerContext/."""
         path = Path(val)
         if path.is_file():
             if not path.exists():
@@ -81,12 +79,7 @@ class comp_convert(cont_comp):
         return f"jejune:convert_{base.name.removeprefix('jejune_doc_')}"
 
     def is_built(self) -> bool:
-        # Override required: self.image_name ("jejune-convert") is a fixed
-        # placeholder; the real image name is derived at runtime from
-        # CONVERT_DOC_DIR, so we cannot rely on the base-class check.
-        return comp_convert._docker.image_exists(comp_convert._image_tag())
+        return cont_comp._docker.image_exists(comp_convert._image_tag())
 
     def image_built(self) -> tuple[bool, str]:
-        """Return (is_built, message) for the convert Docker image."""
         return (True, "ok") if self.is_built() else (False, "not built")
-

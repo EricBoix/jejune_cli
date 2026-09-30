@@ -4,45 +4,37 @@ from pathlib import Path
 
 import click
 
+from .app_context import AppContext
 from .doctor_health_check import run_all, run_avail
 from .click_helpers import print_two_col_table
-from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
-from .role_registry import ROLE_REGISTRY
 from .click_theme import ClickTheme
 from .component_base import base_comp
 from .component_containerized import cont_comp
 from .component_ext import ext_comp
 from .component_ext_server import ext_server
-from .plugin_registry import PLUGIN_REGISTRY
+from .plugin_registry import PluginRegistry
+from .role_registry import RoleRegistry
 from .dot_jejune import dot_jejune
 from .doctor_column import Column
-
-# ---------------------------------------------------------------------------
-# Doctor command precondition
-# ---------------------------------------------------------------------------
-
-
-def _doctor_viable() -> bool:
-    active_role = ROLE_REGISTRY.detect_role_name()
-    is_doc_steward_family = active_role is None or ROLE_REGISTRY.role_inherits(active_role, "doc-steward")
-    return not (is_doc_steward_family and not dot_jejune().is_dir())
-
-
-HEURISTIC_STEP_REGISTRY.register_command_precondition("jejune doctor", _doctor_viable)
 
 # ---------------------------------------------------------------------------
 # Shared availability helper
 # ---------------------------------------------------------------------------
 
 
-def _resolve_avail_hint(inst: base_comp, fallback: str = "") -> str:
+def _resolve_avail_hint(
+    inst: base_comp,
+    role_registry: RoleRegistry,
+    plugin_registry: PluginRegistry,
+    fallback: str = "",
+) -> str:
     if inst.name == "catalog":
         return "run `jejune catalog check`"
-    deployer = ROLE_REGISTRY.get("deployer")
+    deployer = role_registry.get("deployer")
     is_deployer_plugin = (
         deployer is not None
         and inst.name in deployer.component_names
-        and any(p.name == inst.name for p in PLUGIN_REGISTRY.plugins)
+        and any(p.name == inst.name for p in plugin_registry.plugins)
     )
     if is_deployer_plugin:
         if isinstance(inst, cont_comp) and not inst.is_built():
@@ -130,6 +122,8 @@ def _action_column(
     active_components: list[base_comp],
     failing_deps: dict[str, list[str]],
     port_conflict_per_comp: dict[str, str],
+    role_registry: RoleRegistry,
+    plugin_registry: PluginRegistry,
 ) -> Column:
     by_config = {comp: (status, msg) for comp, status, msg in config_results}
     by_avail = {comp: (status, msg) for comp, status, msg in avail_results}
@@ -143,7 +137,7 @@ def _action_column(
         if has_failing_deps:
             a_hint = "Fix " + ", ".join(failing_deps[comp]) + " availability"
         else:
-            a_hint = _resolve_avail_hint(inst) if a_status != "ok" else ""
+            a_hint = _resolve_avail_hint(inst, role_registry, plugin_registry) if a_status != "ok" else ""
         if c_status != "ok" and hasattr(inst, "configuration"):
             c_hint = ", ".join(inst.configuration.effective_hints(port_conflict_per_comp)) or ""
         else:
@@ -211,6 +205,8 @@ def _avail_hint_column(
     avail_results: list[tuple[str, str, str]],
     active_components: list[base_comp],
     failing_deps: dict[str, list[str]],
+    role_registry: RoleRegistry,
+    plugin_registry: PluginRegistry,
 ) -> Column:
     """hint-availability: non_empty_items() → (comp, hint)."""
     by_avail = {comp: (status, msg) for comp, status, msg in avail_results}
@@ -223,7 +219,7 @@ def _avail_hint_column(
         if failing_deps.get(comp):
             hint = "Fix " + ", ".join(failing_deps[comp]) + " availability"
         elif status != "ok":
-            hint = _resolve_avail_hint(inst)
+            hint = _resolve_avail_hint(inst, role_registry, plugin_registry)
         else:
             hint = ""
         cells[comp] = (hint, hint)
@@ -311,7 +307,8 @@ def _visible_component_names(
     default=False,
     help="Show all components, including those that are available.",
 )
-def doctor(verbose: bool):
+@click.pass_context
+def doctor(ctx, verbose: bool):
     """Report component configuration and availability. Inspired by `brew doctor`.
 
     Two-stage check:\n
@@ -323,11 +320,12 @@ def doctor(verbose: bool):
     Non configurable external components are hidden when available;
     use --verbose to show all.
     """
-    active_role_obj = ROLE_REGISTRY.detect_role()
-    active_role = ROLE_REGISTRY.detect_role_name()
+    app = ctx.find_object(AppContext)
+    active_role_obj = app.role_registry.detect_role()
+    active_role = app.role_registry.detect_role_name()
 
     d = dot_jejune()
-    if (not active_role_obj or ROLE_REGISTRY.role_inherits(active_role_obj, "doc-steward")) and not d.is_dir():
+    if (not active_role_obj or app.role_registry.role_inherits(active_role_obj, "doc-steward")) and not d.is_dir():
         click.echo(
             click.style(
                 "Current working directory is not a jejune workspace.",
@@ -336,7 +334,9 @@ def doctor(verbose: bool):
         )
         return
 
-    config_results, avail_results, active_components = run_all()
+    config_results, avail_results, active_components = run_all(
+        app.component_registry, app.role_registry, app.plugin_registry
+    )
     port_conflict_hints    = _resolve_port_conflict_hints(active_components)
     failing_deps           = _failing_dep_names_per_component(avail_results, active_components)
     port_conflict_per_comp = _compute_port_conflict_per_comp(
@@ -357,8 +357,11 @@ def doctor(verbose: bool):
     config_column = _config_column(config_results, active_components, port_conflict_hints)
     img_column    = _img_column(active_components, img_status, external_image_names)
     avail_column  = _avail_column(avail_results, failing_deps)
-    action_column = _action_column(config_results, avail_results, active_components,
-                                   failing_deps, port_conflict_per_comp)
+    action_column = _action_column(
+        config_results, avail_results, active_components,
+        failing_deps, port_conflict_per_comp,
+        app.role_registry, app.plugin_registry,
+    )
     columns: list[Column] = [
         config_column,
         img_column,
@@ -366,7 +369,7 @@ def doctor(verbose: bool):
         action_column,
     ]
     _print_health_table(component_names, columns)
-    if active_role is None or ROLE_REGISTRY.role_inherits(active_role, "doc-steward"):
+    if active_role is None or app.role_registry.role_inherits(active_role, "doc-steward"):
         click.echo()
         click.echo(_CONFIG_NOTE)
 
@@ -377,9 +380,13 @@ def doctor(verbose: bool):
 
 
 @click.command("check-availability")
-def config_check_availability():
+@click.pass_context
+def config_check_availability(ctx):
     """Per-component availability diagnostic."""
-    avail_results, active_components = run_avail()
+    app = ctx.find_object(AppContext)
+    avail_results, active_components = run_avail(
+        app.component_registry, app.role_registry, app.plugin_registry
+    )
     failing_deps = _failing_dep_names_per_component(avail_results, active_components)
     col = _avail_check_column(avail_results, active_components, failing_deps)
     if not col.items():
@@ -391,9 +398,13 @@ def config_check_availability():
 
 
 @click.command("status-availability")
-def config_status_availability():
+@click.pass_context
+def config_status_availability(ctx):
     """Per-component availability status."""
-    avail_results, active_components = run_avail()
+    app = ctx.find_object(AppContext)
+    avail_results, active_components = run_avail(
+        app.component_registry, app.role_registry, app.plugin_registry
+    )
     failing_deps = _failing_dep_names_per_component(avail_results, active_components)
     col = _avail_status_column(avail_results, active_components, failing_deps)
     if not col.items():
@@ -405,11 +416,15 @@ def config_status_availability():
 
 
 @click.command("hint-availability")
-def config_hint_availability():
+@click.pass_context
+def config_hint_availability(ctx):
     """Availability hints for non-ok components."""
-    avail_results, active_components = run_avail()
+    app = ctx.find_object(AppContext)
+    avail_results, active_components = run_avail(
+        app.component_registry, app.role_registry, app.plugin_registry
+    )
     failing_deps = _failing_dep_names_per_component(avail_results, active_components)
-    col = _avail_hint_column(avail_results, active_components, failing_deps)
+    col = _avail_hint_column(avail_results, active_components, failing_deps, app.role_registry, app.plugin_registry)
     rows = col.non_empty_items()
     if not rows:
         click.echo(click.style("All components available.", fg="green"))

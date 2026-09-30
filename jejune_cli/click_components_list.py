@@ -2,18 +2,19 @@
 
 import click
 
+from .app_context import AppContext
 from .component_base import base_comp
 from .component_ext import ext_comp
-from .component_registry import ComponentRegistry
 from .click_theme import ClickTheme
-from .role_registry import ROLE_REGISTRY
 
 
 @click.command("list")
-def components_list() -> None:
+@click.pass_context
+def components_list(ctx) -> None:
     """List all registered components and their availability status."""
-    current_role_active_components: list[base_comp] = ComponentRegistry().sorted_active_set(
-        ROLE_REGISTRY.current_role_components()
+    app = ctx.find_object(AppContext)
+    current_role_active_components: list[base_comp] = app.component_registry.sorted_active_set(
+        app.role_registry.current_role_components()
     )
     rows: list[tuple[str, str, str]] = []
     for comp in current_role_active_components:

@@ -4,24 +4,19 @@ import subprocess
 from pathlib import Path
 
 from .component_containerized import cont_comp
-from .component_registry import ComponentRegistry
 from .configuration import configuration
 from .configuration_entry import configuration_entry
 
 
 class comp_neo4j_to_rdf_ttl(cont_comp):
-    def __init__(self) -> None:
-        git_server = ComponentRegistry().get("git-server")
+    def __init__(self, git_server, docker_hub) -> None:
         super().__init__(
             name="neo4j-to-rdf-ttl",
             image_name="jejune:neo4j_to_rdf_ttl",
             build_context=git_server.remote_git_url(
                 "jejune_neo4j_to_rdf_ttl", ":DockerContext"
             ),
-            dependencies=[
-                git_server,
-                ComponentRegistry().get("docker-hub-server"),
-            ],
+            dependencies=[git_server, docker_hub],
             configuration=configuration(
                 configuration_entry(
                     "NEO4J_URI",

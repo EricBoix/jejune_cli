@@ -5,9 +5,8 @@ from pathlib import Path
 
 import click
 
+from .app_context import AppContext
 from .dot_jejune import dot_jejune
-from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
-from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
 
 _TEMPLATES = Path(__file__).parent / "templates" / "doc-steward"
 _ECOSYSTEM_TEMPLATE = Path(__file__).parent / "templates" / "ecosystem" / "env-config"
@@ -23,7 +22,8 @@ class _DocStewardInit(click.Command):
 
 @click.command("init", cls=_DocStewardInit)
 @click.argument("dir_name", required=False, metavar="DIR_NAME")
-def init(dir_name: str | None) -> None:
+@click.pass_context
+def init(ctx, dir_name: str | None) -> None:
     """Write jejune scaffold files into .jejune/ in DIR_NAME.
 
     DIR_NAME defaults to the current directory when omitted.
@@ -71,14 +71,16 @@ def init(dir_name: str | None) -> None:
             fh.write(entry)
         click.echo(click.style("  updated  .gitignore (.jejune)", fg="green"))
 
-    if not PLUGIN_PACKAGE_CATALOG.packages_installed(role="doc-steward"):
+    app = ctx.find_object(AppContext)
+    plugin_packages_comp = app.component_registry.get("plugin-packages")
+    if not plugin_packages_comp.packages_installed(role="doc-steward"):
         click.echo("\nInstalling catalog-contributor extension...")
-        PLUGIN_PACKAGE_CATALOG.install_packages(role="doc-steward")
+        plugin_packages_comp.install_packages(role="doc-steward")
 
     cd_hint = None
     if dir_name and dir_name not in (".", str(Path.cwd())) and target.resolve() != Path.cwd().resolve():
         cd_hint = [f"First: cd {dir_name}"]
-    HEURISTIC_STEP_REGISTRY.print_next_steps(preamble=cd_hint)
+    app.heuristic_step_registry.print_next_steps(preamble=cd_hint)
 
 
 @click.group("doc-steward", short_help="Doc-steward role workspace")

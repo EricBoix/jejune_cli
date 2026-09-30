@@ -2,59 +2,66 @@ import subprocess
 
 import click
 
-from .component_registry import ComponentRegistry
+from .app_context import AppContext
 from .click_configuration import (
     print_config_check,
     print_config_hint,
     print_config_status,
 )
 
-llm_obs_comp = ComponentRegistry().get("llm-observability")
-
 
 @click.group("llm-observability", short_help="Manage the LLM observability backend")
-def llm_observability():
+@click.pass_context
+def llm_observability(ctx):
     """Manage the LLM observability backend (OTLP trace receiver)."""
+    ctx.obj = ctx.find_object(AppContext).component_registry.get("llm-observability")
 
 
 @llm_observability.command("check-config")
-def check_config():
+@click.pass_obj
+def check_config(comp):
     """Show per-variable configuration detail for the llm-observability component."""
-    print_config_check(llm_obs_comp.configuration)
+    print_config_check(comp.configuration)
 
 
 @llm_observability.command("status-config")
-def status_config():
+@click.pass_obj
+def status_config(comp):
     """Show llm-observability configuration status."""
-    print_config_status(llm_obs_comp.configuration)
+    print_config_status(comp.configuration)
 
 
 @llm_observability.command("hint-config")
-def hint_config():
+@click.pass_obj
+def hint_config(comp):
     """Show the configuration hint for the llm-observability component."""
-    print_config_hint(llm_obs_comp.configuration)
+    print_config_hint(comp.configuration)
 
 
 @llm_observability.command("start")
 @click.option(
     "--otlp-port",
-    default=llm_obs_comp.otlp_port,
-    show_default=True,
+    default=None,
     help="OTLP HTTP receiver port (must match TRACELOOP_BASE_URL).",
 )
-@click.option("--ui-port", default=llm_obs_comp.ui_port, show_default=True, help="Jaeger UI port.")
-def start(otlp_port, ui_port):
+@click.option("--ui-port", default=None, help="Jaeger UI port.")
+@click.pass_obj
+def start(comp, otlp_port, ui_port):
     """Start the LLM observability Docker container (Jaeger all-in-one).
 
     Receives OTLP traces from `graph extract` via TRACELOOP_BASE_URL.
     """
-    click.echo(f"Starting {llm_obs_comp.container_name} ...")
+    if otlp_port is None:
+        otlp_port = comp.otlp_port
+    if ui_port is None:
+        ui_port = comp.ui_port
+    click.echo(f"Starting {comp.container_name} ...")
     result = subprocess.run([
         "docker", "run", "--rm", "--detach",
-        "--name", llm_obs_comp.container_name,
-        "--publish", f"{otlp_port}:{llm_obs_comp.otlp_port}",
-        "--publish", f"{ui_port}:{llm_obs_comp.ui_port}",
-        llm_obs_comp.image_name,
+        "--name", comp.container_name,
+        "--publish", f"{otlp_port}:{comp.otlp_port}",
+        "--publish", f"{ui_port}:{comp.ui_port}",
+        comp.image_name,
     ])
     if result.returncode != 0:
         raise SystemExit(result.returncode)
@@ -63,20 +70,22 @@ def start(otlp_port, ui_port):
 
 
 @llm_observability.command("stop")
-def stop():
+@click.pass_obj
+def stop(comp):
     """Stop and remove the LLM observability Docker container."""
-    llm_obs_comp.stop()
+    comp.stop()
 
 
 @llm_observability.command("check-availability")
-def check_availability():
+@click.pass_obj
+def check_availability(comp):
     """Show detailed llm-observability availability (container state and endpoint reachability)."""
-    ok, msg = llm_obs_comp.available()
+    ok, msg = comp.available()
     if msg == "not configured":
-        hints = ", ".join(llm_obs_comp.configuration.hints())
+        hints = ", ".join(comp.configuration.hints())
         click.echo(f"  {click.style('not configured', fg='yellow')}  {hints}")
         return
-    reachable, url = llm_obs_comp.check_endpoint_reachable()
+    reachable, url = comp.check_endpoint_reachable()
     click.echo(
         f"  container   {click.style('running', fg='green') if ok else click.style('not running', fg='yellow')}"
     )
@@ -87,9 +96,10 @@ def check_availability():
 
 
 @llm_observability.command("status-availability")
-def status_availability():
+@click.pass_obj
+def status_availability(comp):
     """Show llm-observability availability status."""
-    ok, msg = llm_obs_comp.available()
+    ok, msg = comp.available()
     if ok:
         click.echo(f"llm-observability: {click.style('ok', fg='green')}")
     elif msg == "not configured":
@@ -99,12 +109,13 @@ def status_availability():
 
 
 @llm_observability.command("hint-availability")
-def hint_availability():
+@click.pass_obj
+def hint_availability(comp):
     """Show how to start llm-observability if it is not running."""
-    ok, msg = llm_obs_comp.available()
+    ok, msg = comp.available()
     if ok:
         click.echo(click.style("llm-observability is running", fg="green"))
     elif msg == "not configured":
-        click.echo(", ".join(llm_obs_comp.configuration.hints()))
+        click.echo(", ".join(comp.configuration.hints()))
     else:
         click.echo("run `jejune llm-observability start`")

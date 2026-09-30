@@ -3,8 +3,7 @@ import importlib.metadata
 
 import click
 
-from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
-from .role_registry import ROLE_REGISTRY
+from .app_context import AppContext
 
 
 @click.group("plugin-packages", invoke_without_command=True,
@@ -17,10 +16,13 @@ def plugin_packages_group(ctx: click.Context) -> None:
 
 
 @plugin_packages_group.command("status")
-def plugin_packages_status() -> None:
+@click.pass_context
+def plugin_packages_status(ctx) -> None:
     """Show which plugin packages are installed for the current role."""
-    role = ROLE_REGISTRY.detect_role()
-    names = PLUGIN_PACKAGE_CATALOG.expected_plugin_names(role.name if role else None)
+    app = ctx.find_object(AppContext)
+    plugin_packages_comp = app.component_registry.get("plugin-packages")
+    role = app.role_registry.detect_role()
+    names = plugin_packages_comp.expected_plugin_names(role.name if role else None)
     if not names:
         click.echo("No plugin packages defined for the current role.")
         return
@@ -34,14 +36,17 @@ def plugin_packages_status() -> None:
 @plugin_packages_group.command("install")
 @click.option("--no-cache", is_flag=True, default=False,
               help="Force fresh discovery of plugin repositories (ignore cached pyproject.toml reads).")
-def plugin_packages_install(no_cache: bool) -> None:
+@click.pass_context
+def plugin_packages_install(ctx, no_cache: bool) -> None:
     """Install plugin packages for the current role (local clone or git remote)."""
-    role = ROLE_REGISTRY.detect_role()
+    app = ctx.find_object(AppContext)
+    plugin_packages_comp = app.component_registry.get("plugin-packages")
+    role = app.role_registry.detect_role()
     role_name = role.name if role else None
-    if not PLUGIN_PACKAGE_CATALOG.expected_plugin_names(role_name):
+    if not plugin_packages_comp.expected_plugin_names(role_name):
         click.echo(click.style("No plugin packages defined for the current role.", fg="yellow"))
         return
-    if not no_cache and PLUGIN_PACKAGE_CATALOG.packages_installed(role_name):
+    if not no_cache and plugin_packages_comp.packages_installed(role_name):
         click.echo("All plugin packages already installed.")
         return
-    PLUGIN_PACKAGE_CATALOG.install_packages(role_name, no_cache=no_cache)
+    plugin_packages_comp.install_packages(role_name, no_cache=no_cache)

@@ -2,17 +2,29 @@ from pathlib import Path
 
 import click
 
+from .app_context import AppContext
 from .click_version import version_option
-from .component_registry import ComponentRegistry
-from .heuristic_step_wiring import HEURISTIC_STEP_REGISTRY
-from .plugin_registry import PLUGIN_REGISTRY
-from .role_registry import ROLE_REGISTRY
+from .plugin_cli_wiring import load_plugins
 
 
 class _RootClickGroup(click.Group):
+    """Root CLI group — real application entry point.
+
+    make_context() is the first Click hook called on every invocation (including
+    --help).  It bootstraps AppContext, which constructs all registries and wires
+    all components, before any command callback or help formatter runs.
+    """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.aliases: list = []
+
+    def make_context(self, info_name, args, parent=None, **extra):
+        ctx = super().make_context(info_name, args, parent=parent, **extra)
+        if ctx.obj is None:
+            ctx.obj = AppContext(cli=self)
+            load_plugins(ctx.obj)
+        return ctx
 
     def invoke(self, ctx: click.Context) -> object:
         cmd_name = ctx._protected_args[0] if ctx._protected_args else None
@@ -20,17 +32,18 @@ class _RootClickGroup(click.Group):
             result = super().invoke(ctx)
         except SystemExit as exc:
             if exc.code == 0 and cmd_name != "next":
-                HEURISTIC_STEP_REGISTRY.print_next_steps()
+                ctx.obj.heuristic_step_registry.print_next_steps()
             raise
         if cmd_name != "next":
-            HEURISTIC_STEP_REGISTRY.print_next_steps()
+            ctx.obj.heuristic_step_registry.print_next_steps()
         return result
 
     def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        active_role = ROLE_REGISTRY.detect_role_name()
+        app = ctx.obj
+        active_role = app.role_registry.detect_role_name() if app else None
         prefix = (
             f"Usage [{active_role}]: "
-            if active_role in ROLE_REGISTRY.roles
+            if active_role and app and active_role in app.role_registry.roles
             else "Usage: "
         )
         formatter.write_usage(
@@ -40,15 +53,18 @@ class _RootClickGroup(click.Group):
     def format_commands(
         self, ctx: click.Context, formatter: click.HelpFormatter
     ) -> None:
-        active_role = ROLE_REGISTRY.detect_role_name()
+        app = ctx.obj
+        if app is None:
+            return
+        active_role = app.role_registry.detect_role_name()
 
-        ComponentRegistry().load_all_configurations(Path.cwd())
+        app.component_registry.load_all_configurations(Path.cwd())
 
         _hidden_unless_configured = {
-            "convert": lambda: ComponentRegistry().get("convert").configuration.check()[0]
+            "convert": lambda: app.component_registry.get("convert").configuration.check()[0]
             == "ok"
             or Path.cwd().joinpath("full-catalog.yaml").exists(),
-            "next": lambda: HEURISTIC_STEP_REGISTRY.has_heuristics_for_role(
+            "next": lambda: app.heuristic_step_registry.has_heuristics_for_role(
                 active_role
             ),
         }
@@ -68,17 +84,17 @@ class _RootClickGroup(click.Group):
         def _plugin_rows(role_name: str) -> list[tuple[str, str]]:
             return [
                 (f"jejune {p.name}", p.group.get_short_help_str(limit=formatter.width))
-                for p in PLUGIN_REGISTRY.plugins
+                for p in app.plugin_registry.plugins
                 if p.target_role == role_name
             ]
 
-        for role_obj in ROLE_REGISTRY.display_roles:
+        for role_obj in app.role_registry.display_roles:
             if (
-                active_role in ROLE_REGISTRY.roles
-                and not ROLE_REGISTRY.role_inherits(active_role, role_obj.name)
+                active_role in app.role_registry.roles
+                and not app.role_registry.role_inherits(active_role, role_obj.name)
             ):
                 continue
-            rows = _rows(ROLE_REGISTRY.role_cli_commands(role_obj))
+            rows = _rows(app.role_registry.role_cli_commands(role_obj))
             rows += _plugin_rows(role_obj.name)
             rows += [
                 (f"jejune {name}", f"alias for: jejune {canonical}")
@@ -86,7 +102,7 @@ class _RootClickGroup(click.Group):
                 if alias_role == role_obj.name and grp is self
             ]
             if rows:
-                with formatter.section(ROLE_REGISTRY.section_title(role_obj.name)):
+                with formatter.section(app.role_registry.section_title(role_obj.name)):
                     formatter.write_dl(rows)
 
 
@@ -97,4 +113,3 @@ def cli():
 
     Run `jejune configuration <role> init` to set up a new workspace.
     """
-    ComponentRegistry().load_all_configurations(Path.cwd())

@@ -4,8 +4,7 @@ from pathlib import Path
 
 import click
 
-from .plugin_package_catalog import PLUGIN_PACKAGE_CATALOG
-from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
+from .app_context import AppContext
 from .click_comp_deployment import ui_configure
 
 class _DeployerInit(click.Command):
@@ -19,22 +18,23 @@ class _DeployerInit(click.Command):
 
 @click.command("init", cls=_DeployerInit)
 @click.argument("dir_name", required=False, metavar="DIR_NAME")
-def init(dir_name: str | None) -> None:
+@click.pass_context
+def init(ctx, dir_name: str | None) -> None:
     """Scaffold a new UI deployment directory inside the current directory.
 
     DIR_NAME defaults to the name of the current directory when omitted.
     """
+    app = ctx.find_object(AppContext)
     effective_name = dir_name or Path.cwd().name
-    click.get_current_context().invoke(
-        ui_configure, deployments_dir=".", name=effective_name
-    )
-    if not PLUGIN_PACKAGE_CATALOG.packages_installed(role="deployer"):
+    ctx.invoke(ui_configure, deployments_dir=".", name=effective_name)
+    plugin_packages_comp = app.component_registry.get("plugin-packages")
+    if not plugin_packages_comp.packages_installed(role="deployer"):
         click.echo("\nInstalling deployer plugin packages...")
-        PLUGIN_PACKAGE_CATALOG.install_packages(role="deployer")
+        plugin_packages_comp.install_packages(role="deployer")
     cd_hint = None
     if dir_name and dir_name not in (".", str(Path.cwd())):
         cd_hint = [f"First: cd {effective_name}"]
-    HEURISTIC_STEP_REGISTRY.print_next_steps(preamble=cd_hint)
+    app.heuristic_step_registry.print_next_steps(preamble=cd_hint)
 
 
 @click.group("deployer", short_help="Deployer role workspace")

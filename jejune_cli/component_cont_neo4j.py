@@ -13,17 +13,15 @@ from pathlib import Path
 from .component_containerized import cont_comp
 from .configuration import configuration
 from .configuration_entry import configuration_entry
-from .component_registry import ComponentRegistry
 
 
 class comp_neo4j(cont_comp):
-    def __init__(self) -> None:
-        git_server = ComponentRegistry().get("git-server")
+    def __init__(self, git_server, docker_hub) -> None:
         super().__init__(
             name="neo4j",
             image_name="jejune:neo4j",
             build_context=git_server.remote_git_url("jejune_neo4j_docker"),
-            dependencies=[git_server, ComponentRegistry().get("docker-hub-server")],
+            dependencies=[git_server, docker_hub],
             hint="run `jejune neo4j start --help`",
             configuration=configuration(
                 configuration_entry("NEO4J_URI",       hint="edit .jejune/env-config",  source_file=".jejune/env-config"),
@@ -60,7 +58,6 @@ class comp_neo4j(cont_comp):
     def resolve_port_credentials(
         self, port: str | None, credentials: str | None
     ) -> tuple[str, str]:
-        """Resolve port and credentials from explicit args or environment variables."""
         if port is None:
             port = os.environ.get("NEO4J_PORT", "7687")
         if credentials is None:
@@ -74,11 +71,9 @@ class comp_neo4j(cont_comp):
         return port, credentials
 
     def wipe_database(self, database_dir: Path) -> None:
-        """Remove the Neo4j database directory entirely."""
         shutil.rmtree(database_dir, ignore_errors=True)
 
     def restore(self, results_dir: Path, dump_filename: str) -> None:
-        """Restore the Neo4j database from results_dir/backups/dump_filename."""
         database_dir = results_dir / "database"
         backups_dir = results_dir / "backups"
         dump_path = backups_dir / dump_filename
@@ -91,7 +86,6 @@ class comp_neo4j(cont_comp):
 
         self.wipe_database(database_dir)
 
-        # neo4j-admin load expects the source file to be named neo4j.dump
         shutil.copy2(dump_path, backups_dir / "neo4j.dump")
 
         result = subprocess.run(
@@ -108,7 +102,6 @@ class comp_neo4j(cont_comp):
             raise SystemExit(result.returncode)
 
     def dump(self, results_dir: Path, dump_filename: str) -> Path:
-        """Dump the database to results_dir/backups/dump_filename; return the dump path."""
         database_dir = results_dir / "database"
         backups_dir = results_dir / "backups"
         backups_dir.mkdir(parents=True, exist_ok=True)
@@ -130,7 +123,6 @@ class comp_neo4j(cont_comp):
         )
         if result.returncode != 0:
             raise SystemExit(result.returncode)
-        # neo4j-admin does not allow choosing the output filename; rename afterwards
         (backups_dir / "neo4j.dump").rename(backups_dir / dump_filename)
         return backups_dir / dump_filename
 
@@ -140,7 +132,6 @@ class comp_neo4j(cont_comp):
         return base64.b64encode(f"{user}:{password}".encode()).decode()
 
     def _neo4j_http_api_url(self) -> str:
-        """Construct the Neo4j HTTP transaction URL from NEO4J_URI and NEO4J_HTTP_PORT."""
         uri = self.configuration.get("NEO4J_URI") or "bolt://localhost:7687"
         http_port = self.configuration.get("NEO4J_HTTP_PORT") or "7474"
         parsed = urllib.parse.urlparse(uri)
@@ -148,7 +139,6 @@ class comp_neo4j(cont_comp):
         return f"http://{host}:{http_port}/db/neo4j/tx/commit"
 
     def db_is_empty(self) -> bool:
-        """Return True when the running Neo4j database has no nodes; True on any error."""
         running, _ = self.is_running()
         if not running:
             return True
@@ -170,7 +160,6 @@ class comp_neo4j(cont_comp):
             return True
 
     def query_llm_model_names(self) -> list[str]:
-        """Return sorted distinct llm_model_name values from non-Document nodes."""
         token = self._neo4j_auth_token()
         payload = json.dumps({"statements": [{
             "statement": (
@@ -195,7 +184,6 @@ class comp_neo4j(cont_comp):
         return [row["row"][0] for row in data["results"][0]["data"]]
 
     def stats(self) -> tuple[int, list[tuple[str, int]], int, list[tuple[str, int]]]:
-        """Fetch node/relationship counts from the running Neo4j HTTP API."""
         token = self._neo4j_auth_token()
         payload = json.dumps(
             {
@@ -239,5 +227,3 @@ class comp_neo4j(cont_comp):
         if running:
             return "ok", ""
         return ("warn" if cfg_status != "ok" else "error"), msg
-
-

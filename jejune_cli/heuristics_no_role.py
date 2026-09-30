@@ -2,28 +2,30 @@
 from __future__ import annotations
 
 from .heuristic_step import HeuristicStep
-from .heuristic_step_registry import HEURISTIC_STEP_REGISTRY
-from .role_registry import ROLE_REGISTRY
+from .heuristic_step_registry import HeuristicStepRegistry
+from .role_registry import RoleRegistry
 
 
-def _is_jejune_workspace_cwd() -> bool:
-    return bool(ROLE_REGISTRY.detect_role())
+def register_heuristics(
+    registry: HeuristicStepRegistry,
+    role_registry: RoleRegistry,
+) -> None:
+    def _is_jejune_workspace_cwd() -> bool:
+        return bool(role_registry.detect_role())
 
-
-def register_heuristics() -> None:
-    HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
+    registry.register(HeuristicStep(
         label="Connect to a jejune workspace directory",
         command="cd <jejune_doc_or_deploy_dir>",
         anti_conditions=[_is_jejune_workspace_cwd],
     ), roles={None})
 
-    HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
+    registry.register(HeuristicStep(
         label="Create document workspace directory",
         command="jejune document init --help",
         anti_conditions=[_is_jejune_workspace_cwd],
     ), roles={None})
 
-    HEURISTIC_STEP_REGISTRY.register(HeuristicStep(
+    registry.register(HeuristicStep(
         label="Create deployment workspace directory",
         command="jejune deployment init --help",
         anti_conditions=[_is_jejune_workspace_cwd],

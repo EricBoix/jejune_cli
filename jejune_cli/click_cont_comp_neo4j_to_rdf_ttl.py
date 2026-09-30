@@ -3,19 +3,21 @@ from pathlib import Path
 
 import click
 
-from .component_registry import ComponentRegistry
-neo4j_to_rdf_ttl_comp = ComponentRegistry().get("neo4j-to-rdf-ttl")
+from .app_context import AppContext
 
 
 @click.command("dump-turtle")
 @click.argument("output_dir", type=click.Path())
 @click.argument("filename")
-def dump_turtle(output_dir, filename):
+@click.pass_context
+def dump_turtle(ctx, output_dir, filename):
     """Export the Neo4j knowledge graph to OUTPUT_DIR/FILENAME (RDF/Turtle).
 
     Requires a running Neo4j instance populated by `jejune graph extract`.
     Neo4j credentials are read from .jejune/env-secrets / environment.
     """
+    app = ctx.find_object(AppContext)
+    neo4j_to_rdf_ttl_comp = app.component_registry.get("neo4j-to-rdf-ttl")
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 

@@ -2,10 +2,8 @@
 
 import click
 
+from .app_context import AppContext
 from .click_theme import ClickTheme
-from .role_registry import ROLE_REGISTRY
-from .component_registry import ComponentRegistry
-from .plugin_registry import PLUGIN_REGISTRY
 
 
 @click.group(invoke_without_command=True, short_help="Ecosystem repository status")
@@ -17,10 +15,12 @@ def ecosystem(ctx: click.Context) -> None:
 
 
 @ecosystem.command("status")
-def ecosystem_status() -> None:
+@click.pass_context
+def ecosystem_status(ctx) -> None:
     """List required repositories and their local/remote resolution status."""
-    eco = ComponentRegistry().get("ecosystem")
-    role = ROLE_REGISTRY.detect_role()
+    app = ctx.find_object(AppContext)
+    eco = app.component_registry.get("ecosystem")
+    role = app.role_registry.detect_role()
     root_dir, tmp_dir = eco.resolve_dirs()
 
     role_label = f"  [{role.name}]" if role else ""
@@ -35,14 +35,14 @@ def ecosystem_status() -> None:
     root_status = click.style("set", fg="green") if root_ok else click.style("not set", fg="yellow")
     click.echo(f"  {'JEJUNE_ROOT_DIR':<{_W}}  {root_val:<50}  {root_status}")
 
-    click.echo(f"  {'REPO_ROOT_DIR':<{_W}}  {ComponentRegistry().get('git-server').repo_root_dir()}")
+    click.echo(f"  {'REPO_ROOT_DIR':<{_W}}  {app.component_registry.get('git-server').repo_root_dir()}")
     click.echo()
 
     # --- Components table ---
-    active = ROLE_REGISTRY.role_components(role)
+    active = app.role_registry.role_components(role)
     repos = [] if active is None else [
         (comp, subpath, env_key)
-        for comp in ComponentRegistry() if comp in active
+        for comp in app.component_registry if comp in active
         for subpath, env_key in getattr(comp, "repos", [])
     ]
     click.echo(click.style("  Components", bold=True))
@@ -54,7 +54,7 @@ def ecosystem_status() -> None:
             # The following makes the assumption that every component that sets
             # self.repos lives in a plugin repo (which might be a latent
             # fragility e.g. for future built-in components)
-            name = PLUGIN_REGISTRY.repo_name_for_plugin(comp.name) or comp.name
+            name = app.plugin_registry.repo_name_for_plugin(comp.name) or comp.name
             tier, _ = eco.repo_status(name, root_dir, tmp_dir)
             if tier == "root":
                 clone_display, remote_display = "[JEJUNE_ROOT_DIR]", ""

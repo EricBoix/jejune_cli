@@ -108,6 +108,3 @@ class ContainerCoordination:
     def json_for_component(self, component: str) -> list[dict]:
         """Return entries for *component* from the JSON registry (not live Docker state)."""
         return [e for e in self._load() if e["component"] == component]
-
-
-CONTAINER_COORDINATION = ContainerCoordination()

@@ -4,54 +4,59 @@ from pathlib import Path
 
 import click
 
+from .app_context import AppContext
 from .click_configuration import (
     print_config_check,
     print_config_hint,
     print_config_status,
 )
 
-from .component_registry import ComponentRegistry
 from .click_cont_comp_neo4j_to_rdf_ttl import dump_turtle
-neo4j_comp = ComponentRegistry().get("neo4j")
 
 
-def _launch_container(data_dir: Path, port: str, credentials: str) -> None:
+def _launch_container(neo4j_comp, data_dir: Path, port: str, credentials: str) -> None:
     click.echo(f"Starting Neo4j on bolt port {port} ...")
     neo4j_comp.launch_container(data_dir, port, credentials)
     click.echo(f"Neo4j ready on bolt port {port}.")
 
 
 @click.group(short_help="Manage the Neo4j instance")
-def neo4j():
+@click.pass_context
+def neo4j(ctx):
     """Manage the Neo4j instance for the current jejune_doc_<name> repository."""
+    ctx.obj = ctx.find_object(AppContext).component_registry.get("neo4j")
 
 
 @neo4j.command("check-config")
-def check_config():
+@click.pass_obj
+def check_config(comp):
     """Show per-variable configuration detail for the neo4j component."""
-    print_config_check(neo4j_comp.configuration)
+    print_config_check(comp.configuration)
 
 
 @neo4j.command("status-config")
-def status_config():
+@click.pass_obj
+def status_config(comp):
     """Show neo4j configuration status."""
-    print_config_status(neo4j_comp.configuration)
+    print_config_status(comp.configuration)
 
 
 @neo4j.command("hint-config")
-def hint_config():
+@click.pass_obj
+def hint_config(comp):
     """Show the configuration hint for the neo4j component."""
-    print_config_hint(neo4j_comp.configuration)
+    print_config_hint(comp.configuration)
 
 
 @neo4j.command("check-availability")
-def check_availability():
+@click.pass_obj
+def check_availability(comp):
     """Show detailed neo4j availability (container state and bolt endpoint)."""
-    cfg_status, _, hint = neo4j_comp.configuration.check()
+    cfg_status, _, hint = comp.configuration.check()
     if cfg_status != "ok":
         click.echo(f"  {click.style('not configured', fg='yellow')}  {hint}")
         return
-    running, _ = neo4j_comp.is_running()
+    running, _ = comp.is_running()
     port = os.environ.get("NEO4J_PORT", "7687")
     click.echo(
         f"  container   {click.style('running', fg='green') if running else click.style('not running', fg='yellow')}"
@@ -60,13 +65,14 @@ def check_availability():
 
 
 @neo4j.command("status-availability")
-def status_availability():
+@click.pass_obj
+def status_availability(comp):
     """Show neo4j availability status."""
-    cfg_status, *_ = neo4j_comp.configuration.check()
+    cfg_status, *_ = comp.configuration.check()
     if cfg_status != "ok":
         click.echo(f"neo4j: {click.style('not configured', fg='yellow')}")
         return
-    running, msg = neo4j_comp.is_running()
+    running, msg = comp.is_running()
     if running:
         click.echo(f"neo4j: {click.style('ok', fg='green')}")
     else:
@@ -74,14 +80,14 @@ def status_availability():
 
 
 @neo4j.command("hint-availability")
-def hint_availability():
+@click.pass_obj
+def hint_availability(comp):
     """Show how to start Neo4j if it is not running."""
-    running, _ = neo4j_comp.is_running()
+    running, _ = comp.is_running()
     if running:
         click.echo(click.style("neo4j is running", fg="green"))
     else:
         click.echo("run `jejune neo4j start`")
-
 
 
 @neo4j.command("stats")
@@ -98,19 +104,20 @@ def hint_availability():
     metavar="NODES/RELATIONSHIPS",
     help="Assert current counts match NODES/RELATIONSHIPS; exit 1 if not.",
 )
-def stats(simple, assert_counts):
+@click.pass_obj
+def stats(comp, simple, assert_counts):
     """Print a node and relationship summary of the running Neo4j database."""
-    running, _ = neo4j_comp.is_running()
+    running, _ = comp.is_running()
     if not running:
         raise click.ClickException(
             "neo4j is not running — start it first with `jejune neo4j start`"
         )
     try:
         total_nodes, nodes_by_label, total_relationships, relationships_by_type = (
-            neo4j_comp.stats()
+            comp.stats()
         )
-    except RuntimeError as e:
-        raise click.ClickException(str(e))
+    except RuntimeError as exc:
+        raise click.ClickException(str(exc))
 
     if assert_counts is not None:
         try:
@@ -166,28 +173,30 @@ def stats(simple, assert_counts):
     metavar="USER/PASSWORD",
     help="Neo4j auth string (default: NEO4J_USERNAME/NEO4J_PASSWORD env vars).",
 )
-def start(data_dir, port, credentials):
+@click.pass_obj
+def start(comp, data_dir, port, credentials):
     """Launch the Neo4j Docker container, storing files in DATA_DIR/database/.
 
     DATA_DIR must be an absolute path.
     Requires NEO4J_USERNAME and NEO4J_PASSWORD (or --credentials USER/PASSWORD).
     """
-    running, _ = neo4j_comp.is_running()
+    running, _ = comp.is_running()
     if running:
         click.echo(click.style("Neo4j is already running — nothing to do.", fg="green"))
         return
     data_dir = Path(data_dir).resolve()
     try:
-        port, credentials = neo4j_comp.resolve_port_credentials(port, credentials)
-    except ValueError as e:
-        raise click.ClickException(str(e))
-    _launch_container(data_dir, port, credentials)
+        port, credentials = comp.resolve_port_credentials(port, credentials)
+    except ValueError as exc:
+        raise click.ClickException(str(exc))
+    _launch_container(comp, data_dir, port, credentials)
 
 
 @neo4j.command("stop")
-def stop():
+@click.pass_obj
+def stop(comp):
     """Stop and remove the Neo4j Docker container."""
-    neo4j_comp.stop()
+    comp.stop()
 
 
 @neo4j.command("delete")
@@ -203,7 +212,8 @@ def stop():
     metavar="USER/PASSWORD",
     help="Neo4j auth string (default: NEO4J_USERNAME/NEO4J_PASSWORD env vars).",
 )
-def delete(data_dir, port, credentials):
+@click.pass_obj
+def delete(comp, data_dir, port, credentials):
     """Delete all Neo4j data (databases and transactions) and restart fresh.
 
     Stops Neo4j if running, wipes DATA_DIR/database/, then starts a clean instance.
@@ -213,16 +223,16 @@ def delete(data_dir, port, credentials):
     data_dir = Path(data_dir).resolve()
     database_dir = data_dir / "database"
     try:
-        port, credentials = neo4j_comp.resolve_port_credentials(port, credentials)
-    except ValueError as e:
-        raise click.ClickException(str(e))
+        port, credentials = comp.resolve_port_credentials(port, credentials)
+    except ValueError as exc:
+        raise click.ClickException(str(exc))
 
-    neo4j_comp.delete()
+    comp.delete()
 
     click.echo(f"Wiping {database_dir} ...")
-    neo4j_comp.wipe_database(database_dir)
+    comp.wipe_database(database_dir)
 
-    _launch_container(data_dir, port, credentials)
+    _launch_container(comp, data_dir, port, credentials)
 
 
 _NEO4J_DUMP_FILENAME_MAX_LENGTH = 63
@@ -249,7 +259,8 @@ def _decorate_dump_filename(
 @neo4j.command("dump")
 @click.argument("results_dir", type=click.Path())
 @click.argument("dump_filename")
-def dump(results_dir, dump_filename):
+@click.pass_obj
+def dump(comp, results_dir, dump_filename):
     """Dump the Neo4j database to RESULTS_DIR/backups/DUMP_FILENAME.
 
     Neo4j must be running. The command queries the LLM model name(s) from
@@ -261,13 +272,13 @@ def dump(results_dir, dump_filename):
     Keep the (dump, username, password) triplet together.
     """
     results_dir = Path(results_dir).resolve()
-    running, _ = neo4j_comp.is_running()
+    running, _ = comp.is_running()
     if not running:
         raise click.ClickException(
             "Neo4j is not running — start it first with `jejune neo4j start`"
         )
     try:
-        llm_model_names = neo4j_comp.query_llm_model_names()
+        llm_model_names = comp.query_llm_model_names()
     except RuntimeError as error:
         raise click.ClickException(str(error))
     if llm_model_names:
@@ -287,26 +298,27 @@ def dump(results_dir, dump_filename):
             err=True,
         )
     try:
-        port, credentials = neo4j_comp.resolve_port_credentials(port=None, credentials=None)
+        port, credentials = comp.resolve_port_credentials(port=None, credentials=None)
     except ValueError as error:
         raise click.ClickException(str(error))
 
-    neo4j_comp.stop()
+    comp.stop()
 
     click.echo("Dumping database ...")
     try:
-        out = neo4j_comp.dump(results_dir, dump_filename)
+        out = comp.dump(results_dir, dump_filename)
     except RuntimeError as error:
         raise click.ClickException(str(error))
     click.echo(f"Dump written to {out}.")
 
-    _launch_container(results_dir, port, credentials)
+    _launch_container(comp, results_dir, port, credentials)
 
 
 @neo4j.command("restore")
 @click.argument("results_dir", type=click.Path())
 @click.argument("dump_filename")
-def restore(results_dir, dump_filename):
+@click.pass_obj
+def restore(comp, results_dir, dump_filename):
     """Restore the Neo4j database from RESULTS_DIR/backups/DUMP_FILENAME.
 
     Requires Neo4j to be stopped first (run `jejune neo4j stop`).
@@ -316,9 +328,9 @@ def restore(results_dir, dump_filename):
     results_dir = Path(results_dir).resolve()
     click.echo(f"Restoring {dump_filename} ...")
     try:
-        neo4j_comp.restore(results_dir, dump_filename)
-    except RuntimeError as e:
-        raise click.ClickException(str(e))
+        comp.restore(results_dir, dump_filename)
+    except RuntimeError as exc:
+        raise click.ClickException(str(exc))
     click.echo("Restore complete.")
 
 

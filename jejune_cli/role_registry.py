@@ -9,7 +9,8 @@ from .role import NO_ROLE, Role
 
 
 class RoleRegistry:
-    def __init__(self) -> None:
+    def __init__(self, component_registry: ComponentRegistry) -> None:
+        self._component_registry = component_registry
         self._roles: dict[str, Role] = {}
         self._role_cache: dict[str, Role] = {}
 
@@ -91,7 +92,7 @@ class RoleRegistry:
         """Return the full component set for *role*, including inherited parent components."""
         if not role:
             return None
-        registry = ComponentRegistry()
+        registry = self._component_registry
         def _resolve(r: Role) -> "frozenset[base_comp]":
             return frozenset(filter(None, (registry.get(n) for n in r.component_names)))
         own = _resolve(role)
@@ -103,7 +104,7 @@ class RoleRegistry:
 
     def role_cli_commands(self, role: Role) -> list[str]:
         """Return CLI command names contributed by *role*'s components plus extra_commands."""
-        registry = ComponentRegistry()
+        registry = self._component_registry
         return [
             comp.cli_name
             for name in role.component_names
@@ -260,6 +261,3 @@ class RoleRegistry:
                 output.append("".join(c1).rstrip())
 
         return output
-
-
-ROLE_REGISTRY = RoleRegistry()
