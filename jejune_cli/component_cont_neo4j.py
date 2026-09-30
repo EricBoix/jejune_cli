@@ -36,7 +36,20 @@ class comp_neo4j(cont_comp):
         """Build, start, and wait for the Neo4j container to be ready."""
         self.build()
         http_port = self.configuration.get("NEO4J_HTTP_PORT") or "7474"
-        (data_dir / "database").mkdir(parents=True, exist_ok=True)
+        database_dir = data_dir / "database"
+        if database_dir.exists():
+            dir_stat = database_dir.stat()
+            expected_uid = os.getuid()
+            expected_gid = os.getgid()
+            if dir_stat.st_uid != expected_uid or dir_stat.st_gid != expected_gid:
+                raise RuntimeError(
+                    f"{database_dir} is owned by {dir_stat.st_uid}:{dir_stat.st_gid}, "
+                    f"expected {expected_uid}:{expected_gid} — "
+                    f"fix with: sudo chown {expected_uid}:{expected_gid} {database_dir}"
+                )
+        else:
+            print(f"Creating Neo4j database directory: {database_dir}")
+            database_dir.mkdir(parents=True, exist_ok=True)
         result = subprocess.run(
             [
                 "docker", "run", "--rm", "--detach",
@@ -45,7 +58,7 @@ class comp_neo4j(cont_comp):
                 "--publish", f"{port}:7687",
                 f"--user={os.getuid()}:{os.getgid()}",
                 "--env", f"NEO4J_AUTH={credentials}",
-                "-v", f"{data_dir}/database:/data",
+                "-v", f"{database_dir}:/data",
                 self.image_name,
             ]
         )
