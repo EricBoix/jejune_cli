@@ -287,18 +287,15 @@ def _compute_port_conflict_per_comp(
 
 
 def _visible_component_names(
-    config_results: list[tuple[str, str, str]],
     avail_results: list[tuple[str, str, str]],
     active_components: list[base_comp],
     verbose: bool,
 ) -> list[str]:
-    has_data = {comp for comp, _, _ in config_results} | {comp for comp, _, _ in avail_results}
-    all_names = [c.name for c in active_components if c.name in has_data]
     if verbose:
-        return all_names
+        return [c.name for c in active_components]
     avail_ok = {comp for comp, status, _ in avail_results if status == "ok"}
     ext_names = {c.name for c in active_components if isinstance(c, (ext_comp, ext_server))}
-    return [name for name in all_names if name not in ext_names or name not in avail_ok]
+    return [c.name for c in active_components if c.name not in ext_names or c.name not in avail_ok]
 
 # ---------------------------------------------------------------------------
 # Doctor command
@@ -351,8 +348,7 @@ def doctor(ctx, verbose: bool):
         c.name for c in active_components
         if isinstance(c, cont_comp) and c.is_external_image
     }
-    component_names = _visible_component_names(
-        config_results, avail_results, active_components, verbose)
+    component_names = _visible_component_names(avail_results, active_components, verbose)
 
     _CONFIG_NOTE = "  Configuration files: .jejune/env-config · .jejune/env-secrets"
     role_label = f" [{active_role}]" if active_role else ""
