@@ -19,6 +19,7 @@ class cont_comp(conf_comp):
       _docker_daemon — docker-daemon component instance
       _git_server    — git-server component instance (used in build())
       _plugin_packages       — comp_plugin_packages instance (used in build())
+      _ecosystem             — comp_ecosystem instance (available to plugin cont_comp subclasses)
     """
 
     _docker = None
@@ -26,6 +27,7 @@ class cont_comp(conf_comp):
     _docker_daemon = None
     _git_server = None
     _plugin_packages = None
+    _ecosystem = None
     is_external_image: bool = False
 
     def __init__(

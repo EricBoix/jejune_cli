@@ -64,6 +64,8 @@ class plugin_description:
     ``None`` means the command does not appear in any role section.
     """
     role: plugin_role_description | None = None
+    roles: list[plugin_role_description] = field(default_factory=list)
+    """Additional roles contributed by this plugin (use when more than one role is needed)."""
     build_image: Callable[[bool], None] | None = None
     """(no_cache: bool) -> None — builds this component's Docker image."""
     image_is_built: Callable[[], bool] | None = None

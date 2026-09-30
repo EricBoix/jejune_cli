@@ -63,11 +63,12 @@ def build_components(
     comp_command_git._ecosystem = ecosystem
 
     # Inject shared class-level dependencies used by all cont_comp instances
-    cont_comp._docker        = docker_command
-    cont_comp._docker_daemon = docker_daemon
-    cont_comp._coordination  = coordination
-    cont_comp._git_server    = git_server
+    cont_comp._docker          = docker_command
+    cont_comp._docker_daemon   = docker_daemon
+    cont_comp._coordination    = coordination
+    cont_comp._git_server      = git_server
     cont_comp._plugin_packages = plugin_packages
+    cont_comp._ecosystem       = ecosystem
 
     # Cont components
     llm_obs          = comp_server_llm_observability()
