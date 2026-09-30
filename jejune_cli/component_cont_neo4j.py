@@ -32,22 +32,27 @@ class comp_neo4j(cont_comp):
         )
         self.cli_name = self.name
 
+    def _preflight_database_dir_ownership(self, database_dir: Path) -> None:
+        """Raise RuntimeError if database_dir exists and is not owned by the current user."""
+        if not database_dir.exists():
+            return
+        dir_stat = database_dir.stat()
+        expected_uid = os.getuid()
+        expected_gid = os.getgid()
+        if dir_stat.st_uid != expected_uid or dir_stat.st_gid != expected_gid:
+            raise RuntimeError(
+                f"{database_dir} is owned by {dir_stat.st_uid}:{dir_stat.st_gid}, "
+                f"expected {expected_uid}:{expected_gid} — "
+                f"fix with: sudo chown {expected_uid}:{expected_gid} {database_dir}"
+            )
+
     def launch_container(self, data_dir: Path, port: str, credentials: str) -> None:
         """Build, start, and wait for the Neo4j container to be ready."""
         self.build()
         http_port = self.configuration.get("NEO4J_HTTP_PORT") or "7474"
         database_dir = data_dir / "database"
-        if database_dir.exists():
-            dir_stat = database_dir.stat()
-            expected_uid = os.getuid()
-            expected_gid = os.getgid()
-            if dir_stat.st_uid != expected_uid or dir_stat.st_gid != expected_gid:
-                raise RuntimeError(
-                    f"{database_dir} is owned by {dir_stat.st_uid}:{dir_stat.st_gid}, "
-                    f"expected {expected_uid}:{expected_gid} — "
-                    f"fix with: sudo chown {expected_uid}:{expected_gid} {database_dir}"
-                )
-        else:
+        self._preflight_database_dir_ownership(database_dir)
+        if not database_dir.exists():
             print(f"Creating Neo4j database directory: {database_dir}")
             database_dir.mkdir(parents=True, exist_ok=True)
         result = subprocess.run(
@@ -85,6 +90,7 @@ class comp_neo4j(cont_comp):
         return port, credentials
 
     def wipe_database(self, database_dir: Path) -> None:
+        self._preflight_database_dir_ownership(database_dir)
         shutil.rmtree(database_dir, ignore_errors=True)
 
     def restore(self, results_dir: Path, dump_filename: str) -> None:
@@ -92,6 +98,7 @@ class comp_neo4j(cont_comp):
         backups_dir = results_dir / "backups"
         dump_path = backups_dir / dump_filename
 
+        self._preflight_database_dir_ownership(database_dir)
         if not dump_path.exists():
             raise RuntimeError(f"Dump file not found: {dump_path}")
         running, _ = self.is_running()
@@ -118,6 +125,7 @@ class comp_neo4j(cont_comp):
     def dump(self, results_dir: Path, dump_filename: str) -> Path:
         database_dir = results_dir / "database"
         backups_dir = results_dir / "backups"
+        self._preflight_database_dir_ownership(database_dir)
         backups_dir.mkdir(parents=True, exist_ok=True)
         running, _ = self.is_running()
         if running:

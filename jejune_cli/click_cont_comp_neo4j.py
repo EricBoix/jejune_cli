@@ -227,6 +227,10 @@ def delete(comp, data_dir, port, credentials):
     except ValueError as exc:
         raise click.ClickException(str(exc))
 
+    try:
+        comp._preflight_database_dir_ownership(database_dir)
+    except RuntimeError as exc:
+        raise click.ClickException(str(exc))
     comp.delete()
 
     click.echo(f"Wiping {database_dir} ...")
