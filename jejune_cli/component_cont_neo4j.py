@@ -43,6 +43,7 @@ class comp_neo4j(cont_comp):
                 "--name", self.container_name,
                 "--publish", f"{http_port}:7474",
                 "--publish", f"{port}:7687",
+                f"--user={os.getuid()}:{os.getgid()}",
                 "--env", f"NEO4J_AUTH={credentials}",
                 "-v", f"{data_dir}/database:/data",
                 self.image_name,
