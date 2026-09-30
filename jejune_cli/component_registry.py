@@ -79,6 +79,8 @@ class ComponentRegistry:
             if comp is None:
                 return
             for dep in comp.ordering_deps():
+                if dep is None:
+                    continue
                 if dep.name in comp_set:
                     visit(dep.name)
             result.append(by_name[name])
