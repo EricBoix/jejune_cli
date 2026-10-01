@@ -87,7 +87,7 @@ class CompCatalog(ConfComp):
             return results
 
         ref_docs: dict[str, dict] = {}
-        if catalog_ref.exists():
+        if catalog_ref.is_file():
             for doc in yaml.safe_load(catalog_ref.read_text()).get("documents", []):
                 if isinstance(doc, dict) and "name" in doc:
                     ref_docs[doc["name"]] = doc
