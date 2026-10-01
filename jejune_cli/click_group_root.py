@@ -27,14 +27,14 @@ class _RootClickGroup(click.Group):
         return ctx
 
     def invoke(self, ctx: click.Context) -> object:
-        cmd_name = ctx._protected_args[0] if ctx._protected_args else None
+        # invoked_subcommand is set inside Group.invoke(), so read it after.
         try:
             result = super().invoke(ctx)
         except SystemExit as exc:
-            if exc.code == 0 and cmd_name != "next":
+            if exc.code == 0 and ctx.invoked_subcommand != "next":  # skip on error exit
                 ctx.obj.heuristic_step_registry.print_next_steps()
             raise
-        if cmd_name != "next":
+        if ctx.invoked_subcommand != "next":
             ctx.obj.heuristic_step_registry.print_next_steps()
         return result
 
@@ -61,7 +61,9 @@ class _RootClickGroup(click.Group):
         app.component_registry.load_all_configurations(Path.cwd())
 
         _hidden_unless_configured = {
-            "convert": lambda: app.component_registry.get("convert").configuration.check()[0]
+            "convert": lambda: app.component_registry.get(
+                "convert"
+            ).configuration.check()[0]
             == "ok"
             or Path.cwd().joinpath("full-catalog.yaml").exists(),
             "next": lambda: app.heuristic_step_registry.has_heuristics_for_role(
