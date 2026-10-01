@@ -6,8 +6,17 @@ from .app_context import AppContext
 from .dot_jejune import DotJejune
 
 
+class _NextGroup(click.Group):
+    @staticmethod
+    def is_visible(app) -> bool:
+        return app.heuristic_step_registry.has_heuristics_for_role(
+            app.role_registry.detect_role_name()
+        )
+
+
 @click.group(
     "next",
+    cls=_NextGroup,
     invoke_without_command=True,
     short_help="Show suggested next actions given the current context.",
 )
@@ -32,12 +41,13 @@ def next_cmd(ctx):
                 )
             else:
                 click.echo("No next steps detected.")
-        return
-    click.echo("Suggested next steps:")
-    for step in steps:
-        cmd = step.resolved_command()
-        suffix = f"  →  {cmd}" if cmd else ""
-        click.echo(f"  • {step.label}{suffix}")
+    else:
+        click.echo("Suggested next steps:")
+        for step in steps:
+            cmd = step.resolved_command()
+            suffix = f"  →  {cmd}" if cmd else ""
+            click.echo(f"  • {step.label}{suffix}")
+    app.heuristic_step_registry.mark_printed()
 
 
 @next_cmd.command("state")

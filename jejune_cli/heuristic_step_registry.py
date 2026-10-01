@@ -1,4 +1,5 @@
 """HeuristicStepRegistry."""
+
 from __future__ import annotations
 
 import os
@@ -19,7 +20,9 @@ class HeuristicStepRegistry:
         self._role_orderings: dict[str | None, dict[str, int]] = {}
         self._next_steps_printed: bool = False
 
-    def register_command_precondition(self, command: str, check: HeuristicCondition) -> None:
+    def register_command_precondition(
+        self, command: str, check: HeuristicCondition
+    ) -> None:
         self._command_preconditions[command] = check
 
     def register_precondition(self, name: str, check: HeuristicCondition) -> None:
@@ -42,7 +45,9 @@ class HeuristicStepRegistry:
         except Exception:
             return False
 
-    def register_role_ordering(self, role: str | None, ordering: dict[str, int]) -> None:
+    def register_role_ordering(
+        self, role: str | None, ordering: dict[str, int]
+    ) -> None:
         self._role_orderings[role] = ordering
 
     def register(self, step: HeuristicStep, roles: set[str | None]) -> None:
@@ -69,7 +74,11 @@ class HeuristicStepRegistry:
         return True
 
     def _step_viable(self, step: HeuristicStep) -> bool:
-        return callable(step.command) or step.command is None or self.command_viable(step.command)
+        return (
+            callable(step.command)
+            or step.command is None
+            or self.command_viable(step.command)
+        )
 
     def _role_applies(self, step: HeuristicStep, active_role: str | None) -> bool:
         return not step.roles or active_role in step.roles or None in step.roles
@@ -87,14 +96,21 @@ class HeuristicStepRegistry:
         ordering: dict[str, int] | None,
     ) -> tuple:
         rule3 = ordering.get(step.label, 0) if ordering else 0
-        return (rule3, step.order, self._role_specificity(step, active_role), -self._condition_count(step))
+        return (
+            rule3,
+            step.order,
+            self._role_specificity(step, active_role),
+            -self._condition_count(step),
+        )
 
     def _effective_ordering(
         self,
         active_role: str | None,
         ordering: dict[str, int] | None,
     ) -> dict[str, int] | None:
-        return ordering if ordering is not None else self._role_orderings.get(active_role)
+        return (
+            ordering if ordering is not None else self._role_orderings.get(active_role)
+        )
 
     def evaluate(
         self,
@@ -103,12 +119,17 @@ class HeuristicStepRegistry:
     ) -> list[HeuristicStep]:
         def _sorted(active_role: str | None) -> list[HeuristicStep]:
             eff = self._effective_ordering(active_role, ordering)
+
             def _key(step: HeuristicStep) -> tuple:
                 return self._sort_key(step, active_role, eff)
+
             return sorted(
                 (
-                    s for s in self._steps
-                    if self._role_applies(s, active_role) and self._matches(s) and self._step_viable(s)
+                    s
+                    for s in self._steps
+                    if self._role_applies(s, active_role)
+                    and self._matches(s)
+                    and self._step_viable(s)
                 ),
                 key=_key,
             )
@@ -121,6 +142,10 @@ class HeuristicStepRegistry:
             return _sorted(self._role_registry.detect_role_name())
         finally:
             os.chdir(old)
+
+    def mark_printed(self) -> None:
+        """Suppress the post-invoke print_next_steps() call for this invocation."""
+        self._next_steps_printed = True
 
     def print_next_steps(
         self,
@@ -160,9 +185,13 @@ class HeuristicStepRegistry:
 
         active_role = self._role_registry.detect_role_name()
 
-        def _run() -> list[tuple[HeuristicStep, list[tuple[str, bool]], list[tuple[str, bool]]]]:
+        def _run() -> (
+            list[tuple[HeuristicStep, list[tuple[str, bool]], list[tuple[str, bool]]]]
+        ):
             result = []
-            for step in sorted(self._steps, key=lambda s: self._sort_key(s, active_role, None)):
+            for step in sorted(
+                self._steps, key=lambda s: self._sort_key(s, active_role, None)
+            ):
                 cond_results: list[tuple[str, bool]] = []
                 for fn in step.conditions:
                     try:

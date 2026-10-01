@@ -100,3 +100,10 @@ class CompConvert(ContComp):
 
     def image_built(self) -> tuple[bool, str]:
         return (True, "ok") if self.is_built() else (False, "not built")
+
+    def is_relevant(self, cwd: Path) -> bool:
+        """True when the convert command should be visible in the CLI help."""
+        return (
+            self.configuration.check()[0] == "ok"
+            or (cwd / "full-catalog.yaml").exists()
+        )

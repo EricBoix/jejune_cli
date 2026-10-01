@@ -31,11 +31,10 @@ class _RootClickGroup(click.Group):
         try:
             result = super().invoke(ctx)
         except SystemExit as exc:
-            if exc.code == 0 and ctx.invoked_subcommand != "next":  # skip on error exit
+            if exc.code == 0:  # skip on error exit
                 ctx.obj.heuristic_step_registry.print_next_steps()
             raise
-        if ctx.invoked_subcommand != "next":
-            ctx.obj.heuristic_step_registry.print_next_steps()
+        ctx.obj.heuristic_step_registry.print_next_steps()
         return result
 
     def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
@@ -60,25 +59,16 @@ class _RootClickGroup(click.Group):
 
         app.component_registry.load_all_configurations(Path.cwd())
 
-        _hidden_unless_configured = {
-            "convert": lambda: app.component_registry.get(
-                "convert"
-            ).configuration.check()[0]
-            == "ok"
-            or Path.cwd().joinpath("full-catalog.yaml").exists(),
-            "next": lambda: app.heuristic_step_registry.has_heuristics_for_role(
-                active_role
-            ),
-        }
-
         def _row(name: str) -> tuple[str, str] | None:
-            guard = _hidden_unless_configured.get(name)
-            if guard is not None and not guard():
+            comp = app.component_registry.get(name)
+            if hasattr(comp, "is_relevant") and not comp.is_relevant(Path.cwd()):
                 return None
             cmd = self.get_command(ctx, name)
-            if cmd and not cmd.hidden:
-                return (f"jejune {name}", cmd.get_short_help_str(limit=formatter.width))
-            return None
+            if cmd is None or cmd.hidden:
+                return None
+            if hasattr(cmd, "is_visible") and not cmd.is_visible(app):
+                return None
+            return (f"jejune {name}", cmd.get_short_help_str(limit=formatter.width))
 
         def _rows(names: list[str]) -> list[tuple[str, str]]:
             return [row for name in names if (row := _row(name))]
