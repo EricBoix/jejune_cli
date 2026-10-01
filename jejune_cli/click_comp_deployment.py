@@ -187,7 +187,7 @@ def deployment_install(ctx) -> None:
 
         click.echo("Installing catalog repositories...")
         _do_catalog_install()
-    except ImportError:
+    except ModuleNotFoundError:
         click.echo(
             click.style("  catalog plugin not installed — skipping", fg="yellow")
         )

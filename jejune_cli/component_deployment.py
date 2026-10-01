@@ -67,9 +67,6 @@ class CompDeployment(ConfComp):
                 return "error", "images not built"
         return "ok", ""
 
-    def is_available(self) -> bool:
-        return all(dep.is_available() for dep in self.dependencies)
-
     @property
     def service_names(self) -> tuple[str, ...]:
         return tuple(
