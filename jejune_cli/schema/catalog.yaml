@@ -1,0 +1,6 @@
+# Schema for deployment/collection catalog files (full-catalog.yaml, deployment catalog.yaml).
+required_fields:
+  name: string
+  url: string
+optional_fields:
+  public: boolean

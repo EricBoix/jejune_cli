@@ -1,0 +1,10 @@
+# Deployment-specific catalog
+# This file is most often a subset of full catalog (to be used as syntax
+# reference and complete list of official repositories) located at
+#   https://github.com/EricBoix/jejune_catalog/blob/main/full-catalog.yaml
+#
+# Remove unwanted documents and add private ones as needed.
+documents:
+  - name: jejune_doc_Four_Noble_Truths
+    url: https://github.com/EricBoix/jejune_doc_Four_Noble_Truths
+    public: true

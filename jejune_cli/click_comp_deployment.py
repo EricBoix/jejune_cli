@@ -7,10 +7,8 @@ from pathlib import Path
 
 import click
 
+from ._package_paths import TemplatePaths
 from .app_context import AppContext
-
-_TEMPLATES = Path(__file__).parent / "templates"
-_T_UI = _TEMPLATES / "deployer" / "ui-deployment"
 
 
 @click.group(short_help="Manage deployments")
@@ -71,7 +69,7 @@ def ui_configure(ctx, deployments_dir, name):
     jejune_dir = deploy_dir / ".jejune"
     jejune_dir.mkdir()
     (jejune_dir / "origin").write_text(f"{deploy_dir}\n")
-    shutil.copy(_T_UI / "env-config", jejune_dir / "env-config")
+    shutil.copy(TemplatePaths.DEPLOYER_UI / "env-config", jejune_dir / "env-config")
 
     catalog_comp = app.component_registry.get("catalog")
     full_catalog = catalog_comp.full_catalog_path(deployments_dir)
@@ -88,13 +86,18 @@ def ui_configure(ctx, deployments_dir, name):
 
     deployment_comp = app.component_registry.get("deployment")
     (deploy_dir / "docker-compose.yml").write_text(
-        deployment_comp.generate_docker_compose(deploy_dir, _T_UI)
+        deployment_comp.generate_docker_compose(deploy_dir, TemplatePaths.DEPLOYER_UI)
     )
-    shutil.copy(_T_UI / "deployment.env", deploy_dir / "deployment.env")
+    shutil.copy(
+        TemplatePaths.DEPLOYER_UI / "deployment.env", deploy_dir / "deployment.env"
+    )
 
     if deployment_comp.has_private_repos(deploy_dir):
         (deploy_dir / ".gitignore").write_text("secrets.env\n")
-        shutil.copy(_T_UI / "secrets.env.template", deploy_dir / "secrets.env.template")
+        shutil.copy(
+            TemplatePaths.DEPLOYER_UI / "secrets.env.template",
+            deploy_dir / "secrets.env.template",
+        )
 
     click.echo(f"Creating deployment in ./{deploy_dir.name}/ sub-directory")
     app.heuristic_step_registry.print_next_steps(cwd=deploy_dir)
@@ -182,15 +185,9 @@ def down(ctx) -> None:
 def deployment_install(ctx) -> None:
     """Install all deployment components: catalog repos and plugin packages."""
     app = ctx.find_object(AppContext)
-    try:
-        from jejune_catalog._commands import _do_catalog_install
-
-        click.echo("Installing catalog repositories...")
-        _do_catalog_install()
-    except ModuleNotFoundError:
-        click.echo(
-            click.style("  catalog plugin not installed — skipping", fg="yellow")
-        )
+    click.echo("Installing catalog repositories...")
+    n = app.component_registry.get("catalog").install_catalog()
+    click.echo(f"{n} repo(s) ready.")
     click.echo("Installing deployer plugin packages...")
     app.component_registry.get("plugin-packages").install_packages()
 

@@ -5,7 +5,7 @@ import os
 from .component_registry import ComponentRegistry
 from .plugin_role_description import PluginRoleDescription
 from .component_base import BaseComp
-from .role import NO_ROLE, Role
+from .role import Role
 
 
 class RoleRegistry:
@@ -74,9 +74,9 @@ class RoleRegistry:
             return self._role_cache[cwd]
         override = os.environ.get("JEJUNE_ROLE")
         if override:
-            result = self._roles.get(override, NO_ROLE)
+            result = self._roles.get(override, Role.NONE)
         else:
-            result = NO_ROLE
+            result = Role.NONE
             for r in self._roles.values():
                 if r.detector is not None:
                     try:

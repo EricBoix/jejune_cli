@@ -5,11 +5,9 @@ from pathlib import Path
 
 import click
 
+from ._package_paths import TemplatePaths
 from .app_context import AppContext
 from .dot_jejune import DotJejune
-
-_TEMPLATES = Path(__file__).parent / "templates" / "doc-steward"
-_ECOSYSTEM_TEMPLATE = Path(__file__).parent / "templates" / "ecosystem" / "env-config"
 
 
 class _DocStewardInit(click.Command):
@@ -43,21 +41,21 @@ def init(ctx, dir_name: str | None) -> None:
         if dst.exists():
             skipped.append(fname)
         else:
-            shutil.copy2(_TEMPLATES / fname, dst)
+            shutil.copy2(TemplatePaths.DOC_STEWARD / fname, dst)
             created.append(fname)
 
     manifest_dst = target / "manifest.yaml"
     if manifest_dst.exists():
         skipped.append("manifest.yaml")
     else:
-        shutil.copy2(_TEMPLATES / "manifest.yaml", manifest_dst)
+        shutil.copy2(TemplatePaths.DOC_STEWARD / "manifest.yaml", manifest_dst)
         created.append("manifest.yaml")
 
     eco_dst = d / "ecosystem-env-config"
     if eco_dst.exists():
         skipped.append("ecosystem-env-config")
     else:
-        shutil.copy2(_ECOSYSTEM_TEMPLATE, eco_dst)
+        shutil.copy2(TemplatePaths.ECOSYSTEM_ENV_CONFIG, eco_dst)
         created.append("ecosystem-env-config")
 
     for f in created:

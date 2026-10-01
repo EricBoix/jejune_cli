@@ -4,13 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ._package_paths import TemplatePaths
 from .component_ext import ExtComp
 from .component_registry import ComponentRegistry
 from .heuristic_step import ComponentCondition, HeuristicStep
 from .heuristic_step_registry import HeuristicStepRegistry
 from .role import Role
-
-_T_UI = Path(__file__).parent / "templates" / "deployer" / "ui-deployment"
 
 
 def register_heuristics(
@@ -29,7 +28,7 @@ def register_heuristics(
 
     def _deploy_env_is_default() -> bool:
         env_file = Path(".") / "deployment.env"
-        template = _T_UI / "deployment.env"
+        template = TemplatePaths.DEPLOYER_UI / "deployment.env"
         if not env_file.exists() or not template.exists():
             return False
         return env_file.read_text() == template.read_text()
@@ -55,12 +54,11 @@ def register_heuristics(
         )
 
     def _deploy_catalog_check_fails() -> bool:
+        cwd = Path.cwd()
+        catalog_comp = component_registry.get("catalog")
+        full_cat = catalog_comp.full_catalog_path(cwd.parent) or Path()
         try:
-            from jejune_catalog._impl import _check_deployment_impl
-
-            cwd = Path.cwd()
-            full_cat = cwd.parent.parent / "jejune_catalog" / "full-catalog.yaml"
-            results = _check_deployment_impl(cwd, full_cat)
+            results = catalog_comp.check_deployment(cwd, full_cat)
             return any(not ok for _, ok, _ in results)
         except Exception:
             return False

@@ -2,16 +2,16 @@
 
 from pathlib import Path
 from typing import ClassVar
+
 import yaml
 
+from ._package_paths import SchemaPaths, TemplatePaths
 from .component_with_config import ConfComp
 
 
 class CompManifest(ConfComp):
-    _SCHEMA_PATH: ClassVar[Path] = Path(__file__).parent / "schema" / "manifest.yaml"
-    _TEMPLATE_PATH: ClassVar[Path] = (
-        Path(__file__).parent / "templates" / "doc-steward" / "manifest.yaml"
-    )
+    _SCHEMA_PATH: ClassVar[Path] = SchemaPaths.MANIFEST
+    _TEMPLATE_PATH: ClassVar[Path] = TemplatePaths.DOC_STEWARD / "manifest.yaml"
 
     def __init__(self, doc_repository_directory: Path = Path.cwd()) -> None:
         super().__init__(name="manifest")

@@ -24,6 +24,7 @@ from .click_cont_comp_convert import convert
 from .click_comp_manifest import manifest
 
 # Deployer component commands
+from .click_catalog import catalog_group
 from .click_comp_deployment import deployment
 from .click_comp_ecosystem import ecosystem
 
@@ -49,6 +50,7 @@ cli.add_command(convert)
 cli.add_command(manifest)
 
 # Deployer component commands
+cli.add_command(catalog_group, "catalog")
 cli.add_command(deployment)
 cli.add_command(ecosystem)
 

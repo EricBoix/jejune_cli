@@ -60,7 +60,11 @@ def build_components(
         role_registry=role_registry,
         plugin_registry=plugin_registry,
     )
-    catalog_comp = CompCatalog(ecosystem=ecosystem)
+    catalog_comp = CompCatalog(
+        ecosystem=ecosystem,
+        role_registry=role_registry,
+        plugin_registry=plugin_registry,
+    )
     manifest = CompManifest()
     plugin_packages = CompPluginPackages(
         git_server=git_server, uv_command=uv_command, catalog=catalog

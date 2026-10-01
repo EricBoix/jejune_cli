@@ -17,7 +17,7 @@ def manifest():
 
 
 @manifest.command("check-config")
-def manifest_check_manifest_against_schema():
+def manifest_check_against_schema():
     """Show manifest.yaml configuration detail (required fields, unknown fields)."""
     status, msg = CompManifest().check_manifest_against_schema()
     fg = ClickTheme.status_foregrounds.get(status, "white")

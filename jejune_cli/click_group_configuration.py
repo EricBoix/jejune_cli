@@ -9,8 +9,9 @@ from .click_doctor import (
 )
 from .app_context import AppContext
 from .click_helpers import print_two_col_table
-from .click_workspace_doc_steward import doc_steward_group as _doc_steward_group
-from .click_workspace_deployer import deployer_group as _deployer_group
+from .click_catalog_config import curator_config_group
+from .click_workspace_deployer import deployer_group
+from .click_workspace_doc_steward import doc_steward_group
 from .click_theme import ClickTheme
 
 
@@ -205,8 +206,9 @@ def configuration_hint(ctx):
     print_two_col_table(rows, "Component configuration", "Hint")
 
 
-configuration.add_command(_doc_steward_group)
-configuration.add_command(_deployer_group)
+configuration.add_command(doc_steward_group)
+configuration.add_command(deployer_group)
+configuration.add_command(curator_config_group)
 configuration.add_command(check, "summary")
 configuration.add_command(config_check_availability)
 configuration.add_command(config_status_availability)

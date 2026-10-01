@@ -4,6 +4,7 @@ import os
 import subprocess
 from pathlib import Path
 
+from ._package_paths import CatalogConfig
 from .component_containerized import ContComp
 from .configuration import Configuration
 from .configuration_entry import ConfigurationEntry
@@ -105,5 +106,5 @@ class CompConvert(ContComp):
         """True when the convert command should be visible in the CLI help."""
         return (
             self.configuration.check()[0] == "ok"
-            or (cwd / "full-catalog.yaml").exists()
+            or (cwd / CatalogConfig.FULL_CATALOG).exists()
         )
