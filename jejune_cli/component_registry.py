@@ -142,6 +142,7 @@ class ComponentRegistry:
             for dep in inst.all_deps():
                 if isinstance(dep, _UnresolvedPlugin):
                     continue
-                assert (
-                    self.get(dep.name) is dep
-                ), f"{inst.name}.dependencies contains unregistered instance {dep.name!r}"
+                if self.get(dep.name) is not dep:
+                    raise RuntimeError(
+                        f"{inst.name}.dependencies contains unregistered instance {dep.name!r}"
+                    )
