@@ -6,10 +6,11 @@ from pathlib import Path
 from .component_containerized import cont_comp
 from .configuration import configuration
 from .configuration_entry import configuration_entry
+from .containerized_context import ContainerizedContext
 
 
 class comp_neo4j_to_rdf_ttl(cont_comp):
-    def __init__(self, git_server, docker_hub) -> None:
+    def __init__(self, git_server, docker_hub, context: ContainerizedContext | None = None) -> None:
         super().__init__(
             name="neo4j-to-rdf-ttl",
             image_name="jejune:neo4j_to_rdf_ttl",
@@ -34,6 +35,7 @@ class comp_neo4j_to_rdf_ttl(cont_comp):
                     source_file=".jejune/env-secrets",
                 ),
             ),
+            context=context,
         )
 
     def dump_turtle(self, output_dir: Path, filename: str) -> None:

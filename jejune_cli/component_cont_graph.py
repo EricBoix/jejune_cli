@@ -7,6 +7,7 @@ import click
 from .component_containerized import cont_comp
 from .configuration import configuration
 from .configuration_entry import configuration_entry
+from .containerized_context import ContainerizedContext
 
 
 class comp_graph(cont_comp):
@@ -17,7 +18,7 @@ class comp_graph(cont_comp):
         "sentences": "split_by_sentences.py",
     }
 
-    def __init__(self, git_server, neo4j, llm, llm_observability) -> None:
+    def __init__(self, git_server, neo4j, llm, llm_observability, context: ContainerizedContext | None = None) -> None:
         self._neo4j = neo4j
         self._llm = llm
         super().__init__(
@@ -66,6 +67,7 @@ class comp_graph(cont_comp):
                     max_severity="warn",
                 ),
             ),
+            context=context,
         )
         self.cli_name = self.name
 
@@ -130,7 +132,7 @@ class comp_graph(cont_comp):
         self.build(no_cache)
         output_args = ("--output", output) if output is not None else ()
         click.echo(f"Splitting with {self.SPLITTERS[splitter]} ...")
-        cont_comp._docker.run_foreground(
+        self._context.docker.run_foreground(
             f"jejune_split_{repo_name}",
             self.image_name,
             f"{doc_dir}:/data",
@@ -160,7 +162,7 @@ class comp_graph(cont_comp):
                 doc_dir, extra_args
             )
         click.echo("Running extraction ...")
-        cont_comp._docker.run_foreground(
+        self._context.docker.run_foreground(
             f"jejune_extract_knowledge_graph_{repo_name}",
             self.image_name,
             volume,

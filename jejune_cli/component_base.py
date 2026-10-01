@@ -21,6 +21,11 @@ class base_comp(ABC):
         self.conditional_dependencies: list[tuple[Callable[[], bool], base_comp]] = []
         self.hint = hint
         self.plugin_deps: list[str] = plugin_deps or []
+        self.runtime_dependencies: "dict[str, base_comp]" = {}
+
+    def set_runtime_dependency(self, name: str, dep: "base_comp") -> None:
+        """Register a dep used at runtime in check(); excluded from topology and activation."""
+        self.runtime_dependencies[name] = dep
 
     @abstractmethod
     def check(self) -> tuple[str, str]:

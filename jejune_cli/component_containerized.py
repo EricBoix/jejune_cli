@@ -7,28 +7,36 @@ import click
 
 from .component_with_config import conf_comp
 from .configuration import configuration as _configuration
+from .containerized_context import ContainerizedContext
 
 
 class cont_comp(conf_comp):
     """Base for components backed by a Docker container.
 
-    The following class variables are injected by wire_components() before any
-    instance is created:
-      _docker        — comp_command_docker instance
-      _coordination  — ContainerCoordination instance
-      _docker_daemon — docker-daemon component instance
-      _git_server    — git-server component instance (used in build())
-      _plugin_packages       — comp_plugin_packages instance (used in build())
-      _ecosystem             — comp_ecosystem instance (available to plugin cont_comp subclasses)
+    Each instance exposes shared infrastructure via ``self._context``
+    (a ``ContainerizedContext``).  Subclasses access it as:
+
+      self._context.docker          — comp_command_docker instance
+      self._context.docker_daemon   — comp_server_docker_daemon instance
+      self._context.coordination    — ContainerCoordination instance
+      self._context.git_server      — comp_server_git instance
+      self._context.plugin_packages — comp_plugin_packages instance
+      self._context.ecosystem       — comp_ecosystem instance
+
+    Built-in subclasses receive the context explicitly via the *context*
+    constructor keyword argument.  Plugin subclasses that omit *context* fall
+    back to the class-level ``_shared_context`` set by
+    ``cont_comp.set_shared_context()``, which ``build_components()`` calls
+    before any plugin is loaded.
     """
 
-    _docker = None
-    _coordination = None
-    _docker_daemon = None
-    _git_server = None
-    _plugin_packages = None
-    _ecosystem = None
+    _shared_context: ContainerizedContext | None = None
     is_external_image: bool = False
+
+    @classmethod
+    def set_shared_context(cls, context: ContainerizedContext) -> None:
+        """Set the fallback context used by plugin subclasses that omit the context arg."""
+        cls._shared_context = context
 
     def __init__(
         self,
@@ -41,10 +49,17 @@ class cont_comp(conf_comp):
         configuration: _configuration | None = None,
         hint: str | None = None,
         service_name: str | None = None,
+        context: ContainerizedContext | None = None,
     ) -> None:
-        daemon = cont_comp._docker_daemon
+        ctx = context if context is not None else cont_comp._shared_context
+        if ctx is None:
+            raise RuntimeError(
+                "ContainerizedContext not initialised — call build_components() first"
+            )
+        self._context = ctx
+        daemon = ctx.docker_daemon
         deps = (
-            ([cont_comp._docker] if cont_comp._docker else [])
+            ([ctx.docker] if ctx.docker else [])
             + ([daemon] if daemon else [])
             + (dependencies or [])
         )
@@ -80,16 +95,16 @@ class cont_comp(conf_comp):
                     self.build_context = (
                         str(Path(context) / subpath) if subpath else context
                     )
-                elif cont_comp._plugin_packages is not None and cont_comp._git_server is not None:
-                    repo_name = cont_comp._plugin_packages.repo_name_for(self.name)
+                elif self._context.plugin_packages is not None and self._context.git_server is not None:
+                    repo_name = self._context.plugin_packages.repo_name_for(self.name)
                     ref = f"main:{subpath}" if subpath else None
-                    self.build_context = cont_comp._git_server.remote_git_url(
+                    self.build_context = self._context.git_server.remote_git_url(
                         repo_name, ref
                     )
         if not self.build_context:
             return
         click.echo(f"Building {self.image_name} ...")
-        cont_comp._docker.build_image(
+        self._context.docker.build_image(
             self.image_name,
             self.build_context,
             dockerfile=self.dockerfile,
@@ -98,11 +113,11 @@ class cont_comp(conf_comp):
 
     def is_built(self) -> bool:
         """Return True if the Docker image named image_name exists locally."""
-        if cont_comp._docker.image_exists(self.image_name):
+        if self._context.docker.image_exists(self.image_name):
             return True
         if self.service_name:
             deploy_name = Path(".").resolve().name.lower()
-            return cont_comp._docker.image_exists(
+            return self._context.docker.image_exists(
                 f"jejune:{deploy_name}-{self.service_name}"
             )
         return False
@@ -114,19 +129,19 @@ class cont_comp(conf_comp):
 
     def is_running(self, container_name: str | None = None) -> tuple[bool, str]:
         """Return (running, message) by inspecting the named container."""
-        return cont_comp._docker.is_running(
+        return self._context.docker.is_running(
             container_name if container_name is not None else self.container_name
         )
 
     def exists(self) -> bool:
         """Return True if the container exists in Docker (running or stopped)."""
-        return cont_comp._docker.container_exists(self.container_name)
+        return self._context.docker.container_exists(self.container_name)
 
     def stop(self) -> None:
         """Stop and remove the Docker container, then unregister it."""
         click.echo(f"Stopping {self.image_name} ...")
-        cont_comp._docker.stop_container(self.container_name)
-        cont_comp._docker.remove_container(self.container_name)
+        self._context.docker.stop_container(self.container_name)
+        self._context.docker.remove_container(self.container_name)
         self.unregister()
         click.echo(f"{self.image_name} stopped.")
 
@@ -146,29 +161,19 @@ class cont_comp(conf_comp):
 
     def register(self, **meta) -> dict:
         """Add this component's container to the jejune container registry."""
-        return cont_comp._coordination.register(self.name, self.container_name, **meta)
+        return self._context.coordination.register(self.name, self.container_name, **meta)
 
     def register_with_name(self, name_factory, **meta) -> dict:
         """Register this component with a dynamically-named container."""
-        return cont_comp._coordination.register_with_name(self.name, name_factory, **meta)
+        return self._context.coordination.register_with_name(self.name, name_factory, **meta)
 
     def unregister(self) -> None:
         """Remove this component's container from the jejune registry."""
-        cont_comp._coordination.unregister(self.container_name)
+        self._context.coordination.unregister(self.container_name)
 
     def json_entries(self) -> list[dict]:
         """Return JSON registry entries for this component."""
-        return cont_comp._coordination.json_for_component(self.name)
-
-    @classmethod
-    def register_container(cls, component: str, container: str, **meta) -> dict:
-        """Register an external container (e.g. a docker-compose service) by name."""
-        return cls._coordination.register(component, container, **meta)
-
-    @classmethod
-    def unregister_containers(cls, *names: str) -> None:
-        """Unregister multiple containers by name."""
-        cls._coordination.unregister(*names)
+        return self._context.coordination.json_for_component(self.name)
 
     @classmethod
     def image_build_status(cls, components: list) -> "dict[str, bool]":

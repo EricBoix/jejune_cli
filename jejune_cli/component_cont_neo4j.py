@@ -13,10 +13,11 @@ from pathlib import Path
 from .component_containerized import cont_comp
 from .configuration import configuration
 from .configuration_entry import configuration_entry
+from .containerized_context import ContainerizedContext
 
 
 class comp_neo4j(cont_comp):
-    def __init__(self, git_server, docker_hub) -> None:
+    def __init__(self, git_server, docker_hub, context: ContainerizedContext | None = None) -> None:
         super().__init__(
             name="neo4j",
             image_name="jejune:neo4j",
@@ -28,7 +29,8 @@ class comp_neo4j(cont_comp):
                 configuration_entry("NEO4J_HTTP_PORT", hint="edit .jejune/env-config",  source_file=".jejune/env-config"),
                 configuration_entry("NEO4J_USERNAME",  hint="edit .jejune/env-config",  source_file=".jejune/env-config"),
                 configuration_entry("NEO4J_PASSWORD",  hint="edit .jejune/env-secrets", source_file=".jejune/env-secrets"),
-            )
+            ),
+            context=context,
         )
         self.cli_name = self.name
 

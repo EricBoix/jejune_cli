@@ -6,10 +6,11 @@ from pathlib import Path
 from .component_containerized import cont_comp
 from .configuration import configuration
 from .configuration_entry import configuration_entry
+from .containerized_context import ContainerizedContext
 
 
 class comp_convert(cont_comp):
-    def __init__(self, pypi_server) -> None:
+    def __init__(self, pypi_server, context: ContainerizedContext | None = None) -> None:
         super().__init__(
             name="convert",
             image_name="jejune-convert",
@@ -21,6 +22,7 @@ class comp_convert(cont_comp):
                     source_file=".jejune/env-config",
                     env_var_validator=self.validate_convert_dir)
             ),
+            context=context,
         )
         self.cli_name = self.name
 
@@ -79,7 +81,7 @@ class comp_convert(cont_comp):
         return f"jejune:convert_{base.name.removeprefix('jejune_doc_')}"
 
     def is_built(self) -> bool:
-        return cont_comp._docker.image_exists(comp_convert._image_tag())
+        return self._context.docker.image_exists(comp_convert._image_tag())
 
     def image_built(self) -> tuple[bool, str]:
         return (True, "ok") if self.is_built() else (False, "not built")

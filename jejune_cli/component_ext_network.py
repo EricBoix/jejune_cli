@@ -5,8 +5,6 @@ from .component_ext import ext_comp
 
 
 class comp_network(ext_comp):
-    _ecosystem = None
-
     def __init__(self) -> None:
         self.remote_server = "www.google.com"
         super().__init__(
@@ -15,7 +13,8 @@ class comp_network(ext_comp):
         )
 
     def check(self) -> tuple[str, str]:
-        if comp_network._ecosystem is None or not comp_network._ecosystem.ecosystem_needs_remote():
+        ecosystem = self.runtime_dependencies.get("ecosystem")
+        if ecosystem is None or not ecosystem.ecosystem_needs_remote():
             return "ok", ""
         ok = _tcp_reachable(self.remote_server)
         return ("ok", "") if ok else ("error", f"{self.remote_server} not reachable")

@@ -6,13 +6,13 @@ from .component_containerized import cont_comp
 from .component_registry import ComponentRegistry
 
 
-def _existing_component_containers(component_registry: ComponentRegistry) -> list[dict]:
+def _existing_component_containers(app: AppContext) -> list[dict]:
     """Return all cont_comp containers currently present in Docker."""
     return [
         {"component": inst.name, "container": inst.container_name}
-        for inst in component_registry
+        for inst in app.component_registry
         if isinstance(inst, cont_comp)
-        and cont_comp._docker.container_exists(inst.container_name)
+        and app.containerized_context.docker.container_exists(inst.container_name)
     ]
 
 
@@ -43,7 +43,7 @@ def containers_cli():
 def containers_list(ctx):
     """List all Docker containers managed by jejune with their status."""
     app = ctx.find_object(AppContext)
-    entries = _existing_component_containers(app.component_registry)
+    entries = _existing_component_containers(app)
     if not entries:
         click.echo("No containers on record.")
         return
@@ -55,13 +55,13 @@ def containers_list(ctx):
 def containers_exit(ctx):
     """Stop all detached containers launched by jejune."""
     app = ctx.find_object(AppContext)
-    entries = _existing_component_containers(app.component_registry)
+    entries = _existing_component_containers(app)
     if not entries:
         click.echo("No containers on record.")
         return
     for entry in entries:
         name = entry["container"]
         click.echo(f"Stopping {name} ...")
-        cont_comp._docker.stop_container(name)
-    cont_comp.unregister_containers(*(e["container"] for e in entries))
+        app.containerized_context.docker.stop_container(name)
+    app.coordination.unregister(*(e["container"] for e in entries))
     click.echo(click.style("All containers stopped.", fg="green"))

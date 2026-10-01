@@ -8,7 +8,6 @@ from pathlib import Path
 import click
 
 from .app_context import AppContext
-from .component_containerized import cont_comp
 
 _TEMPLATES = Path(__file__).parent / "templates"
 _T_UI = _TEMPLATES / "deployer" / "ui-deployment"
@@ -140,9 +139,9 @@ def up(ctx) -> None:
             click.echo(click.style(f"Port {port} ({var}) is already in use.", fg="red"), err=True)
         raise SystemExit(1)
     container_names = [f"jejune-{deploy_name}-{svc}-1" for svc in deployment_comp.service_names]
-    cont_comp.unregister_containers(*container_names)
+    app.coordination.unregister(*container_names)
     for cname in container_names:
-        cont_comp.register_container(deploy_name, cname)
+        app.coordination.register(deploy_name, cname)
     rc = deployment_comp.run_compose(deploy_dir, "--project-name", f"jejune-{deploy_name}", "up", "-d")
     plugin_packages_comp = app.component_registry.get("plugin-packages")
     if rc == 0 and not plugin_packages_comp.packages_installed():

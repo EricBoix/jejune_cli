@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from .component_registry import ComponentRegistry
 from .component_containerized import cont_comp
+from .containerized_context import ContainerizedContext
 from .component_ext_command_docker import comp_command_docker
 from .component_ext_network import comp_network
 from .component_ext_command_git import comp_command_git
@@ -31,11 +32,11 @@ from .role_registry import RoleRegistry
 def build_components(
     registry: ComponentRegistry,
     coordination: ContainerCoordination,
-    catalog: plugin_package_catalog,
     role_registry: RoleRegistry,
     plugin_registry: PluginRegistry,
-) -> None:
+) -> ContainerizedContext:
     """Instantiate all built-in components with explicit dependencies and register them."""
+    catalog = plugin_package_catalog(registry, role_registry, plugin_registry)
 
     # Ext command components
     docker_command = comp_command_docker()
@@ -58,24 +59,27 @@ def build_components(
     manifest        = comp_manifest()
     plugin_packages = comp_plugin_packages(git_server=git_server, uv_command=uv_command, catalog=catalog)
 
-    # Inject ecosystem reference for runtime check() in network and git_command
-    comp_network._ecosystem     = ecosystem
-    comp_command_git._ecosystem = ecosystem
+    # Register runtime dependencies (policy providers, excluded from topology)
+    network.set_runtime_dependency("ecosystem", ecosystem)
+    git_command.set_runtime_dependency("ecosystem", ecosystem)
 
-    # Inject shared class-level dependencies used by all cont_comp instances
-    cont_comp._docker          = docker_command
-    cont_comp._docker_daemon   = docker_daemon
-    cont_comp._coordination    = coordination
-    cont_comp._git_server      = git_server
-    cont_comp._plugin_packages = plugin_packages
-    cont_comp._ecosystem       = ecosystem
+    # Bundle shared infrastructure; set class-level fallback for plugin cont_comp subclasses
+    context = ContainerizedContext(
+        docker=docker_command,
+        docker_daemon=docker_daemon,
+        coordination=coordination,
+        git_server=git_server,
+        plugin_packages=plugin_packages,
+        ecosystem=ecosystem,
+    )
+    cont_comp.set_shared_context(context)
 
     # Cont components
-    llm_obs          = comp_server_llm_observability()
-    neo4j            = comp_neo4j(git_server=git_server, docker_hub=docker_hub)
-    graph            = comp_graph(git_server=git_server, neo4j=neo4j, llm=llm, llm_observability=llm_obs)
-    convert          = comp_convert(pypi_server=pypi_server)
-    neo4j_to_rdf_ttl = comp_neo4j_to_rdf_ttl(git_server=git_server, docker_hub=docker_hub)
+    llm_obs          = comp_server_llm_observability(context=context)
+    neo4j            = comp_neo4j(git_server=git_server, docker_hub=docker_hub, context=context)
+    graph            = comp_graph(git_server=git_server, neo4j=neo4j, llm=llm, llm_observability=llm_obs, context=context)
+    convert          = comp_convert(pypi_server=pypi_server, context=context)
+    neo4j_to_rdf_ttl = comp_neo4j_to_rdf_ttl(git_server=git_server, docker_hub=docker_hub, context=context)
     deployment       = comp_deployment(
         network=network,
         catalog_comp=catalog_comp,
@@ -94,3 +98,4 @@ def build_components(
         registry.add(comp)
 
     registry.validate()
+    return context
