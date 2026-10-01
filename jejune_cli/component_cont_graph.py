@@ -70,6 +70,7 @@ class comp_graph(cont_comp):
             context=context,
         )
         self.cli_name = self.name
+        self.use_hint = "jejune graph extract"
 
     def dep_statuses(self) -> dict[str, tuple[bool, str]]:
         return {"neo4j": self._neo4j.is_running(), "llm": self._llm.available()}

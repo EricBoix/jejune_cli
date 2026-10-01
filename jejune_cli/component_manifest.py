@@ -22,6 +22,25 @@ class comp_manifest(conf_comp):
         data = yaml.safe_load(doc_yaml.read_text()) or {}
         return schema, data
 
+    def _check_graph_extractions_entries(self, schema: dict, data: dict) -> list[str]:
+        """Validate each entry in graph_extractions against the per-entry schema fields."""
+        entry_required = schema.get("graph_extractions_entry_required_fields", [])
+        entry_optional = schema.get("graph_extractions_entry_optional_fields", [])
+        entry_known = set(entry_required) | set(entry_optional)
+        errors = []
+        for index, entry in enumerate(data.get("graph_extractions") or []):
+            for field_name in entry_required:
+                if field_name not in entry:
+                    errors.append(
+                        f"graph_extractions[{index}]: required field '{field_name}' missing"
+                    )
+            unknown_entry_fields = [key for key in entry if key not in entry_known]
+            if unknown_entry_fields:
+                errors.append(
+                    f"graph_extractions[{index}]: unknown field(s): {', '.join(unknown_entry_fields)}"
+                )
+        return errors
+
     def check_manifest_referenced_files(self) -> tuple[list[str], list[tuple[str, str]]]:
         """Comprehensive diagnostic of manifest.yaml: structural validation plus file-reference checks.
 
@@ -45,6 +64,17 @@ class comp_manifest(conf_comp):
             file_refs.append((field_name, relative_path))
             if not (self.doc_repository_directory / relative_path).exists():
                 errors.append(f"{field_name}: {relative_path!r} not found")
+
+        entry_file_fields = schema.get("graph_extractions_entry_file_fields", [])
+        for index, entry in enumerate(data.get("graph_extractions") or []):
+            for field_name in entry_file_fields:
+                relative_path = entry.get(field_name)
+                if relative_path is None:
+                    continue
+                label = f"graph_extractions[{index}].{field_name}"
+                file_refs.append((label, relative_path))
+                if not (self.doc_repository_directory / relative_path).exists():
+                    errors.append(f"{label}: {relative_path!r} not found")
 
         if errors:
             errors.append(f"see {self._SCHEMA_PATH} for the expected format")
@@ -72,6 +102,9 @@ class comp_manifest(conf_comp):
         unknown = [field_name for field_name in data if field_name not in known_keys]
         if unknown:
             return "warn", f"unknown field(s): {', '.join(unknown)}"
+        entry_errors = self._check_graph_extractions_entries(schema, data)
+        if entry_errors:
+            return "error", entry_errors[0]
         return "ok", ""
 
     def check_availability(self) -> tuple[str, str]:

@@ -10,5 +10,13 @@ keywords:
 ### File references (repo-relative paths):
 # pdf_file: original_data/document.pdf
 # markdown_file: result_data/document.md
-# sentences_file: result_data/sentences.json
-# turtle_file: result_data/graph.ttl
+### Knowledge-graph extraction results (one entry per model × chunk-type combination):
+# graph_extractions:
+#   - model_name:       llama3_70b
+#     chunk_short_name: Sentences
+#     chunk_file:       result_data/document_-_Sentences_as_LangChain_document.json
+#     turtle_file:      result_data/document_-_Sentences.llama3_70b.ttl
+#   - model_name:       llama3_70b
+#     chunk_short_name: Paragraphs
+#     chunk_file:       result_data/document_-_Paragraphs_as_LangChain_document.json
+#     turtle_file:      result_data/document_-_Paragraphs.llama3_70b.ttl

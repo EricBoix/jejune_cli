@@ -12,6 +12,7 @@ class base_comp(ABC):
         dependencies: "list[base_comp] | None" = None,
         optional_dependencies: "list[base_comp] | None" = None,
         hint: str | None = None,
+        use_hint: str | None = None,
         plugin_deps: list[str] | None = None,
     ) -> None:
         self.name = name
@@ -20,6 +21,7 @@ class base_comp(ABC):
         self.optional_dependencies: list[base_comp] = optional_dependencies or []
         self.conditional_dependencies: list[tuple[Callable[[], bool], base_comp]] = []
         self.hint = hint
+        self.use_hint = use_hint
         self.plugin_deps: list[str] = plugin_deps or []
         self.runtime_dependencies: "dict[str, base_comp]" = {}
 

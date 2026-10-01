@@ -1,4 +1,4 @@
-# Schema for catalog.yaml files in jejune_doc_* repositories.
+# Schema for manifest.yaml files in jejune_doc_* repositories.
 required_fields:
   title: string
   authors: list
@@ -7,21 +7,24 @@ required_fields:
   slug: string
 optional_fields:
   isbn: string
+  graph_extractions: sequence
 # All file paths values are repo-relative paths
 file_fields:
   # Source document (when starting from a pdf)
   - pdf_file
   # Source document (might be converted out of a pdf source)
   - markdown_file
-  # Chunks delimited by the markdown source structural elements: Chapter (#
-  # headings), Section (## headings), Subsections...
-  - headers_file
-  # Chunks delimited by the paragraphs
-  - paragraphs_file
-  # Chunks are the sentences of the markdown source
-  - sentences_file
-  # Resulting knowledge graph in rdf-turtle format
-  - turtle_file
+
 required_file_fields:  # must be present and point to an existing file
   - markdown_file
+# Per-entry schema for items in the graph_extractions sequence.
+# chunk_file is optional when the turtle was generated from multiple chunk files.
+graph_extractions_entry_required_fields:
+  - model_name
+  - chunk_short_name
   - turtle_file
+graph_extractions_entry_optional_fields:
+  - chunk_file
+graph_extractions_entry_file_fields:
+  - turtle_file
+  - chunk_file

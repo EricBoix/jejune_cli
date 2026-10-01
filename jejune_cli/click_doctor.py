@@ -143,7 +143,10 @@ def _action_column(
         else:
             a_hint = _resolve_avail_hint(inst, role_registry, plugin_registry) if a_status != "ok" else ""
         if c_status != "ok" and hasattr(inst, "configuration"):
-            c_hint = ", ".join(inst.configuration.effective_hints(port_conflict_per_comp)) or ""
+            if a_status == "ok" and inst.use_hint:
+                c_hint = inst.use_hint
+            else:
+                c_hint = ", ".join(inst.configuration.effective_hints(port_conflict_per_comp)) or ""
         else:
             c_hint = ""
         action = (
