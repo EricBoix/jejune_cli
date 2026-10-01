@@ -3,16 +3,19 @@
 import click
 
 from .app_context import AppContext
-from .component_base import base_comp
+from .component_base import BaseComp
 from .click_theme import ClickTheme
 
 
-def build_tree_lines(components: list[base_comp]) -> list[str]:
+def build_tree_lines(components: list[BaseComp]) -> list[str]:
     by_name = {c.name: c for c in components}
 
     # Top-level within the active set = not required by any other active component
     required: set[str] = {
-        dep.name for comp in components for dep in comp.dependencies if dep.name in by_name
+        dep.name
+        for comp in components
+        for dep in comp.dependencies
+        if dep.name in by_name
     }
     top_level = [c for c in components if c.name not in required]
 
@@ -40,7 +43,9 @@ def build_tree_lines(components: list[base_comp]) -> list[str]:
             is_last = i == len(children) - 1
             conn = "└── " if is_last else "├── "
             back = " [↑]" if dep_name in visited else ""
-            lines.append(f"{prefix}{conn}{label}{dep_name} {_status_icon(dep_name)}{back}")
+            lines.append(
+                f"{prefix}{conn}{label}{dep_name} {_status_icon(dep_name)}{back}"
+            )
             if dep_name not in visited:
                 visited.add(dep_name)
                 _render_children(dep_name, prefix + ("    " if is_last else "│   "))
@@ -61,8 +66,10 @@ def build_tree_lines(components: list[base_comp]) -> list[str]:
 def components_tree(ctx) -> None:
     """Show component dependency relationships as an ASCII tree."""
     app = ctx.find_object(AppContext)
-    current_role_active_components: list[base_comp] = app.component_registry.sorted_active_set(
-        app.role_registry.current_role_components()
+    current_role_active_components: list[BaseComp] = (
+        app.component_registry.sorted_active_set(
+            app.role_registry.current_role_components()
+        )
     )
     for line in build_tree_lines(current_role_active_components):
         click.echo(line)

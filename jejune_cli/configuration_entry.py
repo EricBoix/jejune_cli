@@ -1,4 +1,4 @@
-"""configuration_entry: one env var with hint and source file."""
+"""ConfigurationEntry: one env var with hint and source file."""
 
 import os
 from collections.abc import Callable
@@ -7,16 +7,16 @@ from pathlib import Path
 _PLACEHOLDER = "CHANGE_ME"
 
 
-class configuration_entry:
+class ConfigurationEntry:
 
     def __init__(
-            self,
-            env_var: str,
-            hint: str | None = None,
-            source_file: str | None = None,
-            max_severity: str = "error",
-            env_var_validator: Callable[[str], tuple[str, str]] | None = None,
-        ) -> None:
+        self,
+        env_var: str,
+        hint: str | None = None,
+        source_file: str | None = None,
+        max_severity: str = "error",
+        env_var_validator: Callable[[str], tuple[str, str]] | None = None,
+    ) -> None:
         self.env_var = env_var
         self.hint = hint
         self.source_file = source_file

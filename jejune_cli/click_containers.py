@@ -1,23 +1,26 @@
 """Click commands for managing jejune-managed Docker containers."""
+
 import click
 
 from .app_context import AppContext
-from .component_containerized import cont_comp
+from .component_containerized import ContComp
 from .component_registry import ComponentRegistry
 
 
 def _existing_component_containers(app: AppContext) -> list[dict]:
-    """Return all cont_comp containers currently present in Docker."""
+    """Return all ContComp containers currently present in Docker."""
     return [
         {"component": inst.name, "container": inst.container_name}
         for inst in app.component_registry
-        if isinstance(inst, cont_comp)
+        if isinstance(inst, ContComp)
         and app.containerized_context.docker.container_exists(inst.container_name)
     ]
 
 
-def _print_containers_table(component_registry: ComponentRegistry, prefix: str = "  ") -> None:
-    comps = [inst for inst in component_registry if isinstance(inst, cont_comp)]
+def _print_containers_table(
+    component_registry: ComponentRegistry, prefix: str = "  "
+) -> None:
+    comps = [inst for inst in component_registry if isinstance(inst, ContComp)]
     if not comps:
         click.echo(f"{prefix}No container components registered.")
         return
@@ -29,8 +32,12 @@ def _print_containers_table(component_registry: ComponentRegistry, prefix: str =
     click.echo(prefix + "─" * (len(header) - len(prefix)))
     for inst in comps:
         ok, msg = inst.is_running()
-        status_str = click.style("running", fg="green") if ok else click.style(msg, fg="yellow")
-        click.echo(f"{prefix}{inst.name:<{_W_COMP}}  {inst.image_name:<{_W_IMG}}  {status_str}")
+        status_str = (
+            click.style("running", fg="green") if ok else click.style(msg, fg="yellow")
+        )
+        click.echo(
+            f"{prefix}{inst.name:<{_W_COMP}}  {inst.image_name:<{_W_IMG}}  {status_str}"
+        )
 
 
 @click.group("containers", short_help="Manage jejune-managed Docker containers")

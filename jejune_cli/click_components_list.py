@@ -3,8 +3,8 @@
 import click
 
 from .app_context import AppContext
-from .component_base import base_comp
-from .component_ext import ext_comp
+from .component_base import BaseComp
+from .component_ext import ExtComp
 from .click_theme import ClickTheme
 
 
@@ -13,12 +13,14 @@ from .click_theme import ClickTheme
 def components_list(ctx) -> None:
     """List all registered components and their availability status."""
     app = ctx.find_object(AppContext)
-    current_role_active_components: list[base_comp] = app.component_registry.sorted_active_set(
-        app.role_registry.current_role_components()
+    current_role_active_components: list[BaseComp] = (
+        app.component_registry.sorted_active_set(
+            app.role_registry.current_role_components()
+        )
     )
     rows: list[tuple[str, str, str]] = []
     for comp in current_role_active_components:
-        kind = "ext" if isinstance(comp, ext_comp) else "int"
+        kind = "ext" if isinstance(comp, ExtComp) else "int"
         status, _ = comp.check()
         rows.append((comp.name, kind, status))
 

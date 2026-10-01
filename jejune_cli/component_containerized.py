@@ -5,12 +5,12 @@ from pathlib import Path
 
 import click
 
-from .component_with_config import conf_comp
-from .configuration import configuration as _configuration
+from .component_with_config import ConfComp
+from .configuration import Configuration
 from .containerized_context import ContainerizedContext
 
 
-class cont_comp(conf_comp):
+class ContComp(ConfComp):
     """Base for components backed by a Docker container.
 
     Each instance exposes shared infrastructure via ``self._context``
@@ -26,7 +26,7 @@ class cont_comp(conf_comp):
     Built-in subclasses receive the context explicitly via the *context*
     constructor keyword argument.  Plugin subclasses that omit *context* fall
     back to the class-level ``_shared_context`` set by
-    ``cont_comp.set_shared_context()``, which ``build_components()`` calls
+    ``ContComp.set_shared_context()``, which ``build_components()`` calls
     before any plugin is loaded.
     """
 
@@ -46,12 +46,12 @@ class cont_comp(conf_comp):
         dockerfile: str | None = None,
         dependencies: list | None = None,
         optional_dependencies: list | None = None,
-        configuration: _configuration | None = None,
+        configuration: Configuration | None = None,
         hint: str | None = None,
         service_name: str | None = None,
         context: ContainerizedContext | None = None,
     ) -> None:
-        ctx = context if context is not None else cont_comp._shared_context
+        ctx = context if context is not None else ContComp._shared_context
         if ctx is None:
             raise RuntimeError(
                 "ContainerizedContext not initialised — call build_components() first"
@@ -95,7 +95,10 @@ class cont_comp(conf_comp):
                     self.build_context = (
                         str(Path(context) / subpath) if subpath else context
                     )
-                elif self._context.plugin_packages is not None and self._context.git_server is not None:
+                elif (
+                    self._context.plugin_packages is not None
+                    and self._context.git_server is not None
+                ):
                     repo_name = self._context.plugin_packages.repo_name_for(self.name)
                     ref = f"main:{subpath}" if subpath else None
                     self.build_context = self._context.git_server.remote_git_url(
@@ -161,11 +164,15 @@ class cont_comp(conf_comp):
 
     def register(self, **meta) -> dict:
         """Add this component's container to the jejune container registry."""
-        return self._context.coordination.register(self.name, self.container_name, **meta)
+        return self._context.coordination.register(
+            self.name, self.container_name, **meta
+        )
 
     def register_with_name(self, name_factory, **meta) -> dict:
         """Register this component with a dynamically-named container."""
-        return self._context.coordination.register_with_name(self.name, name_factory, **meta)
+        return self._context.coordination.register_with_name(
+            self.name, name_factory, **meta
+        )
 
     def unregister(self) -> None:
         """Remove this component's container from the jejune registry."""
@@ -177,7 +184,7 @@ class cont_comp(conf_comp):
 
     @classmethod
     def image_build_status(cls, components: list) -> "dict[str, bool]":
-        """Return {name: is_built()} for every cont_comp in *components*."""
+        """Return {name: is_built()} for every ContComp in *components*."""
         return {
             inst.name: inst.is_built() for inst in components if isinstance(inst, cls)
         }

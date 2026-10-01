@@ -1,9 +1,9 @@
 import click
 
-from .configuration import configuration
+from .configuration import Configuration
 
 
-def print_config_check(config: configuration) -> None:
+def print_config_check(config: Configuration) -> None:
     """Print detailed per-variable config check for a component's configuration."""
     if not config:
         click.echo(click.style("no configuration required", fg="green"))
@@ -24,16 +24,20 @@ def print_config_check(config: configuration) -> None:
         raise SystemExit(1)
 
 
-def print_config_hint(config: configuration) -> None:
+def print_config_hint(config: Configuration) -> None:
     """Print the configuration hint for a component."""
     if not config:
         click.echo(click.style("no configuration required", fg="green"))
         return
     hints = config.hints()
-    click.echo(", ".join(hints) if hints else click.style("no configuration required", fg="green"))
+    click.echo(
+        ", ".join(hints)
+        if hints
+        else click.style("no configuration required", fg="green")
+    )
 
 
-def print_config_status(config: configuration) -> None:
+def print_config_status(config: Configuration) -> None:
     """Print configuration status for a component; exit 1 on error."""
     if not config:
         click.echo(click.style("configured", fg="green"))

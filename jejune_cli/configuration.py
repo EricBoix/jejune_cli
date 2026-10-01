@@ -1,13 +1,13 @@
-"""configuration: aggregate container for configuration_entry instances."""
+"""configuration: aggregate container for ConfigurationEntry instances."""
 
 from pathlib import Path
 
-from .configuration_entry import configuration_entry
+from .configuration_entry import ConfigurationEntry
 
 
-class configuration:
-    def __init__(self, *entries: configuration_entry) -> None:
-        self.entries: list[configuration_entry] = list(entries)
+class Configuration:
+    def __init__(self, *entries: ConfigurationEntry) -> None:
+        self.entries: list[ConfigurationEntry] = list(entries)
 
     def __bool__(self) -> bool:
         return bool(self.entries)
@@ -28,9 +28,7 @@ class configuration:
         else:
             return "ok", "", ""
         msgs = "; ".join(
-            f"{e.env_var}: {m}"
-            for e, (_, m) in zip(self.entries, results)
-            if m
+            f"{e.env_var}: {m}" for e, (_, m) in zip(self.entries, results) if m
         )
         return status, msgs, ", ".join(self.hints())
 
@@ -63,6 +61,6 @@ class configuration:
             e.load(base_dir)
 
     def get(self, env_var: str, base_dir: Path = Path(".")) -> str | None:
-        """Return the value of env_var via its declared configuration_entry, or None."""
+        """Return the value of env_var via its declared ConfigurationEntry, or None."""
         entry = next((e for e in self.entries if e.env_var == env_var), None)
         return entry.value(base_dir) if entry else None

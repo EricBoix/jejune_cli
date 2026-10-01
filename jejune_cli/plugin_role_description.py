@@ -1,4 +1,5 @@
 """Role description contributed by a plugin package."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -11,7 +12,7 @@ import click
 class plugin_role_description:
     """Role definition contributed by a plugin package.
 
-    When a plugin_description carries a role, jejune-cli registers it at startup
+    When a PluginDescription carries a role, jejune-cli registers it at startup
     so that the role becomes auto-detectable, its help section appears in
     ``jejune --help``, and (optionally) its config subgroup appears under
     ``jejune configuration``.

@@ -1,26 +1,31 @@
 """convert containerized component."""
+
 import os
 import subprocess
 from pathlib import Path
 
-from .component_containerized import cont_comp
-from .configuration import configuration
-from .configuration_entry import configuration_entry
+from .component_containerized import ContComp
+from .configuration import Configuration
+from .configuration_entry import ConfigurationEntry
 from .containerized_context import ContainerizedContext
 
 
-class comp_convert(cont_comp):
-    def __init__(self, pypi_server, context: ContainerizedContext | None = None) -> None:
+class comp_convert(ContComp):
+    def __init__(
+        self, pypi_server, context: ContainerizedContext | None = None
+    ) -> None:
         super().__init__(
             name="convert",
             image_name="jejune-convert",
             dependencies=[pypi_server],
             hint="run `jejune convert build`",
-            configuration=configuration(
-                configuration_entry("CONVERT_DOC_DIR",
+            configuration=Configuration(
+                ConfigurationEntry(
+                    "CONVERT_DOC_DIR",
                     hint="set CONVERT_DOC_DIR in .jejune/env-config",
                     source_file=".jejune/env-config",
-                    env_var_validator=self.validate_convert_dir)
+                    env_var_validator=self.validate_convert_dir,
+                )
             ),
             context=context,
         )
@@ -44,8 +49,16 @@ class comp_convert(cont_comp):
             dockerfile, context = ctx / "Dockerfile", ctx
         extra = ["--no-cache"] if no_cache else []
         subprocess.run(
-            ["docker", "build", *extra, "-t", comp_convert._image_tag(),
-             "-f", str(dockerfile), str(context)],
+            [
+                "docker",
+                "build",
+                *extra,
+                "-t",
+                comp_convert._image_tag(),
+                "-f",
+                str(dockerfile),
+                str(context),
+            ],
             check=True,
         )
 
@@ -77,7 +90,9 @@ class comp_convert(cont_comp):
         doc_dir = comp_convert._doc_dir()
         if not doc_dir:
             return "jejune:convert"
-        base = doc_dir.resolve().parent.parent if doc_dir.is_file() else doc_dir.resolve()
+        base = (
+            doc_dir.resolve().parent.parent if doc_dir.is_file() else doc_dir.resolve()
+        )
         return f"jejune:convert_{base.name.removeprefix('jejune_doc_')}"
 
     def is_built(self) -> bool:

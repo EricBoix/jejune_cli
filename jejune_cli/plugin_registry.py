@@ -10,16 +10,16 @@ from typing import Callable
 import click
 
 from .component_registry import ComponentRegistry, _UnresolvedPlugin
-from .configuration import configuration
-from .configuration_entry import configuration_entry
+from .configuration import Configuration
+from .configuration_entry import ConfigurationEntry
 from .plugin_comp import PluginComp
-from .plugin_description import plugin_description
+from .plugin_description import PluginDescription
 
 
 class PluginRegistry:
     """Registry for all installed plugin packages.
 
-    Plugin packages expose a ``plugin_description`` instance via the
+    Plugin packages expose a ``PluginDescription`` instance via the
     ``"jejune.plugins"`` entry-point group.  This registry discovers them,
     registers their components in ComponentRegistry, and fires post-hooks so that
     ``app_context.py`` can wire CLI commands and roles.
@@ -27,13 +27,13 @@ class PluginRegistry:
 
     def __init__(self, component_registry: ComponentRegistry) -> None:
         self._component_registry = component_registry
-        self._plugins: list[plugin_description] = []
+        self._plugins: list[PluginDescription] = []
         self._loaded: set[str] = set()
-        self._post_hooks: list[Callable[[plugin_description], None]] = []
+        self._post_hooks: list[Callable[[PluginDescription], None]] = []
         self._finalize_hook: Callable[[], None] | None = None
         self._plugin_repo_names: dict[str, str] = {}
 
-    def add_post_hook(self, fn: Callable[[plugin_description], None]) -> None:
+    def add_post_hook(self, fn: Callable[[PluginDescription], None]) -> None:
         """Register callback invoked after each plugin is component-registered."""
         self._post_hooks.append(fn)
 
@@ -48,7 +48,7 @@ class PluginRegistry:
         for ep in importlib.metadata.entry_points(group="jejune.plugins"):
             if ep.name == name:
                 try:
-                    plugin: plugin_description = ep.load()
+                    plugin: PluginDescription = ep.load()
                     self.register_plugin_component(plugin)
                 except Exception as exc:
                     click.echo(
@@ -56,7 +56,7 @@ class PluginRegistry:
                     )
                 return
 
-    def register_plugin_component(self, plugin: plugin_description) -> None:
+    def register_plugin_component(self, plugin: PluginDescription) -> None:
         """Register a plugin in ComponentRegistry and fire post-hooks.  Idempotent."""
         if plugin.name in self._loaded:
             return
@@ -85,9 +85,9 @@ class PluginRegistry:
         if plugin.config_vars:
             inst = self._component_registry.get(plugin.name)
             if inst is not None and hasattr(inst, "configuration"):
-                inst.configuration = configuration(
+                inst.configuration = Configuration(
                     *(
-                        configuration_entry(v, hint=plugin.config_hint)
+                        ConfigurationEntry(v, hint=plugin.config_hint)
                         for v in plugin.config_vars
                     )
                 )
@@ -132,7 +132,7 @@ class PluginRegistry:
         # Phase 1: load installed entry-points and register their components.
         for ep in importlib.metadata.entry_points(group="jejune.plugins"):
             try:
-                plugin: plugin_description = ep.load()
+                plugin: PluginDescription = ep.load()
             except Exception as exc:
                 click.echo(
                     f"Warning: failed to load plugin {ep.name!r}: {exc}", err=True
@@ -195,5 +195,5 @@ class PluginRegistry:
         return None
 
     @property
-    def plugins(self) -> list[plugin_description]:
+    def plugins(self) -> list[PluginDescription]:
         return list(self._plugins)

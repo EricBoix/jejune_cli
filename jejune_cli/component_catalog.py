@@ -1,9 +1,10 @@
 """Catalog configuration component."""
+
 from pathlib import Path
 
 import yaml
 
-from .component_with_config import conf_comp as component
+from .component_with_config import ConfComp as component
 
 
 class comp_catalog(component):
@@ -12,6 +13,7 @@ class comp_catalog(component):
 
     def check(self) -> tuple[str, str]:
         from jejune_catalog._impl import _check_availability
+
         ok, msg = _check_availability()
         return ("ok", "") if ok else ("error", msg)
 
@@ -27,7 +29,10 @@ class comp_catalog(component):
     def trivial_catalog_content(self) -> str | None:
         try:
             from importlib.resources import files
-            return (files("jejune_catalog") / "templates" / "trivial-catalog.yaml").read_text()
+
+            return (
+                files("jejune_catalog") / "templates" / "trivial-catalog.yaml"
+            ).read_text()
         except Exception:
             return None
 

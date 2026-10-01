@@ -1,9 +1,10 @@
 """Abstract base for external (user-installed) components."""
-from .component_base import base_comp
+
+from .component_base import BaseComp
 
 
-class ext_comp(base_comp):
+class ExtComp(BaseComp):
     """External dependency the user must install/provide.
 
-    All ext_comp instances are hidden from `jejune components doctor` when available.
+    All ExtComp instances are hidden from `jejune components doctor` when available.
     """

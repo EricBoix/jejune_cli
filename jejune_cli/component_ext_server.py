@@ -1,12 +1,13 @@
 """Base class for server-based external components."""
+
 import urllib.error
 import urllib.request
 
-from .configuration import configuration as _configuration
-from .component_with_config import conf_comp
+from .configuration import Configuration
+from .component_with_config import ConfComp
 
 
-class ext_server(conf_comp):
+class ext_server(ConfComp):
     """External server reachable via HTTP. Subclasses override check() for non-HTTP."""
 
     def __init__(
@@ -15,9 +16,11 @@ class ext_server(conf_comp):
         api_url: str,
         dependencies: list[str] | None = None,
         hint: str | None = None,
-        configuration: _configuration | None = None,
+        configuration: Configuration | None = None,
     ) -> None:
-        super().__init__(name=name, dependencies=dependencies, hint=hint, configuration=configuration)
+        super().__init__(
+            name=name, dependencies=dependencies, hint=hint, configuration=configuration
+        )
         self.api_url = api_url
 
     def check(self) -> tuple[str, str]:

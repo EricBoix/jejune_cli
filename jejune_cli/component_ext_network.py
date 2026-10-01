@@ -1,10 +1,11 @@
 """Network connectivity component."""
+
 import socket
 
-from .component_ext import ext_comp
+from .component_ext import ExtComp
 
 
-class comp_network(ext_comp):
+class comp_network(ExtComp):
     def __init__(self) -> None:
         self.remote_server = "www.google.com"
         super().__init__(

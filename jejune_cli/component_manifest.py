@@ -1,12 +1,13 @@
 """Manifest configuration component."""
+
 from pathlib import Path
 from typing import ClassVar
 import yaml
 
-from .component_with_config import conf_comp
+from .component_with_config import ConfComp
 
 
-class comp_manifest(conf_comp):
+class comp_manifest(ConfComp):
     _SCHEMA_PATH: ClassVar[Path] = Path(__file__).parent / "schema" / "manifest.yaml"
 
     def __init__(self, doc_repository_directory: Path = Path.cwd()) -> None:
@@ -41,7 +42,9 @@ class comp_manifest(conf_comp):
                 )
         return errors
 
-    def check_manifest_referenced_files(self) -> tuple[list[str], list[tuple[str, str]]]:
+    def check_manifest_referenced_files(
+        self,
+    ) -> tuple[list[str], list[tuple[str, str]]]:
         """Comprehensive diagnostic of manifest.yaml: structural validation plus file-reference checks.
 
         Delegates structural validation to check_manifest_against_schema(), then checks that every
@@ -51,7 +54,9 @@ class comp_manifest(conf_comp):
         """
         cfg_status, cfg_msg = self.check_manifest_against_schema()
         if cfg_status == "error" and cfg_msg == "manifest.yaml missing":
-            return [f"manifest.yaml missing (see {self._SCHEMA_PATH} for the expected format)"], []
+            return [
+                f"manifest.yaml missing (see {self._SCHEMA_PATH} for the expected format)"
+            ], []
         errors: list[str] = [] if cfg_status == "ok" else [cfg_msg]
         file_refs: list[tuple[str, str]] = []
 
@@ -90,8 +95,16 @@ class comp_manifest(conf_comp):
         if loaded is None:
             return "error", "manifest.yaml missing"
         schema, data = loaded
-        missing = [field_name for field_name in schema.get("required_fields", {}) if field_name not in data]
-        missing += [field_name for field_name in schema.get("required_file_fields", []) if field_name not in data]
+        missing = [
+            field_name
+            for field_name in schema.get("required_fields", {})
+            if field_name not in data
+        ]
+        missing += [
+            field_name
+            for field_name in schema.get("required_file_fields", [])
+            if field_name not in data
+        ]
         if missing:
             return "error", f"required field(s) missing: {', '.join(missing)}"
         known_keys = (

@@ -1,4 +1,5 @@
 """neo4j containerized component."""
+
 import base64
 import json
 import os
@@ -10,25 +11,43 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from .component_containerized import cont_comp
-from .configuration import configuration
-from .configuration_entry import configuration_entry
+from .component_containerized import ContComp
+from .configuration import Configuration
+from .configuration_entry import ConfigurationEntry
 from .containerized_context import ContainerizedContext
 
 
-class comp_neo4j(cont_comp):
-    def __init__(self, git_server, docker_hub, context: ContainerizedContext | None = None) -> None:
+class comp_neo4j(ContComp):
+    def __init__(
+        self, git_server, docker_hub, context: ContainerizedContext | None = None
+    ) -> None:
         super().__init__(
             name="neo4j",
             image_name="jejune:neo4j",
             build_context=git_server.remote_git_url("jejune_neo4j_docker"),
             dependencies=[git_server, docker_hub],
             hint="run `jejune neo4j start --help`",
-            configuration=configuration(
-                configuration_entry("NEO4J_URI",       hint="edit .jejune/env-config",  source_file=".jejune/env-config"),
-                configuration_entry("NEO4J_HTTP_PORT", hint="edit .jejune/env-config",  source_file=".jejune/env-config"),
-                configuration_entry("NEO4J_USERNAME",  hint="edit .jejune/env-config",  source_file=".jejune/env-config"),
-                configuration_entry("NEO4J_PASSWORD",  hint="edit .jejune/env-secrets", source_file=".jejune/env-secrets"),
+            configuration=Configuration(
+                ConfigurationEntry(
+                    "NEO4J_URI",
+                    hint="edit .jejune/env-config",
+                    source_file=".jejune/env-config",
+                ),
+                ConfigurationEntry(
+                    "NEO4J_HTTP_PORT",
+                    hint="edit .jejune/env-config",
+                    source_file=".jejune/env-config",
+                ),
+                ConfigurationEntry(
+                    "NEO4J_USERNAME",
+                    hint="edit .jejune/env-config",
+                    source_file=".jejune/env-config",
+                ),
+                ConfigurationEntry(
+                    "NEO4J_PASSWORD",
+                    hint="edit .jejune/env-secrets",
+                    source_file=".jejune/env-secrets",
+                ),
             ),
             context=context,
         )
@@ -59,13 +78,21 @@ class comp_neo4j(cont_comp):
             database_dir.mkdir(parents=True, exist_ok=True)
         result = subprocess.run(
             [
-                "docker", "run", "--rm", "--detach",
-                "--name", self.container_name,
-                "--publish", f"{http_port}:7474",
-                "--publish", f"{port}:7687",
+                "docker",
+                "run",
+                "--rm",
+                "--detach",
+                "--name",
+                self.container_name,
+                "--publish",
+                f"{http_port}:7474",
+                "--publish",
+                f"{port}:7687",
                 f"--user={os.getuid()}:{os.getgid()}",
-                "--env", f"NEO4J_AUTH={credentials}",
-                "-v", f"{database_dir}:/data",
+                "--env",
+                f"NEO4J_AUTH={credentials}",
+                "-v",
+                f"{database_dir}:/data",
                 self.image_name,
             ]
         )
@@ -105,7 +132,9 @@ class comp_neo4j(cont_comp):
             raise RuntimeError(f"Dump file not found: {dump_path}")
         running, _ = self.is_running()
         if running:
-            raise RuntimeError("neo4j is running — stop it first with `jejune neo4j stop`")
+            raise RuntimeError(
+                "neo4j is running — stop it first with `jejune neo4j stop`"
+            )
 
         self.wipe_database(database_dir)
 
@@ -113,11 +142,19 @@ class comp_neo4j(cont_comp):
 
         result = subprocess.run(
             [
-                "docker", "run", "--interactive", "--tty", "--rm",
+                "docker",
+                "run",
+                "--interactive",
+                "--tty",
+                "--rm",
                 f"--user={os.getuid()}:{os.getgid()}",
                 f"--volume={database_dir}:/data",
                 f"--volume={backups_dir}:/backups",
-                "neo4j/neo4j-admin", "neo4j-admin", "database", "load", "neo4j",
+                "neo4j/neo4j-admin",
+                "neo4j-admin",
+                "database",
+                "load",
+                "neo4j",
                 "--from-path=/backups",
             ]
         )
@@ -131,17 +168,27 @@ class comp_neo4j(cont_comp):
         backups_dir.mkdir(parents=True, exist_ok=True)
         running, _ = self.is_running()
         if running:
-            raise RuntimeError("neo4j is running — stop it first with `jejune neo4j stop`")
+            raise RuntimeError(
+                "neo4j is running — stop it first with `jejune neo4j stop`"
+            )
         existing = backups_dir / "neo4j.dump"
         if existing.exists():
             raise RuntimeError(f"{existing} already exists — remove it first")
         result = subprocess.run(
             [
-                "docker", "run", "--interactive", "--tty", "--rm",
+                "docker",
+                "run",
+                "--interactive",
+                "--tty",
+                "--rm",
                 f"--user={os.getuid()}:{os.getgid()}",
                 f"--volume={database_dir}:/data",
                 f"--volume={backups_dir}:/output",
-                "neo4j/neo4j-admin", "neo4j-admin", "database", "dump", "neo4j",
+                "neo4j/neo4j-admin",
+                "neo4j-admin",
+                "database",
+                "dump",
+                "neo4j",
                 "--to-path=/output",
             ]
         )
@@ -173,7 +220,10 @@ class comp_neo4j(cont_comp):
         req = urllib.request.Request(
             self._neo4j_http_api_url(),
             data=payload,
-            headers={"Authorization": f"Basic {token}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Basic {token}",
+                "Content-Type": "application/json",
+            },
             method="POST",
         )
         try:
@@ -185,17 +235,26 @@ class comp_neo4j(cont_comp):
 
     def query_llm_model_names(self) -> list[str]:
         token = self._neo4j_auth_token()
-        payload = json.dumps({"statements": [{
-            "statement": (
-                "MATCH (n) WHERE NOT n:Document AND n.llm_model_name IS NOT NULL "
-                "RETURN DISTINCT n.llm_model_name AS llm_model_name "
-                "ORDER BY llm_model_name"
-            )
-        }]}).encode()
+        payload = json.dumps(
+            {
+                "statements": [
+                    {
+                        "statement": (
+                            "MATCH (n) WHERE NOT n:Document AND n.llm_model_name IS NOT NULL "
+                            "RETURN DISTINCT n.llm_model_name AS llm_model_name "
+                            "ORDER BY llm_model_name"
+                        )
+                    }
+                ]
+            }
+        ).encode()
         req = urllib.request.Request(
             self._neo4j_http_api_url(),
             data=payload,
-            headers={"Authorization": f"Basic {token}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Basic {token}",
+                "Content-Type": "application/json",
+            },
             method="POST",
         )
         try:
@@ -228,7 +287,10 @@ class comp_neo4j(cont_comp):
         req = urllib.request.Request(
             self._neo4j_http_api_url(),
             data=payload,
-            headers={"Authorization": f"Basic {token}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Basic {token}",
+                "Content-Type": "application/json",
+            },
             method="POST",
         )
         try:

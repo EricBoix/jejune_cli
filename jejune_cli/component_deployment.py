@@ -1,29 +1,62 @@
 """Deployment component (internal)."""
+
 import os
 import subprocess
 from pathlib import Path
 
-from .configuration import configuration
-from .configuration_entry import configuration_entry
-from .component_with_config import conf_comp
+from .configuration import Configuration
+from .configuration_entry import ConfigurationEntry
+from .component_with_config import ConfComp
 
 
-class comp_deployment(conf_comp):
-    def __init__(self, network, catalog_comp, docker_daemon, docker_command, plugin_registry, ecosystem) -> None:
+class comp_deployment(ConfComp):
+    def __init__(
+        self,
+        network,
+        catalog_comp,
+        docker_daemon,
+        docker_command,
+        plugin_registry,
+        ecosystem,
+    ) -> None:
         self.network = network
         self._docker_command = docker_command
         self._plugin_registry = plugin_registry
         self._ecosystem = ecosystem
         super().__init__(
             name="deployment",
-            dependencies=[catalog_comp, docker_daemon, docker_command, network, ecosystem],
-            plugin_deps=["jejune_docs_server", "jejune_kg-graph_viewer", "jejune_markdown_browser"],
+            dependencies=[
+                catalog_comp,
+                docker_daemon,
+                docker_command,
+                network,
+                ecosystem,
+            ],
+            plugin_deps=[
+                "jejune_docs_server",
+                "jejune_kg-graph_viewer",
+                "jejune_markdown_browser",
+            ],
             hint="run `jejune build`",
-            configuration=configuration(
-                configuration_entry("DOCS_SERVER_PORT",      hint="edit deployment.env", source_file="deployment.env"),
-                configuration_entry("KG_PORT",               hint="edit deployment.env", source_file="deployment.env"),
-                configuration_entry("MARKDOWN_PORT",         hint="edit deployment.env", source_file="deployment.env"),
-                configuration_entry("MARKDOWN_TRIGGER_PORT", hint="edit deployment.env", source_file="deployment.env"),
+            configuration=Configuration(
+                ConfigurationEntry(
+                    "DOCS_SERVER_PORT",
+                    hint="edit deployment.env",
+                    source_file="deployment.env",
+                ),
+                ConfigurationEntry(
+                    "KG_PORT", hint="edit deployment.env", source_file="deployment.env"
+                ),
+                ConfigurationEntry(
+                    "MARKDOWN_PORT",
+                    hint="edit deployment.env",
+                    source_file="deployment.env",
+                ),
+                ConfigurationEntry(
+                    "MARKDOWN_TRIGGER_PORT",
+                    hint="edit deployment.env",
+                    source_file="deployment.env",
+                ),
             ),
         )
         self.cli_name = self.name
@@ -39,7 +72,11 @@ class comp_deployment(conf_comp):
 
     @property
     def service_names(self) -> tuple[str, ...]:
-        return tuple(dep.service_name for dep in self.dependencies if hasattr(dep, "service_name"))
+        return tuple(
+            dep.service_name
+            for dep in self.dependencies
+            if hasattr(dep, "service_name")
+        )
 
     def host_ports(self, deploy_dir: Path) -> list[tuple[int, str]]:
         self.configuration.load(deploy_dir)
@@ -85,28 +122,33 @@ class comp_deployment(conf_comp):
         has_private = self.has_private_repos(deploy_dir)
         build_secrets = (
             "      secrets:\n        - catalog\n        - gh_token\n"
-            if has_private else
-            "      secrets:\n        - catalog\n"
+            if has_private
+            else "      secrets:\n        - catalog\n"
         )
         gh_secret_def = (
-            "  gh_token:\n    file: \"${GH_TOKEN_FILE:-~/.github_token}\"\n"
-            if has_private else ""
+            '  gh_token:\n    file: "${GH_TOKEN_FILE:-~/.github_token}"\n'
+            if has_private
+            else ""
         )
         template = (template_dir / "docker-compose.yml").read_text()
         return (
-            template
-            .replace("{{NAME}}", name)
+            template.replace("{{NAME}}", name)
             .replace("{{BUILD_SECRETS}}", build_secrets)
             .replace("{{GH_SECRET_DEF}}", gh_secret_def)
         )
 
     def check_ui_services(self) -> list[tuple[str, bool, str]]:
         relevant = [
-            p for p in self._plugin_registry.plugins
+            p
+            for p in self._plugin_registry.plugins
             if self._plugin_registry.repo_name_for_plugin(p.name) in self.plugin_deps
         ]
         return [
-            (p.name, *p.check_availability()) if p.check_availability else (p.name, False, "not installed")
+            (
+                (p.name, *p.check_availability())
+                if p.check_availability
+                else (p.name, False, "not installed")
+            )
             for p in relevant
         ]
 
@@ -130,7 +172,9 @@ class comp_deployment(conf_comp):
                 continue
             for subpath, key in repos:
                 if key:
-                    env[key] = self._ecosystem.resolve(repo_name, root_dir, tmp_dir, subpath)
+                    env[key] = self._ecosystem.resolve(
+                        repo_name, root_dir, tmp_dir, subpath
+                    )
         return env
 
     def run_compose(self, deploy_dir: Path, *args: str) -> int:

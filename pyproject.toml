@@ -27,3 +27,6 @@ packages = ["jejune_cli"]
 
 [tool.uv.sources]
 jejune-catalog = { git = "https://github.com/EricBoix/jejune_catalog" }
+
+[tool.black]
+line-length = 88

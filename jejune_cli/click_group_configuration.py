@@ -28,7 +28,8 @@ class _ConfigurationGroup(click.Group):
         ctx.meta[self._ROLE_CTX_KEY] = app.role_registry.detect_role() if app else None
 
         option_rows = [
-            rv for param in self.get_params(ctx)
+            rv
+            for param in self.get_params(ctx)
             if (rv := param.get_help_record(ctx)) is not None
         ]
 
@@ -60,14 +61,18 @@ class _ConfigurationGroup(click.Group):
                     formatter.write_dl(regular)
 
         formatter.write_paragraph()
-        formatter.write_usage(ctx.command_path, "ROLE COMMAND [OPTIONS]", prefix="Usage: ")
+        formatter.write_usage(
+            ctx.command_path, "ROLE COMMAND [OPTIONS]", prefix="Usage: "
+        )
         with formatter.indentation():
             if roles:
                 formatter.write_text("Roles:")
                 with formatter.indentation():
                     formatter.write_dl(roles)
 
-    def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+    def format_commands(
+        self, ctx: click.Context, formatter: click.HelpFormatter
+    ) -> None:
         active_role = ctx.meta.get(self._ROLE_CTX_KEY)
         regular: list[tuple[str, str]] = []
         roles: list[tuple[str, str]] = []
@@ -105,15 +110,22 @@ def _print_config_table(
     if not rows:
         return
     _W_C = max(len("Component configuration"), max(len(r[0]) for r in rows))
-    _W_S = max(len("Status"), max(len(ClickTheme.status_icons.get(r[1], (r[1], ""))[0]) for r in rows))
+    _W_S = max(
+        len("Status"),
+        max(len(ClickTheme.status_icons.get(r[1], (r[1], ""))[0]) for r in rows),
+    )
     _W_K = max(len("Check"), max(len(r[2]) for r in rows))
     _W_H = max(len(hint_header), max(len(r[3]) for r in rows))
     divider = "  " + "─" * (_W_C + 2 + _W_S + 2 + _W_K + 2 + _W_H)
-    click.echo(f"  {'Component configuration':<{_W_C}}  {'Status':<{_W_S}}  {'Check':<{_W_K}}  {hint_header}")
+    click.echo(
+        f"  {'Component configuration':<{_W_C}}  {'Status':<{_W_S}}  {'Check':<{_W_K}}  {hint_header}"
+    )
     click.echo(divider)
     for comp, status, check, hint in rows:
         text, fg = ClickTheme.status_icons.get(status, (status, "white"))
-        click.echo(f"  {comp:<{_W_C}}  {click.style(f'{text:<{_W_S}}', fg=fg)}  {check:<{_W_K}}  {hint}")
+        click.echo(
+            f"  {comp:<{_W_C}}  {click.style(f'{text:<{_W_S}}', fg=fg)}  {check:<{_W_K}}  {hint}"
+        )
     if note is not None:
         click.echo(divider)
         click.echo(note)
@@ -147,7 +159,9 @@ def check(ctx):
     """
     checks = _role_config_checks(ctx.find_object(AppContext))
     if not checks:
-        click.echo(click.style("no configuration required for the current role", fg="green"))
+        click.echo(
+            click.style("no configuration required for the current role", fg="green")
+        )
         return
     rows = [
         (name, status, msg if status == "error" else "", hint if status != "ok" else "")
@@ -164,7 +178,9 @@ def configuration_status(ctx):
     """Per-component configuration status."""
     checks = _role_config_checks(ctx.find_object(AppContext))
     if not checks:
-        click.echo(click.style("no configuration required for the current role", fg="green"))
+        click.echo(
+            click.style("no configuration required for the current role", fg="green")
+        )
         return
     styled = [
         (name, click.style(text, fg=fg))
@@ -178,7 +194,11 @@ def configuration_status(ctx):
 @click.pass_context
 def configuration_hint(ctx):
     """Configuration hints for non-ok components."""
-    rows = [(name, hint) for name, status, _, hint in _role_config_checks(ctx.find_object(AppContext)) if status != "ok" and hint]
+    rows = [
+        (name, hint)
+        for name, status, _, hint in _role_config_checks(ctx.find_object(AppContext))
+        if status != "ok" and hint
+    ]
     if not rows:
         click.echo(click.style("all components configured", fg="green"))
         return

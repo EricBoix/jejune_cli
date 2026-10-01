@@ -1,10 +1,11 @@
 """Base class for command-based external components."""
+
 import subprocess
 
-from .component_ext import ext_comp
+from .component_ext import ExtComp
 
 
-class ext_command(ext_comp):
+class ext_command(ExtComp):
     """External CLI tool checked via subprocess."""
 
     def __init__(

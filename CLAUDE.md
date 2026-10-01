@@ -1,3 +1,10 @@
+## Formatting
+
+This project uses **black** (configuration in `pyproject.toml`). Never manually reformat lines.
+After modifying any Python file run `black <file>` before considering the change complete.
+
+---
+
 When this directory appears under
 - `.jejune/tmp/`, or 
 - `~/.local/share/uv/tools/jejune-cli/lib/python<version-number>/site-packages/`

@@ -1,31 +1,32 @@
 """Abstract base class for all jejune components."""
+
 from abc import ABC, abstractmethod
 from typing import Callable, ClassVar
 
 
-class base_comp(ABC):
+class BaseComp(ABC):
     mandatory: ClassVar[bool] = True
 
     def __init__(
         self,
         name: str,
-        dependencies: "list[base_comp] | None" = None,
-        optional_dependencies: "list[base_comp] | None" = None,
+        dependencies: "list[BaseComp] | None" = None,
+        optional_dependencies: "list[BaseComp] | None" = None,
         hint: str | None = None,
         use_hint: str | None = None,
         plugin_deps: list[str] | None = None,
     ) -> None:
         self.name = name
         self.cli_name: str | None = None
-        self.dependencies: list[base_comp] = dependencies or []
-        self.optional_dependencies: list[base_comp] = optional_dependencies or []
-        self.conditional_dependencies: list[tuple[Callable[[], bool], base_comp]] = []
+        self.dependencies: list[BaseComp] = dependencies or []
+        self.optional_dependencies: list[BaseComp] = optional_dependencies or []
+        self.conditional_dependencies: list[tuple[Callable[[], bool], BaseComp]] = []
         self.hint = hint
         self.use_hint = use_hint
         self.plugin_deps: list[str] = plugin_deps or []
-        self.runtime_dependencies: "dict[str, base_comp]" = {}
+        self.runtime_dependencies: "dict[str, BaseComp]" = {}
 
-    def set_runtime_dependency(self, name: str, dep: "base_comp") -> None:
+    def set_runtime_dependency(self, name: str, dep: "BaseComp") -> None:
         """Register a dep used at runtime in check(); excluded from topology and activation."""
         self.runtime_dependencies[name] = dep
 
@@ -45,17 +46,23 @@ class base_comp(ABC):
         if self.name in _seen:
             return True
         _seen.add(self.name)
-        return all(dep.is_deeply_available(_seen) for dep in self.active_deps()) and self.is_available()
+        return (
+            all(dep.is_deeply_available(_seen) for dep in self.active_deps())
+            and self.is_available()
+        )
 
-    def ordering_deps(self) -> "list[base_comp]":
+    def ordering_deps(self) -> "list[BaseComp]":
         """Required + conditional deps; used for topological ordering (optional excluded)."""
         return self.dependencies + [d for _, d in self.conditional_dependencies]
 
-    def all_deps(self) -> "list[base_comp]":
+    def all_deps(self) -> "list[BaseComp]":
         """Required + optional + conditional; used for registry validation."""
-        return self.dependencies + self.optional_dependencies + [d for _, d in self.conditional_dependencies]
+        return (
+            self.dependencies
+            + self.optional_dependencies
+            + [d for _, d in self.conditional_dependencies]
+        )
 
-    def active_deps(self) -> "list[base_comp]":
+    def active_deps(self) -> "list[BaseComp]":
         """Required + active conditional deps; used for runtime checks."""
         return self.dependencies + [d for c, d in self.conditional_dependencies if c()]
-

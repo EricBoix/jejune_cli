@@ -8,11 +8,11 @@ from .app_context import AppContext
 from .doctor_health_check import run_all, run_avail
 from .click_helpers import print_two_col_table
 from .click_theme import ClickTheme
-from .component_base import base_comp
-from .component_containerized import cont_comp
-from .component_ext import ext_comp
+from .component_base import BaseComp
+from .component_containerized import ContComp
+from .component_ext import ExtComp
 from .component_ext_server import ext_server
-from .component_with_config import conf_comp
+from .component_with_config import ConfComp
 from .plugin_registry import PluginRegistry
 from .role_registry import RoleRegistry
 from .dot_jejune import dot_jejune
@@ -24,7 +24,7 @@ from .doctor_column import Column
 
 
 def _resolve_avail_hint(
-    inst: base_comp,
+    inst: BaseComp,
     role_registry: RoleRegistry,
     plugin_registry: PluginRegistry,
     fallback: str = "",
@@ -38,7 +38,7 @@ def _resolve_avail_hint(
         and any(p.name == inst.name for p in plugin_registry.plugins)
     )
     if is_deployer_plugin:
-        if isinstance(inst, cont_comp) and not inst.is_built():
+        if isinstance(inst, ContComp) and not inst.is_built():
             return "run `jejune build`"
         return "run `jejune up`"
     return inst.hint or fallback
@@ -46,15 +46,19 @@ def _resolve_avail_hint(
 
 def _failing_dep_names_per_component(
     avail_results: list[tuple[str, str, str]],
-    active_components: list[base_comp],
+    active_components: list[BaseComp],
 ) -> dict[str, list[str]]:
     by_status = {comp: status for comp, status, _ in avail_results}
     return {
-        inst.name: [dep.name for dep in inst.active_deps()
-                    if by_status.get(dep.name, "ok") != "ok"]
+        inst.name: [
+            dep.name
+            for dep in inst.active_deps()
+            if by_status.get(dep.name, "ok") != "ok"
+        ]
         for inst in active_components
         if inst.name in by_status
     }
+
 
 # ---------------------------------------------------------------------------
 # Doctor table column factories
@@ -63,20 +67,22 @@ def _failing_dep_names_per_component(
 
 def _config_column(
     config_results: list[tuple[str, str, str]],
-    active_components: list[base_comp],
+    active_components: list[BaseComp],
     port_conflict_hints: dict[str, str],
 ) -> Column:
     by_config = {comp: (status, msg) for comp, status, msg in config_results}
     cells: dict[str, tuple[str, str]] = {}
     for inst in active_components:
         comp = inst.name
-        if not isinstance(inst, conf_comp):
+        if not isinstance(inst, ConfComp):
             cells[comp] = ("", "")
             continue
         status, _ = by_config.get(comp, ("ok", ""))
         icon, fg = ClickTheme.status_icons.get(status, ("?", "white"))
         if status != "ok" and hasattr(inst, "configuration"):
-            hint = ", ".join(inst.configuration.effective_hints(port_conflict_hints)) or ""
+            hint = (
+                ", ".join(inst.configuration.effective_hints(port_conflict_hints)) or ""
+            )
         else:
             hint = ""
         styled = click.style(icon, fg=fg)
@@ -85,7 +91,7 @@ def _config_column(
 
 
 def _img_column(
-    active_components: list[base_comp],
+    active_components: list[BaseComp],
     img_status: dict[str, bool],
     external_image_names: set[str],
 ) -> Column:
@@ -123,9 +129,10 @@ def _avail_column(
 def _action_column(
     config_results: list[tuple[str, str, str]],
     avail_results: list[tuple[str, str, str]],
-    active_components: list[base_comp],
+    active_components: list[BaseComp],
     failing_deps: dict[str, list[str]],
     port_conflict_per_comp: dict[str, str],
+    img_status: dict[str, bool],
     role_registry: RoleRegistry,
     plugin_registry: PluginRegistry,
 ) -> Column:
@@ -139,14 +146,28 @@ def _action_column(
         a_status, a_msg = by_avail.get(comp, ("ok", ""))
         has_failing_deps = bool(failing_deps.get(comp))
         if has_failing_deps:
-            a_hint = "Fix " + ", ".join(failing_deps[comp]) + " availability"
+            repairable = [
+                name for name in failing_deps[comp] if not img_status.get(name, False)
+            ]
+            a_hint = (
+                "Fix " + ", ".join(repairable) + " availability" if repairable else ""
+            )
         else:
-            a_hint = _resolve_avail_hint(inst, role_registry, plugin_registry) if a_status != "ok" else ""
+            a_hint = (
+                _resolve_avail_hint(inst, role_registry, plugin_registry)
+                if a_status != "ok"
+                else ""
+            )
         if c_status != "ok" and hasattr(inst, "configuration"):
             if a_status == "ok" and inst.use_hint:
                 c_hint = inst.use_hint
             else:
-                c_hint = ", ".join(inst.configuration.effective_hints(port_conflict_per_comp)) or ""
+                c_hint = (
+                    ", ".join(
+                        inst.configuration.effective_hints(port_conflict_per_comp)
+                    )
+                    or ""
+                )
         else:
             c_hint = ""
         action = (
@@ -158,6 +179,7 @@ def _action_column(
         cells[comp] = (action, action)
     return Column("Action", cells)
 
+
 # ---------------------------------------------------------------------------
 # Availability subcommand column factories
 # ---------------------------------------------------------------------------
@@ -165,7 +187,7 @@ def _action_column(
 
 def _avail_check_column(
     avail_results: list[tuple[str, str, str]],
-    active_components: list[base_comp],
+    active_components: list[BaseComp],
     failing_deps: dict[str, list[str]],
 ) -> Column:
     """check-availability: items() → (styled_comp, check_text)."""
@@ -191,7 +213,7 @@ def _avail_check_column(
 
 def _avail_status_column(
     avail_results: list[tuple[str, str, str]],
-    active_components: list[base_comp],
+    active_components: list[BaseComp],
     failing_deps: dict[str, list[str]],
 ) -> Column:
     """status-availability: items() → (comp, styled_status)."""
@@ -210,8 +232,9 @@ def _avail_status_column(
 
 def _avail_hint_column(
     avail_results: list[tuple[str, str, str]],
-    active_components: list[base_comp],
+    active_components: list[BaseComp],
     failing_deps: dict[str, list[str]],
+    img_status: dict[str, bool],
     role_registry: RoleRegistry,
     plugin_registry: PluginRegistry,
 ) -> Column:
@@ -224,13 +247,25 @@ def _avail_hint_column(
             continue
         status, _ = by_avail[comp]
         if failing_deps.get(comp):
-            hint = "Fix " + ", ".join(failing_deps[comp]) + " availability"
+            repairable = [
+                name for name in failing_deps[comp] if not img_status.get(name, False)
+            ]
+            hint = (
+                "Fix " + ", ".join(repairable) + " availability"
+                if repairable
+                else (
+                    _resolve_avail_hint(inst, role_registry, plugin_registry)
+                    if status != "ok"
+                    else ""
+                )
+            )
         elif status != "ok":
             hint = _resolve_avail_hint(inst, role_registry, plugin_registry)
         else:
             hint = ""
         cells[comp] = (hint, hint)
     return Column("Hint", cells)
+
 
 # ---------------------------------------------------------------------------
 # Doctor table renderer
@@ -252,22 +287,21 @@ def _print_health_table(
         cells = "  ".join(col.render_cell(name) for col in columns)
         click.echo(f"  {name:<{w_comp}}  {cells}")
 
+
 # ---------------------------------------------------------------------------
 # Doctor command helpers (extracted from doctor())
 # ---------------------------------------------------------------------------
 
 
-def _resolve_port_conflict_hints(active_components: list[base_comp]) -> dict[str, str]:
-    deploy_comp = next(
-        (c for c in active_components if c.name == "deployment"), None
-    )
+def _resolve_port_conflict_hints(active_components: list[BaseComp]) -> dict[str, str]:
+    deploy_comp = next((c for c in active_components if c.name == "deployment"), None)
     if deploy_comp is not None and hasattr(deploy_comp, "hint_for_occupied_ports"):
         return deploy_comp.hint_for_occupied_ports(Path("."))
     return {}
 
 
 def _compute_port_conflict_per_comp(
-    active_components: list[base_comp],
+    active_components: list[BaseComp],
     failing_deps: dict[str, list[str]],
     port_conflict_hints: dict[str, str],
 ) -> dict[str, str]:
@@ -291,14 +325,21 @@ def _compute_port_conflict_per_comp(
 
 def _visible_component_names(
     avail_results: list[tuple[str, str, str]],
-    active_components: list[base_comp],
+    active_components: list[BaseComp],
     verbose: bool,
 ) -> list[str]:
     if verbose:
         return [c.name for c in active_components]
     avail_ok = {comp for comp, status, _ in avail_results if status == "ok"}
-    ext_names = {c.name for c in active_components if isinstance(c, (ext_comp, ext_server))}
-    return [c.name for c in active_components if c.name not in ext_names or c.name not in avail_ok]
+    ext_names = {
+        c.name for c in active_components if isinstance(c, (ExtComp, ext_server))
+    }
+    return [
+        c.name
+        for c in active_components
+        if c.name not in ext_names or c.name not in avail_ok
+    ]
+
 
 # ---------------------------------------------------------------------------
 # Doctor command
@@ -317,7 +358,7 @@ def doctor(ctx, verbose: bool):
     """Report component configuration and availability. Inspired by `brew doctor`.
 
     Two-stage check:\n
-      Configuration — were the components configured by the user?\n
+      configuration — were the components configured by the user?\n
       Availability  — are the component services reachable?\n
 
     Followed by a Components summary showing which commands each enables.
@@ -330,7 +371,10 @@ def doctor(ctx, verbose: bool):
     active_role = app.role_registry.detect_role_name()
 
     d = dot_jejune()
-    if (not active_role_obj or app.role_registry.role_inherits(active_role_obj, "doc-steward")) and not d.is_dir():
+    if (
+        not active_role_obj
+        or app.role_registry.role_inherits(active_role_obj, "doc-steward")
+    ) and not d.is_dir():
         click.echo(
             click.style(
                 "Current working directory is not a jejune workspace.",
@@ -342,29 +386,40 @@ def doctor(ctx, verbose: bool):
     config_results, avail_results, active_components = run_all(
         app.component_registry, app.role_registry, app.plugin_registry
     )
-    port_conflict_hints    = _resolve_port_conflict_hints(active_components)
-    failing_deps           = _failing_dep_names_per_component(avail_results, active_components)
+    port_conflict_hints = _resolve_port_conflict_hints(active_components)
+    failing_deps = _failing_dep_names_per_component(avail_results, active_components)
     port_conflict_per_comp = _compute_port_conflict_per_comp(
-        active_components, failing_deps, port_conflict_hints)
-    img_status           = cont_comp.image_build_status(active_components)
+        active_components, failing_deps, port_conflict_hints
+    )
+    img_status = ContComp.image_build_status(active_components)
     external_image_names = {
-        c.name for c in active_components
-        if isinstance(c, cont_comp) and c.is_external_image
+        c.name
+        for c in active_components
+        if isinstance(c, ContComp) and c.is_external_image
     }
-    component_names = _visible_component_names(avail_results, active_components, verbose)
+    component_names = _visible_component_names(
+        avail_results, active_components, verbose
+    )
 
-    _CONFIG_NOTE = "  Configuration files: .jejune/env-config · .jejune/env-secrets"
+    _CONFIG_NOTE = "  configuration files: .jejune/env-config · .jejune/env-secrets"
     role_label = f" [{active_role}]" if active_role else ""
     click.echo(click.style(f"jejune doctor{role_label}", bold=True))
     click.echo()
 
-    config_column = _config_column(config_results, active_components, port_conflict_hints)
-    img_column    = _img_column(active_components, img_status, external_image_names)
-    avail_column  = _avail_column(avail_results, failing_deps)
+    config_column = _config_column(
+        config_results, active_components, port_conflict_hints
+    )
+    img_column = _img_column(active_components, img_status, external_image_names)
+    avail_column = _avail_column(avail_results, failing_deps)
     action_column = _action_column(
-        config_results, avail_results, active_components,
-        failing_deps, port_conflict_per_comp,
-        app.role_registry, app.plugin_registry,
+        config_results,
+        avail_results,
+        active_components,
+        failing_deps,
+        port_conflict_per_comp,
+        img_status,
+        app.role_registry,
+        app.plugin_registry,
     )
     columns: list[Column] = [
         config_column,
@@ -373,7 +428,9 @@ def doctor(ctx, verbose: bool):
         action_column,
     ]
     _print_health_table(component_names, columns)
-    if active_role is None or app.role_registry.role_inherits(active_role, "doc-steward"):
+    if active_role is None or app.role_registry.role_inherits(
+        active_role, "doc-steward"
+    ):
         click.echo()
         click.echo(_CONFIG_NOTE)
 
@@ -428,7 +485,15 @@ def config_hint_availability(ctx):
         app.component_registry, app.role_registry, app.plugin_registry
     )
     failing_deps = _failing_dep_names_per_component(avail_results, active_components)
-    col = _avail_hint_column(avail_results, active_components, failing_deps, app.role_registry, app.plugin_registry)
+    img_status = ContComp.image_build_status(active_components)
+    col = _avail_hint_column(
+        avail_results,
+        active_components,
+        failing_deps,
+        img_status,
+        app.role_registry,
+        app.plugin_registry,
+    )
     rows = col.non_empty_items()
     if not rows:
         click.echo(click.style("All components available.", fg="green"))

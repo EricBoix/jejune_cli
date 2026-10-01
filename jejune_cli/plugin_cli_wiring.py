@@ -2,12 +2,13 @@
 
 from .app_context import AppContext
 from .click_group_configuration import register_role_config_subgroup
-from .plugin_description import plugin_description
+from .plugin_description import PluginDescription
 
 
 def load_plugins(app: AppContext) -> None:
     """Register the CLI post-hook and load all plugins for the detected role."""
-    def _handle_plugin(plugin: plugin_description) -> None:
+
+    def _handle_plugin(plugin: PluginDescription) -> None:
         app.cli.add_command(plugin.group, plugin.name)
         for role_desc in plugin.roles:
             app.role_registry.register_from_plugin(role_desc)

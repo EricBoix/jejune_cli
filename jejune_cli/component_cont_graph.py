@@ -4,13 +4,13 @@ from pathlib import Path
 
 import click
 
-from .component_containerized import cont_comp
-from .configuration import configuration
-from .configuration_entry import configuration_entry
+from .component_containerized import ContComp
+from .configuration import Configuration
+from .configuration_entry import ConfigurationEntry
 from .containerized_context import ContainerizedContext
 
 
-class comp_graph(cont_comp):
+class comp_graph(ContComp):
     CHUNKS_JSON = "/data/_chunks.json"
     SPLITTERS = {
         "headers": "split_by_headers.py",
@@ -18,7 +18,14 @@ class comp_graph(cont_comp):
         "sentences": "split_by_sentences.py",
     }
 
-    def __init__(self, git_server, neo4j, llm, llm_observability, context: ContainerizedContext | None = None) -> None:
+    def __init__(
+        self,
+        git_server,
+        neo4j,
+        llm,
+        llm_observability,
+        context: ContainerizedContext | None = None,
+    ) -> None:
         self._neo4j = neo4j
         self._llm = llm
         super().__init__(
@@ -29,38 +36,38 @@ class comp_graph(cont_comp):
             ),
             dependencies=[git_server, neo4j, llm],
             optional_dependencies=[llm_observability],
-            configuration=configuration(
-                configuration_entry(
+            configuration=Configuration(
+                ConfigurationEntry(
                     "NEO4J_URI",
                     hint="edit .jejune/env-config",
                     source_file=".jejune/env-config",
                 ),
-                configuration_entry(
+                ConfigurationEntry(
                     "NEO4J_USERNAME",
                     hint="edit .jejune/env-config",
                     source_file=".jejune/env-config",
                 ),
-                configuration_entry(
+                ConfigurationEntry(
                     "NEO4J_PASSWORD",
                     hint="edit .jejune/env-secrets",
                     source_file=".jejune/env-secrets",
                 ),
-                configuration_entry(
+                ConfigurationEntry(
                     "LLM_MODEL_URL",
                     hint="edit .jejune/env-secrets",
                     source_file=".jejune/env-secrets",
                 ),
-                configuration_entry(
+                ConfigurationEntry(
                     "LLM_API_KEY",
                     hint="edit .jejune/env-secrets",
                     source_file=".jejune/env-secrets",
                 ),
-                configuration_entry(
+                ConfigurationEntry(
                     "LLM_MODEL_NAME",
                     hint="edit .jejune/env-secrets",
                     source_file=".jejune/env-secrets",
                 ),
-                configuration_entry(
+                ConfigurationEntry(
                     "TRACELOOP_BASE_URL",
                     hint="edit .jejune/env-config",
                     source_file=".jejune/env-config",

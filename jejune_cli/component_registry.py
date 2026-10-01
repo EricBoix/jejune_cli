@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .component_base import base_comp
+from .component_base import BaseComp
 
 
 class _UnresolvedPlugin:
@@ -25,7 +25,7 @@ class _UnresolvedPlugin:
     def name(self) -> str:
         return object.__getattribute__(self, "_name")
 
-    def _resolve(self) -> "base_comp | None":
+    def _resolve(self) -> "BaseComp | None":
         cached = object.__getattribute__(self, "_resolved")
         if cached is not None:
             return cached
@@ -39,15 +39,13 @@ class _UnresolvedPlugin:
     def __getattr__(self, attr: str):
         resolved = self._resolve()
         if resolved is None:
-            raise AttributeError(
-                f"Plugin component {self.name!r} is not yet loaded"
-            )
+            raise AttributeError(f"Plugin component {self.name!r} is not yet loaded")
         return getattr(resolved, attr)
 
 
 class ComponentRegistry:
     def __init__(self) -> None:
-        self._comps: list[base_comp] = []
+        self._comps: list[BaseComp] = []
         self._expected_plugin_names: set[str] = set()
 
     def register_expected_plugin_names(self, names: set[str]) -> None:
@@ -60,7 +58,7 @@ class ComponentRegistry:
         """
         self._expected_plugin_names.update(names)
 
-    def add(self, comp: base_comp) -> None:
+    def add(self, comp: BaseComp) -> None:
         self._comps.append(comp)
         self._sort()
 
@@ -69,7 +67,7 @@ class ComponentRegistry:
         by_name = {c.name: c for c in self._comps}
         comp_set = set(by_name)
         visited: set[str] = set()
-        result: list[base_comp] = []
+        result: list[BaseComp] = []
 
         def visit(name: str) -> None:
             if name in visited:
@@ -89,7 +87,7 @@ class ComponentRegistry:
             visit(name)
         self._comps = result
 
-    def get(self, name: str) -> "base_comp | _UnresolvedPlugin | None":
+    def get(self, name: str) -> "BaseComp | _UnresolvedPlugin | None":
         for c in self._comps:
             if c.name == name:
                 return c
@@ -107,12 +105,12 @@ class ComponentRegistry:
         return len(self._comps)
 
     def sorted_active_set(
-        self, starting: "frozenset[base_comp] | None"
-    ) -> "list[base_comp]":
+        self, starting: "frozenset[BaseComp] | None"
+    ) -> "list[BaseComp]":
         """Components reachable from *starting* via active deps, in topological order."""
-        active: set[base_comp] = set()
+        active: set[BaseComp] = set()
 
-        def activate(comp: base_comp) -> None:
+        def activate(comp: BaseComp) -> None:
             if comp in active:
                 return
             active.add(comp)
@@ -124,7 +122,7 @@ class ComponentRegistry:
                 activate(inst)
         return self.sorted_subset(list(active))
 
-    def sorted_subset(self, components: list[base_comp]) -> list[base_comp]:
+    def sorted_subset(self, components: list[BaseComp]) -> list[BaseComp]:
         """Return *components* in the registry's topological order."""
         comp_set = {c.name for c in components}
         ordered = [c for c in self._comps if c.name in comp_set]

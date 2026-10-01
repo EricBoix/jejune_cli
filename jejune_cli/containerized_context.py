@@ -1,4 +1,5 @@
-"""ContainerizedContext — shared infrastructure bundle for cont_comp instances."""
+"""ContainerizedContext — shared infrastructure bundle for ContComp instances."""
+
 from dataclasses import dataclass
 
 from .component_ext_command_docker import comp_command_docker

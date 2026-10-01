@@ -5,8 +5,8 @@ import os
 import urllib.error
 import urllib.request
 
-from .configuration import configuration
-from .configuration_entry import configuration_entry
+from .configuration import Configuration
+from .configuration_entry import ConfigurationEntry
 from .component_ext_server import ext_server
 from .component_ext_network import comp_network
 
@@ -23,18 +23,18 @@ class comp_server_llm(ext_server):
             api_url="",
             dependencies=[network],
             hint="run `jejune llm status-config`",
-            configuration=configuration(
-                configuration_entry(
+            configuration=Configuration(
+                ConfigurationEntry(
                     "LLM_MODEL_URL",
                     hint="edit .jejune/env-secrets",
                     source_file=".jejune/env-secrets",
                 ),
-                configuration_entry(
+                ConfigurationEntry(
                     "LLM_API_KEY",
                     hint="edit .jejune/env-secrets",
                     source_file=".jejune/env-secrets",
                 ),
-                configuration_entry(
+                ConfigurationEntry(
                     "LLM_MODEL_NAME",
                     hint="edit .jejune/env-secrets",
                     source_file=".jejune/env-secrets",

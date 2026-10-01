@@ -1,10 +1,11 @@
 """Docker daemon component: checks if the Docker daemon is running."""
+
 import subprocess
 
-from .component_ext import ext_comp
+from .component_ext import ExtComp
 
 
-class comp_server_docker_daemon(ext_comp):
+class comp_server_docker_daemon(ExtComp):
     def __init__(self) -> None:
         super().__init__(
             name="docker-daemon",

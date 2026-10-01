@@ -2,10 +2,10 @@
 
 import sys
 
-from .component_base import base_comp
+from .component_base import BaseComp
 from .component_registry import ComponentRegistry
-from .component_containerized import cont_comp
-from .component_with_config import conf_comp
+from .component_containerized import ContComp
+from .component_with_config import ConfComp
 from .plugin_registry import PluginRegistry
 from .role_registry import RoleRegistry
 
@@ -14,7 +14,7 @@ def run_avail(
     component_registry: ComponentRegistry,
     role_registry: RoleRegistry,
     plugin_registry: PluginRegistry,
-) -> tuple[list[tuple[str, str, str]], list[base_comp]]:
+) -> tuple[list[tuple[str, str, str]], list[BaseComp]]:
     """Return (avail_results, active_components) — availability checks only.
 
     Used by availability subcommands that do not need configuration status.
@@ -41,7 +41,7 @@ def run_avail(
         if plugin.name not in role_names:
             continue
         inst = component_registry.get(plugin.name)
-        if isinstance(inst, cont_comp):
+        if isinstance(inst, ContComp):
             status, msg = inst.check()
             if status != "ok":
                 avail.append((plugin.name, status, msg))
@@ -62,7 +62,7 @@ def run_all(
 ) -> tuple[
     list[tuple[str, str, str]],
     list[tuple[str, str, str]],
-    list[base_comp],
+    list[BaseComp],
 ]:
     """Return (config_results, avail_results, active_components).
 
@@ -78,7 +78,7 @@ def run_all(
 
     config: list[tuple[str, str, str]] = []
     for inst in active_components:
-        if not isinstance(inst, conf_comp):
+        if not isinstance(inst, ConfComp):
             continue
         status, msg = inst.check_config()
         config.append((inst.name, status, msg))

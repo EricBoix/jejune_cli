@@ -4,7 +4,7 @@ import os
 
 from .component_registry import ComponentRegistry
 from .plugin_role_description import plugin_role_description
-from .component_base import base_comp
+from .component_base import BaseComp
 from .role import NO_ROLE, Role
 
 
@@ -62,7 +62,7 @@ class RoleRegistry:
         r = self._roles.get(role_name)
         return r.includes if r else ()
 
-    def current_role_components(self) -> "frozenset[base_comp] | None":
+    def current_role_components(self) -> "frozenset[BaseComp] | None":
         return self.role_components(self.detect_role())
 
     def detect_role_name(self) -> "str | None":
@@ -88,13 +88,15 @@ class RoleRegistry:
         self._role_cache[cwd] = result
         return result
 
-    def role_components(self, role: Role) -> "frozenset[base_comp] | None":
+    def role_components(self, role: Role) -> "frozenset[BaseComp] | None":
         """Return the full component set for *role*, including inherited parent components."""
         if not role:
             return None
         registry = self._component_registry
-        def _resolve(r: Role) -> "frozenset[base_comp]":
+
+        def _resolve(r: Role) -> "frozenset[BaseComp]":
             return frozenset(filter(None, (registry.get(n) for n in r.component_names)))
+
         own = _resolve(role)
         for parent_name in role.includes:
             parent = self._roles.get(parent_name)
@@ -206,7 +208,7 @@ class RoleRegistry:
         W = _sw(root) + 2
 
         def _row() -> list[str]:
-            return [' '] * W
+            return [" "] * W
 
         def _put(row: list[str], col: int, text: str) -> None:
             for i, c in enumerate(text):
@@ -231,7 +233,7 @@ class RoleRegistry:
 
             if has_multi:
                 c1, c2, c3 = _row(), _row(), _row()
-                _JOIN = {'─': '┴', '┌': '├', '┐': '┤', '┬': '┼'}
+                _JOIN = {"─": "┴", "┌": "├", "┐": "┤", "┬": "┼"}
                 for n in level:
                     kids = children.get(n, [])
                     if not kids:
@@ -245,14 +247,18 @@ class RoleRegistry:
                         lm = min(_bc(k) for k in kids)
                         rm = max(_bc(k) for k in kids)
                         for x in range(lm, rm + 1):
-                            c2[x] = '─'
+                            c2[x] = "─"
                         for k in kids:
                             cc = _bc(k)
-                            c2[cc] = '┌' if cc == lm else ('┐' if cc == rm else '┬')
-                        c2[pc] = _JOIN.get(c2[pc], '┴')
+                            c2[cc] = "┌" if cc == lm else ("┐" if cc == rm else "┬")
+                        c2[pc] = _JOIN.get(c2[pc], "┴")
                         for k in kids:
                             _put(c3, _bc(k), "│")
-                output += ["".join(c1).rstrip(), "".join(c2).rstrip(), "".join(c3).rstrip()]
+                output += [
+                    "".join(c1).rstrip(),
+                    "".join(c2).rstrip(),
+                    "".join(c3).rstrip(),
+                ]
             else:
                 c1 = _row()
                 for n in level:

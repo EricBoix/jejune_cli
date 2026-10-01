@@ -1,13 +1,14 @@
 """Plugin package description — the contract between jejune-cli and a plugin package.
 
-Plugin packages register a plugin_description instance via the entry-point group
+Plugin packages register a PluginDescription instance via the entry-point group
 "jejune.plugins".  Example pyproject.toml entry:
 
     [project.entry-points."jejune.plugins"]
     my-ext = "my_package.plugin:plugin"
 
-where ``plugin`` is a ``plugin_description`` instance.
+where ``plugin`` is a ``PluginDescription`` instance.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -16,11 +17,11 @@ from typing import Callable
 import click
 
 from .plugin_role_description import plugin_role_description
-from .component_base import base_comp
+from .component_base import BaseComp
 
 
 @dataclass
-class plugin_description:
+class PluginDescription:
     """Contract between jejune-cli and a plugin package.
 
     Mandatory fields
@@ -43,7 +44,7 @@ class plugin_description:
     role               : role contributed by this plugin package.
     build_image        : (no_cache: bool) -> None — builds Docker image.
     image_is_built     : () -> bool — checks if Docker image exists.
-    component          : optional full base_comp instance to register in
+    component          : optional full BaseComp instance to register in
                          ComponentRegistry instead of a thin wrapper.  Use when
                          the plugin contributes a containerized component that
                          needs rich Docker lifecycle methods.
@@ -70,7 +71,7 @@ class plugin_description:
     """(no_cache: bool) -> None — builds this component's Docker image."""
     image_is_built: Callable[[], bool] | None = None
     """() -> bool — returns True when this component's Docker image already exists."""
-    component: "base_comp | None" = None
+    component: "BaseComp | None" = None
     """Full component instance to register in ComponentRegistry.
 
     When set, PluginRegistry uses this instance directly instead of creating a
@@ -84,4 +85,3 @@ class plugin_description:
     Example: repo ``jejune_kg-graph_viewer`` distributes as ``jejune-kg-viewer``,
     so the plugin sets ``repo_name="jejune_kg-graph_viewer"``.
     """
-
