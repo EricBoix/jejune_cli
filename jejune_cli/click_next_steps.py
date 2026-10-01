@@ -1,11 +1,16 @@
 """Next-step command group and heuristic registrations."""
+
 import click
 
 from .app_context import AppContext
-from .dot_jejune import dot_jejune
+from .dot_jejune import DotJejune
 
 
-@click.group("next", invoke_without_command=True, short_help="Show suggested next actions given the current context.")
+@click.group(
+    "next",
+    invoke_without_command=True,
+    short_help="Show suggested next actions given the current context.",
+)
 @click.pass_context
 def next_cmd(ctx):
     """Show suggested next actions given the current context."""
@@ -18,7 +23,9 @@ def next_cmd(ctx):
             click.echo("No next steps detected. Run `jejune doctor` for system status.")
         else:
             active_role = app.role_registry.detect_role()
-            if (not active_role or active_role.is_doc_steward()) and not dot_jejune().is_dir():
+            if (
+                not active_role or active_role.is_doc_steward()
+            ) and not DotJejune().is_dir():
                 click.echo(
                     "No next steps detected. "
                     "Run `jejune configuration doc-steward init` to set up the workspace."
@@ -34,8 +41,12 @@ def next_cmd(ctx):
 
 
 @next_cmd.command("state")
-@click.option("--list-preconditions", is_flag=True, default=False,
-              help="List all registered preconditions with their current status.")
+@click.option(
+    "--list-preconditions",
+    is_flag=True,
+    default=False,
+    help="List all registered preconditions with their current status.",
+)
 @click.pass_context
 def next_state_cmd(ctx, list_preconditions: bool) -> None:
     """Show condition evaluation for all registered heuristic rules."""
@@ -52,7 +63,9 @@ def next_state_cmd(ctx, list_preconditions: bool) -> None:
                     val = named_preconditions[name]()
                 except Exception:
                     val = False
-                mark = click.style("✓", fg="green") if val else click.style("✗", fg="red")
+                mark = (
+                    click.style("✓", fg="green") if val else click.style("✗", fg="red")
+                )
                 click.echo(f"  {mark} {name:<{_W}}")
 
         if command_preconditions:
@@ -65,7 +78,11 @@ def next_state_cmd(ctx, list_preconditions: bool) -> None:
                     viable = command_preconditions[cmd]()
                 except Exception:
                     viable = False
-                mark = click.style("viable", fg="green") if viable else click.style("blocked", fg="red")
+                mark = (
+                    click.style("viable", fg="green")
+                    if viable
+                    else click.style("blocked", fg="red")
+                )
                 click.echo(f"  {cmd:<{_W}}  {mark}")
 
         if not named_preconditions and not command_preconditions:

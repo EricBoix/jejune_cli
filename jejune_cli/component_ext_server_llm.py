@@ -7,17 +7,17 @@ import urllib.request
 
 from .configuration import Configuration
 from .configuration_entry import ConfigurationEntry
-from .component_ext_server import ext_server
-from .component_ext_network import comp_network
+from .component_ext_server import ExtServer
+from .component_ext_network import CompNetwork
 
 
-class comp_server_llm(ext_server):
+class CompServerLlm(ExtServer):
     _TEST_PROMPT = "How are you today?"
     _TIMEOUT = 10
     _INFERENCE_TIMEOUT = 120
     DEFAULT_INFERENCE_PATH = "/api/chat"
 
-    def __init__(self, network: comp_network) -> None:
+    def __init__(self, network: CompNetwork) -> None:
         super().__init__(
             name="llm",
             api_url="",
@@ -61,7 +61,7 @@ class comp_server_llm(ext_server):
         """Stage 1: does the server answer at the HTTPS level?"""
         req = urllib.request.Request(url)
         try:
-            with urllib.request.urlopen(req, timeout=comp_server_llm._TIMEOUT) as resp:
+            with urllib.request.urlopen(req, timeout=CompServerLlm._TIMEOUT) as resp:
                 resp.read()
             return True, "ok"
         except urllib.error.HTTPError:
@@ -75,7 +75,7 @@ class comp_server_llm(ext_server):
         auth = {"Authorization": f"BEARER {api_key}"}
         req = urllib.request.Request(f"{url}/api/v1/auths/", headers=auth)
         try:
-            with urllib.request.urlopen(req, timeout=comp_server_llm._TIMEOUT) as resp:
+            with urllib.request.urlopen(req, timeout=CompServerLlm._TIMEOUT) as resp:
                 resp.read()
             return True, "ok"
         except urllib.error.URLError as e:
@@ -87,7 +87,7 @@ class comp_server_llm(ext_server):
         auth = {"Authorization": f"BEARER {api_key}"}
         req = urllib.request.Request(f"{url}/api/models", headers=auth)
         try:
-            with urllib.request.urlopen(req, timeout=comp_server_llm._TIMEOUT) as resp:
+            with urllib.request.urlopen(req, timeout=CompServerLlm._TIMEOUT) as resp:
                 data = json.loads(resp.read())
         except urllib.error.URLError as e:
             return False, f"model list unavailable: {e.reason}"
@@ -116,7 +116,7 @@ class comp_server_llm(ext_server):
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=comp_server_llm._TIMEOUT) as resp:
+            with urllib.request.urlopen(req, timeout=CompServerLlm._TIMEOUT) as resp:
                 resp.read()
             return True, "ok"
         except urllib.error.HTTPError as e:
@@ -147,7 +147,7 @@ class comp_server_llm(ext_server):
         )
         try:
             with urllib.request.urlopen(
-                req, timeout=comp_server_llm._INFERENCE_TIMEOUT
+                req, timeout=CompServerLlm._INFERENCE_TIMEOUT
             ) as resp:
                 resp.read()
             return True, "ok"
@@ -158,7 +158,7 @@ class comp_server_llm(ext_server):
         except TimeoutError:
             return (
                 False,
-                f"inference timed out after {comp_server_llm._INFERENCE_TIMEOUT}s",
+                f"inference timed out after {CompServerLlm._INFERENCE_TIMEOUT}s",
             )
 
     def _check_context(self) -> tuple[str, str, str, str, str] | None:

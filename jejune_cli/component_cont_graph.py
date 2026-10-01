@@ -10,7 +10,7 @@ from .configuration_entry import ConfigurationEntry
 from .containerized_context import ContainerizedContext
 
 
-class comp_graph(ContComp):
+class CompGraph(ContComp):
     CHUNKS_JSON = "/data/_chunks.json"
     SPLITTERS = {
         "headers": "split_by_headers.py",

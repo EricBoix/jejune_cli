@@ -7,7 +7,7 @@ from .configuration import Configuration
 from .component_with_config import ConfComp
 
 
-class ext_server(ConfComp):
+class ExtServer(ConfComp):
     """External server reachable via HTTP. Subclasses override check() for non-HTTP."""
 
     def __init__(

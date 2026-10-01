@@ -1,10 +1,11 @@
 """docker-command component: Docker CLI availability check and operations."""
+
 import subprocess
 
-from .component_ext_command import ext_command
+from .component_ext_command import ExtCommand
 
 
-class comp_command_docker(ext_command):
+class CompCommandDocker(ExtCommand):
     def __init__(self) -> None:
         super().__init__(
             name="docker-command",
@@ -73,9 +74,9 @@ class comp_command_docker(ext_command):
         if rm:
             cmd.append("--rm")
         cmd.extend(["--detach", "--name", name])
-        for p in (publish or []):
+        for p in publish or []:
             cmd.extend(["--publish", p])
-        for v in (volumes or []):
+        for v in volumes or []:
             cmd.extend(["-v", v])
         cmd.append(image)
         return subprocess.run(cmd).returncode
@@ -90,10 +91,16 @@ class comp_command_docker(ext_command):
     ) -> None:
         """Run a foreground container with streamed output; raise SystemExit on failure."""
         cmd = [
-            "docker", "run", "--rm", "--tty",
-            "--network", "host",
-            "-v", volume,
-            "--name", name,
+            "docker",
+            "run",
+            "--rm",
+            "--tty",
+            "--network",
+            "host",
+            "-v",
+            volume,
+            "--name",
+            name,
         ]
         cmd.extend(env_args or [])
         cmd.append(image)

@@ -7,8 +7,11 @@ import yaml
 from .component_with_config import ConfComp
 
 
-class comp_manifest(ConfComp):
+class CompManifest(ConfComp):
     _SCHEMA_PATH: ClassVar[Path] = Path(__file__).parent / "schema" / "manifest.yaml"
+    _TEMPLATE_PATH: ClassVar[Path] = (
+        Path(__file__).parent / "templates" / "doc-steward" / "manifest.yaml"
+    )
 
     def __init__(self, doc_repository_directory: Path = Path.cwd()) -> None:
         super().__init__(name="manifest")

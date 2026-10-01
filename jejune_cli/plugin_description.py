@@ -16,7 +16,7 @@ from typing import Callable
 
 import click
 
-from .plugin_role_description import plugin_role_description
+from .plugin_role_description import PluginRoleDescription
 from .component_base import BaseComp
 
 
@@ -64,8 +64,8 @@ class PluginDescription:
     Set to the role name, e.g. ``"doc-steward"`` or ``"deployer"``.
     ``None`` means the command does not appear in any role section.
     """
-    role: plugin_role_description | None = None
-    roles: list[plugin_role_description] = field(default_factory=list)
+    role: PluginRoleDescription | None = None
+    roles: list[PluginRoleDescription] = field(default_factory=list)
     """Additional roles contributed by this plugin (use when more than one role is needed)."""
     build_image: Callable[[bool], None] | None = None
     """(no_cache: bool) -> None — builds this component's Docker image."""

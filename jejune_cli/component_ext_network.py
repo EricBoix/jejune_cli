@@ -5,7 +5,7 @@ import socket
 from .component_ext import ExtComp
 
 
-class comp_network(ExtComp):
+class CompNetwork(ExtComp):
     def __init__(self) -> None:
         self.remote_server = "www.google.com"
         super().__init__(

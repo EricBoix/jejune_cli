@@ -1,8 +1,9 @@
 """Explicit heuristic wiring — called by AppContext.__init__."""
+
 from __future__ import annotations
 
 from .component_registry import ComponentRegistry
-from .dot_jejune import dot_jejune
+from .dot_jejune import DotJejune
 from .heuristic_step_registry import HeuristicStepRegistry
 from .role_registry import RoleRegistry
 from . import heuristics_deployer, heuristics_doc_steward, heuristics_no_role
@@ -17,8 +18,10 @@ def wire_heuristics(
 
     def _doctor_viable() -> bool:
         active_role = role_registry.detect_role_name()
-        is_doc_steward_family = active_role is None or role_registry.role_inherits(active_role, "doc-steward")
-        return not (is_doc_steward_family and not dot_jejune().is_dir())
+        is_doc_steward_family = active_role is None or role_registry.role_inherits(
+            active_role, "doc-steward"
+        )
+        return not (is_doc_steward_family and not DotJejune().is_dir())
 
     registry.register_command_precondition("jejune doctor", _doctor_viable)
 

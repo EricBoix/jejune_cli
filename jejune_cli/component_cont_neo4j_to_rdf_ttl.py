@@ -9,7 +9,7 @@ from .configuration_entry import ConfigurationEntry
 from .containerized_context import ContainerizedContext
 
 
-class comp_neo4j_to_rdf_ttl(ContComp):
+class CompNeo4jToRdfTtl(ContComp):
     def __init__(
         self, git_server, docker_hub, context: ContainerizedContext | None = None
     ) -> None:

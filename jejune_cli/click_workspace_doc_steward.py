@@ -6,10 +6,11 @@ from pathlib import Path
 import click
 
 from .app_context import AppContext
-from .dot_jejune import dot_jejune
+from .dot_jejune import DotJejune
 
 _TEMPLATES = Path(__file__).parent / "templates" / "doc-steward"
 _ECOSYSTEM_TEMPLATE = Path(__file__).parent / "templates" / "ecosystem" / "env-config"
+
 
 class _DocStewardInit(click.Command):
     def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
@@ -32,7 +33,7 @@ def init(ctx, dir_name: str | None) -> None:
     Adds .jejune to .gitignore so the whole directory stays local by default.
     """
     target = Path(dir_name) if dir_name else Path.cwd()
-    d = dot_jejune(target)
+    d = DotJejune(target)
     d.mkdir(parents=True, exist_ok=True)
 
     created = []
@@ -78,7 +79,11 @@ def init(ctx, dir_name: str | None) -> None:
         plugin_packages_comp.install_packages(role="doc-steward")
 
     cd_hint = None
-    if dir_name and dir_name not in (".", str(Path.cwd())) and target.resolve() != Path.cwd().resolve():
+    if (
+        dir_name
+        and dir_name not in (".", str(Path.cwd()))
+        and target.resolve() != Path.cwd().resolve()
+    ):
         cd_hint = [f"First: cd {dir_name}"]
     app.heuristic_step_registry.print_next_steps(preamble=cd_hint)
 

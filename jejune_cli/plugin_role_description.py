@@ -9,7 +9,7 @@ import click
 
 
 @dataclass
-class plugin_role_description:
+class PluginRoleDescription:
     """Role definition contributed by a plugin package.
 
     When a PluginDescription carries a role, jejune-cli registers it at startup

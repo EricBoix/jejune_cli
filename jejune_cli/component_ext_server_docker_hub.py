@@ -1,15 +1,16 @@
 """Docker Hub server component."""
+
 import urllib.error
 import urllib.request
 
-from .component_ext_server import ext_server
-from .component_ext_network import comp_network
+from .component_ext_server import ExtServer
+from .component_ext_network import CompNetwork
 
 _DOCKERHUB_API_URL = "https://hub.docker.com/v2/"
 
 
-class comp_server_docker_hub(ext_server):
-    def __init__(self, network: comp_network) -> None:
+class CompServerDockerHub(ExtServer):
+    def __init__(self, network: CompNetwork) -> None:
         super().__init__(
             name="docker-hub-server",
             api_url=_DOCKERHUB_API_URL,

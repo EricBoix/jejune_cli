@@ -7,10 +7,8 @@ from pathlib import Path
 import click
 import yaml
 
-_MANIFEST_TEMPLATE = Path(__file__).parent / "templates" / "doc-steward" / "manifest.yaml"
-
 from .click_theme import ClickTheme
-from .component_manifest import comp_manifest
+from .component_manifest import CompManifest
 
 
 @click.group("manifest", short_help="Document manifest operations")
@@ -21,7 +19,7 @@ def manifest():
 @manifest.command("check-config")
 def manifest_check_manifest_against_schema():
     """Show manifest.yaml configuration detail (required fields, unknown fields)."""
-    status, msg = comp_manifest().check_manifest_against_schema()
+    status, msg = CompManifest().check_manifest_against_schema()
     fg = ClickTheme.status_foregrounds.get(status, "white")
     click.echo(f"  manifest.yaml  {click.style(status, fg=fg)}")
     if msg:
@@ -31,14 +29,16 @@ def manifest_check_manifest_against_schema():
 @manifest.command("status-config")
 def manifest_status_config():
     """Show manifest configuration status."""
-    status, _ = comp_manifest().check_manifest_against_schema()
-    click.echo(f"manifest: {click.style(status, fg=ClickTheme.status_foregrounds.get(status, 'white'))}")
+    status, _ = CompManifest().check_manifest_against_schema()
+    click.echo(
+        f"manifest: {click.style(status, fg=ClickTheme.status_foregrounds.get(status, 'white'))}"
+    )
 
 
 @manifest.command("hint-config")
 def manifest_hint_config():
     """Show the configuration hint for the manifest component."""
-    status, _ = comp_manifest().check_manifest_against_schema()
+    status, _ = CompManifest().check_manifest_against_schema()
     if status == "ok":
         click.echo(click.style("manifest.yaml is properly configured", fg="green"))
     else:
@@ -48,10 +48,12 @@ def manifest_hint_config():
 @manifest.command("check-availability")
 def manifest_check_availability():
     """Show manifest availability detail (file references exist on disk)."""
-    comp = comp_manifest()
+    comp = CompManifest()
     status, msg = comp.check_availability()
     label = "ok" if status == "ok" else msg
-    click.echo(f"  files  {click.style(label, fg=ClickTheme.status_foregrounds.get(status, 'white'))}")
+    click.echo(
+        f"  files  {click.style(label, fg=ClickTheme.status_foregrounds.get(status, 'white'))}"
+    )
     _, file_refs = comp.check_manifest_referenced_files()
     if file_refs:
         key_width = max(len(k) for k, _ in file_refs)
@@ -63,14 +65,16 @@ def manifest_check_availability():
 @manifest.command("status-availability")
 def manifest_status_availability():
     """Show manifest availability status."""
-    status, _ = comp_manifest().check_availability()
-    click.echo(f"manifest: {click.style(status, fg=ClickTheme.status_foregrounds.get(status, 'white'))}")
+    status, _ = CompManifest().check_availability()
+    click.echo(
+        f"manifest: {click.style(status, fg=ClickTheme.status_foregrounds.get(status, 'white'))}"
+    )
 
 
 @manifest.command("hint-availability")
 def manifest_hint_availability():
     """Show how to fix manifest availability issues."""
-    status, _ = comp_manifest().check_availability()
+    status, _ = CompManifest().check_availability()
     if status == "ok":
         click.echo(click.style("all manifest file references found", fg="green"))
     else:
@@ -83,20 +87,23 @@ def manifest_sample():
     target = Path.cwd() / "manifest.yaml"
     if target.exists():
         click.echo(
-            click.style(f"Warning: {target} already exists — not overwriting.", fg="yellow"),
+            click.style(
+                f"Warning: {target} already exists — not overwriting.", fg="yellow"
+            ),
             err=True,
         )
         return
-    shutil.copy2(_MANIFEST_TEMPLATE, target)
+    shutil.copy2(CompManifest._TEMPLATE_PATH, target)
     click.echo(f"Created {target}")
 
 
 @manifest.command("slug")
-@click.argument("manifest_file", required=False, default=None,
-                type=click.Path())
+@click.argument("manifest_file", required=False, default=None, type=click.Path())
 @click.option(
-    "--full-catalog", "full_catalog_path",
-    default=None, type=click.Path(),
+    "--full-catalog",
+    "full_catalog_path",
+    default=None,
+    type=click.Path(),
     help="Path to full-catalog.yaml (consult for slug uniqueness).",
 )
 def manifest_slug(manifest_file, full_catalog_path):
@@ -110,7 +117,9 @@ def manifest_slug(manifest_file, full_catalog_path):
         manifest_file = Path.cwd() / "manifest.yaml"
     src = Path(manifest_file)
     if not src.exists():
-        raise click.ClickException("manifest.yaml not found in current working directory")
+        raise click.ClickException(
+            "manifest.yaml not found in current working directory"
+        )
     doc = yaml.safe_load(src.read_text())
     title = doc.get("title", "")
     authors = doc.get("authors", [])
@@ -133,7 +142,11 @@ def manifest_slug(manifest_file, full_catalog_path):
     candidates = [
         _slugify(main_title),
         _slugify(f"{main_title} {first_author}") if first_author else None,
-        _slugify(f"{main_title} {first_author} {isbn}") if first_author or isbn else None,
+        (
+            _slugify(f"{main_title} {first_author} {isbn}")
+            if first_author or isbn
+            else None
+        ),
         _slugify(f"{title} {first_author} {isbn}"),
     ]
 

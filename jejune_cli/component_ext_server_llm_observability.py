@@ -10,7 +10,7 @@ from .component_containerized import ContComp
 from .containerized_context import ContainerizedContext
 
 
-class comp_server_llm_observability(ContComp):
+class CompServerLlmObservability(ContComp):
     mandatory = False
     is_external_image = True
     otlp_port: int = 4318

@@ -1,8 +1,9 @@
 """git-command component."""
-from .component_ext_command import ext_command
+
+from .component_ext_command import ExtCommand
 
 
-class comp_command_git(ext_command):
+class CompCommandGit(ExtCommand):
     def __init__(self) -> None:
         super().__init__(
             name="git-command",

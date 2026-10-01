@@ -1,14 +1,15 @@
 """git-server component."""
+
 import subprocess
 
 from ._git_server_config import REPO_ROOT_DIR as _REPO_ROOT_DIR
-from .component_ext_server import ext_server
-from .component_ext_network import comp_network
-from .component_ext_command_git import comp_command_git
+from .component_ext_server import ExtServer
+from .component_ext_network import CompNetwork
+from .component_ext_command_git import CompCommandGit
 
 
-class comp_server_git(ext_server):
-    def __init__(self, network: comp_network, git_command: comp_command_git) -> None:
+class CompServerGit(ExtServer):
+    def __init__(self, network: CompNetwork, git_command: CompCommandGit) -> None:
         super().__init__(
             name="git-server",
             api_url="",
@@ -35,7 +36,8 @@ class comp_server_git(ext_server):
         try:
             r = subprocess.run(
                 ["git", "ls-remote", _REPO_ROOT_DIR],
-                capture_output=True, timeout=timeout,
+                capture_output=True,
+                timeout=timeout,
             )
             if r.returncode == 0:
                 return "ok", ""

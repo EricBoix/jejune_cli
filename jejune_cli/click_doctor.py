@@ -11,11 +11,11 @@ from .click_theme import ClickTheme
 from .component_base import BaseComp
 from .component_containerized import ContComp
 from .component_ext import ExtComp
-from .component_ext_server import ext_server
+from .component_ext_server import ExtServer
 from .component_with_config import ConfComp
 from .plugin_registry import PluginRegistry
 from .role_registry import RoleRegistry
-from .dot_jejune import dot_jejune
+from .dot_jejune import DotJejune
 from .doctor_column import Column
 
 # ---------------------------------------------------------------------------
@@ -332,7 +332,7 @@ def _visible_component_names(
         return [c.name for c in active_components]
     avail_ok = {comp for comp, status, _ in avail_results if status == "ok"}
     ext_names = {
-        c.name for c in active_components if isinstance(c, (ExtComp, ext_server))
+        c.name for c in active_components if isinstance(c, (ExtComp, ExtServer))
     }
     return [
         c.name
@@ -370,7 +370,7 @@ def doctor(ctx, verbose: bool):
     active_role_obj = app.role_registry.detect_role()
     active_role = app.role_registry.detect_role_name()
 
-    d = dot_jejune()
+    d = DotJejune()
     if (
         not active_role_obj
         or app.role_registry.role_inherits(active_role_obj, "doc-steward")

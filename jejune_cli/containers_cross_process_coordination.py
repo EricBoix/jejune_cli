@@ -1,4 +1,5 @@
 """Cross-process coordination for Docker containers managed by jejune."""
+
 import fcntl
 import json
 from collections.abc import Callable
@@ -44,7 +45,7 @@ class ContainerCoordination:
       jejune intentionally start for component X?" so that list/stop commands
       can scope their operations correctly.
     - Stale entries (container was stopped outside jejune) are benign: the
-      next reconcile pass that calls ``comp_command_docker.container_exists()``
+      next reconcile pass that calls ``CompCommandDocker.container_exists()``
       will find them absent and can prune them.
     """
 

@@ -18,7 +18,7 @@ from .plugin_registry import PluginRegistry
 from .role_registry import RoleRegistry
 
 
-class plugin_package_catalog:
+class PluginPackageCatalog:
     """Tracks installable plugin packages and answers install-state queries."""
 
     def __init__(

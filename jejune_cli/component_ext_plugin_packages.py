@@ -3,7 +3,7 @@
 from .component_ext import ExtComp
 
 
-class comp_plugin_packages(ExtComp):
+class CompPluginPackages(ExtComp):
     def __init__(self, git_server, uv_command, catalog) -> None:
         super().__init__(
             name="plugin-packages",

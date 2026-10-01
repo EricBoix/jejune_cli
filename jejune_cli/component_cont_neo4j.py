@@ -17,7 +17,7 @@ from .configuration_entry import ConfigurationEntry
 from .containerized_context import ContainerizedContext
 
 
-class comp_neo4j(ContComp):
+class CompNeo4j(ContComp):
     def __init__(
         self, git_server, docker_hub, context: ContainerizedContext | None = None
     ) -> None:

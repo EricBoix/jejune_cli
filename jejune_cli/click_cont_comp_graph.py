@@ -1,18 +1,28 @@
 import click
 
 from .app_context import AppContext
-from .click_configuration import print_config_check, print_config_hint, print_config_status
-from .component_cont_graph import comp_graph
+from .click_configuration import (
+    print_config_check,
+    print_config_hint,
+    print_config_status,
+)
+from .component_cont_graph import CompGraph
 
 _DEP_HINTS = {
     "neo4j": "run `jejune neo4j start`",
-    "llm":   "run `jejune llm status`",
+    "llm": "run `jejune llm status`",
 }
 
 _PREFLIGHT_SKIP = {
-    "check-availability", "status-availability", "hint-availability",
-    "check-config", "status-config", "hint-config",
-    "view", "split", "build",
+    "check-availability",
+    "status-availability",
+    "hint-availability",
+    "check-config",
+    "status-config",
+    "hint-config",
+    "view",
+    "split",
+    "build",
 }
 
 
@@ -27,8 +37,12 @@ def graph(ctx):
 
 
 @graph.command("build")
-@click.option("--no-cache", is_flag=True, default=False,
-              help="Do not use Docker layer cache when building.")
+@click.option(
+    "--no-cache",
+    is_flag=True,
+    default=False,
+    help="Do not use Docker layer cache when building.",
+)
 @click.pass_obj
 def graph_build(comp, no_cache: bool):
     """Build the knowledge-graph extraction Docker image."""
@@ -53,7 +67,9 @@ def check_availability(ctx):
 def status_availability(comp):
     """Show graph availability status."""
     ok, _ = comp.is_running()
-    click.echo(f"graph: {click.style('ok', fg='green') if ok else click.style('error', fg='red')}")
+    click.echo(
+        f"graph: {click.style('ok', fg='green') if ok else click.style('error', fg='red')}"
+    )
 
 
 @graph.command("hint-availability")
@@ -94,15 +110,22 @@ def hint_config(comp):
 @click.argument("doc_dir", default=".", type=click.Path(exists=True, file_okay=False))
 @click.option(
     "--splitter",
-    type=click.Choice(list(comp_graph.SPLITTERS)),
+    type=click.Choice(list(CompGraph.SPLITTERS)),
     default="headers",
     show_default=True,
     help="Splitting strategy.",
 )
-@click.option("--output", default=None,
-              help="Output JSON path inside the container. Defaults to the splitter's own naming scheme.")
-@click.option("--no-cache", is_flag=True, default=False,
-              help="Do not use Docker layer cache when building.")
+@click.option(
+    "--output",
+    default=None,
+    help="Output JSON path inside the container. Defaults to the splitter's own naming scheme.",
+)
+@click.option(
+    "--no-cache",
+    is_flag=True,
+    default=False,
+    help="Do not use Docker layer cache when building.",
+)
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
 @click.pass_obj
 def split(comp, doc_dir, splitter, output, no_cache, extra_args):
@@ -119,8 +142,12 @@ def split(comp, doc_dir, splitter, output, no_cache, extra_args):
 
 @graph.command("extract", context_settings={"ignore_unknown_options": True})
 @click.argument("doc_dir", default=".", type=click.Path(exists=True, file_okay=False))
-@click.option("--no-cache", is_flag=True, default=False,
-              help="Do not use Docker layer cache when building.")
+@click.option(
+    "--no-cache",
+    is_flag=True,
+    default=False,
+    help="Do not use Docker layer cache when building.",
+)
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
 @click.pass_obj
 def extract(comp, doc_dir, no_cache, extra_args):

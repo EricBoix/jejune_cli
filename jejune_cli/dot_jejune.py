@@ -1,9 +1,10 @@
 """dot_jejune: encapsulates the .jejune/ workspace directory."""
+
 from pathlib import Path
 from typing import ClassVar
 
 
-class dot_jejune:
+class DotJejune:
     _DOT_JEJUNE: ClassVar[str] = ".jejune"
     _TMP_PATTERN: ClassVar[str] = str(Path(_DOT_JEJUNE) / "tmp") + "/"
 
@@ -23,7 +24,10 @@ class dot_jejune:
     def _ensure_gitignored(self) -> None:
         gitignore = self._cwd / ".gitignore"
         if gitignore.exists():
-            if any(line.strip() == self._TMP_PATTERN for line in gitignore.read_text().splitlines()):
+            if any(
+                line.strip() == self._TMP_PATTERN
+                for line in gitignore.read_text().splitlines()
+            ):
                 return
             with gitignore.open("a") as file_handle:
                 file_handle.write(f"{self._TMP_PATTERN}\n")

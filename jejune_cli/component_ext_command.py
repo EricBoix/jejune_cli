@@ -5,7 +5,7 @@ import subprocess
 from .component_ext import ExtComp
 
 
-class ext_command(ExtComp):
+class ExtCommand(ExtComp):
     """External CLI tool checked via subprocess."""
 
     def __init__(

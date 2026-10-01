@@ -10,12 +10,12 @@ import click
 from .configuration import Configuration
 from .configuration_entry import ConfigurationEntry
 from .component_with_config import ConfComp
-from .dot_jejune import dot_jejune
+from .dot_jejune import DotJejune
 
 RepoTier = Literal["root", "tmp", "remote"]
 
 
-class comp_ecosystem(ConfComp):
+class CompEcosystem(ConfComp):
     def __init__(self, git_server, role_registry, plugin_registry) -> None:
         super().__init__(
             name="ecosystem",
@@ -64,7 +64,7 @@ class comp_ecosystem(ConfComp):
     ) -> tuple[Path | None, Path | None]:
         raw_root = os.environ.get("JEJUNE_ROOT_DIR")
         root_dir = Path(raw_root).resolve() if raw_root else None
-        tmp = dot_jejune(deploy_dir) / "tmp"
+        tmp = DotJejune(deploy_dir) / "tmp"
         return root_dir, tmp if tmp.is_dir() else None
 
     def discover_doc_repos(
@@ -112,7 +112,7 @@ class comp_ecosystem(ConfComp):
         if tier in ("root", "tmp"):
             return Path(base)
         if tmp_dir is None:
-            tmp_dir = dot_jejune() / "tmp"
+            tmp_dir = DotJejune() / "tmp"
             tmp_dir.mkdir(parents=True, exist_ok=True)
         dest = tmp_dir / repo_name
         if not dest.exists():

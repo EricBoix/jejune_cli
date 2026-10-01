@@ -1,15 +1,16 @@
 """PyPI server component."""
+
 import urllib.error
 import urllib.request
 
-from .component_ext_server import ext_server
-from .component_ext_network import comp_network
+from .component_ext_server import ExtServer
+from .component_ext_network import CompNetwork
 
 _PYPI_API_URL = "https://pypi.org/pypi/pip/json"
 
 
-class comp_server_pypi(ext_server):
-    def __init__(self, network: comp_network) -> None:
+class CompServerPypi(ExtServer):
+    def __init__(self, network: CompNetwork) -> None:
         super().__init__(
             name="pypi-server",
             api_url=_PYPI_API_URL,

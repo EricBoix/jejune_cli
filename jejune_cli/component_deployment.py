@@ -9,7 +9,7 @@ from .configuration_entry import ConfigurationEntry
 from .component_with_config import ConfComp
 
 
-class comp_deployment(ConfComp):
+class CompDeployment(ConfComp):
     def __init__(
         self,
         network,

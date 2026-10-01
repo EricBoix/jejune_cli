@@ -10,7 +10,7 @@ from .configuration_entry import ConfigurationEntry
 from .containerized_context import ContainerizedContext
 
 
-class comp_convert(ContComp):
+class CompConvert(ContComp):
     def __init__(
         self, pypi_server, context: ContainerizedContext | None = None
     ) -> None:
@@ -34,7 +34,7 @@ class comp_convert(ContComp):
     def build(self, no_cache: bool = False) -> None:
         if self.configuration.check()[0] != "ok":
             return
-        doc_dir = comp_convert._doc_dir()
+        doc_dir = CompConvert._doc_dir()
         if not doc_dir:
             raise ValueError("CONVERT_DOC_DIR is not set")
         if doc_dir.is_file():
@@ -54,7 +54,7 @@ class comp_convert(ContComp):
                 "build",
                 *extra,
                 "-t",
-                comp_convert._image_tag(),
+                CompConvert._image_tag(),
                 "-f",
                 str(dockerfile),
                 str(context),
@@ -87,7 +87,7 @@ class comp_convert(ContComp):
 
     @staticmethod
     def _image_tag() -> str:
-        doc_dir = comp_convert._doc_dir()
+        doc_dir = CompConvert._doc_dir()
         if not doc_dir:
             return "jejune:convert"
         base = (
@@ -96,7 +96,7 @@ class comp_convert(ContComp):
         return f"jejune:convert_{base.name.removeprefix('jejune_doc_')}"
 
     def is_built(self) -> bool:
-        return self._context.docker.image_exists(comp_convert._image_tag())
+        return self._context.docker.image_exists(CompConvert._image_tag())
 
     def image_built(self) -> tuple[bool, str]:
         return (True, "ok") if self.is_built() else (False, "not built")

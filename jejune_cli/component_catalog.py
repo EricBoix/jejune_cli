@@ -4,10 +4,10 @@ from pathlib import Path
 
 import yaml
 
-from .component_with_config import ConfComp as component
+from .component_with_config import ConfComp
 
 
-class comp_catalog(component):
+class CompCatalog(ConfComp):
     def __init__(self, ecosystem) -> None:
         super().__init__(name="catalog", dependencies=[ecosystem])
 

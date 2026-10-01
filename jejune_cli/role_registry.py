@@ -3,7 +3,7 @@
 import os
 
 from .component_registry import ComponentRegistry
-from .plugin_role_description import plugin_role_description
+from .plugin_role_description import PluginRoleDescription
 from .component_base import BaseComp
 from .role import NO_ROLE, Role
 
