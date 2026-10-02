@@ -103,26 +103,6 @@ def ui_configure(ctx, deployments_dir, name):
     app.heuristic_step_registry.print_next_steps(cwd=deploy_dir)
 
 
-@click.command("list")
-@click.argument("deployments_dir", type=click.Path(exists=True))
-def ui_list(deployments_dir):
-    """List deployments (directories with docker-compose.yml) in DEPLOYMENTS_DIR."""
-    root = Path(deployments_dir)
-    dirs = sorted(
-        d
-        for d in root.iterdir()
-        if d.is_dir()
-        and not d.name.startswith("deploy_")
-        and (d / "docker-compose.yml").exists()
-    )
-    if not dirs:
-        click.echo("No UI deployments found.")
-        return
-    for d in dirs:
-        has_catalog = (d / "catalog.yaml").exists()
-        status_label = "ok" if has_catalog else "missing catalog.yaml"
-        click.echo(f"  {d.name}  [{status_label}]")
-
 
 @click.command("build")
 @click.option(
