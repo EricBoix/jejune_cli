@@ -1,13 +1,11 @@
 """Deployment CLI group and commands."""
 
 import os
-import shutil
 import sys
 from pathlib import Path
 
 import click
 
-from ._package_paths import TemplatePaths
 from .app_context import AppContext
 
 
@@ -40,67 +38,6 @@ def status(ctx) -> None:
         if not ok:
             msg = f"{msg} on port {plugin_port.get(name, '?')}"
         click.echo(f"  {name:<{_W}}  {label}  {msg}")
-
-
-@click.command("ui-configure")
-@click.argument("deployments_dir", type=click.Path())
-@click.argument("name")
-@click.pass_context
-def ui_configure(ctx, deployments_dir, name):
-    """Scaffold a new UI deployment directory NAME in DEPLOYMENTS_DIR.
-
-    Creates catalog.yaml (seeded from the sibling jejune_docs_server repo's
-    full-catalog.yaml when available), docker-compose.yml, and deployment.env.
-    A .gitignore and secrets.env.template are added only when the catalog
-    contains private repositories.
-    """
-    app = ctx.find_object(AppContext)
-    deployments_dir = Path(deployments_dir)
-    deploy_dir = deployments_dir / name
-
-    if deploy_dir.exists():
-        click.echo(f"Error: {deploy_dir} already exists.", err=True)
-        sys.exit(1)
-
-    try:
-        deploy_dir.mkdir(parents=True)
-    except OSError as exc:
-        raise click.ClickException(str(exc)) from exc
-    jejune_dir = deploy_dir / ".jejune"
-    jejune_dir.mkdir()
-    (jejune_dir / "origin").write_text(f"{deploy_dir}\n")
-    shutil.copy(TemplatePaths.DEPLOYER_UI / "env-config", jejune_dir / "env-config")
-
-    catalog_comp = app.component_registry.get("catalog")
-    full_catalog = catalog_comp.full_catalog_path(deployments_dir)
-    if full_catalog:
-        shutil.copy(full_catalog, deploy_dir / "catalog.yaml")
-        click.echo(f"Seeded catalog.yaml from {full_catalog}")
-    else:
-        template = catalog_comp.trivial_catalog_content()
-        if template:
-            (deploy_dir / "catalog.yaml").write_text(template)
-        else:
-            (deploy_dir / "catalog.yaml").write_text("documents: []\n")
-        click.echo("Seeded catalog.yaml from built-in template — populate manually.")
-
-    deployment_comp = app.component_registry.get("deployment")
-    (deploy_dir / "docker-compose.yml").write_text(
-        deployment_comp.generate_docker_compose(deploy_dir, TemplatePaths.DEPLOYER_UI)
-    )
-    shutil.copy(
-        TemplatePaths.DEPLOYER_UI / "deployment.env", deploy_dir / "deployment.env"
-    )
-
-    if deployment_comp.has_private_repos(deploy_dir):
-        (deploy_dir / ".gitignore").write_text("secrets.env\n")
-        shutil.copy(
-            TemplatePaths.DEPLOYER_UI / "secrets.env.template",
-            deploy_dir / "secrets.env.template",
-        )
-
-    click.echo(f"Creating deployment in ./{deploy_dir.name}/ sub-directory")
-    app.heuristic_step_registry.print_next_steps(cwd=deploy_dir)
 
 
 @click.command("build")
@@ -171,5 +108,5 @@ def deployment_install(ctx) -> None:
     app.component_registry.get("plugin-packages").install_packages()
 
 
-for _cmd in (status, ui_configure, build, up, down, deployment_install):
+for _cmd in (status, build, up, down, deployment_install):
     deployment.add_command(_cmd)

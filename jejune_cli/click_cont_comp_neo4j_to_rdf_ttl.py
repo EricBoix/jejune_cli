@@ -23,7 +23,7 @@ def dump_turtle(ctx, output_dir, filename):
     neo4j_to_rdf_ttl_comp = app.component_registry.get("neo4j-to-rdf-ttl")
     output_dir = Path(output_dir).resolve()
 
-    filename = resolve_llm_decorated_filename(neo4j_comp, filename)
+    filename = resolve_llm_decorated_filename(neo4j_comp, filename, enforce_neo4j_limit=False)
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
