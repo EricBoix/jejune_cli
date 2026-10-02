@@ -260,8 +260,9 @@ class CompNeo4j(ContComp):
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read())
-        except urllib.error.URLError as error:
-            raise RuntimeError(f"could not reach Neo4j HTTP API: {error.reason}")
+        except (urllib.error.URLError, OSError) as error:
+            reason = error.reason if hasattr(error, "reason") else error
+            raise RuntimeError(f"could not reach Neo4j HTTP API: {reason}")
         if data.get("errors"):
             raise RuntimeError(f"Neo4j error: {data['errors'][0]['message']}")
         return [row["row"][0] for row in data["results"][0]["data"]]
@@ -296,8 +297,9 @@ class CompNeo4j(ContComp):
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read())
-        except urllib.error.URLError as e:
-            raise RuntimeError(f"could not reach Neo4j HTTP API: {e.reason}")
+        except (urllib.error.URLError, OSError) as e:
+            reason = e.reason if hasattr(e, "reason") else e
+            raise RuntimeError(f"could not reach Neo4j HTTP API: {reason}")
         if data.get("errors"):
             raise RuntimeError(f"Neo4j error: {data['errors'][0]['message']}")
         results = data["results"]
