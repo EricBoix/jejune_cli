@@ -20,9 +20,13 @@ class _RootClickGroup(click.Group):
         self.aliases: list = []
 
     def make_context(self, info_name, args, parent=None, **extra):
+        # Bootstrap AppContext before super().make_context() so that ctx.obj is
+        # available inside get_command() during parse_args() / resolve_command().
+        fresh = "obj" not in extra
+        if fresh:
+            extra["obj"] = AppContext(cli=self)
         ctx = super().make_context(info_name, args, parent=parent, **extra)
-        if ctx.obj is None:
-            ctx.obj = AppContext(cli=self)
+        if fresh:
             load_plugins(ctx.obj)
         return ctx
 
@@ -36,6 +40,16 @@ class _RootClickGroup(click.Group):
             raise
         ctx.obj.heuristic_step_registry.print_next_steps()
         return result
+
+    def get_command(self, ctx: click.Context, cmd_name: str) -> "click.Command | None":
+        cmd = super().get_command(ctx, cmd_name)
+        if cmd is None and ctx.obj is not None:
+            if not ctx.obj.role_registry.detect_role():
+                raise click.UsageError(
+                    f"No such command '{cmd_name}'. "
+                    "Role-specific commands require a recognized workspace."
+                )
+        return cmd
 
     def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         app = ctx.obj
@@ -63,7 +77,7 @@ class _RootClickGroup(click.Group):
             comp = app.component_registry.get(name)
             if hasattr(comp, "is_relevant") and not comp.is_relevant(Path.cwd()):
                 return None
-            cmd = self.get_command(ctx, name)
+            cmd = super(_RootClickGroup, self).get_command(ctx, name)
             if cmd is None or cmd.hidden:
                 return None
             if hasattr(cmd, "is_visible") and not cmd.is_visible(app):
