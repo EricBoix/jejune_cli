@@ -1,9 +1,11 @@
 """Click commands for the neo4j-to-RDF/Turtle component."""
+
 from pathlib import Path
 
 import click
 
 from .app_context import AppContext
+from .click_cont_comp_neo4j_helpers import resolve_llm_decorated_filename
 
 
 @click.command("dump-turtle")
@@ -17,8 +19,12 @@ def dump_turtle(ctx, output_dir, filename):
     Neo4j credentials are read from .jejune/env-secrets / environment.
     """
     app = ctx.find_object(AppContext)
+    neo4j_comp = app.component_registry.get("neo4j")
     neo4j_to_rdf_ttl_comp = app.component_registry.get("neo4j-to-rdf-ttl")
     output_dir = Path(output_dir).resolve()
+
+    filename = resolve_llm_decorated_filename(neo4j_comp, filename)
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
     click.echo(f"Building {neo4j_to_rdf_ttl_comp.image_name} ...")

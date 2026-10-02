@@ -1,5 +1,4 @@
 import os
-import re
 from pathlib import Path
 
 import click
@@ -10,7 +9,7 @@ from .click_configuration import (
     print_config_hint,
     print_config_status,
 )
-
+from .click_cont_comp_neo4j_helpers import resolve_llm_decorated_filename
 from .click_cont_comp_neo4j_to_rdf_ttl import dump_turtle
 
 
@@ -239,27 +238,6 @@ def delete(comp, data_dir, port, credentials):
     _launch_container(comp, data_dir, port, credentials)
 
 
-_NEO4J_DUMP_FILENAME_MAX_LENGTH = 63
-
-
-def _decorate_dump_filename(
-    dump_filename: str, llm_model_names: list[str]
-) -> tuple[str, bool]:
-    """Raises ValueError if stem+suffix alone exhaust the 63-char Neo4j limit."""
-    safe_models = "_".join(re.sub(r"[^\w\-]", "_", name) for name in llm_model_names)
-    stem = Path(dump_filename).stem
-    suffix = Path(dump_filename).suffix
-    available = _NEO4J_DUMP_FILENAME_MAX_LENGTH - len(stem) - 1 - len(suffix)
-    if available <= 0:
-        raise ValueError(
-            f"'{dump_filename}' stem+suffix already fills the "
-            f"{_NEO4J_DUMP_FILENAME_MAX_LENGTH}-char Neo4j limit; "
-            "cannot append LLM model decoration."
-        )
-    truncated = len(safe_models) > available
-    return f"{stem}.{safe_models[:available]}{suffix}", truncated
-
-
 @neo4j.command("dump")
 @click.argument("results_dir", type=click.Path())
 @click.argument("dump_filename")
@@ -281,26 +259,7 @@ def dump(comp, results_dir, dump_filename):
         raise click.ClickException(
             "Neo4j is not running — start it first with `jejune neo4j start`"
         )
-    try:
-        llm_model_names = comp.query_llm_model_names()
-    except RuntimeError as error:
-        raise click.ClickException(str(error))
-    if llm_model_names:
-        try:
-            dump_filename, was_truncated = _decorate_dump_filename(dump_filename, llm_model_names)
-        except ValueError as error:
-            raise click.ClickException(str(error))
-        if was_truncated:
-            click.echo(
-                f"Warning: LLM model decoration truncated to fit the "
-                f"{_NEO4J_DUMP_FILENAME_MAX_LENGTH}-char Neo4j limit.",
-                err=True,
-            )
-    else:
-        click.echo(
-            "Warning: no llm_model_name attribute found; dump filename not decorated.",
-            err=True,
-        )
+    dump_filename = resolve_llm_decorated_filename(comp, dump_filename)
     try:
         port, credentials = comp.resolve_port_credentials(port=None, credentials=None)
     except ValueError as error:
