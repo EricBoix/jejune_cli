@@ -103,7 +103,6 @@ def ui_configure(ctx, deployments_dir, name):
     app.heuristic_step_registry.print_next_steps(cwd=deploy_dir)
 
 
-
 @click.command("build")
 @click.option(
     "--no-cache",
@@ -172,5 +171,5 @@ def deployment_install(ctx) -> None:
     app.component_registry.get("plugin-packages").install_packages()
 
 
-for _cmd in (status, ui_configure, ui_list, build, up, down, deployment_install):
+for _cmd in (status, ui_configure, build, up, down, deployment_install):
     deployment.add_command(_cmd)
