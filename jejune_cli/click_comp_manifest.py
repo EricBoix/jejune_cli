@@ -58,8 +58,12 @@ def manifest_check_availability():
     if file_refs:
         key_width = max(len(k) for k, _ in file_refs)
         for key, rel in file_refs:
-            fg = None if (comp.doc_repository_directory / rel).exists() else "red"
-            click.echo(f"  {click.style(f'{key:<{key_width}}  {rel}', fg=fg)}")
+            exists = (comp.doc_repository_directory / rel).exists()
+            entry_status = "ok" if exists else "error"
+            icon, fg = ClickTheme.status_icons.get(entry_status, ("?", "white"))
+            click.echo(
+                f"  {click.style(icon, fg=fg)} {click.style(f'{key:<{key_width}}  {rel}', fg=fg)}"
+            )
 
 
 @manifest.command("status-availability")
