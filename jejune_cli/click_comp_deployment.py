@@ -192,5 +192,5 @@ def deployment_install(ctx) -> None:
     app.component_registry.get("plugin-packages").install_packages()
 
 
-for _cmd in (status, ui_list, build, up, down, deployment_install):
+for _cmd in (status, ui_configure, ui_list, build, up, down, deployment_install):
     deployment.add_command(_cmd)
