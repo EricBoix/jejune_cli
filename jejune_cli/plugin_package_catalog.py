@@ -8,9 +8,9 @@ import sys
 
 import click
 
-try:
+if sys.version_info >= (3, 11):
     import tomllib
-except ImportError:  # Python < 3.11
+else:
     import tomli as tomllib  # type: ignore[no-reuse-import]
 
 from .component_registry import ComponentRegistry

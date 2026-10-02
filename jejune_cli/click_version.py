@@ -4,6 +4,8 @@ from pathlib import Path
 
 import click
 
+from ._sha import SHA
+
 
 def version_string() -> str:
     version = importlib.metadata.version("jejune-cli")
@@ -27,13 +29,8 @@ def version_string() -> str:
             break
     # 2. works after uv tool reinstall where the package lands in e.g.
     #    ~/.local/share/uv/tools/: retrieve the SHA baked by hatch_build.py
-    try:
-        from ._sha import SHA
-
-        if SHA:
-            return f"{version} ({SHA})"
-    except ImportError:
-        pass
+    if SHA:
+        return f"{version} ({SHA})"
     return f"{version} (SHA not found)"
 
 
