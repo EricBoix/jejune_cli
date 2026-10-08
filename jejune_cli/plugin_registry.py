@@ -10,6 +10,7 @@ from typing import Callable
 import click
 
 from .component_registry import ComponentRegistry, _UnresolvedPlugin
+from .component_with_config import ConfComp
 from .configuration import Configuration
 from .configuration_entry import ConfigurationEntry
 from .plugin_comp import PluginComp
@@ -75,20 +76,22 @@ class PluginRegistry:
                 )
                 self._component_registry.add(comp)
             elif plugin.avail_hint and not existing.hint:
-                existing.hint = plugin.avail_hint
+                existing.set_hint(plugin.avail_hint)
 
         for dep_name in plugin.optional_deps:
             inst = self._component_registry.get(dep_name)
             if inst:
-                inst.mandatory = False
+                inst.set_mandatory(False)
 
         if plugin.config_vars:
             inst = self._component_registry.get(plugin.name)
-            if inst is not None and hasattr(inst, "configuration"):
-                inst.configuration = Configuration(
-                    *(
-                        ConfigurationEntry(v, hint=plugin.config_hint)
-                        for v in plugin.config_vars
+            if isinstance(inst, ConfComp):
+                inst.set_configuration(
+                    Configuration(
+                        *(
+                            ConfigurationEntry(v, hint=plugin.config_hint)
+                            for v in plugin.config_vars
+                        )
                     )
                 )
 

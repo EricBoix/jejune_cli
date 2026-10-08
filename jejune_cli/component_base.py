@@ -26,6 +26,12 @@ class BaseComp(ABC):
         self.plugin_deps: list[str] = plugin_deps or []
         self.runtime_dependencies: "dict[str, BaseComp]" = {}
 
+    def set_hint(self, hint: str) -> None:
+        self.hint = hint
+
+    def set_mandatory(self, value: bool) -> None:
+        self.mandatory = value  # type: ignore[misc]
+
     def set_runtime_dependency(self, name: str, dep: "BaseComp") -> None:
         """Register a dep used at runtime in check(); excluded from topology and activation."""
         self.runtime_dependencies[name] = dep

@@ -35,6 +35,9 @@ class ConfComp(BaseComp):
             configuration if configuration is not None else Configuration()
         )
 
+    def set_configuration(self, cfg: Configuration) -> None:
+        self.configuration = cfg
+
     def check_config(self) -> tuple[str, str]:
         """Return (status, msg) for the configuration check.
 
