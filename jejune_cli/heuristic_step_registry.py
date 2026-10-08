@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
+import sys
 from pathlib import Path
 import click
 
@@ -19,6 +21,20 @@ class HeuristicStepRegistry:
         self._named_preconditions: dict[str, HeuristicCondition] = {}
         self._role_orderings: dict[str | None, dict[str, int]] = {}
         self._next_steps_printed: bool = False
+
+    @staticmethod
+    @contextlib.contextmanager
+    def _chdir(path: Path):
+        if sys.version_info >= (3, 11):
+            with contextlib.chdir(path):
+                yield
+        else:
+            old = os.getcwd()
+            try:
+                os.chdir(path)
+                yield
+            finally:
+                os.chdir(old)
 
     def register_command_precondition(
         self, command: str, check: HeuristicCondition
@@ -136,12 +152,8 @@ class HeuristicStepRegistry:
 
         if cwd is None:
             return _sorted(self._role_registry.detect_role_name())
-        old = os.getcwd()
-        try:
-            os.chdir(cwd)
+        with self._chdir(cwd):
             return _sorted(self._role_registry.detect_role_name())
-        finally:
-            os.chdir(old)
 
     def mark_printed(self) -> None:
         """Suppress the post-invoke print_next_steps() call for this invocation."""
@@ -211,9 +223,5 @@ class HeuristicStepRegistry:
 
         if cwd is None:
             return _run()
-        old = os.getcwd()
-        try:
-            os.chdir(cwd)
+        with self._chdir(cwd):
             return _run()
-        finally:
-            os.chdir(old)
