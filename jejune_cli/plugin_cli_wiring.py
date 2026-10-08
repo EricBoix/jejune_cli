@@ -1,5 +1,7 @@
 """Wire plugin CLI commands and roles into the root CLI group."""
 
+import click
+
 from .app_context import AppContext
 from .click_group_configuration import register_role_config_subgroup
 from .plugin_description import PluginDescription
@@ -22,3 +24,7 @@ def load_plugins(app: AppContext) -> None:
     app.plugin_registry.add_post_hook(_handle_plugin)
     if app.role_registry.detect_role():
         app.plugin_registry.load_all()
+    else:
+        click.echo(
+            "Warning: plugins unavailable outside a recognized workspace.", err=True
+        )
