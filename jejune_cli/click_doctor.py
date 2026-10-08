@@ -373,7 +373,7 @@ def doctor(ctx, verbose: bool):
     d = DotJejune()
     if (
         not active_role_obj
-        or app.role_registry.role_inherits(active_role_obj, "doc-steward")
+        or app.role_registry.role_is_doc_steward_family(active_role_obj)
     ) and not d.is_dir():
         click.echo(
             click.style(
@@ -428,9 +428,7 @@ def doctor(ctx, verbose: bool):
         action_column,
     ]
     _print_health_table(component_names, columns)
-    if active_role is None or app.role_registry.role_inherits(
-        active_role, "doc-steward"
-    ):
+    if active_role is None or app.role_registry.role_is_doc_steward_family(active_role):
         click.echo()
         click.echo(_CONFIG_NOTE)
 

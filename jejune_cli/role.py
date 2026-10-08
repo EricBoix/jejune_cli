@@ -24,13 +24,17 @@ class Role:
     def __bool__(self) -> bool:
         return bool(self.name)
 
+    def matches(self, name: str) -> bool:
+        return self.name == name
+
     def is_deployer(self) -> bool:
-        return self.name == "deployer" and self.detector is not None and self.detector()
+        return self.matches("deployer")
 
     def is_doc_steward(self) -> bool:
-        return (
-            self.name == "doc-steward" and self.detector is not None and self.detector()
-        )
+        return self.matches("doc-steward")
+
+    def is_catalog_contributor(self) -> bool:
+        return self.matches("catalog-contributor")
 
     @staticmethod
     def _is_doc_steward_cwd() -> bool:

@@ -26,14 +26,6 @@ def _detect_role():
     )
 
 
-def _role_inherits(role, parent):
-    return (
-        click.get_current_context()
-        .find_object(AppContext)
-        .role_registry.role_inherits(role, parent)
-    )
-
-
 # Commands accessible to deployer (via deployment-catalog role) AND collection role.
 _DEPLOYMENT_CATALOG_ONLY: frozenset[str] = frozenset({"check-deployment"})
 
@@ -51,9 +43,6 @@ _COLLECTION_ONLY: frozenset[str] = frozenset(
     }
 )
 
-_COLLECTION_ROLE = "catalog-contributor"
-_DEPLOYMENT_CATALOG_ROLE = "deployment-catalog"
-
 
 # ---------------------------------------------------------------------------
 # Role-aware group
@@ -64,15 +53,15 @@ class _CatalogGroup(click.Group):
     """Hides and blocks role-gated commands based on the active role."""
 
     def _is_collection_role(self) -> bool:
-        active_role = _detect_role()
-        return active_role.name == _COLLECTION_ROLE
+        return _detect_role().is_catalog_contributor()
 
     def _is_deployment_catalog_role(self) -> bool:
         """True for deployer (inherits deployment-catalog) and collection role."""
         active_role = _detect_role()
+        registry = click.get_current_context().find_object(AppContext).role_registry
         return (
-            _role_inherits(active_role, _DEPLOYMENT_CATALOG_ROLE)
-            or active_role.name == _COLLECTION_ROLE
+            registry.role_is_deployment_catalog_family(active_role)
+            or active_role.is_catalog_contributor()
         )
 
     def format_commands(
@@ -102,15 +91,15 @@ class _CatalogGroup(click.Group):
         cmd_name = ctx._protected_args[0] if ctx._protected_args else None
         if cmd_name in _COLLECTION_ONLY and not self._is_collection_role():
             raise click.ClickException(
-                f"'{cmd_name}' is only available for the {_COLLECTION_ROLE} role."
+                f"'{cmd_name}' is only available for the catalog-contributor role."
             )
         if (
             cmd_name in _DEPLOYMENT_CATALOG_ONLY
             and not self._is_deployment_catalog_role()
         ):
             raise click.ClickException(
-                f"'{cmd_name}' requires the {_DEPLOYMENT_CATALOG_ROLE} role "
-                f"(or {_COLLECTION_ROLE})."
+                f"'{cmd_name}' requires the deployment-catalog role "
+                f"(or catalog-contributor)."
             )
         return super().invoke(ctx)
 
@@ -177,9 +166,9 @@ def check(catalog_path, root_dir):
             sys.exit(1)
     else:
         active_role = _detect_role()
-        if not active_role.name == _COLLECTION_ROLE:
+        if not active_role.is_catalog_contributor():
             raise click.ClickException(
-                f"--catalog is only available for the {_COLLECTION_ROLE} role."
+                "--catalog is only available for the catalog-contributor role."
             )
         cfg_status, hint = catalog_config_status()
         if cfg_status == "error":

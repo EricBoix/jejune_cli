@@ -21,7 +21,7 @@ def build_cmd(app: AppContext, no_cache: bool) -> None:
     Use `jejune deployment build <dir>` to build a specific deployment directory.
     """
     active_role_obj = app.role_registry.detect_role()
-    if app.role_registry.role_inherits(active_role_obj, "deployer"):
+    if app.role_registry.role_is_deployer_family(active_role_obj):
         raise SystemExit(
             app.component_registry.get("deployment").build(Path("."), no_cache=no_cache)
         )

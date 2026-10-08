@@ -18,8 +18,8 @@ def wire_heuristics(
 
     def _doctor_viable() -> bool:
         active_role = role_registry.detect_role_name()
-        is_doc_steward_family = active_role is None or role_registry.role_inherits(
-            active_role, "doc-steward"
+        is_doc_steward_family = active_role is None or role_registry.role_is_doc_steward_family(
+            active_role
         )
         return not (is_doc_steward_family and not DotJejune().is_dir())
 

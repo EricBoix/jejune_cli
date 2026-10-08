@@ -29,7 +29,7 @@ class CompCatalog(ConfComp):
 
     def check(self) -> tuple[str, str]:
         active_role = self._role_registry.detect_role()
-        if self._role_registry.role_inherits(active_role, "deployment-catalog"):
+        if self._role_registry.role_is_deployment_catalog_family(active_role):
             cwd = Path.cwd()
             full_cat = self.full_catalog_path(cwd.parent) or Path()
             results = self.check_deployment(cwd, full_cat, local_only=True)

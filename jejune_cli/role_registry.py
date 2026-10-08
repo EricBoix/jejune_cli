@@ -113,6 +113,15 @@ class RoleRegistry:
             if (comp := registry.get(name)) is not None and comp.cli_name is not None
         ] + list(role.extra_commands)
 
+    def role_is_deployer_family(self, role: Role) -> bool:
+        return self.role_inherits(role, "deployer")
+
+    def role_is_doc_steward_family(self, role: Role) -> bool:
+        return self.role_inherits(role, "doc-steward")
+
+    def role_is_deployment_catalog_family(self, role: Role) -> bool:
+        return self.role_inherits(role, "deployment-catalog")
+
     def role_inherits(self, role: "Role | str", parent: str) -> bool:
         if not role:
             return False
