@@ -145,6 +145,7 @@ def _action_column(
         c_status, _ = by_config.get(comp, ("ok", ""))
         a_status, a_msg = by_avail.get(comp, ("ok", ""))
         has_failing_deps = bool(failing_deps.get(comp))
+        image_not_built = img_status.get(comp) is False
         if has_failing_deps:
             repairable = [
                 name for name in failing_deps[comp] if not img_status.get(name, False)
@@ -153,13 +154,14 @@ def _action_column(
                 "Fix " + ", ".join(repairable) + " availability" if repairable else ""
             )
         else:
+            needs_avail_hint = a_status != "ok" or image_not_built
             a_hint = (
                 _resolve_avail_hint(inst, role_registry, plugin_registry)
-                if a_status != "ok"
+                if needs_avail_hint
                 else ""
             )
         if c_status != "ok" and hasattr(inst, "configuration"):
-            if a_status == "ok" and inst.use_hint:
+            if a_status == "ok" and not image_not_built and inst.use_hint:
                 c_hint = inst.use_hint
             else:
                 c_hint = (
@@ -174,7 +176,7 @@ def _action_column(
             port_conflict_per_comp.get(comp)
             or (a_hint if has_failing_deps else "")
             or c_hint
-            or (a_hint if a_status != "ok" else "")
+            or (a_hint if (a_status != "ok" or image_not_built) else "")
         )
         cells[comp] = (action, action)
     return Column("Action", cells)
