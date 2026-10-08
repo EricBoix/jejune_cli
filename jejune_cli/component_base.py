@@ -15,6 +15,7 @@ class BaseComp(ABC):
         hint: str | None = None,
         use_hint: str | None = None,
         plugin_deps: list[str] | None = None,
+        install_plugin_deps: list[str] | None = None,
     ) -> None:
         self.name = name
         self.cli_name: str | None = None
@@ -24,6 +25,7 @@ class BaseComp(ABC):
         self.hint = hint
         self.use_hint = use_hint
         self.plugin_deps: list[str] = plugin_deps or []
+        self.install_plugin_deps: list[str] = install_plugin_deps or []
         self.runtime_dependencies: "dict[str, BaseComp]" = {}
 
     def set_hint(self, hint: str) -> None:

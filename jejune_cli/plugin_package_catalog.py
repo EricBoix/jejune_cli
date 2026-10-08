@@ -95,7 +95,7 @@ class PluginPackageCatalog:
             name
             for comp in self._component_registry
             if comp in role_comps
-            for name in getattr(comp, "plugin_deps", [])
+            for name in getattr(comp, "plugin_deps", []) + getattr(comp, "install_plugin_deps", [])
         ]
 
     def _expected_plugin_names(self, role: str | None) -> set[str]:

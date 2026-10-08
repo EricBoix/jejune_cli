@@ -105,7 +105,7 @@ class PluginRegistry:
            repo names to ep names.  Falls back to the normalized distribution name.
         1. Iterates ``"jejune.plugins"`` entry-points, calls
            ``register_plugin_component`` for each.
-        2. Resolves ``plugin_deps`` declared by built-in components.
+        2. Resolves ``plugin_deps`` and ``install_plugin_deps`` declared by built-in components.
         3. Calls the finalize hook.
         """
         # Phase 0: map repo names to plugin names.
@@ -150,9 +150,12 @@ class PluginRegistry:
         # Phase 2: wire resolved plugin instances into comp.dependencies.
         plugin_packages = self._component_registry.get("plugin-packages")
         for comp in self._component_registry:
-            if not getattr(comp, "plugin_deps", []):
+            all_plugin_repo_deps = getattr(comp, "plugin_deps", []) + getattr(
+                comp, "install_plugin_deps", []
+            )
+            if not all_plugin_repo_deps:
                 continue
-            for repo_name in comp.plugin_deps:
+            for repo_name in all_plugin_repo_deps:
                 plugin_name = discovered.get(repo_name.lower().replace("-", "_"))
                 if plugin_name is None:
                     continue
@@ -169,7 +172,10 @@ class PluginRegistry:
                 and plugin_packages not in comp.dependencies
             ):
                 comp.dependencies.append(plugin_packages)
-        if any(getattr(c, "plugin_deps", []) for c in self._component_registry):
+        if any(
+            getattr(c, "plugin_deps", []) + getattr(c, "install_plugin_deps", [])
+            for c in self._component_registry
+        ):
             self._component_registry._sort()
 
         # Phase 3: call the finalize hook.

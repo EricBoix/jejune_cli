@@ -6,7 +6,6 @@ from .click_configuration import (
     print_config_hint,
     print_config_status,
 )
-from .component_cont_graph import CompGraph
 
 _DEP_HINTS = {
     "neo4j": "run `jejune neo4j start`",
@@ -20,8 +19,6 @@ _PREFLIGHT_SKIP = {
     "check-config",
     "status-config",
     "hint-config",
-    "view",
-    "split",
     "build",
 }
 
@@ -104,40 +101,6 @@ def status_config(comp):
 def hint_config(comp):
     """Show the configuration hint for the graph component."""
     print_config_hint(comp.configuration)
-
-
-@graph.command("split", context_settings={"ignore_unknown_options": True})
-@click.argument("doc_dir", default=".", type=click.Path(exists=True, file_okay=False))
-@click.option(
-    "--splitter",
-    type=click.Choice(list(CompGraph.SPLITTERS)),
-    default="headers",
-    show_default=True,
-    help="Splitting strategy.",
-)
-@click.option(
-    "--output",
-    default=None,
-    help="Output JSON path inside the container. Defaults to the splitter's own naming scheme.",
-)
-@click.option(
-    "--no-cache",
-    is_flag=True,
-    default=False,
-    help="Do not use Docker layer cache when building.",
-)
-@click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
-@click.pass_obj
-def split(comp, doc_dir, splitter, output, no_cache, extra_args):
-    """Split DOC_DIR's catalog into JSON chunks.
-
-    Builds the extraction Docker image and runs the chosen splitter script
-    against /data/manifest.yaml. Without --output the splitter writes a file
-    named after the markdown source and the splitting modality.
-
-    EXTRA_ARGS are forwarded verbatim to the splitter (e.g. --output_dir /data).
-    """
-    comp.run_split(doc_dir, splitter, output, no_cache, extra_args)
 
 
 @graph.command("extract", context_settings={"ignore_unknown_options": True})
