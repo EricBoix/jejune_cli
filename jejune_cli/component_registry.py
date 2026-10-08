@@ -16,31 +16,12 @@ class _UnresolvedPlugin:
     "known but absent" from a real component.
     """
 
-    def __init__(self, name: str, registry: "ComponentRegistry") -> None:
-        object.__setattr__(self, "_name", name)
-        object.__setattr__(self, "_resolved", None)
-        object.__setattr__(self, "_registry", registry)
+    def __init__(self, name: str) -> None:
+        self._name = name
 
     @property
     def name(self) -> str:
-        return object.__getattribute__(self, "_name")
-
-    def _resolve(self) -> "BaseComp | None":
-        cached = object.__getattribute__(self, "_resolved")
-        if cached is not None:
-            return cached
-        registry = object.__getattribute__(self, "_registry")
-        inst = registry.get(object.__getattribute__(self, "_name"))
-        if inst is not None and not isinstance(inst, _UnresolvedPlugin):
-            object.__setattr__(self, "_resolved", inst)
-            return inst
-        return None
-
-    def __getattr__(self, attr: str):
-        resolved = self._resolve()
-        if resolved is None:
-            raise AttributeError(f"Plugin component {self.name!r} is not yet loaded")
-        return getattr(resolved, attr)
+        return self._name
 
 
 class ComponentRegistry:
@@ -92,7 +73,7 @@ class ComponentRegistry:
             if c.name == name:
                 return c
         if name in self._expected_plugin_names:
-            return _UnresolvedPlugin(name, self)
+            return _UnresolvedPlugin(name)
         return None
 
     def unfulfilled_plugin_names(self) -> set[str]:
