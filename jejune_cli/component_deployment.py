@@ -1,6 +1,7 @@
 """Deployment component (internal)."""
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -114,6 +115,17 @@ class CompDeployment(ConfComp):
             return False
         return catalog_dep.has_private_repos(deploy_dir / "catalog.yaml")
 
+    @staticmethod
+    def _render_template(template: str, **kwargs: str) -> str:
+        found_keys = set(re.findall(r"\{\{(\w+)\}\}", template))
+        missing = found_keys - kwargs.keys()
+        if missing:
+            raise ValueError(f"Template placeholders without values: {missing}")
+        result = template
+        for key, value in kwargs.items():
+            result = result.replace(f"{{{{{key}}}}}", value)
+        return result
+
     def generate_docker_compose(self, deploy_dir: Path, template_dir: Path) -> str:
         name = deploy_dir.resolve().name.lower()
         has_private = self.has_private_repos(deploy_dir)
@@ -128,10 +140,11 @@ class CompDeployment(ConfComp):
             else ""
         )
         template = (template_dir / "docker-compose.yml").read_text()
-        return (
-            template.replace("{{NAME}}", name)
-            .replace("{{BUILD_SECRETS}}", build_secrets)
-            .replace("{{GH_SECRET_DEF}}", gh_secret_def)
+        return self._render_template(
+            template,
+            NAME=name,
+            BUILD_SECRETS=build_secrets,
+            GH_SECRET_DEF=gh_secret_def,
         )
 
     def check_ui_services(self) -> list[tuple[str, bool, str]]:
