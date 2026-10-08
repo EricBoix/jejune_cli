@@ -95,6 +95,11 @@ class ComponentRegistry:
             return _UnresolvedPlugin(name, self)
         return None
 
+    def unfulfilled_plugin_names(self) -> set[str]:
+        """Return expected plugin names that have not yet been added as components."""
+        registered = {c.name for c in self._comps}
+        return self._expected_plugin_names - registered
+
     def names(self) -> list[str]:
         return [c.name for c in self._comps]
 

@@ -176,6 +176,11 @@ class PluginRegistry:
         if self._finalize_hook is not None:
             self._finalize_hook()
 
+        for name in self._component_registry.unfulfilled_plugin_names():
+            click.echo(
+                f"Warning: expected plugin {name!r} was not registered.", err=True
+            )
+
     def repo_name_for_plugin(self, plugin_name: str) -> str | None:
         """Return the actual repo name for *plugin_name*, as used in plugin_deps."""
         return self._plugin_repo_names.get(plugin_name)
