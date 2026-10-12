@@ -19,7 +19,7 @@ class CompConvert(ContComp):
             name="convert",
             image_name="jejune-convert",
             dependencies=[pypi_server],
-            hint="run `jejune convert build`",
+            hint="run `jejune build` (or `jejune convert build`)",
             configuration=Configuration(
                 ConfigurationEntry(
                     "CONVERT_DOC_DIR",

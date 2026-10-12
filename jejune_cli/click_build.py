@@ -25,14 +25,12 @@ def build_cmd(app: AppContext, no_cache: bool) -> None:
         raise SystemExit(
             app.component_registry.get("deployment").build(Path("."), no_cache=no_cache)
         )
-    active_components = app.role_registry.role_components(active_role_obj) or set()
-    component_names = {comp.name for comp in active_components}
+    role_comps = app.role_registry.role_components(active_role_obj) or frozenset()
+    all_active = app.component_registry.sorted_active_set(role_comps)
     builders = [
         inst
-        for inst in app.component_registry
-        if isinstance(inst, ContComp)
-        and inst.name in component_names
-        and (inst.build_context or getattr(inst, "repos", None))
+        for inst in all_active
+        if isinstance(inst, ContComp) and not inst.is_external_image
     ]
     if not builders:
         raise click.UsageError(

@@ -90,26 +90,20 @@ def register_heuristics(
         roles={"doc-steward"},
     )
 
-    # One build step per non-external ContComp that has a hint: show when image is missing.
-    for inst in component_registry:
-        if not isinstance(inst, ContComp) or not inst.hint or inst.is_external_image:
-            continue
-
-        def _make_image_missing_check(component: ContComp):
-            def _image_missing() -> bool:
-                return not component.is_built()
-
-            _image_missing.__name__ = (
-                f"{component.name.replace('-', '_')}_image_missing"
-            )
-            return _image_missing
-
-        registry.register(
-            HeuristicStep(
-                label=inst.hint,
-                command=inst.hint,
-                conditions=[_make_image_missing_check(inst)],
-                anti_conditions=[],
-            ),
-            roles={"doc-steward"},
+    # Single build step: fires when any non-external ContComp image is missing.
+    def _any_buildable_image_missing() -> bool:
+        return any(
+            not inst.is_built()
+            for inst in component_registry
+            if isinstance(inst, ContComp) and not inst.is_external_image
         )
+
+    registry.register(
+        HeuristicStep(
+            label="run `jejune build`",
+            command="jejune build",
+            conditions=[_any_buildable_image_missing],
+            anti_conditions=[],
+        ),
+        roles={"doc-steward"},
+    )
