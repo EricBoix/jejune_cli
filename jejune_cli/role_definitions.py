@@ -36,6 +36,7 @@ def wire_roles(registry: RoleRegistry) -> None:
                 "llm",
                 "llm-observability",
                 "graph",
+                "neo4j-to-rdf-ttl",
                 "convert",
                 "manifest",
             ),

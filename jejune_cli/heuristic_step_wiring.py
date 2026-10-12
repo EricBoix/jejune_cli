@@ -18,13 +18,15 @@ def wire_heuristics(
 
     def _doctor_viable() -> bool:
         active_role = role_registry.detect_role_name()
-        is_doc_steward_family = active_role is None or role_registry.role_is_doc_steward_family(
-            active_role
+        is_doc_steward_family = (
+            active_role is None or role_registry.role_is_doc_steward_family(active_role)
         )
         return not (is_doc_steward_family and not DotJejune().is_dir())
 
     registry.register_command_precondition("jejune doctor", _doctor_viable)
 
     heuristics_deployer.register_heuristics(registry, component_registry)
-    heuristics_doc_steward.register_heuristics(registry, component_registry)
+    heuristics_doc_steward.register_heuristics(
+        registry, component_registry, role_registry
+    )
     heuristics_no_role.register_heuristics(registry, role_registry)
