@@ -59,7 +59,7 @@ def wire_roles(registry: RoleRegistry) -> None:
         Role(
             name="catalog-contributor",
             component_names=("catalog",),
-            includes=("contributor",),
+            includes=("contributor", "deployment-catalog"),
             section_title="Catalog-contributor commands",
             description="collection catalog management",
             detector=Role.is_catalog_contributor_cwd,
