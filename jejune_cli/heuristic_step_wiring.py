@@ -6,7 +6,7 @@ from .component_registry import ComponentRegistry
 from .dot_jejune import DotJejune
 from .heuristic_step_registry import HeuristicStepRegistry
 from .role_registry import RoleRegistry
-from . import heuristics_deployer, heuristics_doc_steward, heuristics_no_role
+from . import heuristics_catalog_contributor, heuristics_deployer, heuristics_doc_steward, heuristics_no_role
 
 
 def wire_heuristics(
@@ -25,6 +25,9 @@ def wire_heuristics(
 
     registry.register_command_precondition("jejune doctor", _doctor_viable)
 
+    heuristics_catalog_contributor.register_heuristics(
+        registry, component_registry, role_registry
+    )
     heuristics_deployer.register_heuristics(registry, component_registry)
     heuristics_doc_steward.register_heuristics(
         registry, component_registry, role_registry
