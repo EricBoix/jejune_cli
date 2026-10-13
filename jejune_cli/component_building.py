@@ -20,6 +20,7 @@ from .component_ecosystem import CompEcosystem
 from .component_catalog import CompCatalog
 from .component_manifest import CompManifest
 from .component_cont_convert import CompConvert
+from .component_cont_converters import CompConverters
 from .component_cont_neo4j import CompNeo4j
 from .component_cont_graph import CompGraph
 from .component_cont_neo4j_to_rdf_ttl import CompNeo4jToRdfTtl
@@ -96,6 +97,9 @@ def build_components(
         context=context,
     )
     convert = CompConvert(pypi_server=pypi_server, context=context)
+    converters_comp = CompConverters(
+        docker_daemon=docker_daemon, ecosystem=ecosystem, context=context
+    )
     neo4j_to_rdf_ttl = CompNeo4jToRdfTtl(
         git_server=git_server, docker_hub=docker_hub, context=context
     )
@@ -124,6 +128,7 @@ def build_components(
         catalog_comp,
         manifest,
         convert,
+        converters_comp,
         neo4j,
         graph,
         neo4j_to_rdf_ttl,

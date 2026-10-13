@@ -21,6 +21,7 @@ from .click_cont_comp_llm_observability import llm_observability
 from .click_cont_comp_neo4j import neo4j
 from .click_cont_comp_graph import graph
 from .click_cont_comp_convert import convert
+from .click_cont_comp_converters import converters
 from .click_comp_manifest import manifest
 
 # Deployer component commands
@@ -47,6 +48,7 @@ cli.add_command(llm)
 cli.add_command(llm_observability)
 cli.add_command(graph)
 cli.add_command(convert)
+cli.add_command(converters)
 cli.add_command(manifest)
 
 # Deployer component commands
