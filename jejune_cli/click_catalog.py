@@ -453,6 +453,12 @@ def convert_test(catalog_file, root_dir, repo, no_cache, no_build):
     build-failed — image did not build
     skipped      — no DockerContext in this repo
     """
+    active_role = _detect_role()
+    if not active_role.is_catalog_contributor():
+        msg = "'convert test' is only available for the catalog-contributor role."
+        if not (Path.cwd() / "manifest.yaml").exists():
+            msg += f" No manifest.yaml found in {Path.cwd()}."
+        raise click.ClickException(msg)
     docs = load_catalog_docs(catalog_file)
     if repo:
         docs = [d for d in docs if d["name"] == repo]
