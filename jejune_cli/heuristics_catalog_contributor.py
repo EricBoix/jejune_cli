@@ -34,3 +34,13 @@ def register_heuristics(
         ),
         roles={"catalog-contributor"},
     )
+
+    registry.register(
+        HeuristicStep(
+            label="run `jejune converters test`",
+            command="jejune converters test",
+            conditions=[],
+            anti_conditions=[_any_buildable_image_missing],
+        ),
+        roles={"catalog-contributor"},
+    )
