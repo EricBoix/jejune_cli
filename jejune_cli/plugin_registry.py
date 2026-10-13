@@ -9,7 +9,7 @@ from typing import Callable
 
 import click
 
-from .component_registry import ComponentRegistry, _UnresolvedPlugin
+from .component_registry import ComponentRegistry, UnresolvedPlugin
 from .component_with_config import ConfComp
 from .configuration import Configuration
 from .configuration_entry import ConfigurationEntry
@@ -68,7 +68,7 @@ class PluginRegistry:
             self._component_registry.add(plugin.component)
         else:
             existing = self._component_registry.get(plugin.name)
-            if existing is None or isinstance(existing, _UnresolvedPlugin):
+            if existing is None or isinstance(existing, UnresolvedPlugin):
                 comp = PluginComp(
                     name=plugin.name,
                     dependencies=plugin.required_deps or [],
@@ -162,13 +162,13 @@ class PluginRegistry:
                 inst = self._component_registry.get(plugin_name)
                 if (
                     inst is not None
-                    and not isinstance(inst, _UnresolvedPlugin)
+                    and not isinstance(inst, UnresolvedPlugin)
                     and inst not in comp.dependencies
                 ):
                     comp.dependencies.append(inst)
             if (
                 plugin_packages is not None
-                and not isinstance(plugin_packages, _UnresolvedPlugin)
+                and not isinstance(plugin_packages, UnresolvedPlugin)
                 and plugin_packages not in comp.dependencies
             ):
                 comp.dependencies.append(plugin_packages)

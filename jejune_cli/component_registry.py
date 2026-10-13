@@ -7,7 +7,7 @@ from pathlib import Path
 from .component_base import BaseComp
 
 
-class _UnresolvedPlugin:
+class UnresolvedPlugin:
     """Sentinel for a plugin component that is expected but not yet registered.
 
     Returned by ``ComponentRegistry.get()`` when the name is in
@@ -33,7 +33,7 @@ class ComponentRegistry:
         """Add *names* to the set of plugin component names expected to be loaded.
 
         Must be called before any code invokes ``get()`` with a plugin name,
-        so that ``get()`` can return a ``_UnresolvedPlugin`` proxy rather than ``None``
+        so that ``get()`` can return a ``UnresolvedPlugin`` proxy rather than ``None``
         for components that are known but not yet registered.  Calling this
         method multiple times is safe — it accumulates names.
         """
@@ -68,12 +68,12 @@ class ComponentRegistry:
             visit(name)
         self._comps = result
 
-    def get(self, name: str) -> "BaseComp | _UnresolvedPlugin | None":
+    def get(self, name: str) -> "BaseComp | UnresolvedPlugin | None":
         for c in self._comps:
             if c.name == name:
                 return c
         if name in self._expected_plugin_names:
-            return _UnresolvedPlugin(name)
+            return UnresolvedPlugin(name)
         return None
 
     def unfulfilled_plugin_names(self) -> set[str]:
@@ -126,7 +126,7 @@ class ComponentRegistry:
         """Assert every dep instance referenced by a component is registered."""
         for inst in self._comps:
             for dep in inst.all_deps():
-                if isinstance(dep, _UnresolvedPlugin):
+                if isinstance(dep, UnresolvedPlugin):
                     continue
                 if self.get(dep.name) is not dep:
                     raise RuntimeError(
