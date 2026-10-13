@@ -420,6 +420,7 @@ def check_deployment(deployment_path):
 
 
 @click.command("test")
+@click.argument("test_name", required=False, default=None, metavar="[TEST_NAME]")
 @click.option(
     "--catalog",
     "catalog_file",
@@ -441,8 +442,11 @@ def check_deployment(deployment_path):
 @click.option(
     "--no-build", is_flag=True, default=False, help="Skip build; use cached image."
 )
-def convert_test(catalog_file, root_dir, repo, no_cache, no_build):
+@click.option("--verbose", is_flag=True, default=False, help="Show full docker output.")
+def convert_test(test_name, catalog_file, root_dir, repo, no_cache, no_build, verbose):
     """Build and test converter containers for all catalog documents.
+
+    An optional TEST_NAME restricts the run to a single repository (by name).
 
     For each document that has a DockerContext/, builds the converter image
     (unless --no-build) then runs `docker run --test` (pytest vs. reference).
@@ -460,10 +464,11 @@ def convert_test(catalog_file, root_dir, repo, no_cache, no_build):
             msg += f" No manifest.yaml found in {Path.cwd()}."
         raise click.ClickException(msg)
     docs = load_catalog_docs(catalog_file)
-    if repo:
-        docs = [d for d in docs if d["name"] == repo]
+    filter_name = test_name or repo
+    if filter_name:
+        docs = [d for d in docs if d["name"] == filter_name]
         if not docs:
-            raise click.ClickException(f"Repository '{repo}' not found in catalog.")
+            raise click.ClickException(f"Repository '{filter_name}' not found in catalog.")
     app = click.get_current_context().find_object(AppContext)
     ecosystem = app.component_registry.get("ecosystem")
     eco_root, eco_tmp = ecosystem.resolve_dirs()
@@ -479,10 +484,13 @@ def convert_test(catalog_file, root_dir, repo, no_cache, no_build):
     col = 42
 
     for name, _url, repo_dir in iter_docs(docs, root, eco_tmp, ecosystem):
-        outcome, detail = convert_test_doc(repo_dir, no_cache, no_build)
+        outcome, detail, verbose_output = convert_test_doc(repo_dir, no_cache, no_build)
         counts[outcome] += 1
         label = click.style(outcome.replace("_", "-"), fg=_COLORS[outcome])
         click.echo(f"  {name:<{col}}  {label}  {detail}")
+        if verbose and verbose_output:
+            for line in verbose_output.splitlines():
+                click.echo(f"    {line}")
 
     click.echo()
     click.echo(

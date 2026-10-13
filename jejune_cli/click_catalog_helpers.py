@@ -222,15 +222,18 @@ def _has_converter(repo_dir: Path) -> tuple[bool, Path, Path]:
     return (ctx.is_dir() and df.exists()), df, ctx
 
 
-def convert_test_doc(repo_dir: Path, no_cache: bool, no_build: bool) -> tuple[str, str]:
-    """Return (outcome, detail). outcome ∈ {skipped, build_failed, unchanged, changed}."""
+def convert_test_doc(
+    repo_dir: Path, no_cache: bool, no_build: bool
+) -> tuple[str, str, str]:
+    """Return (outcome, detail, verbose_output). outcome taken among skipped, build_failed, unchanged or changed."""
     has, dockerfile, context = _has_converter(repo_dir)
     if not has:
-        return "skipped", "no DockerContext"
+        return "skipped", "no DockerContext", ""
     image = _docker_image_name(repo_dir)
+    verbose_lines: list[str] = []
     if not no_build:
         extra = ["--no-cache"] if no_cache else []
-        result = subprocess.run(
+        build_result = subprocess.run(
             [
                 "docker",
                 "build",
@@ -244,20 +247,28 @@ def convert_test_doc(repo_dir: Path, no_cache: bool, no_build: bool) -> tuple[st
             capture_output=True,
             text=True,
         )
-        if result.returncode != 0:
-            tail = (result.stderr or result.stdout).strip().splitlines()
-            return "build_failed", tail[-1] if tail else "build failed"
+        verbose_lines.extend(
+            (build_result.stdout + build_result.stderr).strip().splitlines()
+        )
+        if build_result.returncode != 0:
+            tail = (build_result.stderr or build_result.stdout).strip().splitlines()
+            return (
+                "build_failed",
+                tail[-1] if tail else "build failed",
+                "\n".join(verbose_lines),
+            )
     else:
-        result = subprocess.run(
+        images_result = subprocess.run(
             ["docker", "images", "-q", image], capture_output=True, text=True
         )
-        if not (result.returncode == 0 and result.stdout.strip()):
-            return "build_failed", f"image {image!r} not found"
-    result = subprocess.run(
+        if not (images_result.returncode == 0 and images_result.stdout.strip()):
+            return "build_failed", f"image {image!r} not found", ""
+    run_result = subprocess.run(
         ["docker", "run", "--rm", image, "--test"], capture_output=True, text=True
     )
+    verbose_lines.extend((run_result.stdout + run_result.stderr).strip().splitlines())
     return (
-        ("unchanged", "tests passed")
-        if result.returncode == 0
-        else ("changed", "tests failed")
+        ("unchanged", "tests passed", "\n".join(verbose_lines))
+        if run_result.returncode == 0
+        else ("changed", "tests failed", "\n".join(verbose_lines))
     )
