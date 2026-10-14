@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .component_registry import ComponentRegistry
 from .dot_jejune import DotJejune
+from .heuristic_step import HeuristicStep
 from .heuristic_step_registry import HeuristicStepRegistry
 from .role_registry import RoleRegistry
 from . import heuristics_catalog_contributor, heuristics_deployer, heuristics_doc_steward, heuristics_no_role
@@ -33,3 +34,12 @@ def wire_heuristics(
         registry, component_registry, role_registry
     )
     heuristics_no_role.register_heuristics(registry, role_registry)
+
+    registry.register(
+        HeuristicStep(
+            label="Discover available commands",
+            command="jejune discover",
+            order=9999,
+        ),
+        roles={None},
+    )

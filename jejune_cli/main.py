@@ -12,6 +12,7 @@ from .click_role_registry import role, roles
 
 # Top-level commands
 from .click_build import build_cmd
+from .click_discover import discover_cmd
 from .click_doctor import availability
 from .click_next_steps import next_cmd
 
@@ -40,6 +41,7 @@ cli.add_command(roles)
 
 # Top-level commands
 cli.add_command(build_cmd)
+cli.add_command(discover_cmd)
 cli.add_command(availability)
 cli.add_command(next_cmd)
 

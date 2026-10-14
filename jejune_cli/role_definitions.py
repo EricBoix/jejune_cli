@@ -21,6 +21,7 @@ def wire_roles(registry: RoleRegistry) -> None:
                 "containers",
                 "ecosystem",
                 "next",
+                "discover",
             ),
         )
     )

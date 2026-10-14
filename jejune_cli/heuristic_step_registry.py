@@ -72,7 +72,7 @@ class HeuristicStepRegistry:
         self._roles_with_heuristics.update(roles)
 
     def has_heuristics_for_role(self, role: str | None) -> bool:
-        return role in self._roles_with_heuristics
+        return role in self._roles_with_heuristics or None in self._roles_with_heuristics
 
     def _matches(self, step: HeuristicStep) -> bool:
         for fn in step.conditions:
