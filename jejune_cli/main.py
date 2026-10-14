@@ -8,7 +8,7 @@ from .click_group_configuration import configuration
 from .click_components import components
 from .click_containers import containers_cli
 from .click_plugin_package_catalog import plugin_packages_group
-from .click_role_registry import role
+from .click_role_registry import role, roles
 
 # Top-level commands
 from .click_build import build_cmd
@@ -36,6 +36,7 @@ cli.add_command(components)
 cli.add_command(containers_cli)
 cli.add_command(plugin_packages_group, "plugin-packages")
 cli.add_command(role)
+cli.add_command(roles)
 
 # Top-level commands
 cli.add_command(build_cmd)
