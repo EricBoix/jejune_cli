@@ -10,6 +10,7 @@ from .click_configuration import (
     print_config_status,
 )
 from .click_cont_comp_neo4j_helpers import get_llm_model_names, resolve_llm_decorated_filename
+from .click_production_command import ProductionCommand
 from .click_cont_comp_neo4j_to_rdf_ttl import dump_turtle
 
 
@@ -89,7 +90,7 @@ def hint_availability(comp):
         click.echo("run `jejune neo4j start`")
 
 
-@neo4j.command("stats")
+@neo4j.command("stats", cls=ProductionCommand)
 @click.option(
     "--simple",
     is_flag=True,
@@ -238,7 +239,7 @@ def delete(comp, data_dir, port, credentials):
     _launch_container(comp, data_dir, port, credentials)
 
 
-@neo4j.command("llm")
+@neo4j.command("llm", cls=ProductionCommand)
 @click.pass_obj
 def llm(comp):
     """Print the LLM model name(s) recorded in the Neo4j database.
