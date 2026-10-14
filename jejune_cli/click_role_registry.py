@@ -9,13 +9,42 @@ from .role_descriptions import role_description
 _WRAP_WIDTH = 78
 
 
-def _display_role_section(role_name: str) -> None:
+def _build_inheritance_line(
+    role_name: str,
+    includes: tuple[str, ...],
+    abstract_roles: set[str],
+) -> str:
+    """Return a formatted inheritance line, or '' if the role has no parents."""
+    if not includes:
+        return ""
+    desc = role_description(role_name)
+    role_title = desc.title if desc else role_name
+    formatted: list[str] = []
+    for parent_name in includes:
+        tag = " (abstract)" if parent_name in abstract_roles else ""
+        formatted.append(f"{parent_name}{tag}")
+    if len(formatted) == 1:
+        parents_str = formatted[0]
+    elif len(formatted) == 2:
+        parents_str = f"{formatted[0]} and {formatted[1]}"
+    else:
+        parents_str = ", ".join(formatted[:-1]) + f", and {formatted[-1]}"
+    return f"Inheritance: {role_title} role inherits from {parents_str}."
+
+
+def _display_role_section(
+    role_name: str,
+    title_suffix: str = "",
+    show_title: bool = True,
+    inheritance_line: str = "",
+) -> None:
     """Print the project description for *role_name* to stdout."""
     desc = role_description(role_name)
     if desc is None:
         click.echo(f"  (no project description for role '{role_name}')")
         return
-    click.echo(click.style(desc.title, bold=True))
+    if show_title:
+        click.echo(click.style(f"{desc.title}{title_suffix}", bold=True))
     click.echo()
     click.echo(textwrap.fill(desc.general_description, width=_WRAP_WIDTH))
     click.echo()
@@ -29,6 +58,9 @@ def _display_role_section(role_name: str) -> None:
                 subsequent_indent="    ",
             )
         )
+    if inheritance_line:
+        click.echo()
+        click.echo(inheritance_line)
 
 
 @click.group(invoke_without_command=True, short_help="Show or list roles")
@@ -62,8 +94,15 @@ def role_describe(ctx):
     if not active_role:
         click.echo(click.style("No role detected in current directory.", fg="yellow"))
         return
-    click.echo(f"role:   {click.style(active_role.name, fg='cyan')}\n")
-    _display_role_section(active_role.name)
+    abstract = app.role_registry.abstract_roles
+    inheritance_line = _build_inheritance_line(
+        active_role.name, active_role.includes, abstract
+    )
+    _display_role_section(
+        active_role.name,
+        title_suffix=" role description",
+        inheritance_line=inheritance_line,
+    )
 
 
 @click.group(short_help="List or describe roles")
@@ -124,11 +163,17 @@ def roles_describe(ctx):
     abstract = app.role_registry.abstract_roles
     for role_name in app.role_registry.roles:
         role_obj = app.role_registry._roles[role_name]
+        if role_name in abstract:
+            continue
         is_active = role_obj is active
         mark = click.style("✓", fg="green") + " " if is_active else "  "
-        abstract_tag = " (abstract)" if role_name in abstract else ""
-        role_label = click.style(role_name + abstract_tag, fg="cyan")
+        role_label = click.style(role_name, fg="cyan")
         role_desc = app.role_registry.description(role_name)
         click.echo(f"{mark}{role_label}  —  {role_desc}")
-        _display_role_section(role_name)
+        inheritance_line = _build_inheritance_line(
+            role_name, role_obj.includes, abstract
+        )
+        _display_role_section(
+            role_name, show_title=False, inheritance_line=inheritance_line
+        )
         click.echo()
