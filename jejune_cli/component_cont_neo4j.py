@@ -100,7 +100,7 @@ class CompNeo4j(ContComp):
             raise SystemExit(result.returncode)
         while not self.is_running()[0]:
             time.sleep(0.5)
-        time.sleep(5)
+        self._wait_for_http_api_readiness()
         self.register(port=int(port))
 
     def resolve_port_credentials(
@@ -196,6 +196,38 @@ class CompNeo4j(ContComp):
             raise SystemExit(result.returncode)
         (backups_dir / "neo4j.dump").rename(backups_dir / dump_filename)
         return backups_dir / dump_filename
+
+    def _wait_for_http_api_readiness(self, timeout_seconds: int = 60) -> None:
+        """Poll Neo4j HTTP API until it accepts requests or timeout is reached."""
+        token = self._neo4j_auth_token()
+        url = self._neo4j_http_api_url()
+        payload = json.dumps({"statements": [{"statement": "RETURN 1"}]}).encode()
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={
+                "Authorization": f"Basic {token}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        elapsed = 0.0
+        poll_interval = 1.0
+        print("Waiting for Neo4j HTTP API to be ready...", end="", flush=True)
+        while elapsed < timeout_seconds:
+            try:
+                with urllib.request.urlopen(req, timeout=5) as response:
+                    if response.status == 200:
+                        print(" ready.")
+                        return
+            except Exception:
+                pass
+            time.sleep(poll_interval)
+            elapsed += poll_interval
+            print(".", end="", flush=True)
+        raise RuntimeError(
+            f"Neo4j HTTP API not ready after {timeout_seconds} seconds."
+        )
 
     def _neo4j_auth_token(self) -> str:
         user = os.environ.get("NEO4J_USERNAME", "neo4j")
