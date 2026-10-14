@@ -9,6 +9,7 @@ from typing import Callable
 
 import click
 
+from .component_broken_plugin import BrokenPluginComp
 from .component_registry import ComponentRegistry, UnresolvedPlugin
 from .component_with_config import ConfComp
 from .configuration import Configuration
@@ -140,6 +141,11 @@ class PluginRegistry:
                 click.echo(
                     f"Warning: failed to load plugin {ep.name!r}: {exc}", err=True
                 )
+                stub = BrokenPluginComp(
+                    name=ep.name,
+                    hint="run `jejune plugin-packages install`",
+                )
+                self._component_registry.add(stub)
                 continue
             self.register_plugin_component(plugin)
             if plugin.repo_name:
