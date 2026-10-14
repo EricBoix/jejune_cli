@@ -110,6 +110,7 @@ def role_describe(ctx):
         active_role.name,
         title_suffix=" role description",
         inheritance_line=inheritance_line,
+        indent="  ",
     )
 
 
