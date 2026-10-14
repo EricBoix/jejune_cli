@@ -37,30 +37,38 @@ def _display_role_section(
     title_suffix: str = "",
     show_title: bool = True,
     inheritance_line: str = "",
+    indent: str = "",
 ) -> None:
     """Print the project description for *role_name* to stdout."""
     desc = role_description(role_name)
     if desc is None:
-        click.echo(f"  (no project description for role '{role_name}')")
+        click.echo(f"{indent}(no project description for role '{role_name}')")
         return
     if show_title:
         click.echo(click.style(f"{desc.title}{title_suffix}", bold=True))
     click.echo()
-    click.echo(textwrap.fill(desc.general_description, width=_WRAP_WIDTH))
+    click.echo(
+        textwrap.fill(
+            desc.general_description,
+            width=_WRAP_WIDTH,
+            initial_indent=indent,
+            subsequent_indent=indent,
+        )
+    )
     click.echo()
-    click.echo("Responsibilities:")
+    click.echo(f"{indent}Responsibilities:")
     for responsibility in desc.responsibilities:
         click.echo(
             textwrap.fill(
                 responsibility,
                 width=_WRAP_WIDTH,
-                initial_indent="  - ",
-                subsequent_indent="    ",
+                initial_indent=f"{indent}  - ",
+                subsequent_indent=f"{indent}    ",
             )
         )
     if inheritance_line:
         click.echo()
-        click.echo(inheritance_line)
+        click.echo(f"{indent}{inheritance_line}")
 
 
 @click.group(invoke_without_command=True, short_help="Show or list roles")
@@ -165,15 +173,16 @@ def roles_describe(ctx):
         role_obj = app.role_registry._roles[role_name]
         if role_name in abstract:
             continue
+        if role_description(role_name) is None:
+            continue
         is_active = role_obj is active
-        mark = click.style("✓", fg="green") + " " if is_active else "  "
-        role_label = click.style(role_name, fg="cyan")
-        role_desc = app.role_registry.description(role_name)
-        click.echo(f"{mark}{role_label}  —  {role_desc}")
+        desc = role_description(role_name)
+        active_mark = " " + click.style("✓", fg="green") if is_active else ""
+        click.echo(click.style(desc.title, bold=True) + active_mark)
         inheritance_line = _build_inheritance_line(
             role_name, role_obj.includes, abstract
         )
         _display_role_section(
-            role_name, show_title=False, inheritance_line=inheritance_line
+            role_name, show_title=False, inheritance_line=inheritance_line, indent="  "
         )
         click.echo()
