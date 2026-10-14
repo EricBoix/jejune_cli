@@ -6,7 +6,7 @@ from pathlib import Path
 import click
 import yaml
 
-from .click_catalog_helpers import _docker_image_name, _has_converter
+from .click_catalog_helpers import _docker_image_name, _has_converter, iter_docs, load_catalog_docs
 from .component_containerized import ContComp
 from .containerized_context import ContainerizedContext
 
@@ -72,13 +72,18 @@ class CompConverters(ContComp):
         )
 
     def build(self, no_cache: bool = False) -> None:
-        repos = self._iter_local_converter_repos()
-        if not repos:
-            click.echo("  no local converter repos found in catalog")
+        docs = load_catalog_docs(None)
+        if not docs:
+            click.echo("  no documents found in catalog")
             return
+        root_dir, tmp_dir = self._ecosystem.resolve_dirs()
         extra = ["--no-cache"] if no_cache else []
-        for repo_dir, image_name in repos:
-            _, dockerfile, ctx = _has_converter(repo_dir)
+        built_any = False
+        for _name, _url, repo_dir in iter_docs(docs, root_dir, tmp_dir, self._ecosystem):
+            has, dockerfile, ctx = _has_converter(repo_dir)
+            if not has:
+                continue
+            image_name = _docker_image_name(repo_dir)
             click.echo(f"  Building {image_name} ...")
             subprocess.run(
                 [
@@ -93,6 +98,9 @@ class CompConverters(ContComp):
                 ],
                 check=True,
             )
+            built_any = True
+        if not built_any:
+            click.echo("  no converter repos found in catalog")
 
     def check(self) -> tuple[str, str]:
         return "ok", ""
