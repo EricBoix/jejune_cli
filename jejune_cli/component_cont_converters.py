@@ -50,10 +50,22 @@ class CompConverters(ContComp):
             results.append((repo_dir, _docker_image_name(repo_dir)))
         return results
 
+    def _catalog_document_count(self) -> int:
+        catalog = Path.cwd() / "catalog.yaml"
+        if not catalog.exists():
+            return 0
+        try:
+            docs = yaml.safe_load(catalog.read_text()).get("documents", [])
+            return len(docs)
+        except Exception:
+            return 0
+
     def is_built(self) -> bool:
         repos = self._iter_local_converter_repos()
         if not repos:
-            return True
+            # Vacuously built only when catalog has no documents.
+            # If documents exist but no repos are local, they haven't been fetched yet.
+            return self._catalog_document_count() == 0
         return all(
             self._context.docker.image_exists(image_name)
             for _, image_name in repos
