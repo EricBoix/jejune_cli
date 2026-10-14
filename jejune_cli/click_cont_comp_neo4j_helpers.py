@@ -35,6 +35,14 @@ def decorate_dump_filename(
     return f"{stem}.{safe_models}{suffix}", False
 
 
+def get_llm_model_names(neo4j_comp) -> list[str]:
+    """Query LLM model names from Neo4j and raise ClickException on failure."""
+    try:
+        return neo4j_comp.query_llm_model_names()
+    except RuntimeError as error:
+        raise click.ClickException(str(error))
+
+
 def resolve_llm_decorated_filename(
     neo4j_comp, filename: str, enforce_neo4j_limit: bool = True
 ) -> str:
@@ -44,10 +52,7 @@ def resolve_llm_decorated_filename(
     63-char Neo4j database-name limit does not apply.
     """
     max_length = _NEO4J_DUMP_FILENAME_MAX_LENGTH if enforce_neo4j_limit else None
-    try:
-        llm_model_names = neo4j_comp.query_llm_model_names()
-    except RuntimeError as error:
-        raise click.ClickException(str(error))
+    llm_model_names = get_llm_model_names(neo4j_comp)
     if llm_model_names:
         click.echo(f"LLM model(s): {', '.join(llm_model_names)}")
         try:

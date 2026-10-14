@@ -9,7 +9,7 @@ from .click_configuration import (
     print_config_hint,
     print_config_status,
 )
-from .click_cont_comp_neo4j_helpers import resolve_llm_decorated_filename
+from .click_cont_comp_neo4j_helpers import get_llm_model_names, resolve_llm_decorated_filename
 from .click_cont_comp_neo4j_to_rdf_ttl import dump_turtle
 
 
@@ -236,6 +236,23 @@ def delete(comp, data_dir, port, credentials):
     comp.wipe_database(database_dir)
 
     _launch_container(comp, data_dir, port, credentials)
+
+
+@neo4j.command("llm")
+@click.pass_obj
+def llm(comp):
+    """Print the LLM model name(s) recorded in the Neo4j database.
+
+    Neo4j must be running.
+    """
+    llm_model_names = get_llm_model_names(comp)
+    if llm_model_names:
+        click.echo("\n".join(llm_model_names))
+    else:
+        click.echo(
+            "Warning: no llm_model_name attribute found in the database.",
+            err=True,
+        )
 
 
 @neo4j.command("dump")
