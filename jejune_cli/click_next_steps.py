@@ -47,6 +47,10 @@ def next_cmd(ctx):
             cmd = step.resolved_command()
             suffix = f"  →  {cmd}" if cmd else ""
             click.echo(f"  • {step.label}{suffix}")
+    click.echo(
+        "  • Commands to try (when lost)  →  jejune doctor, components, roles, plugin-packages..."
+    )
+    click.echo("  • Discover all available jejune commands  →  jejune --help")
     app.heuristic_step_registry.mark_printed()
 
 
