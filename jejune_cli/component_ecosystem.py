@@ -123,6 +123,22 @@ class CompEcosystem(ConfComp):
             )
         return dest
 
+    @staticmethod
+    def repo_uptodate(repo_path: Path) -> bool | None:
+        """Compare HEAD to @{upstream}. Returns True/False/None (error or no upstream)."""
+        try:
+            local = subprocess.run(
+                ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
+                capture_output=True, text=True, check=True,
+            ).stdout.strip()
+            upstream = subprocess.run(
+                ["git", "-C", str(repo_path), "rev-parse", "@{upstream}"],
+                capture_output=True, text=True, check=True,
+            ).stdout.strip()
+            return local == upstream
+        except subprocess.CalledProcessError:
+            return None
+
     def update_tmp_repo(self, repo_path: Path) -> bool:
         """Fetch origin and reset to FETCH_HEAD. Returns True when HEAD changed."""
         head_before = subprocess.run(
