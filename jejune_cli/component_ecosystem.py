@@ -124,7 +124,7 @@ class CompEcosystem(ConfComp):
         return dest
 
     @staticmethod
-    def repo_uptodate(repo_path: Path) -> bool | None:
+    def repo_up_to_date(repo_path: Path) -> bool | None:
         """Compare local HEAD to the actual remote HEAD via ls-remote (network call).
 
         Returns True when in sync, False when behind, None on any error.
