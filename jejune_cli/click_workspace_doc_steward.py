@@ -31,8 +31,8 @@ def init(ctx, dir_name: str | None) -> None:
     Adds .jejune to .gitignore so the whole directory stays local by default.
     """
     target = Path(dir_name) if dir_name else Path.cwd()
-    d = DotJejune(target)
-    d.mkdir(parents=True, exist_ok=True)
+    dot_jejune = DotJejune(target)
+    dot_jejune.mkdir(parents=True, exist_ok=True)
 
     created = []
     skipped = []

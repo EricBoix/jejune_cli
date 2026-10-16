@@ -9,7 +9,10 @@ from .click_configuration import (
     print_config_hint,
     print_config_status,
 )
-from .click_cont_comp_neo4j_helpers import get_llm_model_names, resolve_llm_decorated_filename
+from .click_cont_comp_neo4j_helpers import (
+    get_llm_model_names,
+    resolve_llm_decorated_filename,
+)
 from .click_production_command import ProductionCommand
 from .click_cont_comp_neo4j_to_rdf_ttl import dump_turtle
 
@@ -144,20 +147,20 @@ def stats(comp, simple, assert_counts):
         click.echo(f"{total_nodes}/{total_relationships}")
         return
 
-    w = max((len(label) for label, _ in nodes_by_label), default=0)
-    w = max(
-        w,
+    column_width = max((len(label) for label, _ in nodes_by_label), default=0)
+    column_width = max(
+        column_width,
         max((len(t) for t, _ in relationships_by_type), default=0),
         len("Relationships"),
     )
 
-    click.echo(f"{'Nodes':<{w}} : {total_nodes:>8}")
+    click.echo(f"{'Nodes':<{column_width}} : {total_nodes:>8}")
     for label, count in nodes_by_label:
-        click.echo(f"  {label:<{w}} {count:>8}")
+        click.echo(f"  {label:<{column_width}} {count:>8}")
     click.echo()
-    click.echo(f"{'Relationships':<{w}} : {total_relationships:>8}")
+    click.echo(f"{'Relationships':<{column_width}} : {total_relationships:>8}")
     for rel_type, count in relationships_by_type:
-        click.echo(f"  {rel_type:<{w}} {count:>8}")
+        click.echo(f"  {rel_type:<{column_width}} {count:>8}")
 
 
 @neo4j.command("start")

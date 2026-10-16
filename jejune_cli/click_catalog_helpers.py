@@ -17,10 +17,10 @@ def load_catalog_docs(catalog_file: str | None) -> list[dict]:
         catalog_file = os.environ.get("JEJUNE_CATALOG") or str(
             Path.cwd() / "catalog.yaml"
         )
-    p = Path(catalog_file)
-    if not p.exists():
+    catalog_path = Path(catalog_file)
+    if not catalog_path.exists():
         raise click.ClickException(f"Catalog file not found: {catalog_file}")
-    return yaml.safe_load(p.read_text())["documents"]
+    return yaml.safe_load(catalog_path.read_text())["documents"]
 
 
 def catalog_config_status() -> tuple[str, str]:

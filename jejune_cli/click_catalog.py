@@ -281,10 +281,10 @@ def catalog_test(catalog_file, root_dir, repo, verbose):
 def catalog_install(catalog_file, root_dir, repo):
     """Clone missing catalog repositories into .jejune/tmp/."""
     app = click.get_current_context().find_object(AppContext)
-    n = app.component_registry.get("catalog").install_catalog(
+    repo_count = app.component_registry.get("catalog").install_catalog(
         catalog_file, root_dir, repo
     )
-    click.echo(f"{n} repo(s) ready.")
+    click.echo(f"{repo_count} repo(s) ready.")
 
 
 @catalog_group.command("sample")

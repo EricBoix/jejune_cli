@@ -138,8 +138,8 @@ def manifest_slug(manifest_file, full_catalog_path):
                     existing.add(entry["doc_name"])
 
     def _slugify(text: str) -> str:
-        s = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
-        return re.sub(r"-{2,}", "-", s)
+        slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+        return re.sub(r"-{2,}", "-", slug)
 
     main_title = re.split(r"[:—]", title, maxsplit=1)[0].strip()
     first_author = authors[0] if authors else ""

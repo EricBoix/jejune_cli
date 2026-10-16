@@ -102,8 +102,8 @@ def deployment_install(ctx) -> None:
     """Install all deployment components: catalog repos and plugin packages."""
     app = ctx.find_object(AppContext)
     click.echo("Installing catalog repositories...")
-    n = app.component_registry.get("catalog").install_catalog()
-    click.echo(f"{n} repo(s) ready.")
+    repo_count = app.component_registry.get("catalog").install_catalog()
+    click.echo(f"{repo_count} repo(s) ready.")
     click.echo("Installing deployer plugin packages...")
     app.component_registry.get("plugin-packages").install_packages()
 

@@ -51,16 +51,16 @@ class RoleRegistry:
         return [r for r in self._roles.values() if not r.is_abstract]
 
     def section_title(self, role_name: str) -> str:
-        r = self._roles.get(role_name)
-        return r.section_title if r else ""
+        role = self._roles.get(role_name)
+        return role.section_title if role else ""
 
     def description(self, role_name: str) -> str:
-        r = self._roles.get(role_name)
-        return r.description if r else ""
+        role = self._roles.get(role_name)
+        return role.description if role else ""
 
     def includes(self, role_name: str) -> tuple[str, ...]:
-        r = self._roles.get(role_name)
-        return r.includes if r else ()
+        role = self._roles.get(role_name)
+        return role.includes if role else ()
 
     def current_role_components(self) -> "frozenset[BaseComp] | None":
         return self.role_components(self.detect_role())
@@ -94,8 +94,10 @@ class RoleRegistry:
             return None
         registry = self._component_registry
 
-        def _resolve(r: Role) -> "frozenset[BaseComp]":
-            return frozenset(filter(None, (registry.get(n) for n in r.component_names)))
+        def _resolve(role: Role) -> "frozenset[BaseComp]":
+            return frozenset(
+                filter(None, (registry.get(n) for n in role.component_names))
+            )
 
         own = _resolve(role)
         for parent_name in role.includes:
@@ -132,14 +134,14 @@ class RoleRegistry:
         role_obj = self._roles.get(role_name)
         stack = list(role_obj.includes if role_obj else ())
         while stack:
-            r = stack.pop()
-            if r == parent:
+            candidate_name = stack.pop()
+            if candidate_name == parent:
                 return True
-            if r not in seen:
-                seen.add(r)
-                r_obj = self._roles.get(r)
-                if r_obj:
-                    stack.extend(r_obj.includes)
+            if candidate_name not in seen:
+                seen.add(candidate_name)
+                candidate_obj = self._roles.get(candidate_name)
+                if candidate_obj:
+                    stack.extend(candidate_obj.includes)
         return False
 
     def build_hierarchy_lines(self) -> list[str]:
@@ -150,10 +152,10 @@ class RoleRegistry:
             r_obj = self._roles.get(role)
             stack = list(r_obj.includes if r_obj else ())
             while stack:
-                r = stack.pop()
-                if r not in seen:
-                    seen.add(r)
-                    r_obj2 = self._roles.get(r)
+                candidate_name = stack.pop()
+                if candidate_name not in seen:
+                    seen.add(candidate_name)
+                    r_obj2 = self._roles.get(candidate_name)
                     if r_obj2:
                         stack.extend(r_obj2.includes)
             return seen
