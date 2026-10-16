@@ -64,30 +64,31 @@ def ecosystem_status(ctx) -> None:
                 clone_display, remote_display = "[.jejune/tmp]", ""
             else:
                 clone_display, remote_display = "", "[REPO_ROOT_DIR]"
-            uptodate: bool | None = (
-                CompEcosystem.repo_uptodate(Path(base)) if tier in ("root", "tmp") else None
+            up_to_date: bool | None = (
+                CompEcosystem.repo_up_to_date(Path(base)) if tier in ("root", "tmp") else None
             )
-            rows.append((name, tier in ("root", "tmp"), clone_display, remote_display, uptodate))
+            rows.append((name, tier in ("root", "tmp"), clone_display, remote_display, up_to_date))
 
         _ICON_W = 1  # display width of ✓/✗
         _W_N = max(len("Component"),       max(len(r[0]) for r in rows))
         _W_C = max(len("Clone directory"), max(len(r[2]) for r in rows))
         _W_R = max(len("Remote repo"),     max(len(r[3]) for r in rows))
         _W_UTD = len("Up-to-date")
+        _UTD_PAD = (_W_UTD - 1) // 2
 
         click.echo(f"  {'Component':<{_W_N}}  {'':>{_ICON_W}}  {'Clone directory':<{_W_C}}  {'Remote repo':<{_W_R}}  Up-to-date")
         click.echo("  " + "─" * (_W_N + 2 + _ICON_W + 2 + _W_C + 2 + _W_R + 2 + _W_UTD))
-        for name, found, clone_dir, remote_url, uptodate in rows:
+        for name, found, clone_dir, remote_url, up_to_date in rows:
             icon, fg = ClickTheme.status_icons["ok" if found else "error"]
             status_cell = click.style(icon, fg=fg)
-            if uptodate is True:
+            if up_to_date is True:
                 utd_icon, utd_fg = ClickTheme.status_icons["ok"]
-            elif uptodate is False:
+            elif up_to_date is False:
                 utd_icon, utd_fg = ClickTheme.status_icons["error"]
             else:
                 utd_icon, utd_fg = ("", "")
             utd_cell = click.style(utd_icon, fg=utd_fg) if utd_fg else ""
-            click.echo(f"  {name:<{_W_N}}  {status_cell}  {clone_dir:<{_W_C}}  {remote_url:<{_W_R}}  {utd_cell}")
+            click.echo(f"  {name:<{_W_N}}  {status_cell}  {clone_dir:<{_W_C}}  {remote_url:<{_W_R}}  {'':>{_UTD_PAD}}{utd_cell}")
 
     # --- Documents table ---
     click.echo()
@@ -99,27 +100,28 @@ def ecosystem_status(ctx) -> None:
 
     _CLONE_LABEL = {"root": "[JEJUNE_ROOT_DIR]", "tmp": "[.jejune/tmp]"}
     doc_rows: list[tuple[str, bool, str, bool | None]] = [
-        (name, has_doc, _CLONE_LABEL.get(tier, tier), CompEcosystem.repo_uptodate(Path(path_str)))
+        (name, has_doc, _CLONE_LABEL.get(tier, tier), CompEcosystem.repo_up_to_date(Path(path_str)))
         for name, tier, path_str, has_doc in doc_repos
     ]
     _ICON_W = 1  # display width of ✓/✗
     _W_DN = max(len("Repository"),      max(len(r[0]) for r in doc_rows))
     _W_DC = max(len("Clone directory"), max(len(r[2]) for r in doc_rows))
     _W_UTD = len("Up-to-date")
+    _UTD_PAD = (_W_UTD - 1) // 2
 
     click.echo(f"  {'Repository':<{_W_DN}}  {'':>{_ICON_W}}  {'Clone directory':<{_W_DC}}  Up-to-date")
     click.echo("  " + "─" * (_W_DN + 2 + _ICON_W + 2 + _W_DC + 2 + _W_UTD))
-    for name, has_doc, clone_dir, uptodate in doc_rows:
+    for name, has_doc, clone_dir, up_to_date in doc_rows:
         icon, fg = ClickTheme.status_icons["ok" if has_doc else "error"]
         doc_cell = click.style(icon, fg=fg)
-        if uptodate is True:
+        if up_to_date is True:
             utd_icon, utd_fg = ClickTheme.status_icons["ok"]
-        elif uptodate is False:
+        elif up_to_date is False:
             utd_icon, utd_fg = ClickTheme.status_icons["error"]
         else:
             utd_icon, utd_fg = ("", "")
         utd_cell = click.style(utd_icon, fg=utd_fg) if utd_fg else ""
-        click.echo(f"  {name:<{_W_DN}}  {doc_cell}  {clone_dir:<{_W_DC}}  {utd_cell}")
+        click.echo(f"  {name:<{_W_DN}}  {doc_cell}  {clone_dir:<{_W_DC}}  {'':>{_UTD_PAD}}{utd_cell}")
 
 
 @ecosystem.command("update")

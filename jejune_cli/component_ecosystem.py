@@ -125,18 +125,25 @@ class CompEcosystem(ConfComp):
 
     @staticmethod
     def repo_uptodate(repo_path: Path) -> bool | None:
-        """Compare HEAD to @{upstream}. Returns True/False/None (error or no upstream)."""
+        """Compare local HEAD to the actual remote HEAD via ls-remote (network call).
+
+        Returns True when in sync, False when behind, None on any error.
+        Uses ls-remote rather than @{upstream} so the result is always current,
+        not cached from the last fetch.
+        """
         try:
             local = subprocess.run(
                 ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
                 capture_output=True, text=True, check=True,
             ).stdout.strip()
-            upstream = subprocess.run(
-                ["git", "-C", str(repo_path), "rev-parse", "@{upstream}"],
+            # ls-remote output: "<SHA>\tHEAD"
+            ls_output = subprocess.run(
+                ["git", "-C", str(repo_path), "ls-remote", "origin", "HEAD"],
                 capture_output=True, text=True, check=True,
             ).stdout.strip()
-            return local == upstream
-        except subprocess.CalledProcessError:
+            remote = ls_output.split("\t")[0]
+            return local == remote
+        except (subprocess.CalledProcessError, IndexError):
             return None
 
     def update_tmp_repo(self, repo_path: Path) -> bool:
