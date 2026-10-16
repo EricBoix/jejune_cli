@@ -123,5 +123,44 @@ class CompEcosystem(ConfComp):
             )
         return dest
 
+    def update_tmp_repo(self, repo_path: Path) -> bool:
+        """Fetch origin and reset to FETCH_HEAD. Returns True when HEAD changed."""
+        head_before = subprocess.run(
+            ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        subprocess.run(
+            ["git", "-C", str(repo_path), "fetch", "origin"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(repo_path), "reset", "--hard", "FETCH_HEAD"],
+            check=True,
+        )
+        head_after = subprocess.run(
+            ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        return head_before != head_after
+
+    def update_all_tmp_repos(
+        self, deploy_dir: Path | None = None
+    ) -> list[tuple[str, bool]]:
+        """Update every git repo in .jejune/tmp/. Returns [(name, was_updated), ...]."""
+        _, tmp_dir = self.resolve_dirs(deploy_dir)
+        if tmp_dir is None:
+            return []
+        results: list[tuple[str, bool]] = []
+        for repo_path in sorted(tmp_dir.iterdir()):
+            if repo_path.is_dir() and (repo_path / ".git").exists():
+                click.echo(f"Updating {repo_path.name} ...")
+                was_updated = self.update_tmp_repo(repo_path)
+                results.append((repo_path.name, was_updated))
+        return results
+
     def check(self) -> tuple[str, str]:
         return "ok", ""

@@ -13,14 +13,22 @@ from .component_containerized import ContComp
     default=False,
     help="Do not use cache when building images.",
 )
+@click.option(
+    "--update",
+    is_flag=True,
+    default=False,
+    help="Fetch and reset .jejune/tmp repos to their remote HEAD before building.",
+)
 @click.pass_obj
-def build_cmd(app: AppContext, no_cache: bool) -> None:
+def build_cmd(app: AppContext, no_cache: bool, update: bool) -> None:
     """Build Docker images for all components in the current role.
 
     Each component that owns a Docker image registers its builder automatically.
     Use `jejune deployment build <dir>` to build a specific deployment directory.
     """
     active_role_obj = app.role_registry.detect_role()
+    if update:
+        app.component_registry.get("ecosystem").update_all_tmp_repos()
     if app.role_registry.role_is_deployer_family(active_role_obj):
         raise SystemExit(
             app.component_registry.get("deployment").build(Path("."), no_cache=no_cache)

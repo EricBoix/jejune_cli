@@ -99,3 +99,18 @@ def ecosystem_status(ctx) -> None:
         icon, fg = ClickTheme.status_icons["ok" if has_doc else "error"]
         doc_cell = click.style(icon, fg=fg)
         click.echo(f"  {name:<{_W_DN}}  {doc_cell}  {clone_dir:<{_W_DC}}")
+
+
+@ecosystem.command("update")
+@click.pass_context
+def ecosystem_update(ctx) -> None:
+    """Fetch and reset all repos cloned in .jejune/tmp to their remote HEAD."""
+    app = ctx.find_object(AppContext)
+    eco = app.component_registry.get("ecosystem")
+    results = eco.update_all_tmp_repos()
+    if not results:
+        click.echo("No repositories found in .jejune/tmp/.")
+        return
+    for name, was_updated in results:
+        status = click.style("updated", fg="green") if was_updated else "already up-to-date"
+        click.echo(f"  {name}: {status}")
