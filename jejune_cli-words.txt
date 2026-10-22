@@ -6,5 +6,9 @@ github
 isbn
 jaegertracing
 otlp
+oxigraph
 plantuml
+RDFS
+sparql
+SPARQL
 venv

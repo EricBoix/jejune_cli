@@ -4,13 +4,12 @@
         "env-secrets": "dotenv"
     },
     "cSpell.customDictionaries": {
-        "jejune-cli-words": {
+        "jejune_cli": {
             "name": "jejune_cli",
-            "path": "${workspaceRoot}/jejune_cli-words.txt",
+            "path": "${workspaceFolder}/jejune_cli-words.txt",
             "description": "Words used for jejune_cli repository",
             "addWords": true
-        },
-        "jejune_cli": true
+        }
     }
 
 }

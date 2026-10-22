@@ -1,7 +1,7 @@
 name: jejune-{{NAME}}
 
 services:
-  
+
   docs-server:
     image: jejune:{{NAME}}-docs-server
     build:
@@ -9,7 +9,8 @@ services:
       dockerfile: Dockerfile
       args:
         INCLUDE_PDFS: "${INCLUDE_PDFS:-false}"
-{{BUILD_SECRETS}}    ports:
+{{BUILD_SECRETS}}
+    ports:
       - "${DOCS_SERVER_PORT:-8765}:8765"
     environment:
       KG_GRAPH_VIEWER_URL: "http://localhost:${KG_PORT:-8080}"
@@ -26,10 +27,11 @@ services:
     build:
       context: ${KG_GRAPH_VIEWER_CONTEXT}
       dockerfile: DockerContext/Dockerfile
-      args:
-        DOCS_SERVER_URL: "http://localhost:${DOCS_SERVER_PORT:-8765}"
-        MARKDOWN_TRIGGER_URL: "http://localhost:${MARKDOWN_TRIGGER_PORT:-8444}"
-        MARKDOWN_BROWSER_URL: "http://localhost:${MARKDOWN_PORT:-8443}"
+    environment:
+      JEJUNE_DOCS_SERVER_URL: "http://localhost:${DOCS_SERVER_PORT:-8765}"
+      JEJUNE_MARKDOWN_TRIGGER_URL: "http://localhost:${MARKDOWN_TRIGGER_PORT:-8444}"
+      JEJUNE_MARKDOWN_BROWSER_URL: "http://localhost:${MARKDOWN_PORT:-8443}"
+      JEJUNE_OXIGRAPH_URL: "${OXIGRAPH_URI:-}"
     ports:
       - "${KG_PORT:-8080}:80"
     depends_on:
@@ -45,6 +47,7 @@ services:
     environment:
       DOCS_SERVER_INTERNAL_URL: "http://docs-server:8765"
 
+{{OXIGRAPH_SERVICE}}
 secrets:
   catalog:
     file: ./catalog.yaml

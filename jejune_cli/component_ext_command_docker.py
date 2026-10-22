@@ -68,6 +68,8 @@ class CompCommandDocker(ExtCommand):
         publish: list[str] | None = None,
         volumes: list[str] | None = None,
         rm: bool = True,
+        env: list[str] | None = None,
+        cmd_args: list[str] | None = None,
     ) -> int:
         """Run a container in detached mode; return the exit code."""
         cmd = ["docker", "run"]
@@ -78,7 +80,10 @@ class CompCommandDocker(ExtCommand):
             cmd.extend(["--publish", p])
         for v in volumes or []:
             cmd.extend(["-v", v])
+        for e in env or []:
+            cmd.extend(["--env", e])
         cmd.append(image)
+        cmd.extend(cmd_args or [])
         return subprocess.run(cmd).returncode
 
     def run_foreground(

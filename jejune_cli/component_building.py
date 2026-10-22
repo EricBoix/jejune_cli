@@ -22,6 +22,7 @@ from .component_manifest import CompManifest
 from .component_cont_convert import CompConvert
 from .component_cont_converters import CompConverters
 from .component_cont_neo4j import CompNeo4j
+from .component_cont_oxigraph import CompOxigraph
 from .component_cont_graph import CompGraph
 from .component_cont_neo4j_to_rdf_ttl import CompNeo4jToRdfTtl
 from .component_deployment import CompDeployment
@@ -89,6 +90,7 @@ def build_components(
     # Cont components
     llm_obs = CompServerLlmObservability(context=context)
     neo4j = CompNeo4j(git_server=git_server, docker_hub=docker_hub, context=context)
+    oxigraph = CompOxigraph(context=context)
     graph = CompGraph(
         git_server=git_server,
         neo4j=neo4j,
@@ -130,6 +132,7 @@ def build_components(
         convert,
         converters_comp,
         neo4j,
+        oxigraph,
         graph,
         neo4j_to_rdf_ttl,
         deployment,

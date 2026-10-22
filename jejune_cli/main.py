@@ -18,6 +18,7 @@ from .click_next_steps import next_cmd
 
 # Doc-steward component commands
 from .click_comp_llm import llm
+from .click_cont_comp_oxigraph import oxigraph
 from .click_cont_comp_llm_observability import llm_observability
 from .click_cont_comp_neo4j import neo4j
 from .click_cont_comp_graph import graph
@@ -47,6 +48,7 @@ cli.add_command(next_cmd)
 
 # Doc-steward component commands
 cli.add_command(neo4j)
+cli.add_command(oxigraph)
 cli.add_command(llm)
 cli.add_command(llm_observability)
 cli.add_command(graph)

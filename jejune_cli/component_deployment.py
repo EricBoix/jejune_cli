@@ -126,25 +126,54 @@ class CompDeployment(ConfComp):
             result = result.replace(f"{{{{{key}}}}}", value)
         return result
 
+    @staticmethod
+    def _load_env_file(env_file: Path) -> dict[str, str]:
+        """Parse a KEY=VALUE env file into a dict."""
+        result: dict[str, str] = {}
+        if not env_file.exists():
+            return result
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            result[key.strip()] = value.strip()
+        return result
+
+    _OXIGRAPH_SERVICE_BLOCK = (
+        "  oxigraph:\n"
+        "    image: oxigraph/oxigraph\n"
+        "    ports:\n"
+        '      - "${OXIGRAPH_HTTP_PORT:-7878}:7878"\n'
+        "    volumes:\n"
+        "      - ./oxigraph_data:/data\n"
+        '    command: ["--location", "/data", "--bind", "0.0.0.0:7878"]\n'
+    )
+
     def generate_docker_compose(self, deploy_dir: Path, template_dir: Path) -> str:
         name = deploy_dir.resolve().name.lower()
         has_private = self.has_private_repos(deploy_dir)
         build_secrets = (
-            "      secrets:\n        - catalog\n        - gh_token\n"
+            "      secrets:\n        - catalog\n        - gh_token"
             if has_private
-            else "      secrets:\n        - catalog\n"
+            else "      secrets:\n        - catalog"
         )
         gh_secret_def = (
-            '  gh_token:\n    file: "${GH_TOKEN_FILE:-~/.github_token}"\n'
+            '  gh_token:\n    file: "${GH_TOKEN_FILE:-~/.github_token}"'
             if has_private
             else ""
         )
-        template = (template_dir / "docker-compose.yml").read_text()
+        env_vars = self._load_env_file(deploy_dir / "deployment.env")
+        oxigraph_service = (
+            self._OXIGRAPH_SERVICE_BLOCK if env_vars.get("OXIGRAPH_URI") else ""
+        )
+        template = (template_dir / "docker-compose.yml.templ").read_text()
         return self._render_template(
             template,
             NAME=name,
             BUILD_SECRETS=build_secrets,
             GH_SECRET_DEF=gh_secret_def,
+            OXIGRAPH_SERVICE=oxigraph_service,
         )
 
     def check_ui_services(self) -> list[tuple[str, bool, str]]:
