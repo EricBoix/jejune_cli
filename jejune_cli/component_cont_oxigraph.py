@@ -61,7 +61,7 @@ class CompOxigraph(ContComp):
                 ),
                 ConfigurationEntry(
                     "OXIGRAPH_HTTP_PORT",
-                    hint=f"edit .jejune/env-config (default: {_DEFAULT_PORT})",
+                    hint=f"edit .jejune/env-config (default: {CompOxigraph._DEFAULT_PORT})",
                     source_file=".jejune/env-config",
                     max_severity="warn",
                 ),
