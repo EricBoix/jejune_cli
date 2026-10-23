@@ -81,6 +81,7 @@ def wire_roles(registry: RoleRegistry) -> None:
                 "uv-command",
                 "plugin-packages",
                 "catalog",
+                "oxigraph",
                 "deployment",
                 "docs-server",
                 "kg-viewer",

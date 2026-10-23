@@ -68,6 +68,7 @@ class CompOxigraph(ContComp):
                     "OXIGRAPH_URI",
                     hint="edit .jejune/env-config",
                     source_file=".jejune/env-config",
+                    max_severity="warn",
                 ),
             ),
             context=context,
