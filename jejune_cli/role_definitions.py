@@ -34,6 +34,7 @@ def wire_roles(registry: RoleRegistry) -> None:
                 "docker-hub-server",
                 "pypi-server",
                 "neo4j",
+                "oxigraph",
                 "llm",
                 "llm-observability",
                 "graph",
@@ -59,7 +60,12 @@ def wire_roles(registry: RoleRegistry) -> None:
     registry.register(
         Role(
             name="catalog-contributor",
-            component_names=("docker-command", "docker-daemon", "converters", "catalog"),
+            component_names=(
+                "docker-command",
+                "docker-daemon",
+                "converters",
+                "catalog",
+            ),
             includes=("contributor", "deployment-catalog"),
             section_title="Catalog-contributor commands",
             description="collection catalog management",

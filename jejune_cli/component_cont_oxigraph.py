@@ -50,6 +50,7 @@ class CompOxigraph(ContComp):
             name="oxigraph",
             image_name="oxigraph/oxigraph",
             build_context="",
+            hint="run `jejune oxigraph start --help`",
             configuration=Configuration(
                 ConfigurationEntry(
                     "OXIGRAPH_DATA_DIR",
@@ -71,6 +72,7 @@ class CompOxigraph(ContComp):
             ),
             context=context,
         )
+        self.cli_name = self.name
 
     @property
     def container_name(self) -> str:
