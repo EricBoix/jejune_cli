@@ -15,11 +15,13 @@ class CompServerDockerDaemon(ExtComp):
     def check(self) -> tuple[str, str]:
         try:
             result = subprocess.run(
-                ["docker", "info", "--format", "{{.ID}}"],
+                ["docker", "version", "--format", "{{.Server.Version}}"],
                 capture_output=True,
                 timeout=10,
             )
-            if result.returncode == 0:
+            # "docker info --format" exits 0 even when the daemon is down,
+            # hence "docker version" and a check on its output.
+            if result.returncode == 0 and result.stdout.strip():
                 return "ok", ""
             return "error", "Docker daemon is not running"
         except Exception as exc:

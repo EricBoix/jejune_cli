@@ -52,7 +52,9 @@ def build_components(
 
     # Ext server components that depend on network
     pypi_server = CompServerPypi(network=network)
-    docker_hub = CompServerDockerHub(network=network, docker_command=docker_command)
+    docker_hub = CompServerDockerHub(
+        network=network, docker_command=docker_command, docker_daemon=docker_daemon
+    )
     git_server = CompServerGit(network=network, git_command=git_command)
     llm = CompServerLlm(network=network)
 
