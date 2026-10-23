@@ -149,7 +149,7 @@ class CompDeployment(ConfComp):
             if not line or line.startswith("#") or "=" not in line:
                 continue
             key, _, value = line.partition("=")
-            result[key.strip()] = value.strip()
+            result[key.strip()] = ConfigurationEntry.strip_inline_comment(value)
         return result
 
     _OXIGRAPH_SERVICE_BLOCK = (

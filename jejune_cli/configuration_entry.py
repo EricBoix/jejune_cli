@@ -1,6 +1,7 @@
 """ConfigurationEntry: one env var with hint and source file."""
 
 import os
+import re
 from collections.abc import Callable
 from pathlib import Path
 
@@ -23,6 +24,11 @@ class ConfigurationEntry:
         self.max_severity = max_severity
         self.env_var_validator = env_var_validator
 
+    @staticmethod
+    def strip_inline_comment(value: str) -> str:
+        """Drop a trailing ` # comment` the way docker compose --env-file does."""
+        return re.split(r"\s+#", value, maxsplit=1)[0].strip()
+
     def load(self, base_dir: Path) -> None:
         """Parse source_file into os.environ (never overrides existing vars)."""
         if not self.source_file:
@@ -37,7 +43,7 @@ class ConfigurationEntry:
             key, _, value = line.partition("=")
             key = key.strip()
             if key not in os.environ:
-                os.environ[key] = value.strip()
+                os.environ[key] = self.strip_inline_comment(value)
 
     def value(self, base_dir: Path = Path(".")) -> str | None:
         """Load source file then return the env var value (None if absent)."""

@@ -1,5 +1,7 @@
 """Column abstraction for the doctor and availability tables."""
 
+import textwrap
+
 
 class Column:
     def __init__(
@@ -28,6 +30,14 @@ class Column:
     def render_cell(self, component: str) -> str:
         display, styled = self._cells.get(component, ("", ""))
         return styled + " " * (self.width - len(display))
+
+    def wrapped_lines(self, component: str, max_width: int) -> list[str]:
+        """Cell text folded to max_width; only valid for unstyled cells
+        (display_text == styled_text), otherwise returned as a single line."""
+        display, styled = self._cells.get(component, ("", ""))
+        if display != styled:
+            return [styled]
+        return textwrap.wrap(display, max_width) or [""]
 
     def items(self) -> list[tuple[str, str]]:
         """(key, styled_text) pairs for two-column subcommand tables.

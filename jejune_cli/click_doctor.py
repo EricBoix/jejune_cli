@@ -1,5 +1,6 @@
 """Doctor command and availability display helpers."""
 
+import shutil
 from pathlib import Path
 
 import click
@@ -277,17 +278,30 @@ def _avail_hint_column(
 def _print_health_table(
     component_names: list[str],
     columns: list[Column],
+    min_last_column_width: int = 30,
 ) -> None:
     if not component_names:
         return
     w_comp = max(len("Component"), max(len(name) for name in component_names))
-    headers = "  ".join(col.render_header() for col in columns)
-    divider_len = w_comp + sum(2 + col.width for col in columns)
+    *fixed_columns, last_column = columns
+    # The last column (Action) is folded so rows fit the terminal width.
+    fixed_width = 2 + w_comp + sum(2 + col.width for col in fixed_columns) + 2
+    last_width = min(
+        last_column.width,
+        max(min_last_column_width, shutil.get_terminal_size().columns - fixed_width),
+    )
+    headers = "  ".join(
+        [col.render_header() for col in fixed_columns] + [last_column.header]
+    )
+    divider_len = w_comp + sum(2 + col.width for col in fixed_columns) + 2 + last_width
     click.echo(f"  {'Component':<{w_comp}}  {headers}")
     click.echo("  " + "─" * divider_len)
     for name in component_names:
-        cells = "  ".join(col.render_cell(name) for col in columns)
-        click.echo(f"  {name:<{w_comp}}  {cells}")
+        fixed_cells = "  ".join(col.render_cell(name) for col in fixed_columns)
+        last_lines = last_column.wrapped_lines(name, last_width)
+        click.echo(f"  {name:<{w_comp}}  {fixed_cells}  {last_lines[0]}")
+        for continuation in last_lines[1:]:
+            click.echo(" " * fixed_width + continuation)
 
 
 # ---------------------------------------------------------------------------
