@@ -160,7 +160,7 @@ class CompDeployment(ConfComp):
         "    volumes:\n"
         '      - "${OXIGRAPH_DATA_DIR:-./oxigraph_data}:/data"\n'
         '    command: ["serve", "--location", "/data", "--bind", "0.0.0.0:7878",'
-        ' "--cors-allow-origin", "*"]\n'
+        ' "--cors"]\n'
         "\n"
         "  kg-graph-viewer-for-oxigraph:\n"
         "    image: jejune:kg-graph-viewer\n"

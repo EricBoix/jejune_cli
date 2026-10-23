@@ -105,8 +105,7 @@ class CompOxigraph(ContComp):
                 "/data",
                 "--bind",
                 f"0.0.0.0:{self._CONTAINER_PORT}",
-                "--cors-allow-origin",
-                "*",
+                "--cors",
             ],
         )
         if rc != 0:
