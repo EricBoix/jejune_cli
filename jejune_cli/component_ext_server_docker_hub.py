@@ -1,29 +1,36 @@
-"""Docker Hub server component."""
+"""Docker Hub registry component."""
 
-import urllib.error
-import urllib.request
+import subprocess
 
-from .component_ext_server import ExtServer
-from .component_ext_network import CompNetwork
-
-_DOCKERHUB_API_URL = "https://hub.docker.com/v2/"
+from .component_with_config import ConfComp
 
 
-class CompServerDockerHub(ExtServer):
-    def __init__(self, network: CompNetwork) -> None:
+class CompServerDockerHub(ConfComp):
+    """Represents the Docker Hub public registry.
+
+    Depends on network (internet reachability) and docker-command (the CLI
+    used to pull images).  Availability is verified via ``docker info``:
+    if the Docker daemon is running and has Docker Hub configured as its
+    index server, images can be pulled.
+    """
+
+    def __init__(self, network, docker_command) -> None:
         super().__init__(
             name="docker-hub-server",
-            api_url=_DOCKERHUB_API_URL,
-            dependencies=[network],
+            dependencies=[network, docker_command],
+            hint="check network connectivity and that Docker Desktop is running",
         )
 
     def check(self) -> tuple[str, str]:
-        try:
-            urllib.request.urlopen(self.api_url, timeout=5)
-            return "ok", ""
-        except urllib.error.HTTPError as exc:
-            if exc.code < 500:
-                return "ok", ""
-            return "error", f"Docker Hub returned HTTP {exc.code}"
-        except Exception as exc:
-            return "error", f"Docker Hub not reachable: {exc}"
+        result = subprocess.run(
+            ["docker", "info", "--format", "{{.IndexServerAddress}}"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            return "error", "docker info failed — Docker daemon not running"
+        address = result.stdout.strip()
+        if not address:
+            return "error", "Docker Hub index server address not found in docker info"
+        return "ok", ""

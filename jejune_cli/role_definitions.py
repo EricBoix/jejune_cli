@@ -78,6 +78,7 @@ def wire_roles(registry: RoleRegistry) -> None:
             component_names=(
                 "docker-command",
                 "docker-daemon",
+                "docker-hub-server",
                 "uv-command",
                 "plugin-packages",
                 "catalog",
