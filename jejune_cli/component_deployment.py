@@ -146,7 +146,7 @@ class CompDeployment(ConfComp):
         "    ports:\n"
         '      - "${OXIGRAPH_HTTP_PORT:-7878}:7878"\n'
         "    volumes:\n"
-        "      - ./oxigraph_data:/data\n"
+        '      - "${OXIGRAPH_DATA_DIR:-./oxigraph_data}:/data"\n'
         '    command: ["--location", "/data", "--bind", "0.0.0.0:7878"]\n'
     )
 

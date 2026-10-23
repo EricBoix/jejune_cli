@@ -14,3 +14,9 @@ NEO4J_USERNAME=neo4j
 # Root directory of the document repository to convert.  Must contain a
 # DockerContext/ subdirectory from which the converter Docker image is built.
 # CONVERT_DOC_DIR=.
+
+### Optional: Oxigraph triple-store (enables `jejune oxigraph` and Oxigraph-mode
+### kg-viewer; data persists in OXIGRAPH_DATA_DIR across container restarts)
+# OXIGRAPH_HTTP_PORT=7878
+# OXIGRAPH_URI=http://localhost:7878
+# OXIGRAPH_DATA_DIR=./.jejune/oxigraph_data
