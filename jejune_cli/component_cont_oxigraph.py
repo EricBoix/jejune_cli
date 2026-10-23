@@ -98,7 +98,7 @@ class CompOxigraph(ContComp):
             self.image_name,
             publish=[f"{port}:7878"],
             volumes=[f"{data_dir.resolve()}:/data"],
-            cmd_args=["--location", "/data", "--bind", "0.0.0.0:7878"],
+            cmd_args=["serve", "--location", "/data", "--bind", "0.0.0.0:7878"],
         )
         if rc != 0:
             raise SystemExit(rc)

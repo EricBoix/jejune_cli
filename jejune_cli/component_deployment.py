@@ -147,7 +147,7 @@ class CompDeployment(ConfComp):
         '      - "${OXIGRAPH_HTTP_PORT:-7878}:7878"\n'
         "    volumes:\n"
         '      - "${OXIGRAPH_DATA_DIR:-./oxigraph_data}:/data"\n'
-        '    command: ["--location", "/data", "--bind", "0.0.0.0:7878"]\n'
+        '    command: ["serve", "--location", "/data", "--bind", "0.0.0.0:7878"]\n'
     )
 
     def generate_docker_compose(self, deploy_dir: Path, template_dir: Path) -> str:
