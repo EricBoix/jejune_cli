@@ -93,7 +93,13 @@ def up(ctx) -> None:
 def down(ctx) -> None:
     """Stop a UI deployment."""
     app = ctx.find_object(AppContext)
-    sys.exit(app.component_registry.get("deployment").run_compose(Path("."), "down"))
+    deploy_dir = Path(".")
+    deploy_name = deploy_dir.resolve().name.lower()
+    sys.exit(
+        app.component_registry.get("deployment").run_compose(
+            deploy_dir, "--project-name", f"jejune-{deploy_name}", "down"
+        )
+    )
 
 
 @click.command("install")
