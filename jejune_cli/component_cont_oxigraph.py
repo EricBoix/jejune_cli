@@ -30,6 +30,7 @@ class CompOxigraph(ContComp):
     _ALIGNMENT_GRAPH = "urn:jejune:alignment"
     _DEFAULT_DATA_DIR = "./.jejune/oxigraph_data"
     _DEFAULT_PORT = "7878"
+    _CONTAINER_PORT = "7878"
 
     @staticmethod
     def _slug(label: str) -> str:
@@ -60,7 +61,7 @@ class CompOxigraph(ContComp):
                 ),
                 ConfigurationEntry(
                     "OXIGRAPH_HTTP_PORT",
-                    hint="edit .jejune/env-config (default: 7878)",
+                    hint=f"edit .jejune/env-config (default: {_DEFAULT_PORT})",
                     source_file=".jejune/env-config",
                     max_severity="warn",
                 ),
@@ -96,9 +97,17 @@ class CompOxigraph(ContComp):
         rc = self._context.docker.run_detached(
             self.container_name,
             self.image_name,
-            publish=[f"{port}:7878"],
+            publish=[f"{port}:{self._CONTAINER_PORT}"],
             volumes=[f"{data_dir.resolve()}:/data"],
-            cmd_args=["serve", "--location", "/data", "--bind", "0.0.0.0:7878"],
+            cmd_args=[
+                "serve",
+                "--location",
+                "/data",
+                "--bind",
+                f"0.0.0.0:{self._CONTAINER_PORT}",
+                "--cors-allow-origin",
+                "*",
+            ],
         )
         if rc != 0:
             raise SystemExit(rc)

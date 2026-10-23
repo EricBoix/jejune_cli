@@ -20,6 +20,11 @@ ecosystem-repo-base = "https://github.com/EricBoix"
 requires = ["hatchling", "tomli ; python_version < '3.11'"]
 build-backend = "hatchling.build"
 
+[dependency-groups]
+dev = [
+    "black>=26.10.1",
+]
+
 [tool.hatch.build.hooks.custom]
 
 [tool.hatch.build.targets.wheel]

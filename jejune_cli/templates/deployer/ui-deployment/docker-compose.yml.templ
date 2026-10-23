@@ -23,7 +23,7 @@ services:
     #   - ${JEJUNE_ROOT_DIR}:/docs-mount:ro
 
   kg-graph-viewer:
-    image: jejune:{{NAME}}-kg-graph-viewer
+    image: jejune:kg-graph-viewer
     build:
       context: ${KG_GRAPH_VIEWER_CONTEXT}
       dockerfile: DockerContext/Dockerfile
@@ -31,7 +31,6 @@ services:
       JEJUNE_DOCS_SERVER_URL: "http://localhost:${DOCS_SERVER_PORT:-8765}"
       JEJUNE_MARKDOWN_TRIGGER_URL: "http://localhost:${MARKDOWN_TRIGGER_PORT:-8444}"
       JEJUNE_MARKDOWN_BROWSER_URL: "http://localhost:${MARKDOWN_PORT:-8443}"
-      JEJUNE_OXIGRAPH_URL: "${OXIGRAPH_URI:-}"
     ports:
       - "${KG_PORT:-8080}:80"
     depends_on:
@@ -48,6 +47,20 @@ services:
       DOCS_SERVER_INTERNAL_URL: "http://docs-server:8765"
 
 {{OXIGRAPH_SERVICE}}
+  hub:
+    image: jejune:hub
+    build:
+      context: ${HUB_CONTEXT}
+      dockerfile: DockerContext/Dockerfile
+    ports:
+      - "${HUB_PORT:-8776}:80"
+    environment:
+      JEJUNE_DOCS_SERVER_URL: "http://localhost:${DOCS_SERVER_PORT:-8777}"
+      JEJUNE_KG_VIEWER_URL: "http://localhost:${KG_PORT:-8778}"
+      JEJUNE_MARKDOWN_BROWSER_URL: "http://localhost:${MARKDOWN_PORT:-8779}"
+      JEJUNE_KG_VIEWER_OXIGRAPH_URL: "http://localhost:${KG_OXIGRAPH_PORT:-8781}"
+      JEJUNE_OXIGRAPH_URL: "${OXIGRAPH_URI:-}"
+
 secrets:
   catalog:
     file: ./catalog.yaml

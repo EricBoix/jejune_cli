@@ -37,6 +37,7 @@ class CompDeployment(ConfComp):
                 "jejune_docs_server",
                 "jejune_kg-graph_viewer",
                 "jejune_markdown_browser",
+                "jejune_hub",
             ],
             hint="run `jejune build`",
             configuration=Configuration(
@@ -57,6 +58,17 @@ class CompDeployment(ConfComp):
                     "MARKDOWN_TRIGGER_PORT",
                     hint="edit deployment.env",
                     source_file="deployment.env",
+                ),
+                ConfigurationEntry(
+                    "HUB_PORT",
+                    hint="edit deployment.env",
+                    source_file="deployment.env",
+                ),
+                ConfigurationEntry(
+                    "KG_OXIGRAPH_PORT",
+                    hint="edit deployment.env",
+                    source_file="deployment.env",
+                    max_severity="warn",
                 ),
             ),
         )
@@ -147,7 +159,17 @@ class CompDeployment(ConfComp):
         '      - "${OXIGRAPH_HTTP_PORT:-7878}:7878"\n'
         "    volumes:\n"
         '      - "${OXIGRAPH_DATA_DIR:-./oxigraph_data}:/data"\n'
-        '    command: ["serve", "--location", "/data", "--bind", "0.0.0.0:7878"]\n'
+        '    command: ["serve", "--location", "/data", "--bind", "0.0.0.0:7878",'
+        ' "--cors-allow-origin", "*"]\n'
+        "\n"
+        "  kg-graph-viewer-for-oxigraph:\n"
+        "    image: jejune:kg-graph-viewer\n"
+        "    ports:\n"
+        '      - "${KG_OXIGRAPH_PORT:-8781}:80"\n'
+        "    environment:\n"
+        '      JEJUNE_OXIGRAPH_URL: "${OXIGRAPH_URI}"\n'
+        '      JEJUNE_DOCS_SERVER_URL: "http://localhost:${DOCS_SERVER_PORT:-8777}"\n'
+        "\n"
     )
 
     def generate_docker_compose(self, deploy_dir: Path, template_dir: Path) -> str:

@@ -1,10 +1,15 @@
 """Click commands for the Oxigraph triple-store component."""
 
+import webbrowser
 from pathlib import Path
 
 import click
 
 from .app_context import AppContext
+from .component_cont_oxigraph import CompOxigraph
+
+_KG_VIEWER_IMAGE = "jejune:kg-graph-viewer"
+_KG_VIEWER_DEFAULT_PORT = "8782"
 
 
 def _comp(ctx: click.Context):
@@ -152,6 +157,83 @@ def clear(ctx, port):
     resolved_port = comp.resolve_port(port)
     comp.clear_store(resolved_port)
     click.echo(click.style("Store cleared.", fg="green"))
+
+
+@oxigraph.command("view")
+@click.option(
+    "--port",
+    default=None,
+    help=f"Host port for the KG viewer (default: {_KG_VIEWER_DEFAULT_PORT}).",
+)
+@click.option(
+    "--open/--no-open",
+    "open_browser",
+    default=True,
+    help="Open the viewer URL in the default browser (default: open).",
+)
+@click.pass_context
+def view(ctx, port, open_browser):
+    """Launch a KG viewer hooked to the running Oxigraph instance.
+
+    \b
+    Requires:
+      - Oxigraph is already running (jejune oxigraph start).
+      - The image 'jejune:kg-graph-viewer' is built (jejune build).
+    """
+    app = ctx.find_object(AppContext)
+    oxigraph_comp = _comp(ctx)
+    _require_running(oxigraph_comp)
+
+    oxigraph_port = _oxigraph_port_from_registry(app)
+    oxigraph_url = f"http://localhost:{oxigraph_port}"
+
+    workspace = Path(".").resolve().name.lower()
+    container_name = f"jejune-{workspace}-kg-graph-viewer-oxigraph"
+    viewer_port = port or _KG_VIEWER_DEFAULT_PORT
+
+    docker = app.component_registry.get("docker-command")
+
+    already_running, _ = docker.is_running(container_name)
+    if already_running:
+        viewer_url = f"http://localhost:{viewer_port}"
+        click.echo(
+            click.style(f"KG viewer already running at {viewer_url}", fg="green")
+        )
+        if open_browser:
+            webbrowser.open(viewer_url)
+        return
+
+    if not docker.image_exists(_KG_VIEWER_IMAGE):
+        raise click.ClickException(
+            f"Image '{_KG_VIEWER_IMAGE}' not found — run `jejune build` first."
+        )
+
+    click.echo(
+        f"Starting KG viewer on port {viewer_port} connected to Oxigraph at"
+        f" {oxigraph_url} ..."
+    )
+    rc = docker.run_detached(
+        container_name,
+        _KG_VIEWER_IMAGE,
+        publish=[f"{viewer_port}:80"],
+        env=[f"JEJUNE_OXIGRAPH_URL={oxigraph_url}"],
+    )
+    if rc != 0:
+        raise SystemExit(rc)
+
+    viewer_url = f"http://localhost:{viewer_port}"
+    click.echo(click.style(f"KG viewer ready at {viewer_url}", fg="green"))
+    if open_browser:
+        webbrowser.open(viewer_url)
+
+
+def _oxigraph_port_from_registry(app) -> str:
+    """Return the oxigraph port from the coordination registry, or fall back to default."""
+    entries = app.coordination.json_for_component("oxigraph")
+    for entry in entries:
+        if "port" in entry:
+            return str(entry["port"])
+    return CompOxigraph._DEFAULT_PORT
 
 
 def _require_running(comp) -> None:

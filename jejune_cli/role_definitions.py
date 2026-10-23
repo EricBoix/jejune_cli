@@ -63,6 +63,7 @@ def wire_roles(registry: RoleRegistry) -> None:
             component_names=(
                 "docker-command",
                 "docker-daemon",
+                "oxigraph",
                 "converters",
                 "catalog",
             ),
