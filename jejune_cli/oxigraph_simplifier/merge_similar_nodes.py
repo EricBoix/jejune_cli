@@ -1,0 +1,178 @@
+"""Merge nodes related by urn:jejune:similarTo that are really the same entity."""
+
+from .simplification import Simplification, SimplificationReport
+from .store_client import OxigraphStoreClient
+
+
+class MergeSimilarNodes(Simplification):
+    """Merge the two ends of a similarTo edge when their id and rdf:type are identical.
+
+    similarTo is not stored: it is derived from nodes sharing an inLabelCluster in the
+    alignment graph. The surviving node (smallest URI) receives every triple of the
+    merged nodes in every graph, so all adjacent edges and all llm_model_name values
+    (one literal triple per distinct model name) are preserved. The dropped nodes leave
+    the alignment graph, which discards the similarTo edges between them.
+    """
+
+    name = "merge-similar"
+    description = "Merge similarTo nodes having identical id and rdf:type."
+
+    def run(
+        self, store_client: OxigraphStoreClient, dry_run: bool
+    ) -> SimplificationReport:
+        similar_pairs = self._fetch_similar_pairs(store_client)
+        node_identities = self._fetch_node_identities(store_client, similar_pairs)
+        mergeable_pairs = [
+            (node_a, node_b)
+            for node_a, node_b in similar_pairs
+            if self._have_same_identity(node_identities, node_a, node_b)
+        ]
+        dropped_to_survivor = self._resolve_survivors(mergeable_pairs)
+        report = SimplificationReport(
+            name=self.name,
+            examined=len(similar_pairs),
+            nodes_removed=len(dropped_to_survivor),
+            self_loops_created=self._count_self_loops_created(
+                store_client, dropped_to_survivor
+            ),
+        )
+        if dropped_to_survivor and not dry_run:
+            store_client.update(self._build_update(dropped_to_survivor))
+        return report
+
+    def _fetch_similar_pairs(
+        self, store_client: OxigraphStoreClient
+    ) -> list[tuple[str, str]]:
+        bindings = store_client.select(f"""
+            SELECT DISTINCT ?node_a ?node_b WHERE {{
+              GRAPH <{store_client.ALIGNMENT_GRAPH}> {{
+                ?node_a <{store_client.IN_LABEL_CLUSTER}> ?cluster .
+                ?node_b <{store_client.IN_LABEL_CLUSTER}> ?cluster .
+                FILTER(?node_a != ?node_b && STR(?node_a) < STR(?node_b))
+              }}
+            }}
+            """)
+        return [
+            (binding["node_a"]["value"], binding["node_b"]["value"])
+            for binding in bindings
+        ]
+
+    def _fetch_node_identities(
+        self, store_client: OxigraphStoreClient, similar_pairs: list[tuple[str, str]]
+    ) -> dict[str, tuple[frozenset[str], frozenset[str]]]:
+        """Map each node to its (ids, rdf:types) across all graphs."""
+        nodes = sorted({node for pair in similar_pairs for node in pair})
+        if not nodes:
+            return {}
+        values = " ".join(f"<{node}>" for node in nodes)
+        bindings = store_client.select(f"""
+            SELECT ?node ?identifier ?type WHERE {{
+              VALUES ?node {{ {values} }}
+              OPTIONAL {{ GRAPH ?id_graph {{ ?node <{store_client.NEO_ID}> ?identifier }} }}
+              OPTIONAL {{ GRAPH ?type_graph {{ ?node <{store_client.RDF_TYPE}> ?type }} }}
+            }}
+            """)
+        identifiers: dict[str, set[str]] = {node: set() for node in nodes}
+        types: dict[str, set[str]] = {node: set() for node in nodes}
+        for binding in bindings:
+            node = binding["node"]["value"]
+            if "identifier" in binding:
+                identifiers[node].add(binding["identifier"]["value"])
+            if "type" in binding:
+                types[node].add(binding["type"]["value"])
+        return {
+            node: (frozenset(identifiers[node]), frozenset(types[node]))
+            for node in nodes
+        }
+
+    def _have_same_identity(
+        self,
+        node_identities: dict[str, tuple[frozenset[str], frozenset[str]]],
+        node_a: str,
+        node_b: str,
+    ) -> bool:
+        identifiers_a, types_a = node_identities[node_a]
+        identifiers_b, types_b = node_identities[node_b]
+        return (
+            bool(identifiers_a)
+            and identifiers_a == identifiers_b
+            and types_a == types_b
+        )
+
+    def _resolve_survivors(
+        self, mergeable_pairs: list[tuple[str, str]]
+    ) -> dict[str, str]:
+        """Union-find over the pairs (chains A~B, B~C merge into one node).
+
+        The survivor of each group is its smallest URI. Returns dropped -> survivor.
+        """
+        parent: dict[str, str] = {}
+
+        def find_root(node: str) -> str:
+            while node in parent:
+                node = parent[node]
+            return node
+
+        for node_a, node_b in mergeable_pairs:
+            root_a = find_root(node_a)
+            root_b = find_root(node_b)
+            if root_a != root_b:
+                parent[max(root_a, root_b)] = min(root_a, root_b)
+
+        return {node: find_root(node) for node in parent if find_root(node) != node}
+
+    def _count_self_loops_created(
+        self, store_client: OxigraphStoreClient, dropped_to_survivor: dict[str, str]
+    ) -> int:
+        """Count distinct (survivor, predicate) self-loops that the merge creates.
+
+        An edge between two nodes of the same merge group becomes a self-loop on the
+        survivor. Self-loops the survivor already has are not counted.
+        """
+        if not dropped_to_survivor:
+            return 0
+        survivors = set(dropped_to_survivor.values())
+        member_to_survivor = {survivor: survivor for survivor in survivors}
+        member_to_survivor.update(dropped_to_survivor)
+        member_values = " ".join(
+            f"(<{member}> <{survivor}>)"
+            for member, survivor in member_to_survivor.items()
+        )
+        bindings = store_client.select(f"""
+            SELECT DISTINCT ?survivor ?predicate WHERE {{
+              VALUES (?subject ?survivor) {{ {member_values} }}
+              VALUES (?object ?object_survivor) {{ {member_values} }}
+              GRAPH ?graph {{ ?subject ?predicate ?object }}
+              FILTER(?graph != <{store_client.ALIGNMENT_GRAPH}>
+                     && ?subject != ?object
+                     && ?survivor = ?object_survivor)
+              FILTER NOT EXISTS {{ GRAPH ?other_graph {{ ?survivor ?predicate ?survivor }} }}
+            }}
+            """)
+        return len(bindings)
+
+    def _build_update(self, dropped_to_survivor: dict[str, str]) -> str:
+        """Move every triple of each dropped node to its survivor, then unalign it."""
+        alignment_graph = OxigraphStoreClient.ALIGNMENT_GRAPH
+        in_label_cluster = OxigraphStoreClient.IN_LABEL_CLUSTER
+        operations: list[str] = []
+        for dropped, survivor in sorted(dropped_to_survivor.items()):
+            operations.append(f"""
+                DELETE {{ GRAPH ?graph {{ <{dropped}> ?predicate ?object }} }}
+                INSERT {{ GRAPH ?graph {{ <{survivor}> ?predicate ?object }} }}
+                WHERE {{
+                  GRAPH ?graph {{ <{dropped}> ?predicate ?object }}
+                  FILTER(?graph != <{alignment_graph}>)
+                }}""")
+            operations.append(f"""
+                DELETE {{ GRAPH ?graph {{ ?subject ?predicate <{dropped}> }} }}
+                INSERT {{ GRAPH ?graph {{ ?subject ?predicate <{survivor}> }} }}
+                WHERE {{
+                  GRAPH ?graph {{ ?subject ?predicate <{dropped}> }}
+                  FILTER(?graph != <{alignment_graph}>)
+                }}""")
+            operations.append(f"""
+                DELETE WHERE {{
+                  GRAPH <{alignment_graph}> {{ <{dropped}> <{in_label_cluster}> ?cluster }}
+                }}""")
+        return " ;\n".join(operations)

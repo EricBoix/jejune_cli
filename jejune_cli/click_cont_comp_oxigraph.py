@@ -7,6 +7,7 @@ import click
 
 from .app_context import AppContext
 from .component_cont_oxigraph import CompOxigraph
+from .oxigraph_simplifier import OxigraphSimplifier
 
 _KG_VIEWER_IMAGE = "jejune:kg-graph-viewer"
 _KG_VIEWER_DEFAULT_PORT = "8782"
@@ -159,6 +160,46 @@ def clear(ctx, port):
     resolved_port = comp.resolve_port(port)
     comp.clear_store(resolved_port)
     click.echo(click.style("Store cleared.", fg="green"))
+
+
+@oxigraph.command("simplify")
+@click.option("--port", default=None)
+@click.option(
+    "--only",
+    "selected_names",
+    multiple=True,
+    type=click.Choice(OxigraphSimplifier.available_names()),
+    help="Run only this simplification (repeatable; default: all).",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Report what would change without modifying the store.",
+)
+@click.option(
+    "--list", "list_only", is_flag=True, help="List available simplifications."
+)
+@click.pass_context
+def simplify(ctx, port, selected_names, dry_run, list_only):
+    """Simplify the knowledge graph in the store (rewrites the store)."""
+    if list_only:
+        for name, description in OxigraphSimplifier.describe().items():
+            click.echo(f"  {name:<16}{description}")
+        return
+    comp = _comp(ctx)
+    _require_running(comp)
+    resolved_port = comp.resolve_port(port)
+    if not dry_run:
+        click.confirm("This rewrites the store. Continue?", abort=True)
+    simplifier = OxigraphSimplifier(f"http://localhost:{resolved_port}")
+    for report in simplifier.simplify(list(selected_names) or None, dry_run):
+        click.echo(
+            f"  {report.name}: {report.nodes_removed} nodes removed, "
+            f"{report.self_loops_created} self-loops created"
+            f" ({report.examined} similarTo pairs examined)"
+        )
+    if dry_run:
+        click.echo(click.style("Dry run: store unchanged.", fg="yellow"))
 
 
 @oxigraph.command("view")
