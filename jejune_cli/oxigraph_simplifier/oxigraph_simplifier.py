@@ -1,13 +1,19 @@
 """Run simplifications against an Oxigraph store."""
 
 from .merge_similar_nodes import MergeSimilarNodes
+from .remove_isolated_documents import RemoveIsolatedDocuments
+from .remove_isolated_edges import RemoveIsolatedEdges
 from .simplification import Simplification, SimplificationReport
 from .store_client import OxigraphStoreClient
 
 
 class OxigraphSimplifier:
-    # Ordered. The only place to edit to register a new simplification.
-    AVAILABLE_SIMPLIFICATIONS: tuple[type[Simplification], ...] = (MergeSimilarNodes,)
+    # Ordered (merging can change node degrees, hence goes first). The only place to edit to register a new simplification.
+    AVAILABLE_SIMPLIFICATIONS: tuple[type[Simplification], ...] = (
+        MergeSimilarNodes,
+        RemoveIsolatedEdges,
+        RemoveIsolatedDocuments,
+    )
 
     def __init__(self, base_url: str) -> None:
         self._store_client = OxigraphStoreClient(base_url)

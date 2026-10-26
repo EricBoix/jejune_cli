@@ -184,7 +184,7 @@ def simplify(ctx, port, selected_names, dry_run, list_only):
     """Simplify the knowledge graph in the store (rewrites the store)."""
     if list_only:
         for name, description in OxigraphSimplifier.describe().items():
-            click.echo(f"  {name:<16}{description}")
+            click.echo(f"  {name:<28}{description}")
         return
     comp = _comp(ctx)
     _require_running(comp)
@@ -195,6 +195,7 @@ def simplify(ctx, port, selected_names, dry_run, list_only):
     for report in simplifier.simplify(list(selected_names) or None, dry_run):
         click.echo(
             f"  {report.name}: {report.nodes_removed} nodes removed, "
+            f"{report.edges_removed} edges removed, "
             f"{report.self_loops_created} self-loops created"
             f" ({report.examined} similarTo pairs examined)"
         )

@@ -11,6 +11,7 @@ class SimplificationReport:
     name: str
     examined: int = 0
     nodes_removed: int = 0
+    edges_removed: int = 0
     self_loops_created: int = 0
 
 
