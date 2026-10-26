@@ -31,6 +31,7 @@ class CompOxigraph(ContComp):
     _DEFAULT_DATA_DIR = "./.jejune/oxigraph_data"
     _DEFAULT_PORT = "7878"
     _CONTAINER_PORT = "7878"
+    _DEPLOYMENT_CONTAINER_NAME = "jejune-oxidb-oxigraph-1"
 
     @staticmethod
     def _slug(label: str) -> str:
@@ -79,6 +80,20 @@ class CompOxigraph(ContComp):
     @property
     def container_name(self) -> str:
         return "jejune_oxigraph"
+
+    def is_running(self, container_name: str | None = None) -> tuple[bool, str]:
+        """Also accept the instance started by `jejune up` (compose deployment)."""
+        if container_name is not None:
+            return super().is_running(container_name)
+        running, message = super().is_running()
+        if running:
+            return running, message
+        deployment_running, deployment_message = super().is_running(
+            self._DEPLOYMENT_CONTAINER_NAME
+        )
+        if deployment_running:
+            return deployment_running, deployment_message
+        return running, message
 
     def resolve_port(self, port: str | None) -> str:
         if port is not None:
