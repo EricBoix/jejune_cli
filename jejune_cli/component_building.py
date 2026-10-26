@@ -86,6 +86,7 @@ def build_components(
         git_server=git_server,
         plugin_packages=plugin_packages,
         ecosystem=ecosystem,
+        role_registry=role_registry,
     )
     ContComp.set_shared_context(context)
 

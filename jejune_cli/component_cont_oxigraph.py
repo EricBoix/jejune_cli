@@ -16,6 +16,7 @@ from .component_containerized import ContComp
 from .configuration import Configuration
 from .configuration_entry import ConfigurationEntry
 from .containerized_context import ContainerizedContext
+from .oxigraph_lifecycle import OxigraphLifecycle
 
 
 class CompOxigraph(ContComp):
@@ -31,7 +32,8 @@ class CompOxigraph(ContComp):
     _DEFAULT_DATA_DIR = "./.jejune/oxigraph_data"
     _DEFAULT_PORT = "7878"
     _CONTAINER_PORT = "7878"
-    _DEPLOYMENT_CONTAINER_NAME = "jejune-oxidb-oxigraph-1"
+    _COMPOSE_MANAGED_HINT = "run `jejune up`"
+    _STANDALONE_HINT = "run `jejune oxigraph start --help`"
 
     @staticmethod
     def _slug(label: str) -> str:
@@ -52,7 +54,7 @@ class CompOxigraph(ContComp):
             name="oxigraph",
             image_name="oxigraph/oxigraph",
             build_context="",
-            hint="run `jejune oxigraph start --help`",
+            hint=self._STANDALONE_HINT,
             configuration=Configuration(
                 ConfigurationEntry(
                     "OXIGRAPH_DATA_DIR",
@@ -78,6 +80,43 @@ class CompOxigraph(ContComp):
         self.cli_name = self.name
 
     @property
+    def lifecycle(self) -> OxigraphLifecycle:
+        """Derived from the detected role, which depends on the current directory."""
+        role_registry = self._context.role_registry
+        if role_registry.role_is_deployer_family(role_registry.detect_role()):
+            return OxigraphLifecycle.COMPOSE_MANAGED
+        return OxigraphLifecycle.STANDALONE
+
+    @property
+    def hint(self) -> str | None:
+        if self.lifecycle is OxigraphLifecycle.COMPOSE_MANAGED:
+            return self._COMPOSE_MANAGED_HINT
+        return self._standalone_hint
+
+    @hint.setter
+    def hint(self, value: str | None) -> None:
+        self._standalone_hint = value
+
+    @property
+    def deployment_container_name(self) -> str:
+        """Compose names the container jejune-<workspace>-oxigraph-1."""
+        workspace = Path(".").resolve().name.lower()
+        return f"jejune-{workspace}-oxigraph-1"
+
+    @property
+    def not_running_message(self) -> str:
+        if self.lifecycle is OxigraphLifecycle.COMPOSE_MANAGED:
+            return "Oxigraph is not running — start the deployment with `jejune up`"
+        return "Oxigraph is not running — start it first with `jejune oxigraph start`"
+
+    def require_standalone(self) -> None:
+        """Refuse start/stop when the compose deployment owns the container."""
+        if self.lifecycle is OxigraphLifecycle.COMPOSE_MANAGED:
+            raise RuntimeError(
+                "Oxigraph is managed by the deployment — use `jejune up` / `jejune down`"
+            )
+
+    @property
     def container_name(self) -> str:
         return "jejune_oxigraph"
 
@@ -89,7 +128,7 @@ class CompOxigraph(ContComp):
         if running:
             return running, message
         deployment_running, deployment_message = super().is_running(
-            self._DEPLOYMENT_CONTAINER_NAME
+            self.deployment_container_name
         )
         if deployment_running:
             return deployment_running, deployment_message

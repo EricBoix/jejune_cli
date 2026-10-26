@@ -34,8 +34,9 @@ def oxigraph(ctx):
 )
 @click.pass_context
 def start(ctx, port):
-    """Start the Oxigraph container."""
+    """Start the Oxigraph container (standalone workspaces; deployments use `jejune up`)."""
     comp = _comp(ctx)
+    _require_standalone(comp)
     running, _ = comp.is_running()
     if running:
         click.echo(click.style("Oxigraph is already running.", fg="green"))
@@ -52,8 +53,9 @@ def start(ctx, port):
 @oxigraph.command("stop")
 @click.pass_context
 def stop(ctx):
-    """Stop the Oxigraph container."""
+    """Stop the Oxigraph container (standalone workspaces; deployments use `jejune down`)."""
     comp = _comp(ctx)
+    _require_standalone(comp)
     running, _ = comp.is_running()
     if not running:
         click.echo("Oxigraph is not running.")
@@ -177,7 +179,8 @@ def view(ctx, port, open_browser):
 
     \b
     Requires:
-      - Oxigraph is already running (jejune oxigraph start).
+      - Oxigraph is already running (jejune oxigraph start, or jejune up in a
+        deployment workspace).
       - The image 'jejune:kg-graph-viewer' is built (jejune build).
     """
     app = ctx.find_object(AppContext)
@@ -239,6 +242,11 @@ def _oxigraph_port_from_registry(app) -> str:
 def _require_running(comp) -> None:
     running, _ = comp.is_running()
     if not running:
-        raise click.ClickException(
-            "Oxigraph is not running — start it first with `jejune oxigraph start`"
-        )
+        raise click.ClickException(comp.not_running_message)
+
+
+def _require_standalone(comp) -> None:
+    try:
+        comp.require_standalone()
+    except RuntimeError as exc:
+        raise click.ClickException(str(exc))
