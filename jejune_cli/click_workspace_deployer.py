@@ -8,6 +8,7 @@ import click
 
 from ._package_paths import TemplatePaths
 from .app_context import AppContext
+from .stale_editable_installs import StaleEditableInstalls
 
 
 class _DeployerInit(click.Command):
@@ -89,11 +90,40 @@ def init(ctx, dir_name: str | None) -> None:
         cd_hint = [f"First: cd {effective_name}"]
     app.heuristic_step_registry.print_next_steps(preamble=cd_hint)
 
+    stale_installs = StaleEditableInstalls()
+    if stale_installs.has_stale():
+        click.echo(f"\n{StaleEditableInstalls.NOTICE}")
+
 
 @click.group("deployer", short_help="Deployer role workspace")
 def deployer_group():
-    """Initialise and inspect the deployer workspace."""
+    """Initialise the deployer workspace and regenerate its docker-compose.yml."""
+
+
+@click.command("regenerate-compose")
+@click.pass_context
+def regenerate_compose(ctx) -> None:
+    """Regenerate docker-compose.yml in the current deployment directory.
+
+    Re-reads deployment.env and the catalog, then rewrites docker-compose.yml.
+    Needed after changes that alter the compose structure (e.g. setting or
+    removing OXIGRAPH_URI). deployment.env itself is left untouched.
+    """
+    app = ctx.find_object(AppContext)
+    deploy_dir = Path.cwd()
+
+    if not (deploy_dir / "deployment.env").is_file():
+        raise click.ClickException(
+            f"No deployment.env in {deploy_dir}: not a deployment directory."
+        )
+
+    deployment_comp = app.component_registry.get("deployment")
+    (deploy_dir / "docker-compose.yml").write_text(
+        deployment_comp.generate_docker_compose(deploy_dir, TemplatePaths.DEPLOYER_UI)
+    )
+    click.echo(f"Regenerated {deploy_dir / 'docker-compose.yml'}")
 
 
 deployer_group._role_subgroup = True
 deployer_group.add_command(init, "init")
+deployer_group.add_command(regenerate_compose, "regenerate-compose")

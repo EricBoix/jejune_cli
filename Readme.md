@@ -270,6 +270,29 @@ jejune deployment configure <deployments-dir> <name>   # create a new deployment
 jejune deployment list <deployments-dir>               # list available deployments
 ```
 
+**Regenerating `docker-compose.yml`:**
+
+`docker-compose.yml` is generated: do not edit it by hand. Editing
+`deployment.env` does not normally require regenerating it, since
+`docker compose` re-reads `deployment.env` on every run. Regeneration is only
+needed when a change alters the compose structure, for example setting or
+removing `OXIGRAPH_URI` (adds or removes the oxigraph service), or adding or
+removing private repositories in `catalog.yaml` (adds or removes the `gh_token`
+secret).
+
+```bash
+cd jejune_deployments/deploy_my_deployment
+jejune configuration deployer regenerate-compose
+```
+
+Conditions to run it:
+
+- the current directory must be a deployment directory containing a
+  `deployment.env` (otherwise the command fails);
+- only `docker-compose.yml` is rewritten: `deployment.env` and `catalog.yaml`
+  are left untouched;
+- any manual edit of `docker-compose.yml` is overwritten.
+
 ---
 
 ## Notes and warnings

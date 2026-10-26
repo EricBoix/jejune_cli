@@ -36,6 +36,16 @@ def register_heuristics(
     def _deploy_config_is_default() -> bool:
         return _deploy_catalog_needs_configuration() or _deploy_env_is_default()
 
+    def _deploy_compose_out_of_date() -> bool:
+        deploy_dir = Path.cwd()
+        compose_file = deploy_dir / "docker-compose.yml"
+        if not compose_file.exists() or not (deploy_dir / "deployment.env").exists():
+            return False
+        expected = component_registry.get("deployment").generate_docker_compose(
+            deploy_dir, TemplatePaths.DEPLOYER_UI
+        )
+        return compose_file.read_text() != expected
+
     def _deploy_containers_running() -> bool:
         name = Path(".").resolve().name.lower()
         deployment = component_registry.get("deployment")
@@ -63,13 +73,13 @@ def register_heuristics(
         except Exception:
             return False
 
-    def _docs_server_url() -> str:
-        port = "8765"
+    def _hub_url() -> str:
+        port = "8776"
         env_file = Path(".") / "deployment.env"
         if env_file.exists():
             for line in env_file.read_text().splitlines():
                 line = line.strip()
-                if line.startswith("DOCS_SERVER_PORT="):
+                if line.startswith("HUB_PORT="):
                     port = line.split("=", 1)[1].strip()
                     break
         return f"http://localhost:{port}"
@@ -108,6 +118,17 @@ def register_heuristics(
             order=3,
             conditions=[],
             anti_conditions=[ComponentCondition("plugin-packages", component_registry)],
+        ),
+        roles={"deployer"},
+    )
+
+    registry.register(
+        HeuristicStep(
+            label="Regenerate docker-compose.yml",
+            command="jejune configuration deployer regenerate-compose",
+            order=4,
+            conditions=[_deploy_compose_out_of_date],
+            anti_conditions=[],
         ),
         roles={"deployer"},
     )
@@ -193,8 +214,8 @@ def register_heuristics(
 
     registry.register(
         HeuristicStep(
-            label="Browse docs server",
-            command=lambda: f"web-browse UI at {_docs_server_url()}",
+            label="Browse hub",
+            command=lambda: f"web-browse UI at {_hub_url()}",
             order=30,
             conditions=[_deploy_containers_running, _deploy_services_available],
             anti_conditions=[],
@@ -241,5 +262,9 @@ def register_heuristics(
     registry.register_role_ordering(
         "deployer",
         {inst.hint: (i - len(_ext_deps)) * 10 for i, inst in enumerate(_ext_deps)}
-        | {"Install plugin packages": -2, "Wrap up configuration": -1},
+        | {
+            "Install plugin packages": -3,
+            "Regenerate docker-compose.yml": -2,
+            "Wrap up configuration": -1,
+        },
     )
