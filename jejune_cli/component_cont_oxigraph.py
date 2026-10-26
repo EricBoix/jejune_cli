@@ -397,5 +397,10 @@ class CompOxigraph(ContComp):
         )
 
     def clear_store(self, port: str) -> None:
-        """Remove all triples from all named graphs in the store."""
-        self._sparql_update(port, "DELETE WHERE { GRAPH ?g { ?s ?p ?o } }")
+        """Remove all triples and all named graphs from the store.
+
+        DELETE WHERE only empties the graphs: Oxigraph keeps the empty named graphs
+        registered, so list_graphs() (and thus is_store_empty()) still reports them.
+        DROP ALL removes the graphs themselves.
+        """
+        self._sparql_update(port, "DROP ALL")
