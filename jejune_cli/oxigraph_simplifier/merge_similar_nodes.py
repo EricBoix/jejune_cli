@@ -28,6 +28,11 @@ class MergeSimilarNodes(Simplification):
     merged nodes in every graph, so all adjacent edges and all llm_model_name values
     (one literal triple per distinct model name) are preserved. The dropped nodes leave
     the alignment graph, which discards the similarTo edges between them.
+
+    One exception to "every edge is preserved": the same sentence is a distinct Document
+    node in each model graph, all sharing one neo:id. When the survivor is already
+    mentioned by a Document with the same neo:id as a Document mentioning a dropped
+    node, that second MENTIONS edge is dropped so the survivor is mentioned only once.
     """
 
     name = "merge-similar"
@@ -46,6 +51,9 @@ class MergeSimilarNodes(Simplification):
             name=self.name,
             examined=len(similar_pairs),
             nodes_removed=len(dropped_to_survivor),
+            edges_removed=self._count_duplicate_mentions(
+                store_client, dropped_to_survivor
+            ),
             self_loops_created=self._count_self_loops_created(
                 store_client, dropped_to_survivor
             ),
@@ -224,10 +232,46 @@ class MergeSimilarNodes(Simplification):
             """)
         return len(bindings)
 
+    def _count_duplicate_mentions(
+        self, store_client: OxigraphStoreClient, dropped_to_survivor: dict[str, str]
+    ) -> int:
+        """Count MENTIONS edges dropped because a same-neo:id Document already mentions the survivor."""
+        if not dropped_to_survivor:
+            return 0
+        survivors = set(dropped_to_survivor.values())
+        member_to_survivor = {survivor: survivor for survivor in survivors}
+        member_to_survivor.update(dropped_to_survivor)
+        member_values = " ".join(
+            f"(<{member}> <{survivor}>)"
+            for member, survivor in member_to_survivor.items()
+        )
+        bindings = store_client.select(f"""
+            SELECT DISTINCT ?survivor ?document ?document_identifier WHERE {{
+              VALUES (?member ?survivor) {{ {member_values} }}
+              GRAPH ?mention_graph {{ ?document <{store_client.NEO_MENTIONS}> ?member }}
+              GRAPH ?document_graph {{
+                ?document a <{store_client.NEO_DOCUMENT}> ;
+                          <{store_client.NEO_ID}> ?document_identifier
+              }}
+            }}
+            """)
+        distinct_mentions = {
+            (binding["survivor"]["value"], binding["document_identifier"]["value"])
+            for binding in bindings
+        }
+        return len(bindings) - len(distinct_mentions)
+
     def _build_update(self, dropped_to_survivor: dict[str, str]) -> str:
-        """Move every triple of each dropped node to its survivor, then unalign it."""
+        """Move every triple of each dropped node to its survivor, then unalign it.
+
+        Before the incoming edges move, a MENTIONS edge from a Document whose neo:id
+        already mentions the survivor is deleted instead of moved.
+        """
         alignment_graph = OxigraphStoreClient.ALIGNMENT_GRAPH
         in_label_cluster = OxigraphStoreClient.IN_LABEL_CLUSTER
+        mentions = OxigraphStoreClient.NEO_MENTIONS
+        document_type = OxigraphStoreClient.NEO_DOCUMENT
+        neo_id = OxigraphStoreClient.NEO_ID
         operations: list[str] = []
         for dropped, survivor in sorted(dropped_to_survivor.items()):
             operations.append(f"""
@@ -236,6 +280,18 @@ class MergeSimilarNodes(Simplification):
                 WHERE {{
                   GRAPH ?graph {{ <{dropped}> ?predicate ?object }}
                   FILTER(?graph != <{alignment_graph}>)
+                }}""")
+            operations.append(f"""
+                DELETE {{ GRAPH ?graph {{ ?document <{mentions}> <{dropped}> }} }}
+                WHERE {{
+                  GRAPH ?graph {{ ?document <{mentions}> <{dropped}> }}
+                  GRAPH ?document_graph {{
+                    ?document a <{document_type}> ; <{neo_id}> ?document_identifier
+                  }}
+                  GRAPH ?other_graph {{ ?other_document <{mentions}> <{survivor}> }}
+                  GRAPH ?other_document_graph {{
+                    ?other_document a <{document_type}> ; <{neo_id}> ?document_identifier
+                  }}
                 }}""")
             operations.append(f"""
                 DELETE {{ GRAPH ?graph {{ ?subject ?predicate <{dropped}> }} }}
