@@ -37,7 +37,7 @@ def init(ctx, dir_name: str | None) -> None:
     created = []
     skipped = []
     for fname in ("env-config", "env-secrets"):
-        dst = d / fname
+        dst = dot_jejune / fname
         if dst.exists():
             skipped.append(fname)
         else:
@@ -51,7 +51,7 @@ def init(ctx, dir_name: str | None) -> None:
         shutil.copy2(TemplatePaths.DOC_STEWARD / "manifest.yaml", manifest_dst)
         created.append("manifest.yaml")
 
-    eco_dst = d / "ecosystem-env-config"
+    eco_dst = dot_jejune / "ecosystem-env-config"
     if eco_dst.exists():
         skipped.append("ecosystem-env-config")
     else:
