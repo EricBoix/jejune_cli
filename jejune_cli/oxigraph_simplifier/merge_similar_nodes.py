@@ -1,6 +1,6 @@
 """Merge nodes related by urn:jejune:similarTo that are really the same entity."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .simplification import Simplification, SimplificationReport
 from .store_client import OxigraphStoreClient
@@ -8,11 +8,15 @@ from .store_client import OxigraphStoreClient
 
 @dataclass(frozen=True)
 class NodeIdentity:
-    """What identifies a node across all graphs: its ids, rdf:types and model names."""
+    """What identifies a node across all graphs.
+
+    Its ids, rdf:types, model names and the neo:id of the Documents mentioning it.
+    """
 
     identifiers: frozenset[str]
     types: frozenset[str]
     model_names: frozenset[str]
+    mentioning_documents: frozenset[str]
 
 
 class MergeSimilarNodes(Simplification):
@@ -21,8 +25,10 @@ class MergeSimilarNodes(Simplification):
 
     similarTo is not stored: it is derived from nodes sharing an inLabelCluster in the
     alignment graph. rdf:type is multi-valued ("Material, __Entity__" is the two types
-    "Material" and "__Entity__"); both nodes must have at least one type. The surviving
-    node is the one with the longest type list, so no type list is ever invented. A
+    "Material" and "__Entity__"); both nodes must have at least one type. Two nodes
+    whose type sets are incomparable are still merged, and their types blended, when
+    they have the same id and are mentioned by exactly the same non-empty set of
+    Documents. Otherwise the surviving node is the one with the longest type list. A
     node that fits several incomparable supersets goes to the one with the most
     distinct llm_model_name values. The surviving node receives every triple of the
     merged nodes in every graph, so all adjacent edges and all llm_model_name values
@@ -38,7 +44,7 @@ class MergeSimilarNodes(Simplification):
     name = "merge-similar"
     description = (
         "Merge similarTo nodes having identical id and rdf:type sets related by "
-        "inclusion."
+        "inclusion, or any rdf:types when mentioned by the same Documents (types blended)."
     )
 
     def run(
@@ -106,11 +112,27 @@ class MergeSimilarNodes(Simplification):
                 types[node].add(binding["type"]["value"])
             if "model_name" in binding:
                 model_names[node].add(binding["model_name"]["value"])
+        mentioning_documents: dict[str, set[str]] = {node: set() for node in nodes}
+        mention_bindings = store_client.select(f"""
+            SELECT DISTINCT ?node ?document_identifier WHERE {{
+              VALUES ?node {{ {values} }}
+              GRAPH ?mention_graph {{ ?document <{store_client.NEO_MENTIONS}> ?node }}
+              GRAPH ?document_graph {{
+                ?document a <{store_client.NEO_DOCUMENT}> ;
+                          <{store_client.NEO_ID}> ?document_identifier
+              }}
+            }}
+            """)
+        for binding in mention_bindings:
+            mentioning_documents[binding["node"]["value"]].add(
+                binding["document_identifier"]["value"]
+            )
         return {
             node: NodeIdentity(
                 identifiers=frozenset(identifiers[node]),
                 types=frozenset(types[node]),
                 model_names=frozenset(model_names[node]),
+                mentioning_documents=frozenset(mentioning_documents[node]),
             )
             for node in nodes
         }
@@ -130,6 +152,19 @@ class MergeSimilarNodes(Simplification):
             )
         )
 
+    def _can_blend_types(
+        self, identity_a: NodeIdentity, identity_b: NodeIdentity
+    ) -> bool:
+        """Same id, both typed, and mentioned by exactly the same (non-empty) Documents."""
+        return (
+            bool(identity_a.identifiers)
+            and identity_a.identifiers == identity_b.identifiers
+            and bool(identity_a.types)
+            and bool(identity_b.types)
+            and bool(identity_a.mentioning_documents)
+            and identity_a.mentioning_documents == identity_b.mentioning_documents
+        )
+
     def _resolve_survivors(
         self,
         similar_pairs: list[tuple[str, str]],
@@ -141,15 +176,16 @@ class MergeSimilarNodes(Simplification):
         each node into a similar survivor with a strictly larger type set, choosing the
         one with the most distinct llm_model_names (then the longest type list, then the
         smallest URI). Smaller type sets go first so that chains A<B<C collapse upward.
-        A survivor always keeps its own type set: incomparable nodes never get merged
-        through a common subset. Returns dropped -> final survivor.
+        Phase 3 blends similar survivors with incomparable type sets when they are
+        mentioned by exactly the same Documents: the survivor (most llm_model_names,
+        then longest type list, then smallest URI) gets the union of both type sets.
+        It repeats until a pass merges nothing, as a blend can enable further merges.
+        A survivor's identity accumulates the types, model names and mentioning
+        Documents of everything it absorbed. Returns dropped -> final survivor.
         """
         dropped_to_survivor: dict[str, str] = {}
+        identities = dict(node_identities)
         partners: dict[str, set[str]] = {node: set() for node in node_identities}
-        model_names: dict[str, set[str]] = {
-            node: set(identity.model_names)
-            for node, identity in node_identities.items()
-        }
         for node_a, node_b in similar_pairs:
             partners[node_a].add(node_b)
             partners[node_b].add(node_a)
@@ -161,14 +197,30 @@ class MergeSimilarNodes(Simplification):
 
         def merge(dropped: str, survivor: str) -> None:
             dropped_to_survivor[dropped] = survivor
-            model_names[survivor] |= model_names[dropped]
+            kept = identities[survivor]
+            absorbed = identities[dropped]
+            identities[survivor] = replace(
+                kept,
+                types=kept.types | absorbed.types,
+                model_names=kept.model_names | absorbed.model_names,
+                mentioning_documents=(
+                    kept.mentioning_documents | absorbed.mentioning_documents
+                ),
+            )
             partners[survivor] |= partners[dropped]
+
+        def survivor_rank(node: str) -> tuple[int, int, str]:
+            return (
+                -len(identities[node].model_names),
+                -len(identities[node].types),
+                node,
+            )
 
         for node_a, node_b in similar_pairs:
             survivor_a = find_survivor(node_a)
             survivor_b = find_survivor(node_b)
-            identity_a = node_identities[survivor_a]
-            identity_b = node_identities[survivor_b]
+            identity_a = identities[survivor_a]
+            identity_b = identities[survivor_b]
             if (
                 survivor_a != survivor_b
                 and identity_a.types == identity_b.types
@@ -181,24 +233,31 @@ class MergeSimilarNodes(Simplification):
         ):
             if node in dropped_to_survivor:
                 continue
-            identity = node_identities[node]
+            identity = identities[node]
             candidates = [
                 candidate
                 for candidate in {find_survivor(partner) for partner in partners[node]}
                 if candidate != node
-                and self._have_same_identity(identity, node_identities[candidate])
-                and identity.types < node_identities[candidate].types
+                and self._have_same_identity(identity, identities[candidate])
+                and identity.types < identities[candidate].types
             ]
             if candidates:
-                target = min(
-                    candidates,
-                    key=lambda candidate: (
-                        -len(model_names[candidate]),
-                        -len(node_identities[candidate].types),
-                        candidate,
-                    ),
-                )
-                merge(node, target)
+                merge(node, min(candidates, key=survivor_rank))
+
+        merged_any = True
+        while merged_any:
+            merged_any = False
+            for node_a, node_b in similar_pairs:
+                survivor_a = find_survivor(node_a)
+                survivor_b = find_survivor(node_b)
+                if survivor_a != survivor_b and self._can_blend_types(
+                    identities[survivor_a], identities[survivor_b]
+                ):
+                    survivor, dropped = sorted(
+                        (survivor_a, survivor_b), key=survivor_rank
+                    )
+                    merge(dropped, survivor)
+                    merged_any = True
 
         return {node: find_survivor(node) for node in dropped_to_survivor}
 
