@@ -118,7 +118,7 @@ class MergeSimilarNodes(Simplification):
               VALUES ?node {{ {values} }}
               GRAPH ?mention_graph {{ ?document <{store_client.NEO_MENTIONS}> ?node }}
               GRAPH ?document_graph {{
-                ?document a <{store_client.NEO_DOCUMENT}> ;
+                ?document a <{store_client.JEJUNE_DOCUMENT_CHUNK}> ;
                           <{store_client.NEO_ID}> ?document_identifier
               }}
             }}
@@ -309,7 +309,7 @@ class MergeSimilarNodes(Simplification):
               VALUES (?member ?survivor) {{ {member_values} }}
               GRAPH ?mention_graph {{ ?document <{store_client.NEO_MENTIONS}> ?member }}
               GRAPH ?document_graph {{
-                ?document a <{store_client.NEO_DOCUMENT}> ;
+                ?document a <{store_client.JEJUNE_DOCUMENT_CHUNK}> ;
                           <{store_client.NEO_ID}> ?document_identifier
               }}
             }}
@@ -329,7 +329,7 @@ class MergeSimilarNodes(Simplification):
         alignment_graph = OxigraphStoreClient.ALIGNMENT_GRAPH
         in_label_cluster = OxigraphStoreClient.IN_LABEL_CLUSTER
         mentions = OxigraphStoreClient.NEO_MENTIONS
-        document_type = OxigraphStoreClient.NEO_DOCUMENT
+        document_type = OxigraphStoreClient.JEJUNE_DOCUMENT_CHUNK
         neo_id = OxigraphStoreClient.NEO_ID
         operations: list[str] = []
         for dropped, survivor in sorted(dropped_to_survivor.items()):

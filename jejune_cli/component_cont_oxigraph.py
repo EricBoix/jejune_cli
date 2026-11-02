@@ -25,7 +25,7 @@ class CompOxigraph(ContComp):
     _NEO = Namespace("http://example.org/neo4j/")
     _JEJUNE = Namespace("urn:jejune:")
     _NEO_ID = _NEO.id
-    _NEO_DOCUMENT = _NEO.Document
+    _JEJUNE_DOCUMENT_CHUNK = _JEJUNE.DocumentChunk
     _NEO_LLM_MODEL_NAME = _NEO.llm_model_name
     _JEJUNE_LLM_MODEL_NAME = _JEJUNE.llm_model_name
     _ALIGNMENT_GRAPH = "urn:jejune:alignment"
@@ -230,7 +230,7 @@ class CompOxigraph(ContComp):
         source = Graph()
         source.parse(str(turtle_path), format="turtle")
 
-        document_subjects = set(source.subjects(RDF.type, self._NEO_DOCUMENT))
+        document_subjects = set(source.subjects(RDF.type, self._JEJUNE_DOCUMENT_CHUNK))
 
         normalized = Graph()
         for prefix, ns in source.namespaces():
@@ -278,7 +278,7 @@ class CompOxigraph(ContComp):
         SELECT ?node ?label WHERE {{
           GRAPH <{new_graph_uri}> {{
             ?node <{self._NEO_ID}> ?label .
-            FILTER NOT EXISTS {{ ?node a <{self._NEO_DOCUMENT}> }}
+            FILTER NOT EXISTS {{ ?node a <{self._JEJUNE_DOCUMENT_CHUNK}> }}
           }}
         }}
         """
@@ -316,7 +316,7 @@ class CompOxigraph(ContComp):
                 SELECT ?other ?label WHERE {{
                   GRAPH ?g {{
                     ?other <{self._NEO_ID}> ?label .
-                    FILTER NOT EXISTS {{ ?other a <{self._NEO_DOCUMENT}> }}
+                    FILTER NOT EXISTS {{ ?other a <{self._JEJUNE_DOCUMENT_CHUNK}> }}
                   }}
                   FILTER(?g != <{new_graph_uri}> && ?g != <{self._ALIGNMENT_GRAPH}>)
                 }}
@@ -370,7 +370,7 @@ class CompOxigraph(ContComp):
                 SELECT ?node ?label WHERE {{
                   GRAPH <{graph_uri}> {{
                     ?node <{self._NEO_ID}> ?label .
-                    FILTER NOT EXISTS {{ ?node a <{self._NEO_DOCUMENT}> }}
+                    FILTER NOT EXISTS {{ ?node a <{self._JEJUNE_DOCUMENT_CHUNK}> }}
                   }}
                 }}
                 """,

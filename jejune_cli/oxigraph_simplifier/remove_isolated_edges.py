@@ -32,7 +32,9 @@ class RemoveIsolatedEdges(Simplification):
     def _fetch_isolated_edges(
         self, store_client: OxigraphStoreClient
     ) -> list[tuple[str, str]]:
-        document_type = f"<{store_client.RDF_TYPE}> <{store_client.NEO_DOCUMENT}>"
+        document_type = (
+            f"<{store_client.RDF_TYPE}> <{store_client.JEJUNE_DOCUMENT_CHUNK}>"
+        )
         edge = NodeRemoval.edge_pattern("?subject", "?predicate", "?object", "?graph")
         subject_other_out = NodeRemoval.edge_pattern(
             "?subject", "?s_out_p", "?s_out_o", "?s_out_g"

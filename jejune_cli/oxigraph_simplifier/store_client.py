@@ -10,7 +10,7 @@ import urllib.request
 
 class OxigraphStoreClient:
     NEO_ID = "http://example.org/neo4j/id"
-    NEO_DOCUMENT = "http://example.org/neo4j/Document"
+    JEJUNE_DOCUMENT_CHUNK = "urn:jejune:DocumentChunk"
     NEO_MENTIONS = "http://example.org/neo4j/MENTIONS"
     RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
     LLM_MODEL_NAME = "urn:jejune:llm_model_name"
