@@ -7,6 +7,19 @@ from .component_ext import ExtComp
 
 
 class CompNetwork(ExtComp):
+    # TCP states of sockets that are shutting down: they can hold a port for a
+    # while after its container is removed, but nothing is serving on it.
+    _CLOSING_STATES = frozenset(
+        {
+            "TIME_WAIT",
+            "FIN_WAIT_1",
+            "FIN_WAIT_2",
+            "CLOSING",
+            "LAST_ACK",
+            "CLOSE_WAIT",
+        }
+    )
+
     def __init__(self) -> None:
         self.remote_server = "www.google.com"
         super().__init__(
@@ -44,7 +57,9 @@ class CompNetwork(ExtComp):
             if columns
             and any(column.endswith(port_suffixes) for column in columns[3:5])
         ]
-        return bool(port_states) and all(state == "TIME_WAIT" for state in port_states)
+        return bool(port_states) and all(
+            state in self._CLOSING_STATES for state in port_states
+        )
 
 
 def _tcp_reachable(host: str, port: int = 443, timeout: float = 3.0) -> bool:
