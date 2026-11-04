@@ -20,7 +20,7 @@ class HeuristicStepRegistry:
         self._command_preconditions: dict[str, HeuristicCondition] = {}
         self._named_preconditions: dict[str, HeuristicCondition] = {}
         self._role_orderings: dict[str | None, dict[str, int]] = {}
-        self._next_steps_printed: bool = False
+        self._next_steps_settled: bool = False
 
     @staticmethod
     @contextlib.contextmanager
@@ -72,7 +72,9 @@ class HeuristicStepRegistry:
         self._roles_with_heuristics.update(roles)
 
     def has_heuristics_for_role(self, role: str | None) -> bool:
-        return role in self._roles_with_heuristics or None in self._roles_with_heuristics
+        return (
+            role in self._roles_with_heuristics or None in self._roles_with_heuristics
+        )
 
     def _matches(self, step: HeuristicStep) -> bool:
         for fn in step.conditions:
@@ -155,9 +157,13 @@ class HeuristicStepRegistry:
         with self._chdir(cwd):
             return _sorted(self._role_registry.detect_role_name())
 
-    def mark_printed(self) -> None:
-        """Suppress the post-invoke print_next_steps() call for this invocation."""
-        self._next_steps_printed = True
+    def suppress_next_steps(self) -> None:
+        """Suppress the post-invoke print_next_steps() call for this invocation.
+
+        The registry lives as long as its AppContext (one CLI run), so there is
+        deliberately no way to undo this.
+        """
+        self._next_steps_settled = True
 
     def print_next_steps(
         self,
@@ -165,13 +171,17 @@ class HeuristicStepRegistry:
         ordering: dict[str, int] | None = None,
         preamble: list[str] | None = None,
     ) -> None:
-        """Evaluate and print heuristic next steps. Silent if none apply."""
-        if self._next_steps_printed:
+        """Evaluate and print heuristic next steps. Silent if none apply.
+
+        Prints at most once per AppContext: a no-op once next steps were either
+        printed or suppressed via suppress_next_steps().
+        """
+        if self._next_steps_settled:
             return
         steps = self.evaluate(cwd, ordering=ordering)
         if not steps and not preamble:
             return
-        self._next_steps_printed = True
+        self._next_steps_settled = True
         click.echo()
         if cwd is not None and cwd.resolve() != Path.cwd().resolve():
             title = f"Next steps (from {cwd.name}/)"

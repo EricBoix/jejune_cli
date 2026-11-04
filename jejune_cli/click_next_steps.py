@@ -47,7 +47,7 @@ def next_cmd(ctx):
             cmd = step.resolved_command()
             suffix = f"  →  {cmd}" if cmd else ""
             click.echo(f"  • {step.label}{suffix}")
-    app.heuristic_step_registry.mark_printed()
+    app.heuristic_step_registry.suppress_next_steps()
 
 
 @next_cmd.command("state")

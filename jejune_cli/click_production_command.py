@@ -1,4 +1,5 @@
 """ProductionCommand — suppress heuristic next-steps for read-only commands."""
+
 from __future__ import annotations
 
 import click
@@ -23,5 +24,5 @@ class ProductionCommand(click.Command):
         result = super().invoke(ctx)
         app = ctx.find_object(AppContext)
         if app is not None:
-            app.heuristic_step_registry.mark_printed()
+            app.heuristic_step_registry.suppress_next_steps()
         return result
