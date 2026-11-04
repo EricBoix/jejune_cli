@@ -9,6 +9,7 @@
 - [Doc-steward commands](#doc-steward-commands)
 - [Catalog Curator commands](#catalog-curator-commands)
 - [Deployer commands](#deployer-commands)
+- [Development](#development)
 - [Notes and warnings](#notes-and-warnings)
 
 ## Introduction
@@ -292,6 +293,22 @@ Conditions to run it:
 - only `docker-compose.yml` is rewritten: `deployment.env` and `catalog.yaml`
   are left untouched;
 - any manual edit of `docker-compose.yml` is overwritten.
+
+## Development
+
+### Testing
+
+The test suite uses [pytest](https://docs.pytest.org/), declared in the `dev`
+dependency group of `pyproject.toml`. Tests live in the `tests/` directory.
+
+```bash
+uv sync                                            # installs the dev group too
+uv run pytest                                      # run the whole suite
+uv run pytest tests/test_component_registry.py     # run a single test file
+uv run pytest -k invalidate_order                  # run tests matching an expression
+```
+
+Python files are formatted with black: `uv run black <file>`.
 
 ---
 

@@ -200,7 +200,7 @@ class PluginRegistry:
             getattr(c, "plugin_deps", []) + getattr(c, "install_plugin_deps", [])
             for c in self._component_registry
         ):
-            self._component_registry._sort()
+            self._component_registry.invalidate_order()
 
         # Phase 3: call the finalize hook.
         if self._finalize_hook is not None:

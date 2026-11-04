@@ -26,7 +26,8 @@ class UnresolvedPlugin:
 
 class ComponentRegistry:
     def __init__(self) -> None:
-        self._comps: list[BaseComp] = []
+        self._comps_by_name: dict[str, BaseComp] = {}
+        self._ordered_comps: list[BaseComp] | None = None
         self._expected_plugin_names: set[str] = set()
 
     def register_expected_plugin_names(self, names: set[str]) -> None:
@@ -40,12 +41,27 @@ class ComponentRegistry:
         self._expected_plugin_names.update(names)
 
     def add(self, comp: BaseComp) -> None:
-        self._comps.append(comp)
-        self._sort()
+        self._comps_by_name[comp.name] = comp
+        self._ordered_comps = None
 
-    def _sort(self) -> None:
-        """Re-order in topological dependency order (deps before dependents)."""
-        by_name = {c.name: c for c in self._comps}
+    def invalidate_order(self) -> None:
+        """Mark the cached topological order as stale.
+
+        Call this after changing the ``dependencies`` or ``conditional_dependencies``
+        of an already registered component; the order is recomputed on the next
+        ordered read.  Not needed after ``add()``, which invalidates by itself.
+        """
+        self._ordered_comps = None
+
+    def _ordered(self) -> list[BaseComp]:
+        """Return the components in topological order, computing it only when stale."""
+        if self._ordered_comps is None:
+            self._ordered_comps = self._compute_order()
+        return self._ordered_comps
+
+    def _compute_order(self) -> list[BaseComp]:
+        """Return components in topological dependency order (deps before dependents)."""
+        by_name = self._comps_by_name
         comp_set = set(by_name)
         visited: set[str] = set()
         result: list[BaseComp] = []
@@ -66,29 +82,28 @@ class ComponentRegistry:
 
         for name in list(by_name):
             visit(name)
-        self._comps = result
+        return result
 
     def get(self, name: str) -> "BaseComp | UnresolvedPlugin | None":
-        for c in self._comps:
-            if c.name == name:
-                return c
+        comp = self._comps_by_name.get(name)
+        if comp is not None:
+            return comp
         if name in self._expected_plugin_names:
             return UnresolvedPlugin(name)
         return None
 
     def unfulfilled_plugin_names(self) -> set[str]:
         """Return expected plugin names that have not yet been added as components."""
-        registered = {c.name for c in self._comps}
-        return self._expected_plugin_names - registered
+        return self._expected_plugin_names - self._comps_by_name.keys()
 
     def names(self) -> list[str]:
-        return [c.name for c in self._comps]
+        return [c.name for c in self._ordered()]
 
     def __iter__(self):
-        return iter(list(self._comps))
+        return iter(list(self._ordered()))
 
     def __len__(self) -> int:
-        return len(self._comps)
+        return len(self._comps_by_name)
 
     def sorted_active_set(
         self, starting: "frozenset[BaseComp] | None"
@@ -103,7 +118,7 @@ class ComponentRegistry:
             for dep in comp.active_deps():
                 activate(dep)
 
-        for inst in self._comps:
+        for inst in self._ordered():
             if starting is None or inst in starting:
                 activate(inst)
         return self.sorted_subset(list(active))
@@ -111,20 +126,20 @@ class ComponentRegistry:
     def sorted_subset(self, components: list[BaseComp]) -> list[BaseComp]:
         """Return *components* in the registry's topological order."""
         comp_set = {c.name for c in components}
-        ordered = [c for c in self._comps if c.name in comp_set]
+        ordered = [c for c in self._ordered() if c.name in comp_set]
         ordered_names = {c.name for c in ordered}
         ordered += [c for c in components if c.name not in ordered_names]
         return ordered
 
     def load_all_configurations(self, base_dir: Path) -> None:
         """Load env-file sources for every component that has a configuration."""
-        for comp in self._comps:
+        for comp in self._ordered():
             if hasattr(comp, "configuration"):
                 comp.configuration.load(base_dir)
 
     def validate(self) -> None:
         """Assert every dep instance referenced by a component is registered."""
-        for inst in self._comps:
+        for inst in self._ordered():
             for dep in inst.all_deps():
                 if isinstance(dep, UnresolvedPlugin):
                     continue
