@@ -66,7 +66,20 @@ def up(ctx) -> None:
     deployment_comp = app.component_registry.get("deployment")
     busy = deployment_comp.occupied_host_ports(deploy_dir)
     if busy:
+        network = deployment_comp.network
         for port, var in busy:
+            if network.port_in_time_wait(port):
+                click.echo(
+                    click.style(
+                        f"Port {port} ({var}) is still held by the operating system"
+                        " after a container using it was just stopped"
+                        " (TIME_WAIT). Nothing is wrong: retry `jejune up` in"
+                        " about 30 seconds.",
+                        fg="yellow",
+                    ),
+                    err=True,
+                )
+                continue
             click.echo(
                 click.style(f"Port {port} ({var}) is already in use.", fg="red"),
                 err=True,

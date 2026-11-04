@@ -20,3 +20,8 @@ keywords:
 #     chunk_short_name: Paragraphs
 #     chunk_file:       result_data/document_-_Paragraphs_as_LangChain_document.json
 #     turtle_file:      result_data/document_-_Paragraphs.llama3_70b.ttl
+#     # Optional viewer scenes (saved from the graph viewer) to open along with this turtle file:
+#     graph_setups:
+#       - name:        Main concepts
+#         description: Pinned layout of the main concepts
+#         setup_file:  result_data/document_-_Paragraphs.llama3_70b.main-concepts.graph-setup.yaml

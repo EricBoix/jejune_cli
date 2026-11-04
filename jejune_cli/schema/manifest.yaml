@@ -25,6 +25,16 @@ graph_extractions_entry_required_fields:
   - turtle_file
 graph_extractions_entry_optional_fields:
   - chunk_file
+  - graph_setups
 graph_extractions_entry_file_fields:
   - turtle_file
   - chunk_file
+# Per-item schema for the optional graph_setups sequence nested in a graph_extractions entry.
+# A graph setup is a viewer scene (displayed nodes, pins, ...) saved as a YAML file beside the turtle file.
+graph_setups_item_required_fields:
+  - name
+  - setup_file
+graph_setups_item_optional_fields:
+  - description
+graph_setups_item_file_fields:
+  - setup_file
