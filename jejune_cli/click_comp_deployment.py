@@ -67,22 +67,26 @@ def up(ctx) -> None:
     busy = deployment_comp.occupied_host_ports(deploy_dir)
     if busy:
         network = deployment_comp.network
-        for port, var in busy:
-            if network.port_has_no_listener(port):
-                click.echo(
-                    click.style(
-                        f"Port {port} ({var}) is still held by the operating system"
-                        " although nothing is listening on it, most likely"
-                        " (TIME_WAIT) because a container using it was just"
-                        " stopped. Nothing is wrong: retry `jejune up` in"
-                        " about 30 seconds.",
-                        fg="yellow",
-                    ),
-                    err=True,
-                )
-                continue
+        lingering = [
+            (port, var) for port, var in busy if network.port_has_no_listener(port)
+        ]
+        in_use = [entry for entry in busy if entry not in lingering]
+        for port, var in in_use:
             click.echo(
                 click.style(f"Port {port} ({var}) is already in use.", fg="red"),
+                err=True,
+            )
+        if lingering:
+            port_list = ", ".join(f"{port} ({var})" for port, var in lingering)
+            click.echo(
+                click.style(
+                    f"Ports {port_list} are still held by the operating system"
+                    " although nothing is listening on them, most likely"
+                    " (TIME_WAIT) because a container using them was just"
+                    " stopped. Nothing is wrong: retry `jejune up` in"
+                    " about 30 seconds.",
+                    fg="yellow",
+                ),
                 err=True,
             )
         raise SystemExit(1)

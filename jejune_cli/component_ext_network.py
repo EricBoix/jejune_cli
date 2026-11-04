@@ -36,9 +36,7 @@ class CompNetwork(ExtComp):
         """
         for loopback_address in ("127.0.0.1", "::1"):
             try:
-                with socket.create_connection(
-                    (loopback_address, port), timeout=1.0
-                ):
+                with socket.create_connection((loopback_address, port), timeout=1.0):
                     return False
             except OSError:
                 continue
