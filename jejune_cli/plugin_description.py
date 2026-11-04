@@ -18,6 +18,7 @@ import click
 
 from .plugin_role_description import PluginRoleDescription
 from .component_base import BaseComp
+from .containerized_context import ContainerizedContext
 
 
 @dataclass
@@ -35,7 +36,8 @@ class PluginDescription:
     config_vars        : env vars required for this component.
     config_hint        : what to do when they are missing.
     avail_hint         : shown in components doctor Availability table on error.
-    check_availability : () -> (ok, message) — runtime probe.
+    check_availability : (component) -> (ok, message) — runtime probe; receives
+                         the component registered for this plugin.
     required_deps      : names of built-in components that must be ok first.
     optional_deps      : names of components that enhance this one.
     target_role        : name of the role section this plugin appears under
@@ -44,7 +46,8 @@ class PluginDescription:
     role               : role contributed by this plugin package.
     build_image        : (no_cache: bool) -> None — builds Docker image.
     image_is_built     : () -> bool — checks if Docker image exists.
-    component          : optional full BaseComp instance to register in
+    component_factory  : optional ``(ContainerizedContext) -> BaseComp`` called
+                         by PluginRegistry to build the component registered in
                          ComponentRegistry instead of a thin wrapper.  Use when
                          the plugin contributes a containerized component that
                          needs rich Docker lifecycle methods.
@@ -55,7 +58,7 @@ class PluginDescription:
     config_vars: list[str] = field(default_factory=list)
     config_hint: str = ""
     avail_hint: str = ""
-    check_availability: Callable[[], tuple[bool, str]] | None = None
+    check_availability: Callable[[BaseComp], tuple[bool, str]] | None = None
     required_deps: list[str] = field(default_factory=list)
     optional_deps: list[str] = field(default_factory=list)
     target_role: str | None = None
@@ -71,11 +74,12 @@ class PluginDescription:
     """(no_cache: bool) -> None — builds this component's Docker image."""
     image_is_built: Callable[[], bool] | None = None
     """() -> bool — returns True when this component's Docker image already exists."""
-    component: "BaseComp | None" = None
-    """Full component instance to register in ComponentRegistry.
+    component_factory: Callable[[ContainerizedContext], BaseComp] | None = None
+    """Factory building the full component to register in ComponentRegistry.
 
-    When set, PluginRegistry uses this instance directly instead of creating a
-    thin _PluginComp wrapper.  The instance must have name == self.name.
+    When set, PluginRegistry calls it with the shared ContainerizedContext and uses
+    the returned instance directly instead of creating a thin _PluginComp wrapper.
+    The instance must have name == self.name.
     """
     repo_name: str | None = None
     """Git repository name when it differs from the distribution package name.

@@ -206,7 +206,7 @@ class CompDeployment(ConfComp):
         ]
         return [
             (
-                (p.name, *p.check_availability())
+                (p.name, *self._plugin_registry.check_plugin_availability(p))
                 if p.check_availability
                 else (p.name, False, "not installed")
             )

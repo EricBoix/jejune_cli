@@ -1,4 +1,5 @@
 """AppContext — single owner of all registries and the root CLI group."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -17,11 +18,11 @@ from .heuristic_step_wiring import wire_heuristics
 
 class AppContext:
     def __init__(self, cli: click.Group) -> None:
-        self.cli                     = cli
-        self.component_registry      = ComponentRegistry()
-        self.role_registry           = RoleRegistry(self.component_registry)
-        self.coordination            = ContainerCoordination()
-        self.plugin_registry         = PluginRegistry(self.component_registry)
+        self.cli = cli
+        self.component_registry = ComponentRegistry()
+        self.role_registry = RoleRegistry(self.component_registry)
+        self.coordination = ContainerCoordination()
+        self.plugin_registry = PluginRegistry(self.component_registry)
         self.heuristic_step_registry = HeuristicStepRegistry(self.role_registry)
 
         self.containerized_context = build_components(
@@ -30,6 +31,7 @@ class AppContext:
             self.role_registry,
             self.plugin_registry,
         )
+        self.plugin_registry.set_containerized_context(self.containerized_context)
         wire_roles(self.role_registry)
 
         wire_heuristics(

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from .component_registry import ComponentRegistry
-from .component_containerized import ContComp
 from .containerized_context import ContainerizedContext
 from .component_ext_command_docker import CompCommandDocker
 from .component_ext_network import CompNetwork
@@ -78,7 +77,7 @@ def build_components(
     network.set_runtime_dependency("ecosystem", ecosystem)
     git_command.set_runtime_dependency("ecosystem", ecosystem)
 
-    # Bundle shared infrastructure; set class-level fallback for plugin ContComp subclasses
+    # Bundle shared infrastructure; handed to plugins by AppContext via PluginRegistry
     context = ContainerizedContext(
         docker=docker_command,
         docker_daemon=docker_daemon,
@@ -88,7 +87,6 @@ def build_components(
         ecosystem=ecosystem,
         role_registry=role_registry,
     )
-    ContComp.set_shared_context(context)
 
     # Cont components
     llm_obs = CompServerLlmObservability(context=context)

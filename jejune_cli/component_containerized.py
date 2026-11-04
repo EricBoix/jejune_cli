@@ -23,20 +23,13 @@ class ContComp(ConfComp):
       self._context.plugin_packages — comp_plugin_packages instance
       self._context.ecosystem       — comp_ecosystem instance
 
-    Built-in subclasses receive the context explicitly via the *context*
-    constructor keyword argument.  Plugin subclasses that omit *context* fall
-    back to the class-level ``_shared_context`` set by
-    ``ContComp.set_shared_context()``, which ``build_components()`` calls
-    before any plugin is loaded.
+    Every subclass receives the context explicitly via the *context*
+    constructor keyword argument.  Plugin subclasses are built by the
+    ``PluginDescription.component_factory``, which ``PluginRegistry`` calls with
+    the shared context.
     """
 
-    _shared_context: ContainerizedContext | None = None
     is_external_image: bool = False
-
-    @classmethod
-    def set_shared_context(cls, context: ContainerizedContext) -> None:
-        """Set the fallback context used by plugin subclasses that omit the context arg."""
-        cls._shared_context = context
 
     def __init__(
         self,
@@ -49,17 +42,13 @@ class ContComp(ConfComp):
         configuration: Configuration | None = None,
         hint: str | None = None,
         service_name: str | None = None,
-        context: ContainerizedContext | None = None,
+        *,
+        context: ContainerizedContext,
     ) -> None:
-        ctx = context if context is not None else ContComp._shared_context
-        if ctx is None:
-            raise RuntimeError(
-                "ContainerizedContext not initialised — call build_components() first"
-            )
-        self._context = ctx
-        daemon = ctx.docker_daemon
+        self._context = context
+        daemon = context.docker_daemon
         deps = (
-            ([ctx.docker] if ctx.docker else [])
+            ([context.docker] if context.docker else [])
             + ([daemon] if daemon else [])
             + (dependencies or [])
         )

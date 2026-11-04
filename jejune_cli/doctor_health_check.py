@@ -47,7 +47,7 @@ def run_avail(
                 avail.append((plugin.name, status, msg))
                 continue
         if plugin.check_availability is not None:
-            passed, msg = plugin.check_availability()
+            passed, msg = plugin_registry.check_plugin_availability(plugin)
             avail.append((plugin.name, "ok" if passed else "error", msg))
         else:
             avail.append((plugin.name, "warn", "no availability check"))

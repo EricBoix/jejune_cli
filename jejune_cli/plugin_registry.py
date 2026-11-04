@@ -14,6 +14,7 @@ from .component_registry import ComponentRegistry, UnresolvedPlugin
 from .component_with_config import ConfComp
 from .configuration import Configuration
 from .configuration_entry import ConfigurationEntry
+from .containerized_context import ContainerizedContext
 from .plugin_comp import PluginComp
 from .plugin_description import PluginDescription
 
@@ -34,6 +35,16 @@ class PluginRegistry:
         self._post_hooks: list[Callable[[PluginDescription], None]] = []
         self._finalize_hook: Callable[[], None] | None = None
         self._plugin_repo_names: dict[str, str] = {}
+        self._containerized_context: ContainerizedContext | None = None
+
+    def set_containerized_context(self, context: ContainerizedContext) -> None:
+        """Provide the shared context handed to every plugin ``component_factory``."""
+        self._containerized_context = context
+
+    def check_plugin_availability(self, plugin: PluginDescription) -> tuple[bool, str]:
+        """Run *plugin*'s availability probe against its registered component."""
+        component = self._component_registry.get(plugin.name)
+        return plugin.check_availability(component)
 
     def add_post_hook(self, fn: Callable[[PluginDescription], None]) -> None:
         """Register callback invoked after each plugin is component-registered."""
@@ -65,8 +76,15 @@ class PluginRegistry:
         self._loaded.add(plugin.name)
         self._plugins.append(plugin)
 
-        if plugin.component is not None:
-            self._component_registry.add(plugin.component)
+        if plugin.component_factory is not None:
+            if self._containerized_context is None:
+                raise RuntimeError(
+                    "ContainerizedContext not set — call "
+                    "PluginRegistry.set_containerized_context() before loading plugins"
+                )
+            self._component_registry.add(
+                plugin.component_factory(self._containerized_context)
+            )
         else:
             existing = self._component_registry.get(plugin.name)
             if existing is None or isinstance(existing, UnresolvedPlugin):
