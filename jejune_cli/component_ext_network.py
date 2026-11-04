@@ -1,25 +1,11 @@
 """Network connectivity component."""
 
 import socket
-import subprocess
 
 from .component_ext import ExtComp
 
 
 class CompNetwork(ExtComp):
-    # TCP states of sockets that are shutting down: they can hold a port for a
-    # while after its container is removed, but nothing is serving on it.
-    _CLOSING_STATES = frozenset(
-        {
-            "TIME_WAIT",
-            "FIN_WAIT_1",
-            "FIN_WAIT_2",
-            "CLOSING",
-            "LAST_ACK",
-            "CLOSE_WAIT",
-        }
-    )
-
     def __init__(self) -> None:
         self.remote_server = "www.google.com"
         super().__init__(
@@ -42,24 +28,21 @@ class CompNetwork(ExtComp):
             except OSError:
                 return False
 
-    def port_in_time_wait(self, port: int) -> bool:
-        """Return True if *port* only lingers in TIME_WAIT (e.g. a container just stopped)."""
-        try:
-            netstat = subprocess.run(
-                ["netstat", "-an"], capture_output=True, text=True, timeout=5
-            )
-        except (OSError, subprocess.SubprocessError):
-            return False
-        port_suffixes = (f".{port}", f":{port}")
-        port_states = [
-            columns[-1]
-            for columns in (line.split() for line in netstat.stdout.splitlines())
-            if columns
-            and any(column.endswith(port_suffixes) for column in columns[3:5])
-        ]
-        return bool(port_states) and all(
-            state in self._CLOSING_STATES for state in port_states
-        )
+    def port_has_no_listener(self, port: int) -> bool:
+        """Return True if no process accepts connections on *port* on loopback.
+
+        Combined with a failed bind (see port_free), this means the port is only
+        held by lingering TIME_WAIT sockets, e.g. of a container just stopped.
+        """
+        for loopback_address in ("127.0.0.1", "::1"):
+            try:
+                with socket.create_connection(
+                    (loopback_address, port), timeout=1.0
+                ):
+                    return False
+            except OSError:
+                continue
+        return True
 
 
 def _tcp_reachable(host: str, port: int = 443, timeout: float = 3.0) -> bool:

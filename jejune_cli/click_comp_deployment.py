@@ -68,12 +68,13 @@ def up(ctx) -> None:
     if busy:
         network = deployment_comp.network
         for port, var in busy:
-            if network.port_in_time_wait(port):
+            if network.port_has_no_listener(port):
                 click.echo(
                     click.style(
                         f"Port {port} ({var}) is still held by the operating system"
-                        " after a container using it was just stopped"
-                        " (TIME_WAIT). Nothing is wrong: retry `jejune up` in"
+                        " although nothing is listening on it, most likely"
+                        " (TIME_WAIT) because a container using it was just"
+                        " stopped. Nothing is wrong: retry `jejune up` in"
                         " about 30 seconds.",
                         fg="yellow",
                     ),
