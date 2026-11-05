@@ -7,28 +7,36 @@ def print_config_check(config: Configuration, exit_on_not_set: bool = False) -> 
     """Print detailed per-variable config check for a component's configuration.
 
     Each failing variable is followed by the file to edit. A placeholder value
-    always exits 1; an unset variable exits 1 only when exit_on_not_set is true.
+    or a value rejected by the entry's validator always exits 1; an unset
+    variable exits 1 only when exit_on_not_set is true.
     """
     if not config:
         click.echo(click.style("no configuration required", fg="green"))
         return
-    entries = config.entries_check()
-    col_width = max(len(env_var) for env_var, _ in entries)
+    col_width = max(len(entry.env_var) for entry in config.entries)
     any_error = False
-    for entry, (env_var, status) in zip(config.entries, entries):
-        if status == "missing":
+    for entry in config.entries:
+        separator = "  "
+        env_var = entry.env_var
+        status, message = entry.check()
+        if message == "missing":
             label = click.style("not set", fg="yellow")
             any_error = any_error or exit_on_not_set
-        elif status == "placeholder":
+        elif message == "placeholder":
             label = click.style("placeholder", fg="red")
+            any_error = True
+        elif status != "ok":
+            # Validator failure: the message explains what is wrong with the value
+            label = click.style(message or status, fg="red")
+            separator = "; "
             any_error = True
         else:
             click.echo(f"  {env_var:<{col_width}}  {click.style('ok', fg='green')}")
             continue
         if entry.source_file:
-            edit_hint = f"  edit {entry.source_file}"
+            edit_hint = f"{separator}edit {entry.source_file}"
         elif entry.hint:
-            edit_hint = f"  {entry.hint}"
+            edit_hint = f"{separator}{entry.hint}"
         else:
             edit_hint = ""
         click.echo(f"  {env_var:<{col_width}}  {label}{edit_hint}")

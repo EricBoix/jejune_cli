@@ -58,10 +58,6 @@ class Configuration:
         ]
         return overrides if overrides else self.hints()
 
-    def entries_check(self) -> list[tuple[str, str]]:
-        """Return (env_var, status) for each entry; status is 'ok', 'missing', or 'placeholder'."""
-        return [(e.env_var, e.check()[1] or "ok") for e in self.entries]
-
     def load(self, base_dir: Path) -> None:
         """Load all entry source files into os.environ."""
         for e in self.entries:

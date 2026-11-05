@@ -86,3 +86,21 @@ def test_all_ok_exits_zero_even_when_requested(monkeypatch):
     monkeypatch.setenv("TEST_CONFIG_OK", "value")
     configuration = Configuration(ConfigurationEntry("TEST_CONFIG_OK"))
     print_config_check(configuration, exit_on_not_set=True)
+
+
+def test_check_config_reports_validator_error_and_file(monkeypatch, capsys):
+    monkeypatch.setenv("TEST_CONFIG_INVALID", "some/value")
+    configuration = Configuration(
+        ConfigurationEntry(
+            "TEST_CONFIG_INVALID",
+            source_file=".jejune/env-config",
+            env_var_validator=lambda value: ("error", f"{value} lacks DockerContext"),
+        )
+    )
+    with pytest.raises(SystemExit) as exit_info:
+        print_config_check(configuration)
+    assert exit_info.value.code == 1
+    output = capsys.readouterr().out
+    assert "some/value lacks DockerContext" in output
+    assert "edit .jejune/env-config" in output
+    assert "ok" not in output
