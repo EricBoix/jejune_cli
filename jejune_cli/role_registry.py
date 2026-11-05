@@ -121,6 +121,9 @@ class RoleRegistry:
     def role_is_doc_steward_family(self, role: Role) -> bool:
         return self.role_inherits(role, "doc-steward")
 
+    def role_is_catalog_contributor_family(self, role: Role) -> bool:
+        return self.role_inherits(role, "catalog-contributor")
+
     def role_is_deployment_catalog_family(self, role: Role) -> bool:
         return self.role_inherits(role, "deployment-catalog")
 

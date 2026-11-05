@@ -1,7 +1,48 @@
 """Built-in Role instances and their registration into RoleRegistry."""
 
+import subprocess
+from pathlib import Path
+
+from ._package_paths import CatalogConfig
 from .role import Role
 from .role_registry import RoleRegistry
+
+
+class RoleDetectors:
+    """Workspace-detection predicates for the built-in roles."""
+
+    @staticmethod
+    def _is_doc_steward_cwd() -> bool:
+        return (Path.cwd() / "manifest.yaml").is_file()
+
+    @staticmethod
+    def is_deployer_cwd() -> bool:
+        cwd = Path.cwd()
+        return (cwd / "docker-compose.yml").is_file() and (
+            cwd / "catalog.yaml"
+        ).is_file()
+
+    @staticmethod
+    def is_catalog_contributor_cwd() -> bool:
+        """Detect catalog-contributor role: catalog.yaml + .git + remote named jejune_catalog."""
+        cwd = Path.cwd()
+        if not (cwd / "catalog.yaml").is_file():
+            return False
+        if not (cwd / ".git").is_dir():
+            return False
+        try:
+            url = subprocess.check_output(
+                ["git", "remote", "get-url", "origin"],
+                cwd=cwd,
+                stderr=subprocess.DEVNULL,
+                text=True,
+            ).strip()
+            return (
+                url.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git")
+                == CatalogConfig.REPO_NAME
+            )
+        except Exception:
+            return False
 
 
 def wire_roles(registry: RoleRegistry) -> None:
@@ -45,7 +86,7 @@ def wire_roles(registry: RoleRegistry) -> None:
             includes=("contributor",),
             section_title="Doc-steward commands",
             description="document authoring",
-            detector=Role._is_doc_steward_cwd,
+            detector=RoleDetectors._is_doc_steward_cwd,
         )
     )
     registry.register(
@@ -70,7 +111,7 @@ def wire_roles(registry: RoleRegistry) -> None:
             includes=("contributor", "deployment-catalog"),
             section_title="Catalog-contributor commands",
             description="collection catalog management",
-            detector=Role.is_catalog_contributor_cwd,
+            detector=RoleDetectors.is_catalog_contributor_cwd,
         )
     )
     registry.register(
@@ -92,6 +133,6 @@ def wire_roles(registry: RoleRegistry) -> None:
             includes=("contributor", "deployment-catalog"),
             section_title="Deployer commands",
             description="service deployment",
-            detector=Role.is_deployer_cwd,
+            detector=RoleDetectors.is_deployer_cwd,
         )
     )

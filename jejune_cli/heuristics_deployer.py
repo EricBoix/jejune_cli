@@ -9,7 +9,7 @@ from .component_ext import ExtComp
 from .component_registry import ComponentRegistry
 from .heuristic_step import ComponentCondition, HeuristicStep
 from .heuristic_step_registry import HeuristicStepRegistry
-from .role import Role
+from .role_definitions import RoleDetectors
 
 
 def register_heuristics(
@@ -88,7 +88,9 @@ def register_heuristics(
         "deployer plugin-packages installed",
         component_registry.get("plugin-packages").packages_installed,
     )
-    registry.register_precondition("deployer role detected", Role.is_deployer_cwd)
+    registry.register_precondition(
+        "deployer role detected", RoleDetectors.is_deployer_cwd
+    )
     registry.register_precondition(
         "deployment config is default", _deploy_config_is_default
     )

@@ -33,7 +33,8 @@ def next_cmd(ctx):
         else:
             active_role = app.role_registry.detect_role()
             if (
-                not active_role or active_role.is_doc_steward()
+                not active_role
+                or app.role_registry.role_is_doc_steward_family(active_role)
             ) and not DotJejune().is_dir():
                 click.echo(
                     "No next steps detected. "
