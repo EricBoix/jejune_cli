@@ -163,7 +163,17 @@ class RoleRegistry:
                         stack.extend(r_obj2.includes)
             return seen
 
-        root = "contributor"
+        parentless_role_names = [
+            role_name
+            for role_name, role_obj in self._roles.items()
+            if not role_obj.includes
+        ]
+        if len(parentless_role_names) != 1:
+            raise ValueError(
+                "Role hierarchy needs exactly one root role (a role without includes), "
+                f"found: {parentless_role_names}"
+            )
+        root = parentless_role_names[0]
         children: dict[str, list[str]] = {}
         for role_name in self._roles:
             if role_name == root:
