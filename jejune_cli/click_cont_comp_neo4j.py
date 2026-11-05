@@ -1,4 +1,5 @@
 import os
+import tempfile
 from pathlib import Path
 
 import click
@@ -12,6 +13,7 @@ from .click_configuration import (
 from .click_cont_comp_neo4j_helpers import (
     get_llm_model_names,
     resolve_llm_decorated_filename,
+    resolve_restore_dump_location,
 )
 from .click_production_command import ProductionCommand
 from .click_cont_comp_neo4j_to_rdf_ttl import dump_turtle
@@ -303,18 +305,38 @@ def dump(comp, results_dir, dump_filename):
 @click.argument("dump_filename")
 @click.pass_obj
 def restore(comp, results_dir, dump_filename):
-    """Restore the Neo4j database from RESULTS_DIR/backups/DUMP_FILENAME.
+    """Restore the Neo4j database from a dump, into RESULTS_DIR/database.
+
+    DUMP_FILENAME is interpreted in one of two ways:
+
+    \b
+    1. A simple filename (no '/'): the dump is read from
+       RESULTS_DIR/backups/DUMP_FILENAME.
+       Example: jejune neo4j restore RESULTS_DIR my.dump
+    2. A path-filename (contains '/'): the dump is read from that path,
+       relative to the current directory (absolute paths also work).
+       The dump is first copied to a temporary directory, unless it already
+       sits in RESULTS_DIR/backups.
+       Example: jejune neo4j restore RESULTS_DIR ./other/my.dump
+
+    \b
+    Note: a bare name is always looked up in RESULTS_DIR/backups.
+    For a dump in the current directory, write './my.dump'.
 
     Requires Neo4j to be stopped first (run `jejune neo4j stop`).
     Wipes the current database directory, then loads the dump.
     The username/password burnt into the dump must match the target instance.
     """
     results_dir = Path(results_dir).resolve()
-    click.echo(f"Restoring {dump_filename} ...")
-    try:
-        comp.restore(results_dir, dump_filename)
-    except RuntimeError as exc:
-        raise click.ClickException(str(exc))
+    with tempfile.TemporaryDirectory() as temporary_directory:
+        backups_dir, dump_name = resolve_restore_dump_location(
+            results_dir, dump_filename, Path(temporary_directory)
+        )
+        click.echo(f"Restoring {dump_name} ...")
+        try:
+            comp.restore(results_dir, dump_name, backups_dir)
+        except RuntimeError as exc:
+            raise click.ClickException(str(exc))
     click.echo("Restore complete.")
 
 

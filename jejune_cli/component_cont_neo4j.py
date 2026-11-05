@@ -122,9 +122,15 @@ class CompNeo4j(ContComp):
         self._preflight_database_dir_ownership(database_dir)
         shutil.rmtree(database_dir, ignore_errors=True)
 
-    def restore(self, results_dir: Path, dump_filename: str) -> None:
+    def restore(
+        self,
+        results_dir: Path,
+        dump_filename: str,
+        backups_dir: Path | None = None,
+    ) -> None:
         database_dir = results_dir / "database"
-        backups_dir = results_dir / "backups"
+        if backups_dir is None:
+            backups_dir = results_dir / "backups"
         dump_path = backups_dir / dump_filename
 
         self._preflight_database_dir_ownership(database_dir)

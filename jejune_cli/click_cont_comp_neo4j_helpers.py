@@ -1,6 +1,8 @@
 """Click-level helpers shared by Neo4j commands."""
 
+import os
 import re
+import shutil
 from pathlib import Path
 
 import click
@@ -33,6 +35,31 @@ def decorate_dump_filename(
         truncated = len(safe_models) > available
         return f"{stem}.{safe_models[:available]}{suffix}", truncated
     return f"{stem}.{safe_models}{suffix}", False
+
+
+def resolve_restore_dump_location(
+    results_dir: Path, dump_argument: str, temporary_directory: Path
+) -> tuple[Path | None, str]:
+    """Resolve where a restore dump lives; return (backups_dir, dump_filename).
+
+    A simple filename (no directory separator) is looked up in
+    results_dir/backups: backups_dir is None, meaning "use the default".
+    A path-filename is relative to the current directory. When it does not
+    already sit in results_dir/backups, the dump is copied into
+    temporary_directory (which then becomes the mounted backups_dir).
+    """
+    if os.sep not in dump_argument:
+        return None, dump_argument
+
+    dump_path = (Path.cwd() / dump_argument).resolve()
+    if not dump_path.is_file():
+        raise click.ClickException(f"Dump file not found: {dump_path}")
+    if dump_path.parent == (results_dir / "backups").resolve():
+        return None, dump_path.name
+
+    click.echo(f"Copying {dump_path} to {temporary_directory} ...")
+    shutil.copy2(dump_path, temporary_directory / dump_path.name)
+    return temporary_directory, dump_path.name
 
 
 def get_llm_model_names(neo4j_comp) -> list[str]:
