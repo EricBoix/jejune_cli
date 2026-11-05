@@ -27,6 +27,7 @@ class CompServerLlmObservability(ContComp):
                     hint="configure TRACELOOP_BASE_URL in .jejune/env-config",
                     source_file=".jejune/env-config",
                 ),
+                failure_hint="run `jejune llm-observability check-config`",
             ),
             context=context,
         )

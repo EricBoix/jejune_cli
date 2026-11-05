@@ -48,6 +48,7 @@ class CompNeo4j(ContComp):
                     hint="edit .jejune/env-secrets",
                     source_file=".jejune/env-secrets",
                 ),
+                failure_hint="run `jejune neo4j check-config`",
             ),
             context=context,
         )

@@ -36,7 +36,7 @@ def neo4j(ctx):
 @click.pass_obj
 def check_config(comp):
     """Show per-variable configuration detail for the neo4j component."""
-    print_config_check(comp.configuration)
+    print_config_check(comp.configuration, exit_on_not_set=True)
 
 
 @neo4j.command("status-config")

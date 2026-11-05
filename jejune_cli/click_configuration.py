@@ -3,23 +3,35 @@ import click
 from .configuration import Configuration
 
 
-def print_config_check(config: Configuration) -> None:
-    """Print detailed per-variable config check for a component's configuration."""
+def print_config_check(config: Configuration, exit_on_not_set: bool = False) -> None:
+    """Print detailed per-variable config check for a component's configuration.
+
+    Each failing variable is followed by the file to edit. A placeholder value
+    always exits 1; an unset variable exits 1 only when exit_on_not_set is true.
+    """
     if not config:
         click.echo(click.style("no configuration required", fg="green"))
         return
     entries = config.entries_check()
     col_width = max(len(env_var) for env_var, _ in entries)
     any_error = False
-    for env_var, status in entries:
+    for entry, (env_var, status) in zip(config.entries, entries):
         if status == "missing":
             label = click.style("not set", fg="yellow")
+            any_error = any_error or exit_on_not_set
         elif status == "placeholder":
             label = click.style("placeholder", fg="red")
             any_error = True
         else:
-            label = click.style("ok", fg="green")
-        click.echo(f"  {env_var:<{col_width}}  {label}")
+            click.echo(f"  {env_var:<{col_width}}  {click.style('ok', fg='green')}")
+            continue
+        if entry.source_file:
+            edit_hint = f"  edit {entry.source_file}"
+        elif entry.hint:
+            edit_hint = f"  {entry.hint}"
+        else:
+            edit_hint = ""
+        click.echo(f"  {env_var:<{col_width}}  {label}{edit_hint}")
     if any_error:
         raise SystemExit(1)
 

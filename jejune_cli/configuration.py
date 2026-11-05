@@ -6,8 +6,13 @@ from .configuration_entry import ConfigurationEntry
 
 
 class Configuration:
-    def __init__(self, *entries: ConfigurationEntry) -> None:
+    def __init__(
+        self, *entries: ConfigurationEntry, failure_hint: str | None = None
+    ) -> None:
         self.entries: list[ConfigurationEntry] = list(entries)
+        # When set, replaces the per-entry hints: it points the user at a
+        # diagnostic command instead of listing every file of every entry.
+        self.failure_hint = failure_hint
 
     def __bool__(self) -> bool:
         return bool(self.entries)
@@ -33,7 +38,9 @@ class Configuration:
         return status, msgs, ", ".join(self.hints())
 
     def hints(self) -> list[str]:
-        """Return unique non-None hints from all entries."""
+        """Return failure_hint if set, else unique non-None hints from all entries."""
+        if self.failure_hint:
+            return [self.failure_hint]
         seen: set[str] = set()
         result: list[str] = []
         for e in self.entries:
