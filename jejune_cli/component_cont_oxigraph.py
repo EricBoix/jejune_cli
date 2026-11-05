@@ -74,6 +74,7 @@ class CompOxigraph(ContComp):
                     source_file=".jejune/env-config",
                     max_severity="warn",
                 ),
+                failure_hint="run `jejune oxigraph check-config`",
             ),
             context=context,
         )

@@ -6,6 +6,7 @@ from pathlib import Path
 import click
 
 from .app_context import AppContext
+from .click_configuration import print_config_check
 from .component_cont_oxigraph import CompOxigraph
 from .oxigraph_simplifier import OxigraphSimplifier
 
@@ -27,6 +28,13 @@ def oxigraph(ctx):
     Stop and restart are safe — data survives container removal.
     """
     ctx.ensure_object(AppContext)
+
+
+@oxigraph.command("check-config")
+@click.pass_context
+def check_config(ctx):
+    """Show per-variable configuration detail for the oxigraph component."""
+    print_config_check(_comp(ctx).configuration, exit_on_not_set=True)
 
 
 @oxigraph.command("start")
