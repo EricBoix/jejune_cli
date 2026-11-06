@@ -14,12 +14,12 @@ from .containerized_context import ContainerizedContext
 
 class CompConvert(ContComp):
     def __init__(
-        self, pypi_server, context: ContainerizedContext | None = None
+        self, pypi_server, git_access, context: ContainerizedContext | None = None
     ) -> None:
         super().__init__(
             name="convert",
             image_name="jejune-convert",
-            dependencies=[pypi_server],
+            dependencies=[pypi_server, git_access],
             hint="run `jejune build` (or `jejune convert build`)",
             configuration=Configuration(
                 ConfigurationEntry(

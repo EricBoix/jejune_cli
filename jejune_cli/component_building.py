@@ -102,7 +102,9 @@ def build_components(
         llm_observability=llm_obs,
         context=context,
     )
-    convert = CompConvert(pypi_server=pypi_server, context=context)
+    convert = CompConvert(
+        pypi_server=pypi_server, git_access=git_access, context=context
+    )
     converters_comp = CompConverters(
         docker_daemon=docker_daemon, ecosystem=ecosystem, context=context
     )
