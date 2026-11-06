@@ -19,11 +19,13 @@ class CompDeployment(ConfComp):
         docker_command,
         plugin_registry,
         ecosystem,
+        git_access,
     ) -> None:
         self.network = network
         self._docker_command = docker_command
         self._plugin_registry = plugin_registry
         self._ecosystem = ecosystem
+        self._git_access = git_access
         super().__init__(
             name="deployment",
             dependencies=[
@@ -32,6 +34,7 @@ class CompDeployment(ConfComp):
                 docker_command,
                 network,
                 ecosystem,
+                git_access,
             ],
             plugin_deps=[
                 "jejune_docs_server",
@@ -176,12 +179,14 @@ class CompDeployment(ConfComp):
         name = deploy_dir.resolve().name.lower()
         has_private = self.has_private_repos(deploy_dir)
         build_secrets = (
-            "      secrets:\n        - catalog\n        - gh_token"
+            "      secrets:\n        - catalog\n        - gh_token\n        - git_credentials"
             if has_private
             else "      secrets:\n        - catalog"
         )
         gh_secret_def = (
-            '  gh_token:\n    file: "${GH_TOKEN_FILE:-~/.github_token}"'
+            '  gh_token:\n    file: "${GH_TOKEN_FILE:-~/.github_token}"\n'
+            "  # git-credential-store lines, one per private catalog entry: see CompGitAccess\n"
+            '  git_credentials:\n    file: "${GIT_CREDENTIALS_FILE:-/dev/null}"'
             if has_private
             else ""
         )
@@ -238,11 +243,13 @@ class CompDeployment(ConfComp):
                     )
         return env
 
-    def run_compose(self, deploy_dir: Path, *args: str) -> int:
+    def run_compose(
+        self, deploy_dir: Path, *args: str, extra_env: dict[str, str] | None = None
+    ) -> int:
         result = subprocess.run(
             ["docker", "compose", "--env-file", "deployment.env", *args],
             cwd=deploy_dir,
-            env=self._build_env(deploy_dir),
+            env={**self._build_env(deploy_dir), **(extra_env or {})},
         )
         return result.returncode
 
@@ -250,4 +257,22 @@ class CompDeployment(ConfComp):
         if no_cache:
             subprocess.run(["docker", "builder", "prune", "--force"], check=True)
         compose_args = ["build", "--no-cache"] if no_cache else ["build"]
-        return self.run_compose(deploy_dir, *compose_args)
+        catalog_dep = next((d for d in self.dependencies if d.name == "catalog"), None)
+        private_repositories = (
+            catalog_dep.private_repositories(deploy_dir / "catalog.yaml")
+            if catalog_dep is not None and (deploy_dir / "catalog.yaml").is_file()
+            else []
+        )
+        # One path-aware git-credential-store line per private catalog entry
+        # (its token_file, else the git-access default), as the compose secret
+        # git_credentials; removed once compose is done.
+        with self._git_access.credentials_file_for_entries(
+            private_repositories
+        ) as credentials:
+            return self.run_compose(
+                deploy_dir,
+                *compose_args,
+                extra_env=(
+                    {"GIT_CREDENTIALS_FILE": str(credentials)} if credentials else None
+                ),
+            )

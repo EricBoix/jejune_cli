@@ -58,9 +58,12 @@ def build_components(
     git_server = CompServerGit(network=network, git_command=git_command)
     llm = CompServerLlm(network=network)
 
+    git_access = CompGitAccess(git_command=git_command)
+
     # Higher-level ext components
     ecosystem = CompEcosystem(
         git_server=git_server,
+        git_access=git_access,
         role_registry=role_registry,
         plugin_registry=plugin_registry,
     )
@@ -69,7 +72,6 @@ def build_components(
         role_registry=role_registry,
         plugin_registry=plugin_registry,
     )
-    git_access = CompGitAccess(git_command=git_command)
     manifest = CompManifest()
     plugin_packages = CompPluginPackages(
         git_server=git_server, uv_command=uv_command, catalog=catalog
@@ -118,7 +120,12 @@ def build_components(
         docker_command=docker_command,
         plugin_registry=plugin_registry,
         ecosystem=ecosystem,
+        git_access=git_access,
     )
+
+    # Hosts that git-server asserts reachable: catalog entries, Dockerfile clones
+    git_server.set_runtime_dependency("catalog", catalog_comp)
+    git_server.set_runtime_dependency("convert", convert)
 
     for comp in [
         network,

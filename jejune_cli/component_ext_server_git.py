@@ -1,6 +1,8 @@
 """git-server component."""
 
+import socket
 import subprocess
+from urllib.parse import urlsplit
 
 from ._git_server_config import REPO_ROOT_DIR as _REPO_ROOT_DIR
 from .component_ext_server import ExtServer
@@ -9,6 +11,15 @@ from .component_ext_command_git import CompCommandGit
 
 
 class CompServerGit(ExtServer):
+    """Asserts that every git host_or_domain in use is reachable.
+
+    Besides the default ecosystem host, the hosts are those of the repository
+    URLs supplied by the runtime dependencies that provide `repository_urls()`
+    (catalog entries, `git clone` URLs of a Dockerfile).  They are runtime
+    dependencies (not in the topology) because the catalog depends on the
+    ecosystem which depends on this component.
+    """
+
     def __init__(self, network: CompNetwork, git_command: CompCommandGit) -> None:
         super().__init__(
             name="git-server",
@@ -32,7 +43,41 @@ class CompServerGit(ExtServer):
         """Return the pip-install git URL for a repo."""
         return f"git+{_REPO_ROOT_DIR}/{name}.git"
 
+    def hosts(self) -> list[tuple[str, int]]:
+        """Return the distinct (host_or_domain, port) beyond the default host."""
+        default = self._host_and_port(_REPO_ROOT_DIR)
+        hosts: list[tuple[str, int]] = []
+        for provider in self.runtime_dependencies.values():
+            repository_urls = getattr(provider, "repository_urls", None)
+            if repository_urls is None:
+                continue
+            for repository_url in repository_urls():
+                host = self._host_and_port(repository_url)
+                if host is not None and host != default and host not in hosts:
+                    hosts.append(host)
+        return hosts
+
+    @staticmethod
+    def _host_and_port(url: str) -> tuple[str, int] | None:
+        parts = urlsplit(url)
+        if not parts.hostname:
+            return None
+        return parts.hostname, parts.port or (443 if parts.scheme == "https" else 80)
+
     def check(self, timeout: int = 5) -> tuple[str, str]:
+        status, message = self.check_default_host(timeout)
+        unreachable = []
+        for host, port in self.hosts():
+            try:
+                socket.create_connection((host, port), timeout=timeout).close()
+            except OSError:
+                unreachable.append(host)
+        if unreachable:
+            hosts = ", ".join(unreachable)
+            return "error", "; ".join(filter(None, [message, f"unreachable: {hosts}"]))
+        return status, message
+
+    def check_default_host(self, timeout: int = 5) -> tuple[str, str]:
         try:
             r = subprocess.run(
                 ["git", "ls-remote", _REPO_ROOT_DIR],

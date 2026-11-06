@@ -1,5 +1,6 @@
 """Catalog configuration component."""
 
+import os
 from pathlib import Path
 from typing import ClassVar
 
@@ -170,6 +171,30 @@ class CompCatalog(ConfComp):
             / CatalogConfig.FULL_CATALOG
         )
         return candidate if candidate.exists() else None
+
+    def repository_urls(self) -> list[str]:
+        """Return the URLs of the entries of the catalog of the current directory
+        (JEJUNE_CATALOG when set); empty when there is no such catalog."""
+        catalog_path = Path(
+            os.environ.get("JEJUNE_CATALOG") or Path.cwd() / "catalog.yaml"
+        )
+        if not catalog_path.is_file():
+            return []
+        data = yaml.safe_load(catalog_path.read_text()) or {}
+        return [
+            doc["url"]
+            for doc in data.get("documents", [])
+            if isinstance(doc, dict) and "url" in doc
+        ]
+
+    def private_repositories(self, catalog_path: Path) -> list[tuple[str, str | None]]:
+        """Return (url, token_file) of each private entry of *catalog_path*."""
+        data = yaml.safe_load(catalog_path.read_text()) or {}
+        return [
+            (doc["url"], doc.get("token_file"))
+            for doc in data.get("documents", [])
+            if isinstance(doc, dict) and not doc.get("public", True) and "url" in doc
+        ]
 
     def has_private_repos(self, catalog_path: Path) -> bool:
         data = yaml.safe_load(catalog_path.read_text()) or {}

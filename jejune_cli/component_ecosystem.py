@@ -16,9 +16,12 @@ RepoTier = Literal["root", "tmp", "remote"]
 
 
 class CompEcosystem(ConfComp):
-    def __init__(self, git_server, role_registry, plugin_registry) -> None:
+    def __init__(
+        self, git_server, git_access, role_registry, plugin_registry
+    ) -> None:
         super().__init__(
             name="ecosystem",
+            dependencies=[git_access],
             configuration=Configuration(
                 ConfigurationEntry(
                     "JEJUNE_ROOT_DIR",
@@ -29,6 +32,7 @@ class CompEcosystem(ConfComp):
             ),
         )
         self._git_server = git_server
+        self._git_access = git_access
         self._role_registry = role_registry
         self._plugin_registry = plugin_registry
         self.conditional_dependencies = [(self.ecosystem_needs_remote, git_server)]
@@ -118,13 +122,35 @@ class CompEcosystem(ConfComp):
         if not dest.exists():
             git_url = self._git_server.remote_git_url(repo_name)
             click.echo(f"Cloning {repo_name} ...")
-            subprocess.run(
-                ["git", "clone", "--depth", "1", git_url, str(dest)], check=True
-            )
+            self.clone_repository(git_url, dest, depth=1)
         return dest
 
-    @staticmethod
-    def repo_up_to_date(repo_path: Path) -> bool | None:
+    def clone_repository(
+        self,
+        repository_url: str,
+        destination: Path,
+        depth: int | None = None,
+        token_file: Path | str | None = None,
+    ) -> None:
+        """Clone *repository_url*, authenticated through git-access when needed."""
+        shallow = ["--depth", str(depth)] if depth else []
+        self._git_access.run_git(
+            ["clone", *shallow, repository_url, str(destination)],
+            repository_url,
+            token_file,
+            check=True,
+        )
+
+    def origin_url(self, repo_path: Path) -> str | None:
+        """Return the URL of the `origin` remote of the clone *repo_path*."""
+        result = subprocess.run(
+            ["git", "-C", str(repo_path), "remote", "get-url", "origin"],
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip() or None if result.returncode == 0 else None
+
+    def repo_up_to_date(self, repo_path: Path) -> bool | None:
         """Compare local HEAD to the actual remote HEAD via ls-remote (network call).
 
         Returns True when in sync, False when behind, None on any error.
@@ -137,13 +163,14 @@ class CompEcosystem(ConfComp):
                 capture_output=True, text=True, check=True,
             ).stdout.strip()
             # ls-remote output: "<SHA>\tHEAD"
-            ls_output = subprocess.run(
-                ["git", "-C", str(repo_path), "ls-remote", "origin", "HEAD"],
+            ls_output = self._git_access.run_git(
+                ["-C", str(repo_path), "ls-remote", "origin", "HEAD"],
+                self.origin_url(repo_path),
                 capture_output=True, text=True, check=True,
             ).stdout.strip()
             remote = ls_output.split("\t")[0]
             return local == remote
-        except (subprocess.CalledProcessError, IndexError):
+        except (subprocess.CalledProcessError, IndexError, ValueError):
             return None
 
     def update_tmp_repo(self, repo_path: Path) -> bool:
@@ -154,8 +181,9 @@ class CompEcosystem(ConfComp):
             text=True,
             check=True,
         ).stdout.strip()
-        subprocess.run(
-            ["git", "-C", str(repo_path), "fetch", "origin"],
+        self._git_access.run_git(
+            ["-C", str(repo_path), "fetch", "origin"],
+            self.origin_url(repo_path),
             check=True,
         )
         subprocess.run(

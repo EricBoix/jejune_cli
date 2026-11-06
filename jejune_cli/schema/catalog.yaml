@@ -4,3 +4,4 @@ required_fields:
   url: string
 optional_fields:
   public: boolean
+  token_file: string  # path of a file holding [username]:[password_or_token], for a private url

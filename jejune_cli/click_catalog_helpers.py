@@ -56,6 +56,9 @@ def validate_catalog_entry(doc: object, index: int) -> list[str]:
 def _git_is_private(url: str) -> tuple[bool | None, str]:
     """Probe a remote URL via git ls-remote; return (is_private, error_message).
 
+    The probe is deliberately anonymous (no git-access credentials): it asks
+    whether the remote refuses anonymous access.
+
     Returns (False, "") when the remote is reachable (public or authenticated).
     Returns (True, "") when git exits 128, which indicates the remote refused
     anonymous access (error code 128: repository not found or access denied).
@@ -197,7 +200,9 @@ def iter_docs(docs, root, eco_tmp, ecosystem):
             repo_dir = tmp / name
             if not repo_dir.exists():
                 print(f"Cloning {name} ...")
-                subprocess.run(["git", "clone", url, str(repo_dir)], check=True)
+                ecosystem.clone_repository(
+                    url, repo_dir, token_file=doc.get("token_file")
+                )
         yield name, url, repo_dir
 
 

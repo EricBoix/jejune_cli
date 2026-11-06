@@ -1,6 +1,4 @@
-import os
 import subprocess
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -8,7 +6,9 @@ import pytest
 from jejune_cli.component_cont_convert import CompConvert
 from jejune_cli.component_git_access import CompGitAccess
 
-REPOSITORY_URL = "https://github.com/EricBoix/jejune_doc_X.git"
+# Reserved example domain: the tests must not depend on the default ecosystem host
+REPOSITORY_HOST_AND_PATH = "example.org/team/jejune_doc_X.git"
+REPOSITORY_URL = f"https://{REPOSITORY_HOST_AND_PATH}"
 
 
 @pytest.fixture
@@ -48,7 +48,7 @@ def test_validate_token_file_rejects_missing_file(tmp_path):
 
 def test_credentials_line_is_path_aware_and_encoded():
     line = CompGitAccess.credentials_line(REPOSITORY_URL, "alice", "p@ss:word")
-    assert line == ("https://alice:p%40ss%3Aword@github.com/EricBoix/jejune_doc_X.git")
+    assert line == f"https://alice:p%40ss%3Aword@{REPOSITORY_HOST_AND_PATH}"
 
 
 def test_credentials_file_has_mode_0600_and_is_removed(
@@ -58,7 +58,7 @@ def test_credentials_file_has_mode_0600_and_is_removed(
     with git_access.credentials_file([REPOSITORY_URL], token_file) as credentials:
         assert credentials.stat().st_mode & 0o777 == 0o600
         assert credentials.read_text() == (
-            "https://alice:ghp_a%3Ab@github.com/EricBoix/jejune_doc_X.git\n"
+            f"https://alice:ghp_a%3Ab@{REPOSITORY_HOST_AND_PATH}\n"
         )
     assert not credentials.exists()
 
@@ -153,3 +153,54 @@ def test_convert_build_passes_credentials_as_docker_secret(
         "id=git_credentials,src="
     )
     assert "--secret" not in without_secret
+
+
+def test_credentials_file_for_entries_uses_one_token_file_per_repository(
+    git_access, token_file, tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv(CompGitAccess.TOKEN_FILE_ENV_VAR, raising=False)
+    monkeypatch.delenv(CompGitAccess.TOKEN_ENV_VAR, raising=False)
+    other_token_file = tmp_path / "other"
+    other_token_file.write_text("bob:other_token\n")
+    other_token_file.chmod(0o600)
+    other_url = "https://example.org/team/jejune_doc_Y.git"
+    with git_access.credentials_file_for_entries(
+        [
+            (REPOSITORY_URL, token_file),
+            (other_url, other_token_file),
+            ("https://x/y", None),
+        ]
+    ) as credentials:
+        assert credentials.read_text().splitlines() == [
+            f"https://alice:ghp_a%3Ab@{REPOSITORY_HOST_AND_PATH}",
+            "https://bob:other_token@example.org/team/jejune_doc_Y.git",
+        ]
+
+
+def test_run_git_authenticates_only_with_a_token(
+    git_access, token_file, tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv(CompGitAccess.TOKEN_FILE_ENV_VAR, raising=False)
+    monkeypatch.delenv(CompGitAccess.TOKEN_ENV_VAR, raising=False)
+    commands = []
+    monkeypatch.setattr(
+        subprocess, "run", lambda command, **kwargs: commands.append(command)
+    )
+    git_access.run_git(["ls-remote", REPOSITORY_URL], REPOSITORY_URL)
+    git_access.run_git(["ls-remote", REPOSITORY_URL], REPOSITORY_URL, token_file)
+    anonymous, authenticated = commands
+    assert anonymous == ["git", "ls-remote", REPOSITORY_URL]
+    assert authenticated[:5] == [
+        "git",
+        "-c",
+        "credential.useHttpPath=true",
+        "-c",
+        "credential.helper=",
+    ]
+    assert authenticated[5:7][0] == "-c"
+    assert authenticated[6].startswith("credential.helper=store --file=")
+    assert "ghp_a" not in " ".join(authenticated)
+    assert authenticated[-2:] == ["ls-remote", REPOSITORY_URL]
+    assert not list((tmp_path / ".jejune" / "tmp").glob("git-credentials-*"))

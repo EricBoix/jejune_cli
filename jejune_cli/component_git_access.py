@@ -2,8 +2,9 @@
 
 import os
 import stat
+import subprocess
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import quote, urlsplit
@@ -149,21 +150,40 @@ class CompGitAccess(ConfComp):
     @contextmanager
     def credentials_file(
         self, repository_urls: list[str], token_file: Path | str | None = None
-    ) -> Iterator[Path | None]:
+    ) -> Generator[Path | None]:
         """Yield a temporary git-credential-store file (mode 0600), removed on exit.
 
         Yields None when there is no token (file) or no repository URL, i.e. when
         no authentication is needed (public repositories).
         """
-        resolved = self.resolve_credentials(token_file)
-        if resolved is None or not repository_urls:
+        with self.credentials_file_for_entries(
+            [(repository_url, None) for repository_url in repository_urls],
+            token_file,
+        ) as credentials:
+            yield credentials
+
+    @contextmanager
+    def credentials_file_for_entries(
+        self,
+        repositories: list[tuple[str, Path | str | None]],
+        default_token_file: Path | str | None = None,
+    ) -> Generator[Path | None]:
+        """Same as credentials_file, with a token file of its own per repository.
+
+        *repositories* holds (repository_url, token_file) pairs.  A repository
+        without token file uses *default_token_file*, else the environment.
+        Repositories having no token at all are left out of the file.
+        """
+        lines = []
+        for repository_url, repository_token_file in repositories:
+            resolved = self.resolve_credentials(
+                repository_token_file or default_token_file
+            )
+            if resolved is not None:
+                lines.append(self.credentials_line(repository_url, *resolved))
+        if not lines:
             yield None
             return
-        username, token = resolved
-        lines = [
-            self.credentials_line(repository_url, username, token)
-            for repository_url in repository_urls
-        ]
         # .jejune/ is already gitignored by `configuration init`: no tmp_dir() here,
         # it would also append .jejune/tmp/ to the .gitignore of the document.
         scratch_dir = DotJejune() / "tmp"
@@ -176,3 +196,32 @@ class CompGitAccess(ConfComp):
             yield credentials
         finally:
             credentials.unlink(missing_ok=True)
+
+    def run_git(
+        self,
+        arguments: list[str],
+        repository_url: str | None = None,
+        token_file: Path | str | None = None,
+        **run_options,
+    ) -> subprocess.CompletedProcess:
+        """Run `git <arguments>`, authenticated for *repository_url* when a token
+        is defined.  The token never appears in argv, in a URL nor in .git/config.
+
+        *run_options* are handed to subprocess.run.
+        """
+        with self.credentials_file(
+            [repository_url] if repository_url else [], token_file
+        ) as credentials:
+            authentication = (
+                []
+                if credentials is None
+                else [
+                    "-c",
+                    "credential.useHttpPath=true",
+                    "-c",
+                    "credential.helper=",
+                    "-c",
+                    f"credential.helper=store --file={credentials}",
+                ]
+            )
+            return subprocess.run(["git", *authentication, *arguments], **run_options)

@@ -65,7 +65,7 @@ def ecosystem_status(ctx) -> None:
             else:
                 clone_display, remote_display = "", "[REPO_ROOT_DIR]"
             up_to_date: bool | None = (
-                CompEcosystem.repo_up_to_date(Path(base)) if tier in ("root", "tmp") else None
+                eco.repo_up_to_date(Path(base)) if tier in ("root", "tmp") else None
             )
             rows.append((name, tier in ("root", "tmp"), clone_display, remote_display, up_to_date))
 
@@ -100,7 +100,7 @@ def ecosystem_status(ctx) -> None:
 
     _CLONE_LABEL = {"root": "[JEJUNE_ROOT_DIR]", "tmp": "[.jejune/tmp]"}
     doc_rows: list[tuple[str, bool, str, bool | None]] = [
-        (name, has_doc, _CLONE_LABEL.get(tier, tier), CompEcosystem.repo_up_to_date(Path(path_str)))
+        (name, has_doc, _CLONE_LABEL.get(tier, tier), eco.repo_up_to_date(Path(path_str)))
         for name, tier, path_str, has_doc in doc_repos
     ]
     _ICON_W = 1  # display width of ✓/✗

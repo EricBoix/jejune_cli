@@ -48,6 +48,14 @@ class CompConvert(ContComp):
             urls.extend(cls._GIT_CLONE_URL.findall(line))
         return urls
 
+    def repository_urls(self) -> list[str]:
+        """Return the `git clone` URLs of the Dockerfile of CONVERT_DOC_DIR."""
+        doc_dir = CompConvert._doc_dir()
+        if not doc_dir:
+            return []
+        dockerfile = doc_dir if doc_dir.is_file() else doc_dir / "DockerContext" / "Dockerfile"
+        return self.dockerfile_git_urls(dockerfile) if dockerfile.is_file() else []
+
     def build(
         self, no_cache: bool = False, token_file: Path | str | None = None
     ) -> None:
