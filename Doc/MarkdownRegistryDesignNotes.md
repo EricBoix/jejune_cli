@@ -274,7 +274,7 @@ mounting each repo's `result_data/` at `/config/<repo-name>/` inside the contain
 docker run -d \
   -v <workspace>/jejune_doc_Collecting_Gold_Dust/result_data:/config/jejune_doc_Collecting_Gold_Dust \
   -v <workspace>/jejune_doc_Rob_Burbea/result_data:/config/jejune_doc_Rob_Burbea \
-  -p 8443:8443 jejuneness:code-server-uri-opener
+  -p 8443:8443 jejune:code-server-uri-opener
 ```
 
 Adding a new document to a deployment catalog is sufficient for it to appear mounted in the
