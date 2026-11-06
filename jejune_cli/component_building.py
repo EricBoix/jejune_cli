@@ -16,6 +16,7 @@ from .component_ext_server_llm import CompServerLlm
 from .component_ext_server_llm_observability import CompServerLlmObservability
 from .component_ext_plugin_packages import CompPluginPackages
 from .component_ecosystem import CompEcosystem
+from .component_git_access import CompGitAccess
 from .component_catalog import CompCatalog
 from .component_manifest import CompManifest
 from .component_cont_convert import CompConvert
@@ -68,6 +69,7 @@ def build_components(
         role_registry=role_registry,
         plugin_registry=plugin_registry,
     )
+    git_access = CompGitAccess(git_command=git_command)
     manifest = CompManifest()
     plugin_packages = CompPluginPackages(
         git_server=git_server, uv_command=uv_command, catalog=catalog
@@ -85,6 +87,7 @@ def build_components(
         git_server=git_server,
         plugin_packages=plugin_packages,
         ecosystem=ecosystem,
+        git_access=git_access,
         role_registry=role_registry,
     )
 
@@ -124,6 +127,7 @@ def build_components(
         pypi_server,
         docker_hub,
         git_server,
+        git_access,
         llm,
         llm_obs,
         plugin_packages,

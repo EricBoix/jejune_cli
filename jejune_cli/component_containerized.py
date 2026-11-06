@@ -22,6 +22,7 @@ class ContComp(ConfComp):
       self._context.git_server      — comp_server_git instance
       self._context.plugin_packages — comp_plugin_packages instance
       self._context.ecosystem       — comp_ecosystem instance
+      self._context.git_access      — comp_git_access instance
 
     Every subclass receives the context explicitly via the *context*
     constructor keyword argument.  Plugin subclasses are built by the

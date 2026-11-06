@@ -50,7 +50,13 @@ def wire_roles(registry: RoleRegistry) -> None:
     registry.register(
         Role(
             name="contributor",
-            component_names=("ecosystem", "network", "git-command", "git-server"),
+            component_names=(
+                "ecosystem",
+                "network",
+                "git-command",
+                "git-server",
+                "git-access",
+            ),
             includes=(),
             section_title="Contributor commands",
             description="base ecosystem role",

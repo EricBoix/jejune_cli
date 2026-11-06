@@ -1,6 +1,7 @@
 """convert containerized component."""
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -32,7 +33,24 @@ class CompConvert(ContComp):
         )
         self.cli_name = self.name
 
-    def build(self, no_cache: bool = False) -> None:
+    # `git clone` options (some taking a value, e.g. `--depth 1`) precede the URL
+    _GIT_CLONE_URL = re.compile(
+        r"\bclone(?:\s+(?!https?://)\S+)*\s+(https?://[^\s'\"\\]+)"
+    )
+
+    @classmethod
+    def dockerfile_git_urls(cls, dockerfile: Path) -> list[str]:
+        """Return the URLs of the `git clone` commands found in *dockerfile*."""
+        urls: list[str] = []
+        for line in dockerfile.read_text().splitlines():
+            if line.lstrip().startswith("#"):
+                continue
+            urls.extend(cls._GIT_CLONE_URL.findall(line))
+        return urls
+
+    def build(
+        self, no_cache: bool = False, token_file: Path | str | None = None
+    ) -> None:
         if self.configuration.check()[0] != "ok":
             return
         doc_dir = CompConvert._doc_dir()
@@ -49,19 +67,30 @@ class CompConvert(ContComp):
                 raise ValueError(f"DockerContext not found at {ctx}")
             dockerfile, context = ctx / "Dockerfile", ctx
         extra = ["--no-cache"] if no_cache else []
-        subprocess.run(
-            [
-                "docker",
-                "build",
-                *extra,
-                "-t",
-                CompConvert._image_tag(),
-                "-f",
-                str(dockerfile),
-                str(context),
-            ],
-            check=True,
-        )
+        # The Dockerfile clones private repositories with the credentials handed
+        # over as a BuildKit secret: they never end up in an image layer.
+        with self._context.git_access.credentials_file(
+            self.dockerfile_git_urls(dockerfile), token_file
+        ) as credentials:
+            secret = (
+                ["--secret", f"id=git_credentials,src={credentials}"]
+                if credentials
+                else []
+            )
+            subprocess.run(
+                [
+                    "docker",
+                    "build",
+                    *extra,
+                    *secret,
+                    "-t",
+                    CompConvert._image_tag(),
+                    "-f",
+                    str(dockerfile),
+                    str(context),
+                ],
+                check=True,
+            )
 
     def check(self) -> tuple[str, str]:
         if self.configuration.check()[0] != "ok":

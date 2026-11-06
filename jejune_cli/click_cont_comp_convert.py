@@ -83,21 +83,34 @@ def hint_availability(conv):
 
 
 @convert.command("build")
-@click.option("--no-cache", is_flag=True, default=False,
-              help="Do not use Docker layer cache when building.")
+@click.option(
+    "--no-cache",
+    is_flag=True,
+    default=False,
+    help="Do not use Docker layer cache when building.",
+)
+@click.option(
+    "--token-file",
+    type=click.Path(exists=True, dir_okay=False),
+    default=None,
+    help="File holding [username]:[password_or_token] to clone private "
+    "repositories (default: GIT_ACCESS_TOKEN_FILE or GIT_ACCESS_TOKEN of .jejune/env-secrets).",
+)
 @click.pass_obj
-def build(conv, no_cache: bool):
+def build(conv, no_cache: bool, token_file: str | None):
     """Build the converter Docker image.
 
     If CONVERT_DOC_DIR points to a Dockerfile, uses the project root as build
     context (docker build -f <Dockerfile> <project-root>) — for private repos
     whose Dockerfile COPYs local files.  If CONVERT_DOC_DIR points to a
     directory, uses DockerContext/ as the build context — for public repos
-    whose Dockerfile clones from GitHub.
+    whose Dockerfile clones from GitHub.  When the Dockerfile clones a private
+    repository, the credentials of --token-file (or GIT_ACCESS_TOKEN_FILE, or GIT_ACCESS_TOKEN) are passed
+    to docker build as the BuildKit secret `git_credentials`.
     """
     try:
         click.echo(f"Building {conv._image_tag()} ...")
-        conv.build(no_cache=no_cache)
+        conv.build(no_cache=no_cache, token_file=token_file)
     except ValueError as exc:
         raise click.ClickException(str(exc)) from exc
     except subprocess.CalledProcessError as exc:
@@ -141,10 +154,14 @@ def run_cmd(conv, output_dir, test, extra_args):
         out.mkdir(parents=True, exist_ok=True)
         result = subprocess.run(
             [
-                "docker", "run", "--rm",
-                "-v", f"{out}:/output",
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                f"{out}:/output",
                 image,
-                "--output_directory", "/output",
+                "--output_directory",
+                "/output",
                 *extra_args,
             ],
         )

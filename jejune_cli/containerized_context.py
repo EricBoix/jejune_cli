@@ -8,6 +8,7 @@ from .containers_cross_process_coordination import ContainerCoordination
 from .component_ext_server_git import CompServerGit
 from .component_ext_plugin_packages import CompPluginPackages
 from .component_ecosystem import CompEcosystem
+from .component_git_access import CompGitAccess
 from .role_registry import RoleRegistry
 
 
@@ -19,4 +20,5 @@ class ContainerizedContext:
     git_server: CompServerGit
     plugin_packages: CompPluginPackages
     ecosystem: CompEcosystem
+    git_access: CompGitAccess
     role_registry: RoleRegistry
