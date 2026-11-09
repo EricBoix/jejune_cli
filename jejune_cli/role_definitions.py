@@ -1,9 +1,9 @@
 """Built-in Role instances and their registration into RoleRegistry."""
 
-import subprocess
 from pathlib import Path
 
 from ._package_paths import CatalogConfig
+from .component_git_access import CompGitAccess
 from .role import Role
 from .role_registry import RoleRegistry
 
@@ -30,19 +30,13 @@ class RoleDetectors:
             return False
         if not (cwd / ".git").is_dir():
             return False
-        try:
-            url = subprocess.check_output(
-                ["git", "remote", "get-url", "origin"],
-                cwd=cwd,
-                stderr=subprocess.DEVNULL,
-                text=True,
-            ).strip()
-            return (
-                url.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git")
-                == CatalogConfig.REPO_NAME
-            )
-        except Exception:
+        url = CompGitAccess.origin_url(cwd)
+        if url is None:
             return False
+        return (
+            url.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git")
+            == CatalogConfig.REPO_NAME
+        )
 
 
 def wire_roles(registry: RoleRegistry) -> None:

@@ -255,3 +255,54 @@ class CompGitAccess(ConfComp):
                 ]
             )
             return subprocess.run(["git", *authentication, *arguments], **run_options)
+
+    def ls_remote(
+        self,
+        repository_url: str,
+        token_file: Path | str | None = None,
+        *references: str,
+        **run_options,
+    ) -> subprocess.CompletedProcess:
+        """Run `git ls-remote <repository_url> <references>`, authenticated as
+        run_git does.  Output is captured as text; *run_options* go to subprocess.run.
+        """
+        return self.run_git(
+            ["ls-remote", repository_url, *references],
+            repository_url,
+            token_file,
+            capture_output=True,
+            text=True,
+            **run_options,
+        )
+
+    @staticmethod
+    def ls_remote_anonymous(
+        arguments: list[str], timeout: int
+    ) -> subprocess.CompletedProcess:
+        """Run `git ls-remote <arguments>` without any credentials (text output)."""
+        return subprocess.run(
+            ["git", "ls-remote", *arguments],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+
+    @staticmethod
+    def origin_url(repo_path: Path) -> str | None:
+        """Return the URL of the `origin` remote of the clone *repo_path*."""
+        result = subprocess.run(
+            ["git", "-C", str(repo_path), "remote", "get-url", "origin"],
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip() or None if result.returncode == 0 else None
+
+    @staticmethod
+    def head_sha(repo_path: Path) -> str:
+        """Return the commit SHA of HEAD in *repo_path*; CalledProcessError on failure."""
+        return subprocess.run(
+            ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()

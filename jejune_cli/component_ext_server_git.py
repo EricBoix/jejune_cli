@@ -5,6 +5,7 @@ import subprocess
 from urllib.parse import urlsplit
 
 from ._git_server_config import REPO_ROOT_DIR as _REPO_ROOT_DIR
+from .component_git_access import CompGitAccess
 from .component_ext_server import ExtServer
 from .component_ext_network import CompNetwork
 from .component_ext_command_git import CompCommandGit
@@ -79,14 +80,10 @@ class CompServerGit(ExtServer):
 
     def check_default_host(self, timeout: int = 5) -> tuple[str, str]:
         try:
-            r = subprocess.run(
-                ["git", "ls-remote", _REPO_ROOT_DIR],
-                capture_output=True,
-                timeout=timeout,
-            )
+            r = CompGitAccess.ls_remote_anonymous([_REPO_ROOT_DIR], timeout)
             if r.returncode == 0:
                 return "ok", ""
-            stderr = r.stderr.decode(errors="replace").lower()
+            stderr = r.stderr.lower()
             if "not found" in stderr:
                 return "ok", ""
             return "error", "git server not reachable"

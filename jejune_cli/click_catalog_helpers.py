@@ -8,6 +8,7 @@ import click
 import yaml
 
 from ._package_paths import CatalogConfig, SchemaPaths
+from .component_git_access import CompGitAccess
 from .dot_jejune import DotJejune
 
 
@@ -65,11 +66,8 @@ def _git_is_private(url: str) -> tuple[bool | None, str]:
     Returns (None, msg) for transient or unrecognized failures.
     """
     try:
-        result = subprocess.run(
-            ["git", "ls-remote", "--exit-code", "--heads", url],
-            capture_output=True,
-            text=True,
-            timeout=15,
+        result = CompGitAccess.ls_remote_anonymous(
+            ["--exit-code", "--heads", url], timeout=15
         )
     except FileNotFoundError:
         return None, "git not found"
@@ -148,16 +146,12 @@ def sync_catalog(
             results.append((name, True, "already in catalog"))
             continue
 
-        remote = subprocess.run(
-            ["git", "-C", str(repo_dir), "remote", "get-url", "origin"],
-            capture_output=True,
-            text=True,
-        )
-        if remote.returncode != 0:
+        origin_url = CompGitAccess.origin_url(repo_dir)
+        if origin_url is None:
             results.append((name, False, "no git remote"))
             continue
 
-        url = remote.stdout.strip().removesuffix(".git")
+        url = origin_url.removesuffix(".git")
 
         is_private, err = _git_is_private(url)
         if err:

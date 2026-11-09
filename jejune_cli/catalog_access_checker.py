@@ -1,6 +1,5 @@
 """Cross-check of the entries of a catalog.yaml with their access-key files."""
 
-import os
 import subprocess
 from pathlib import Path
 from typing import Protocol
@@ -25,11 +24,11 @@ class TokenSource(Protocol):
         self, token_file: Path | str | None = None
     ) -> tuple[str, str] | None: ...
 
-    def run_git(
+    def ls_remote(
         self,
-        arguments: list[str],
-        repository_url: str | None = None,
+        repository_url: str,
         token_file: Path | str | None = None,
+        *references: str,
         **run_options,
     ) -> subprocess.CompletedProcess: ...
 
@@ -111,15 +110,8 @@ class CatalogAccessChecker:
     ) -> tuple[str, str, str]:
         location = self._location(index, "url")
         try:
-            completed = self._comp.run_git(
-                ["ls-remote", url, "HEAD"],
-                url,
-                token_file,
-                capture_output=True,
-                text=True,
-                timeout=self._PROBE_TIMEOUT_SECONDS,
-                # Fail instead of waiting for a password on the terminal
-                env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+            completed = self._comp.ls_remote(
+                url, token_file, "HEAD", timeout=self._PROBE_TIMEOUT_SECONDS
             )
         except subprocess.TimeoutExpired:
             return (

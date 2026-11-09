@@ -160,8 +160,6 @@ class CompEcosystem(ConfComp):
             token_file,
             capture_output=True,
             text=True,
-            # Fail instead of waiting for a password on the terminal
-            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
         )
         if completed.returncode != 0:
             raise click.ClickException(
@@ -169,15 +167,6 @@ class CompEcosystem(ConfComp):
                 f"(see `jejune git-access check-availability`)\n"
                 f"{completed.stderr.strip()}"
             )
-
-    def origin_url(self, repo_path: Path) -> str | None:
-        """Return the URL of the `origin` remote of the clone *repo_path*."""
-        result = subprocess.run(
-            ["git", "-C", str(repo_path), "remote", "get-url", "origin"],
-            capture_output=True,
-            text=True,
-        )
-        return result.stdout.strip() or None if result.returncode == 0 else None
 
     def repo_up_to_date(
         self, repo_path: Path, token_file: Path | str | None = None
@@ -192,19 +181,12 @@ class CompEcosystem(ConfComp):
         not cached from the last fetch.
         """
         try:
-            local = subprocess.run(
-                ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
-                capture_output=True,
-                text=True,
-                check=True,
-            ).stdout.strip()
+            local = self._git_access.head_sha(repo_path)
             # ls-remote output: "<SHA>\tHEAD"
-            ls_output = self._git_access.run_git(
-                ["-C", str(repo_path), "ls-remote", "origin", "HEAD"],
-                self.origin_url(repo_path),
+            ls_output = self._git_access.ls_remote(
+                self._git_access.origin_url(repo_path),
                 token_file,
-                capture_output=True,
-                text=True,
+                "HEAD",
                 check=True,
             ).stdout.strip()
             remote = ls_output.split("\t")[0]
@@ -238,15 +220,10 @@ class CompEcosystem(ConfComp):
         self, repo_path: Path, token_file: Path | str | None = None
     ) -> bool:
         """Fetch origin and reset to FETCH_HEAD. Returns True when HEAD changed."""
-        head_before = subprocess.run(
-            ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.strip()
+        head_before = self._git_access.head_sha(repo_path)
         self._git_access.run_git(
             ["-C", str(repo_path), "fetch", "origin"],
-            self.origin_url(repo_path),
+            self._git_access.origin_url(repo_path),
             token_file,
             check=True,
         )
@@ -254,12 +231,7 @@ class CompEcosystem(ConfComp):
             ["git", "-C", str(repo_path), "reset", "--hard", "FETCH_HEAD"],
             check=True,
         )
-        head_after = subprocess.run(
-            ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.strip()
+        head_after = self._git_access.head_sha(repo_path)
         return head_before != head_after
 
     def update_all_tmp_repos(
