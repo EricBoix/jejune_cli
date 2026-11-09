@@ -6,7 +6,8 @@ from pathlib import Path
 from .app_context import AppContext
 from .component_catalog_file import CatalogFile
 from .click_theme import ClickTheme
-from .component_ecosystem import CompEcosystem, UpdateOutcome
+from .component_catalog import UpdateOutcome
+from .component_ecosystem import CompEcosystem
 
 
 @click.group(invoke_without_command=True, short_help="Ecosystem repository status")
@@ -208,10 +209,11 @@ def ecosystem_update(ctx) -> None:
     """
     app = ctx.find_object(AppContext)
     eco = app.component_registry.get("ecosystem")
+    catalog = app.component_registry.get("catalog")
     catalog_path = CatalogFile.resolve_path()
     outcomes: list[UpdateOutcome] = []
     if catalog_path.is_file():
-        outcomes = eco.update_catalog_repos(catalog_path)
+        outcomes = catalog.update_catalog_repos(catalog_path)
     else:
         click.echo(
             click.style(
