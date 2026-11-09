@@ -127,27 +127,47 @@ class CompEcosystem(ConfComp):
         tier, base = self.repo_status(repo_name, root_dir, tmp_dir)
         if tier in ("root", "tmp"):
             return Path(base)
-        if tmp_dir is None:
-            tmp_dir = DotJejune() / "tmp"
-            tmp_dir.mkdir(parents=True, exist_ok=True)
-        dest = tmp_dir / repo_name
-        if not dest.exists():
-            git_url = self._git_server.remote_git_url(repo_name)
-            click.echo(f"Cloning {repo_name} ...")
-            self.clone_repository(git_url, dest, depth=1)
-        return dest
+        # A repository of the current catalog is cloned from its own url, with its
+        # own access key; any other one from the default git server.
+        catalog_path = CatalogFile.resolve_path()
+        document = (
+            CatalogFile(catalog_path).document(repo_name)
+            if catalog_path.is_file()
+            else None
+        )
+        git_url = (
+            document.url
+            if document is not None
+            else self._git_server.remote_git_url(repo_name)
+        )
+        click.echo(f"Cloning {repo_name} ...")
+        return self.clone_into_tmp(
+            repo_name, git_url, document.effective_token_file if document else None
+        )
+
+    def clone_into_tmp(
+        self,
+        name: str,
+        repository_url: str,
+        token_file: Path | str | None = None,
+        deploy_dir: Path | None = None,
+    ) -> Path:
+        """Shallow-clone *repository_url* into .jejune/tmp/*name* (of *deploy_dir*,
+        else of the current directory) and return that directory."""
+        destination = DotJejune(deploy_dir).tmp_dir() / name
+        self.clone_repository(repository_url, destination, token_file)
+        return destination
 
     def clone_repository(
         self,
         repository_url: str,
         destination: Path,
-        depth: int | None = None,
         token_file: Path | str | None = None,
     ) -> None:
-        """Clone *repository_url*, authenticated through git-access when needed."""
-        shallow = ["--depth", str(depth)] if depth else []
+        """Shallow-clone *repository_url*, authenticated through git-access when
+        needed."""
         completed = self._git_access.run_git(
-            ["clone", *shallow, repository_url, str(destination)],
+            ["clone", "--depth", "1", repository_url, str(destination)],
             repository_url,
             token_file,
             capture_output=True,
@@ -280,10 +300,7 @@ class CompEcosystem(ConfComp):
                 return UpdateOutcome(
                     entry.name, "updated" if was_updated else "up-to-date"
                 )
-            destination = DotJejune(deploy_dir).tmp_dir() / entry.name
-            self.clone_repository(
-                entry.url, destination, depth=1, token_file=token_file
-            )
+            self.clone_into_tmp(entry.name, entry.url, token_file, deploy_dir)
             return UpdateOutcome(entry.name, "cloned")
         except subprocess.CalledProcessError as exc:
             return UpdateOutcome(

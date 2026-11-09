@@ -45,6 +45,14 @@ class CatalogFile:
             if document is not None
         ]
 
+    def document(self, name: str) -> CatalogDocument | None:
+        """The well-formed document called *name*; None when absent or unreadable."""
+        try:
+            documents = self.documents()
+        except ValueError:
+            return None
+        return next((item for item in documents if item.name == name), None)
+
     def names(self) -> list[str]:
         """Names of the entries having one, whether or not they have a `url`."""
         return [

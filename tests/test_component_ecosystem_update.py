@@ -27,7 +27,7 @@ def ecosystem(git_access, tmp_path, monkeypatch):
     ecosystem.cloned = []
     ecosystem.updated = []
 
-    def record_clone(repository_url, destination, depth=None, token_file=None):
+    def record_clone(repository_url, destination, token_file=None):
         ecosystem.cloned.append((repository_url, destination.name, token_file))
 
     def record_update(repo_path, token_file=None):
@@ -152,3 +152,12 @@ def test_entry_found_in_root_dir_is_skipped(ecosystem, tmp_path, monkeypatch):
     outcomes = ecosystem.update_catalog_repos(write_catalog(tmp_path), tmp_path)
     assert outcome_statuses(outcomes)["jejune_doc_Public"] == "skipped"
     assert ecosystem.updated == []
+
+
+def test_ensure_local_clones_a_catalog_repository_with_its_own_url_and_token_file(
+    ecosystem, token_file, tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    write_catalog(tmp_path, f"    token_file: {token_file}\n")
+    ecosystem.ensure_local("jejune_doc_Private")
+    assert ecosystem.cloned == [(PRIVATE_URL, "jejune_doc_Private", str(token_file))]

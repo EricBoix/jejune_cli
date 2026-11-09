@@ -182,21 +182,16 @@ def iter_docs(docs, root, eco_tmp, ecosystem):
 
     Resolution order: JEJUNE_ROOT_DIR → .jejune/tmp → clone into .jejune/tmp.
     """
-    tmp = None
     for doc in docs:
         name, url = doc["name"], doc["url"]
         tier, base = ecosystem.repo_status(name, root, eco_tmp)
         if tier in ("root", "tmp"):
             repo_dir = Path(base)
         else:
-            if tmp is None:
-                tmp = DotJejune().tmp_dir()
-            repo_dir = tmp / name
+            repo_dir = DotJejune().tmp_dir() / name
             if not repo_dir.exists():
                 print(f"Cloning {name} ...")
-                ecosystem.clone_repository(
-                    url, repo_dir, token_file=doc.get("token_file")
-                )
+                ecosystem.clone_into_tmp(name, url, doc.get("token_file"))
         yield name, url, repo_dir
 
 
