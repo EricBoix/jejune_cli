@@ -7,6 +7,7 @@ import yaml
 
 from ._package_paths import SchemaPaths, TemplatePaths
 from .component_with_config import ConfComp
+from .configuration import Configuration
 
 
 class CompManifest(ConfComp):
@@ -14,7 +15,12 @@ class CompManifest(ConfComp):
     _TEMPLATE_PATH: ClassVar[Path] = TemplatePaths.DOC_STEWARD / "manifest.yaml"
 
     def __init__(self, doc_repository_directory: Path = Path.cwd()) -> None:
-        super().__init__(name="manifest")
+        super().__init__(
+            name="manifest",
+            configuration=Configuration(
+                failure_hint="run `jejune manifest check-config`"
+            ),
+        )
         self.cli_name = self.name
         self.doc_repository_directory = doc_repository_directory
 
