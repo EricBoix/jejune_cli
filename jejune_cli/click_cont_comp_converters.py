@@ -1,7 +1,6 @@
 """converters click group — catalog-aware multi-repo converter commands."""
 
 import sys
-from pathlib import Path
 
 import click
 
@@ -55,19 +54,9 @@ def converters_test(
     skipped      — no DockerContext in this repo
     """
     app = click.get_current_context().find_object(AppContext)
-    catalog_comp = app.component_registry.get("catalog")
+    collection = app.component_registry.get("catalog").collection
     converters_comp = app.component_registry.get("converters")
-    docs = catalog_comp.load_documents(catalog_file)
-    filter_name = test_name or repo
-    if filter_name:
-        docs = [d for d in docs if d["name"] == filter_name]
-        if not docs:
-            raise click.ClickException(
-                f"Repository '{filter_name}' not found in catalog."
-            )
-    ecosystem = app.component_registry.get("ecosystem")
-    eco_root, eco_tmp = ecosystem.resolve_dirs()
-    root = Path(root_dir) if root_dir and Path(root_dir).is_dir() else eco_root
+    selection = collection.select(catalog_file, test_name or repo, root_dir)
 
     counts = {"unchanged": 0, "changed": 0, "build_failed": 0, "skipped": 0}
     _COLORS = {
@@ -78,7 +67,9 @@ def converters_test(
     }
     col = 42
 
-    for name, _url, repo_dir in catalog_comp.iter_documents(docs, root, eco_tmp):
+    for name, _url, repo_dir in collection.iter_documents(
+        selection.documents, selection.directories
+    ):
         outcome, detail, verbose_output = converters_comp.run_converter_test(
             repo_dir, no_cache, no_build
         )

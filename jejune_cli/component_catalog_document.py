@@ -4,6 +4,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+import yaml
+
+from ._package_paths import SchemaPaths
+
 
 class CredentialsResolver(Protocol):
     """What a document needs from the git-access component.
@@ -42,6 +46,26 @@ class CatalogDocument:
             public=mapping.get("public", True),
             token_file=mapping.get("token_file"),
         )
+
+    @staticmethod
+    def validate_mapping(doc: object, index: int) -> list[str]:
+        """Validate one entry against the deployment catalog schema; return error strings."""
+        if not isinstance(doc, dict):
+            return [f"entry #{index}: not a mapping"]
+        schema = yaml.safe_load(SchemaPaths.CATALOG.read_text())
+        errors: list[str] = []
+        _TYPE_MAP = {"string": str, "boolean": bool}
+        for field, ftype in schema.get("required_fields", {}).items():
+            if field not in doc:
+                errors.append(f"required field '{field}' missing")
+            elif not isinstance(doc[field], _TYPE_MAP.get(ftype, object)):
+                errors.append(f"'{field}' must be a {ftype}")
+        for field, ftype in schema.get("optional_fields", {}).items():
+            if field in doc and not isinstance(doc[field], _TYPE_MAP.get(ftype, object)):
+                errors.append(f"'{field}' must be a {ftype}")
+        if errors:
+            errors.append(f"see {SchemaPaths.CATALOG} for the expected format")
+        return errors
 
     @property
     def is_private(self) -> bool:

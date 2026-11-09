@@ -40,13 +40,13 @@ class CompConverters(ContComp):
             docs = CatalogFile(catalog).raw_documents()
         except (OSError, ValueError):
             return []
-        root_dir, tmp_dir = self._ecosystem.resolve_dirs()
+        directories = self._ecosystem.resolve_dirs()
         results: list[tuple[Path, str]] = []
         for doc in docs:
             name = doc.get("name", "")
             if not name:
                 continue
-            location = self._ecosystem.locate(name, root_dir, tmp_dir)
+            location = self._ecosystem.locate(name, directories)
             if not location.is_local:
                 continue
             repo_dir = location.local_path
@@ -76,15 +76,15 @@ class CompConverters(ContComp):
         )
 
     def build(self, no_cache: bool = False) -> None:
-        docs = self._catalog_comp.load_documents(None)
-        if not docs:
+        collection = self._catalog_comp.collection
+        selection = collection.select()
+        if not selection.documents:
             click.echo("  no documents found in catalog")
             return
-        root_dir, tmp_dir = self._ecosystem.resolve_dirs()
         extra = ["--no-cache"] if no_cache else []
         built_any = False
-        for _name, _url, repo_dir in self._catalog_comp.iter_documents(
-            docs, root_dir, tmp_dir
+        for _name, _url, repo_dir in collection.iter_documents(
+            selection.documents, selection.directories
         ):
             has, dockerfile, ctx = self.has_converter(repo_dir)
             if not has:

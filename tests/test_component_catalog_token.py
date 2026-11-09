@@ -1,10 +1,11 @@
 from jejune_cli.component_catalog import CompCatalog
+from jejune_cli.component_catalog_document import CatalogDocument
 
 
 def test_catalog_entry_accepts_token_file_and_rejects_other_types():
     entry = {"name": "jejune_doc_X", "url": "https://h/x.git", "public": False}
-    assert CompCatalog.validate_entry({**entry, "token_file": "~/key"}, 0) == []
-    assert CompCatalog.validate_entry({**entry, "token_file": 3}, 0)
+    assert CatalogDocument.validate_mapping({**entry, "token_file": "~/key"}, 0) == []
+    assert CatalogDocument.validate_mapping({**entry, "token_file": 3}, 0)
 
 
 def test_private_repositories_lists_token_files(tmp_path):

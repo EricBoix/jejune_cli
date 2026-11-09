@@ -6,7 +6,7 @@ from pathlib import Path
 from .app_context import AppContext
 from .component_catalog_file import CatalogFile
 from .click_theme import ClickTheme
-from .component_catalog import UpdateOutcome
+from .component_catalog_updater import UpdateOutcome
 from .component_ecosystem import CompEcosystem
 
 
@@ -25,7 +25,8 @@ def ecosystem_status(ctx) -> None:
     app = ctx.find_object(AppContext)
     eco = app.component_registry.get("ecosystem")
     role = app.role_registry.detect_role()
-    root_dir, tmp_dir = eco.resolve_dirs()
+    directories = eco.resolve_dirs()
+    root_dir = directories.root_dir
 
     role_label = f"  [{role.name}]" if role else ""
     click.echo(f"jejune ecosystem{role_label}")
@@ -74,7 +75,7 @@ def ecosystem_status(ctx) -> None:
             # self.repos lives in a plugin repo (which might be a latent
             # fragility e.g. for future built-in components)
             name = app.plugin_registry.repo_name_for_plugin(comp.name) or comp.name
-            location = eco.locate(name, root_dir, tmp_dir)
+            location = eco.locate(name, directories)
             if location.tier == "root":
                 clone_display, remote_display = "[JEJUNE_ROOT_DIR]", ""
             elif location.tier == "tmp":
@@ -122,7 +123,7 @@ def ecosystem_status(ctx) -> None:
     # --- Documents table ---
     click.echo()
     click.echo(click.style("  Documents", bold=True))
-    doc_repos = eco.discover_doc_repos(root_dir, tmp_dir)
+    doc_repos = eco.discover_doc_repos(directories)
     known_names = {name for name, _, _, _ in doc_repos}
     if not doc_repos:
         click.echo(
@@ -213,7 +214,7 @@ def ecosystem_update(ctx) -> None:
     catalog_path = CatalogFile.resolve_path()
     outcomes: list[UpdateOutcome] = []
     if catalog_path.is_file():
-        outcomes = catalog.update_catalog_repos(catalog_path)
+        outcomes = catalog.updater.update_catalog_repos(catalog_path)
     else:
         click.echo(
             click.style(

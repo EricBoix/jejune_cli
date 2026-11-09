@@ -221,9 +221,9 @@ class CompDeployment(ConfComp):
 
     def _build_env(self, deploy_dir: Path) -> dict:
         env = os.environ.copy()
-        root_dir, tmp_dir = self._ecosystem.resolve_dirs(deploy_dir)
-        if root_dir:
-            env[CatalogConfig.ROOT_DIR_ENV_VAR] = str(root_dir)
+        directories = self._ecosystem.resolve_dirs(deploy_dir)
+        if directories.root_dir:
+            env[CatalogConfig.ROOT_DIR_ENV_VAR] = str(directories.root_dir)
         plugins_by_name = {p.name: p for p in self._plugin_registry.plugins}
         for dep in self.dependencies:
             repos = getattr(dep, "repos", [])
@@ -240,7 +240,7 @@ class CompDeployment(ConfComp):
             for subpath, key in repos:
                 if key:
                     env[key] = self._ecosystem.resolve(
-                        repo_name, root_dir, tmp_dir, subpath
+                        repo_name, directories, subpath
                     )
         return env
 

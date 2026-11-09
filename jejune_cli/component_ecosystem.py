@@ -2,7 +2,7 @@
 
 import os
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal
 
@@ -16,6 +16,22 @@ from .component_with_config import ConfComp
 from .dot_jejune import DotJejune
 
 RepoTier = Literal["root", "tmp", "remote"]
+
+
+@dataclass(frozen=True)
+class EcosystemDirectories:
+    """The directories where repositories are looked for, in this order: the
+    JEJUNE_ROOT_DIR one (`root_dir`), then the `.jejune/tmp` one (`tmp_dir`)."""
+
+    root_dir: Path | None
+    tmp_dir: Path | None
+
+    def with_root(self, root_dir: Path | str | None) -> "EcosystemDirectories":
+        """Same directories, but with *root_dir* as root when it is an existing
+        directory."""
+        if root_dir and Path(root_dir).is_dir():
+            return replace(self, root_dir=Path(root_dir))
+        return self
 
 
 @dataclass(frozen=True)
@@ -52,12 +68,8 @@ class CompEcosystem(ConfComp):
         self._plugin_registry = plugin_registry
         self.conditional_dependencies = [(self.ecosystem_needs_remote, git_server)]
 
-    def locate(
-        self,
-        name: str,
-        root_dir: Path | None,
-        tmp_dir: Path | None,
-    ) -> RepoLocation:
+    def locate(self, name: str, directories: EcosystemDirectories) -> RepoLocation:
+        root_dir, tmp_dir = directories.root_dir, directories.tmp_dir
         if root_dir is not None and (root_dir / name).exists():
             return RepoLocation("root", local_path=root_dir / name)
         if tmp_dir is not None and (tmp_dir / name).exists():
@@ -66,17 +78,15 @@ class CompEcosystem(ConfComp):
 
     def locate_in(self, name: str, deploy_dir: Path | None = None) -> RepoLocation:
         """Same as locate, within the directories resolve_dirs(*deploy_dir*) gives."""
-        root_dir, tmp_dir = self.resolve_dirs(deploy_dir)
-        return self.locate(name, root_dir, tmp_dir)
+        return self.locate(name, self.resolve_dirs(deploy_dir))
 
     def resolve(
         self,
         name: str,
-        root_dir: Path | None,
-        tmp_dir: Path | None,
+        directories: EcosystemDirectories,
         subpath: str | None = None,
     ) -> str:
-        location = self.locate(name, root_dir, tmp_dir)
+        location = self.locate(name, directories)
         if location.is_local:
             return str(location.local_path / subpath if subpath else location.local_path)
         return self._git_server.remote_git_url(
@@ -85,21 +95,20 @@ class CompEcosystem(ConfComp):
 
     def resolve_dirs(
         self, deploy_dir: Path | None = None
-    ) -> tuple[Path | None, Path | None]:
+    ) -> EcosystemDirectories:
         raw_root = os.environ.get(CatalogConfig.ROOT_DIR_ENV_VAR)
         root_dir = Path(raw_root).resolve() if raw_root else None
         tmp = DotJejune(deploy_dir) / "tmp"
-        return root_dir, tmp if tmp.is_dir() else None
+        return EcosystemDirectories(root_dir, tmp if tmp.is_dir() else None)
 
     def discover_doc_repos(
         self,
-        root_dir: Path | None,
-        tmp_dir: Path | None,
+        directories: EcosystemDirectories,
         remote_names: list[str] | None = None,
     ) -> list[tuple[str, RepoTier, str, bool]]:
         seen: set[str] = set()
         results: list[tuple[str, RepoTier, str, bool]] = []
-        for tier, base in (("root", root_dir), ("tmp", tmp_dir)):
+        for tier, base in (("root", directories.root_dir), ("tmp", directories.tmp_dir)):
             if base is None:
                 continue
             for p in sorted(base.glob("jejune_doc_*")):
@@ -121,9 +130,9 @@ class CompEcosystem(ConfComp):
         active = self._role_registry.current_role_components()
         if active is None:
             return False
-        root_dir, tmp_dir = self.resolve_dirs()
+        directories = self.resolve_dirs()
         return any(
-            not self.locate(pkg_name, root_dir, tmp_dir).is_local
+            not self.locate(pkg_name, directories).is_local
             for comp in active
             if getattr(comp, "repos", [])
             if (pkg_name := self._plugin_registry.repo_name_for_plugin(comp.name))
@@ -238,7 +247,7 @@ class CompEcosystem(ConfComp):
 
         Returns [(name, was_updated), ...].
         """
-        _, tmp_dir = self.resolve_dirs(deploy_dir)
+        tmp_dir = self.resolve_dirs(deploy_dir).tmp_dir
         if tmp_dir is None:
             return []
         results: list[tuple[str, bool]] = []
