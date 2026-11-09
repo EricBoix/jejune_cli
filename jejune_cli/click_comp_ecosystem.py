@@ -131,12 +131,17 @@ def ecosystem_status(ctx) -> None:
         return
 
     _CLONE_LABEL = {"root": "[JEJUNE_ROOT_DIR]", "tmp": "[.jejune/tmp]"}
+    # Private catalog entries are reached with their own access key, as `update` does
+    catalog_path = CompGitAccess.resolve_catalog_path()
+    token_files = (
+        eco.catalog_token_files(catalog_path) if catalog_path.is_file() else {}
+    )
     doc_rows: list[tuple[str, bool, str, bool | None]] = [
         (
             name,
             has_doc,
             _CLONE_LABEL.get(tier, tier),
-            eco.repo_up_to_date(Path(path_str)),
+            eco.repo_up_to_date(Path(path_str), token_files.get(name)),
         )
         for name, tier, path_str, has_doc in doc_repos
     ]

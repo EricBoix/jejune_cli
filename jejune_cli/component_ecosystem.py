@@ -179,8 +179,13 @@ class CompEcosystem(ConfComp):
         )
         return result.stdout.strip() or None if result.returncode == 0 else None
 
-    def repo_up_to_date(self, repo_path: Path) -> bool | None:
+    def repo_up_to_date(
+        self, repo_path: Path, token_file: Path | str | None = None
+    ) -> bool | None:
         """Compare local HEAD to the actual remote HEAD via ls-remote (network call).
+
+        *token_file* is the access key of a private repository (see
+        catalog_token_files).
 
         Returns True when in sync, False when behind, None on any error.
         Uses ls-remote rather than @{upstream} so the result is always current,
@@ -197,6 +202,7 @@ class CompEcosystem(ConfComp):
             ls_output = self._git_access.run_git(
                 ["-C", str(repo_path), "ls-remote", "origin", "HEAD"],
                 self.origin_url(repo_path),
+                token_file,
                 capture_output=True,
                 text=True,
                 check=True,
@@ -205,6 +211,28 @@ class CompEcosystem(ConfComp):
             return local == remote
         except (subprocess.CalledProcessError, IndexError, ValueError):
             return None
+
+    def catalog_token_files(self, catalog_path: Path) -> dict[str, str]:
+        """Access key file of every private entry of *catalog_path*, by entry name.
+
+        Same rule as update_catalog_entry: the token file of a public entry is
+        unused.  An unreadable catalog yields no token file at all.
+        """
+        try:
+            data = yaml.safe_load(catalog_path.read_text()) or {}
+        except yaml.YAMLError:
+            return {}
+        documents = data.get("documents") if isinstance(data, dict) else None
+        if not isinstance(documents, list):
+            return {}
+        return {
+            document["name"]: document["token_file"]
+            for document in documents
+            if isinstance(document, dict)
+            and document.get("name")
+            and document.get("token_file")
+            and not document.get("public", True)
+        }
 
     def update_tmp_repo(
         self, repo_path: Path, token_file: Path | str | None = None
