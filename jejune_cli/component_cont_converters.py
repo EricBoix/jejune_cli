@@ -6,19 +6,18 @@ from pathlib import Path
 import click
 
 from .component_catalog_file import CatalogFile
-from .click_catalog_helpers import (
-    _docker_image_name,
-    _has_converter,
-    iter_docs,
-    load_catalog_docs,
-)
+from .click_converter_helpers import _docker_image_name, _has_converter
 from .component_containerized import ContComp
 from .containerized_context import ContainerizedContext
 
 
 class CompConverters(ContComp):
     def __init__(
-        self, docker_daemon, ecosystem, context: ContainerizedContext | None = None
+        self,
+        docker_daemon,
+        ecosystem,
+        catalog_comp,
+        context: ContainerizedContext | None = None,
     ) -> None:
         super().__init__(
             name="converters",
@@ -28,6 +27,7 @@ class CompConverters(ContComp):
             context=context,
         )
         self._ecosystem = ecosystem
+        self._catalog_comp = catalog_comp
         self.cli_name = self.name
 
     def _iter_local_converter_repos(self) -> list[tuple[Path, str]]:
@@ -75,15 +75,15 @@ class CompConverters(ContComp):
         )
 
     def build(self, no_cache: bool = False) -> None:
-        docs = load_catalog_docs(None)
+        docs = self._catalog_comp.load_documents(None)
         if not docs:
             click.echo("  no documents found in catalog")
             return
         root_dir, tmp_dir = self._ecosystem.resolve_dirs()
         extra = ["--no-cache"] if no_cache else []
         built_any = False
-        for _name, _url, repo_dir in iter_docs(
-            docs, root_dir, tmp_dir, self._ecosystem
+        for _name, _url, repo_dir in self._catalog_comp.iter_documents(
+            docs, root_dir, tmp_dir
         ):
             has, dockerfile, ctx = _has_converter(repo_dir)
             if not has:

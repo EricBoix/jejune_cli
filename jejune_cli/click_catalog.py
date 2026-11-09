@@ -9,13 +9,7 @@ import click
 
 from ._package_paths import CatalogConfig
 from .app_context import AppContext
-from .click_catalog_helpers import (
-    load_catalog_docs,
-    catalog_config_status,
-    check_catalog,
-    iter_docs,
-    sync_catalog,
-)
+from .component_catalog import CompCatalog
 from .component_manifest import CompManifest
 
 
@@ -172,12 +166,12 @@ def check(catalog_path, root_dir):
             raise click.ClickException(
                 "--catalog is only available for the catalog-contributor role."
             )
-        cfg_status, hint = catalog_config_status()
+        cfg_status, hint = CompCatalog.config_status()
         if cfg_status == "error":
             raise click.ClickException(f"not configured — {hint}")
         cat_path = Path(catalog_path)
         root = Path(root_dir) if root_dir else None
-        results = check_catalog(cat_path, root)
+        results = catalog_comp.check_collection(cat_path, root)
         if not results:
             click.echo(
                 click.style("no documents found in catalog — wrong file?", fg="yellow")
@@ -233,8 +227,9 @@ def catalog_test(catalog_file, root_dir, repo, verbose):
     For each repository, manifest.yaml is parsed and every file it references is
     checked for existence. Exits with a non-zero status if any check fails.
     """
-    docs = load_catalog_docs(catalog_file)
     app = click.get_current_context().find_object(AppContext)
+    catalog_comp = app.component_registry.get("catalog")
+    docs = catalog_comp.load_documents(catalog_file)
     ecosystem = app.component_registry.get("ecosystem")
     eco_root, eco_tmp = ecosystem.resolve_dirs()
     root = Path(root_dir) if root_dir and Path(root_dir).is_dir() else eco_root
@@ -246,7 +241,7 @@ def catalog_test(catalog_file, root_dir, repo, verbose):
 
     all_ok = True
 
-    for name, _url, repo_dir in iter_docs(docs, root, eco_tmp, ecosystem):
+    for name, _url, repo_dir in catalog_comp.iter_documents(docs, root, eco_tmp):
         cloned_label = click.style("cloned", fg="green")
         errors, file_refs = CompManifest(repo_dir).check_manifest_referenced_files()
         if errors:
@@ -314,7 +309,7 @@ def catalog_sample():
 @catalog_group.command("status-config")
 def status_config():
     """Show catalog configuration status (mirrors the doctor Config Status column)."""
-    status, msg = catalog_config_status()
+    status, msg = CompCatalog.config_status()
     if status == "ok":
         click.echo(f"catalog: {click.style('ok', fg='green')}")
     elif status == "warn":
@@ -326,7 +321,7 @@ def status_config():
 @catalog_group.command("hint-config")
 def hint_config():
     """Show how to fix catalog configuration."""
-    status, msg = catalog_config_status()
+    status, msg = CompCatalog.config_status()
     if status == "ok":
         click.echo(click.style("catalog is configured", fg="green"))
         return
@@ -388,7 +383,12 @@ def sync(catalog_path, root_dir, do_add):
             "JEJUNE_ROOT_DIR is not set. Use --root-dir or set the env var."
         )
     cat_path = Path(catalog_path)
-    results, n_added = sync_catalog(cat_path, Path(root_dir), do_add)
+    catalog_comp = (
+        click.get_current_context()
+        .find_object(AppContext)
+        .component_registry.get("catalog")
+    )
+    results, n_added = catalog_comp.sync_collection(cat_path, Path(root_dir), do_add)
     for name, ok, msg in results:
         if ok:
             status = click.style(msg, fg="green")

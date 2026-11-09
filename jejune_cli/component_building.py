@@ -109,7 +109,10 @@ def build_components(
         pypi_server=pypi_server, git_access=git_access, context=context
     )
     converters_comp = CompConverters(
-        docker_daemon=docker_daemon, ecosystem=ecosystem, context=context
+        docker_daemon=docker_daemon,
+        ecosystem=ecosystem,
+        catalog_comp=catalog_comp,
+        context=context,
     )
     neo4j_to_rdf_ttl = CompNeo4jToRdfTtl(
         git_server=git_server, docker_hub=docker_hub, context=context

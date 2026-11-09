@@ -1,21 +1,22 @@
 """Catalog configuration component."""
 
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar, Literal
 
-from ._package_paths import CatalogConfig, TemplatePaths
+import click
+import yaml
+
+from ._package_paths import CatalogConfig, SchemaPaths, TemplatePaths
 from .component_catalog_access_checker import CatalogAccessChecker
 from .component_catalog_document import CatalogDocument
 from .component_catalog_file import CatalogFile
-from .click_catalog_helpers import (
-    load_catalog_docs,
-    validate_catalog_entry,
-    iter_docs,
-)
+from .component_git_access import CompGitAccess
 from .component_manifest import CompManifest
 from .component_with_config import ConfComp
+from .dot_jejune import DotJejune
 
 
 UpdateStatus = Literal["cloned", "updated", "up-to-date", "skipped", "failed"]
@@ -128,7 +129,7 @@ class CompCatalog(ConfComp):
         )
 
         for i, doc in enumerate(CatalogFile(catalog_file).raw_documents()):
-            schema_errors = validate_catalog_entry(doc, i)
+            schema_errors = self.validate_entry(doc, i)
             if schema_errors:
                 label = doc.get("name") if isinstance(doc, dict) else None
                 results.append(
@@ -233,12 +234,12 @@ class CompCatalog(ConfComp):
         repo: str | None = None,
     ) -> int:
         """Clone missing catalog repos into .jejune/tmp/; return count ready."""
-        docs = load_catalog_docs(catalog_file)
+        docs = self.load_documents(catalog_file)
         if repo:
             docs = [d for d in docs if d["name"] == repo]
         eco_root, eco_tmp = self._ecosystem.resolve_dirs()
         root = Path(root_dir) if root_dir and Path(root_dir).is_dir() else eco_root
-        return sum(1 for _ in iter_docs(docs, root, eco_tmp, self._ecosystem))
+        return sum(1 for _ in self.iter_documents(docs, root, eco_tmp))
 
     def doc_repo_names(self, catalog_path: Path) -> list[str]:
         """Return the list of doc repo names declared in *catalog_path*."""
@@ -310,3 +311,183 @@ class CompCatalog(ConfComp):
                 f"entry ({entry.url}) and its access key "
                 "(`jejune git-access check-config`)",
             )
+
+    @staticmethod
+    def load_documents(catalog_file: str | None) -> list[dict]:
+        """Load and return the documents list from a catalog YAML file."""
+        catalog_path = CatalogFile.resolve_path(catalog_file)
+        if not catalog_path.exists():
+            raise click.ClickException(f"Catalog file not found: {catalog_path}")
+        try:
+            return CatalogFile(catalog_path).raw_documents()
+        except ValueError as exc:
+            raise click.ClickException(f"{catalog_path}: {exc}") from exc
+
+    @staticmethod
+    def config_status() -> tuple[str, str]:
+        """Return (status, raw_msg) for catalog configuration."""
+        val = os.environ.get(CatalogConfig.ROOT_DIR_ENV_VAR)
+        if not val:
+            return "warn", f"{CatalogConfig.ROOT_DIR_ENV_VAR} not configured"
+        if CatalogConfig.PLACEHOLDER in val:
+            return "warn", f"{CatalogConfig.ROOT_DIR_ENV_VAR} has placeholder value"
+        return "ok", ""
+
+    @staticmethod
+    def validate_entry(doc: object, index: int) -> list[str]:
+        """Validate one entry against the deployment catalog schema; return error strings."""
+        if not isinstance(doc, dict):
+            return [f"entry #{index}: not a mapping"]
+        schema = yaml.safe_load(SchemaPaths.CATALOG.read_text())
+        errors: list[str] = []
+        _TYPE_MAP = {"string": str, "boolean": bool}
+        for field, ftype in schema.get("required_fields", {}).items():
+            if field not in doc:
+                errors.append(f"required field '{field}' missing")
+            elif not isinstance(doc[field], _TYPE_MAP.get(ftype, object)):
+                errors.append(f"'{field}' must be a {ftype}")
+        for field, ftype in schema.get("optional_fields", {}).items():
+            if field in doc and not isinstance(doc[field], _TYPE_MAP.get(ftype, object)):
+                errors.append(f"'{field}' must be a {ftype}")
+        if errors:
+            errors.append(f"see {SchemaPaths.CATALOG} for the expected format")
+        return errors
+
+    @staticmethod
+    def git_is_private(url: str) -> tuple[bool | None, str]:
+        """Probe a remote URL via git ls-remote; return (is_private, error_message).
+
+        The probe is deliberately anonymous (no git-access credentials): it asks
+        whether the remote refuses anonymous access.
+
+        Returns (False, "") when the remote is reachable (public or authenticated).
+        Returns (True, "") when git exits 128, which indicates the remote refused
+        anonymous access (error code 128: repository not found or access denied).
+        Returns (None, msg) for transient or unrecognized failures.
+        """
+        try:
+            result = CompGitAccess.ls_remote_anonymous(
+                ["--exit-code", "--heads", url], timeout=15
+            )
+        except FileNotFoundError:
+            return None, "git not found"
+        except subprocess.TimeoutExpired:
+            return None, "git ls-remote timed out"
+        if result.returncode == 0 or result.returncode == 2:
+            # 0 = refs found; 2 = no refs (empty repo) — both mean reachable
+            return False, ""
+        if result.returncode == 128:
+            return True, ""
+        return None, f"git ls-remote exited {result.returncode}: {result.stderr.strip()}"
+
+    def check_collection(self, catalog: Path, root_dir: Path | None) -> list[tuple[str, bool, str]]:
+        """Check each catalog entry for visibility and local clone; return (name, ok, message)."""
+        if not catalog.exists():
+            return [("catalog.yaml", False, f"not found: {catalog}")]
+        try:
+            docs = CatalogFile(catalog).raw_documents()
+        except ValueError as exc:
+            return [("catalog.yaml", False, str(exc))]
+        results: list[tuple[str, bool, str]] = []
+        for i, doc in enumerate(docs):
+            schema_errors = self.validate_entry(doc, i)
+            if schema_errors:
+                label = doc.get("name") if isinstance(doc, dict) else None
+                results.append((label or f"entry #{i}", False, "; ".join(schema_errors)))
+                continue
+            name = doc["name"]
+            url = doc["url"].rstrip("/")
+            expected_public = doc.get("public", True)
+            issues: list[str] = []
+
+            if root_dir is None:
+                issues.append("JEJUNE_ROOT_DIR not set")
+            elif not (root_dir / name).is_dir():
+                issues.append(f"not cloned under {root_dir}")
+
+            is_private, err = self.git_is_private(url)
+            if err:
+                issues.append(err)
+            else:
+                actual_public = not is_private
+                if actual_public != expected_public:
+                    catalog_val = "public" if expected_public else "private"
+                    remote_val = "public" if actual_public else "private"
+                    issues.append(
+                        f"visibility mismatch: catalog={catalog_val}, remote={remote_val}"
+                    )
+
+            results.append((name, not issues, "; ".join(issues) if issues else "ok"))
+        return results
+
+    def sync_collection(
+        self,
+        catalog: Path,
+        root_dir: Path,
+        do_add: bool,
+    ) -> tuple[list[tuple[str, bool, str]], int]:
+        """Scan JEJUNE_ROOT_DIR for jejune_doc_* repos and compare against catalog.
+
+        Returns (results, n_added) where n_added is the count of repos appended to
+        catalog when do_add is True.
+        """
+        existing = set(CatalogFile(catalog).names()) if catalog.exists() else set()
+
+        results: list[tuple[str, bool, str]] = []
+        to_add: list[tuple[str, str]] = []
+
+        for repo_dir in sorted(root_dir.glob("jejune_doc_*")):
+            if not repo_dir.is_dir():
+                continue
+            name = repo_dir.name
+
+            if name in existing:
+                results.append((name, True, "already in catalog"))
+                continue
+
+            origin_url = CompGitAccess.origin_url(repo_dir)
+            if origin_url is None:
+                results.append((name, False, "no git remote"))
+                continue
+
+            url = origin_url.removesuffix(".git")
+
+            is_private, err = self.git_is_private(url)
+            if err:
+                results.append((name, False, err))
+                continue
+            elif is_private:
+                results.append(
+                    (name, True, "private — add manually to deployment catalog if needed")
+                )
+            else:
+                results.append((name, False, "public repo missing from catalog"))
+                to_add.append((name, url))
+
+        n_added = 0
+        if do_add and to_add and catalog.exists():
+            with catalog.open("a") as fh:
+                for name, url in to_add:
+                    fh.write(f"  - name: {name}\n")
+                    fh.write(f"    url: {url}\n")
+                    fh.write(f"    public: true\n")
+            n_added = len(to_add)
+
+        return results, n_added
+
+    def iter_documents(self, docs, root, eco_tmp):
+        """Yield (name, url, repo_dir) for each catalog entry.
+
+        Resolution order: JEJUNE_ROOT_DIR → .jejune/tmp → clone into .jejune/tmp.
+        """
+        for doc in docs:
+            name, url = doc["name"], doc["url"]
+            location = self._ecosystem.locate(name, root, eco_tmp)
+            if location.is_local:
+                repo_dir = location.local_path
+            else:
+                repo_dir = DotJejune().tmp_dir() / name
+                if not repo_dir.exists():
+                    print(f"Cloning {name} ...")
+                    self._ecosystem.clone_into_tmp(name, url, doc.get("token_file"))
+            yield name, url, repo_dir

@@ -7,11 +7,7 @@ import click
 
 from ._package_paths import CatalogConfig
 from .app_context import AppContext
-from .click_catalog_helpers import (
-    convert_test_doc,
-    iter_docs,
-    load_catalog_docs,
-)
+from .click_converter_helpers import convert_test_doc
 
 
 @click.group(short_help="Catalog converter image operations")
@@ -59,7 +55,9 @@ def converters_test(
     build-failed — image did not build
     skipped      — no DockerContext in this repo
     """
-    docs = load_catalog_docs(catalog_file)
+    app = click.get_current_context().find_object(AppContext)
+    catalog_comp = app.component_registry.get("catalog")
+    docs = catalog_comp.load_documents(catalog_file)
     filter_name = test_name or repo
     if filter_name:
         docs = [d for d in docs if d["name"] == filter_name]
@@ -67,7 +65,6 @@ def converters_test(
             raise click.ClickException(
                 f"Repository '{filter_name}' not found in catalog."
             )
-    app = click.get_current_context().find_object(AppContext)
     ecosystem = app.component_registry.get("ecosystem")
     eco_root, eco_tmp = ecosystem.resolve_dirs()
     root = Path(root_dir) if root_dir and Path(root_dir).is_dir() else eco_root
@@ -81,7 +78,7 @@ def converters_test(
     }
     col = 42
 
-    for name, _url, repo_dir in iter_docs(docs, root, eco_tmp, ecosystem):
+    for name, _url, repo_dir in catalog_comp.iter_documents(docs, root, eco_tmp):
         outcome, detail, verbose_output = convert_test_doc(repo_dir, no_cache, no_build)
         counts[outcome] += 1
         label = click.style(outcome.replace("_", "-"), fg=_COLORS[outcome])
