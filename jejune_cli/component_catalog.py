@@ -138,9 +138,13 @@ class CompCatalog(ConfComp):
                         continue
                     try:
                         base = str(self._ecosystem.ensure_local(name))
-                    except Exception:
+                    except Exception as exc:
                         results.append(
-                            (f"{name}/manifest.yaml", False, "could not clone repo")
+                            (
+                                f"{name}/manifest.yaml",
+                                False,
+                                f"could not clone repo: {exc}",
+                            )
                         )
                         continue
                 manifest_errors, _ = CompManifest(

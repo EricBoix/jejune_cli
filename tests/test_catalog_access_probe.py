@@ -69,7 +69,7 @@ def test_probe_reports_wrong_url_or_no_access(git_access, catalog_path, monkeypa
     assert rows[0][0] == "ok"
     status, subject, message = rows[1]
     assert status == "error"
-    assert subject.endswith("catalog.yaml:8")
+    assert subject.endswith("catalog.yaml:6")
     assert "not reachable: wrong url or no access" in message
 
 

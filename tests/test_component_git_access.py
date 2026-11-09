@@ -204,3 +204,28 @@ def test_run_git_authenticates_only_with_a_token(
     assert "ghp_a" not in " ".join(authenticated)
     assert authenticated[-2:] == ["ls-remote", REPOSITORY_URL]
     assert not list((tmp_path / ".jejune" / "tmp").glob("git-credentials-*"))
+
+
+def test_check_catalog_rejects_url_without_repository_path(git_access, tmp_path):
+    catalog = tmp_path / "catalog.yaml"
+    catalog.write_text(
+        "documents:\n"
+        "  - name: jejune_doc_X\n"
+        "    url: https://example.org/team/\n"
+        "    public: true\n"
+    )
+    rows = git_access.check_catalog(catalog)
+    assert len(rows) == 1
+    status, location, message = rows[0]
+    assert status == "error"
+    assert location == f"{catalog}:3"
+    assert "<owner>/<repository>" in message
+
+
+def test_check_catalog_accepts_url_with_repository_path(git_access, tmp_path):
+    catalog = tmp_path / "catalog.yaml"
+    catalog.write_text(
+        f"documents:\n  - name: jejune_doc_X\n    url: {REPOSITORY_URL}\n"
+        "    public: true\n"
+    )
+    assert [status for status, _, _ in git_access.check_catalog(catalog)] == ["ok"]

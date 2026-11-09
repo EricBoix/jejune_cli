@@ -154,12 +154,21 @@ class CompEcosystem(ConfComp):
     ) -> None:
         """Clone *repository_url*, authenticated through git-access when needed."""
         shallow = ["--depth", str(depth)] if depth else []
-        self._git_access.run_git(
+        completed = self._git_access.run_git(
             ["clone", *shallow, repository_url, str(destination)],
             repository_url,
             token_file,
-            check=True,
+            capture_output=True,
+            text=True,
+            # Fail instead of waiting for a password on the terminal
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
         )
+        if completed.returncode != 0:
+            raise click.ClickException(
+                f"cannot clone {repository_url}: wrong url or no access "
+                f"(see `jejune git-access check-availability`)\n"
+                f"{completed.stderr.strip()}"
+            )
 
     def origin_url(self, repo_path: Path) -> str | None:
         """Return the URL of the `origin` remote of the clone *repo_path*."""
@@ -336,7 +345,9 @@ class CompEcosystem(ConfComp):
                     entry.name, "updated" if was_updated else "up-to-date"
                 )
             destination = DotJejune(deploy_dir).tmp_dir() / entry.name
-            self.clone_repository(entry.url, destination, depth=1, token_file=token_file)
+            self.clone_repository(
+                entry.url, destination, depth=1, token_file=token_file
+            )
             return UpdateOutcome(entry.name, "cloned")
         except subprocess.CalledProcessError as exc:
             return UpdateOutcome(

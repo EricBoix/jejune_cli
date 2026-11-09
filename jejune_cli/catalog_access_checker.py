@@ -4,6 +4,7 @@ import os
 import subprocess
 from pathlib import Path
 from typing import Protocol
+from urllib.parse import urlparse
 
 import yaml
 
@@ -102,9 +103,7 @@ class CatalogAccessChecker:
                 continue
             if not public and credentials is None:
                 continue
-            rows.append(
-                self._probe_document(index, name, url, token_file)
-            )
+            rows.append(self._probe_document(index, name, url, token_file))
         return rows
 
     def _probe_document(
@@ -168,6 +167,15 @@ class CatalogAccessChecker:
         name = document.get("name", url)
         public = document.get("public", True)
         token_file = document.get("token_file")
+        url_problem = self._url_problem(url)
+        if url_problem:
+            return [
+                (
+                    "error",
+                    self._location(index, "url"),
+                    f"entry `{name}`: `url: {url}` {url_problem}",
+                )
+            ]
         if public:
             if token_file:
                 return [
@@ -202,6 +210,18 @@ class CatalogAccessChecker:
                 f"`{name}` is private, default credentials from the environment",
             )
         ]
+
+    @staticmethod
+    def _url_problem(url) -> str:
+        """Return why *url* cannot designate a repository, "" when it can."""
+        if not isinstance(url, str):
+            return "is not a string"
+        parsed = urlparse(url)
+        if parsed.scheme in ("http", "https") and (
+            len([part for part in parsed.path.split("/") if part]) < 2
+        ):
+            return "has no <owner>/<repository> path"
+        return ""
 
     def _check_token_file(
         self, index: int, name: str, token_file: str
