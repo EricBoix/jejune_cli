@@ -14,6 +14,14 @@ from .click_configuration import (
 )
 from .component_git_access import CompGitAccess
 
+CATALOG_OPTION = click.option(
+    "--catalog",
+    "catalog_option",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Catalog file to check (default: $JEJUNE_CATALOG or ./catalog.yaml).",
+)
+
 
 @click.group(short_help="Git authentication to repositories")
 @click.pass_context
@@ -173,15 +181,6 @@ class CatalogAccessChecker:
             location,
             f"`{name}` is private, token file {token_file} is valid",
         )
-
-
-CATALOG_OPTION = click.option(
-    "--catalog",
-    "catalog_option",
-    type=click.Path(dir_okay=False, path_type=Path),
-    default=None,
-    help="Catalog file to check (default: $JEJUNE_CATALOG or ./catalog.yaml).",
-)
 
 
 def resolve_catalog_path(catalog_option: Path | None) -> Path:
