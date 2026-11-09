@@ -9,6 +9,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import quote, urlsplit
 
+
+from .catalog_access_checker import CatalogAccessChecker
 from .component_with_config import ConfComp
 from .configuration import Configuration
 from .configuration_entry import ConfigurationEntry
@@ -59,20 +61,42 @@ class CompGitAccess(ConfComp):
             ),
         )
 
+    @staticmethod
+    def resolve_catalog_path(catalog_option: Path | None = None) -> Path:
+        """The catalog to check: explicit, else JEJUNE_CATALOG, else ./catalog.yaml."""
+        return catalog_option or Path(
+            os.environ.get("JEJUNE_CATALOG") or Path.cwd() / "catalog.yaml"
+        )
+
+    def check_catalog(self, catalog_path: Path) -> list[tuple[str, str, str]]:
+        """Return (status, subject, message) rows, one per catalog entry."""
+        return CatalogAccessChecker(self, catalog_path).run()
+
     def check(self) -> tuple[str, str]:
-        """Each variable is optional on its own: only private repositories need one."""
+        """Each variable is optional on its own: only private repositories need one.
+
+        When the current catalog exists, its entries must also have their access
+        keys (own `token_file` or the environment): this is what makes the
+        component available without any environment variable.
+        """
         defined = [
             entry for entry in self.configuration.entries if entry.env_var in os.environ
         ]
+        for entry in defined:
+            status, message = entry.check()
+            if status != "ok":
+                return status, f"{entry.env_var}: {message}"
+        catalog_path = self.resolve_catalog_path()
+        if catalog_path.is_file():
+            for status, subject, message in self.check_catalog(catalog_path):
+                if status == "error":
+                    return status, f"{subject}: {message}"
+            return "ok", ""
         if not defined:
             return (
                 "warn",
                 f"neither {self.TOKEN_ENV_VAR} nor {self.TOKEN_FILE_ENV_VAR} set",
             )
-        for entry in defined:
-            status, message = entry.check()
-            if status != "ok":
-                return status, f"{entry.env_var}: {message}"
         return "ok", ""
 
     @staticmethod
