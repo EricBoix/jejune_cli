@@ -73,6 +73,11 @@ class CompGitAccess(ConfComp):
         """Return (status, subject, message) rows, one per catalog entry."""
         return CatalogAccessChecker(self, catalog_path).run()
 
+    def probe_catalog(self, catalog_path: Path) -> list[tuple[str, str, str]]:
+        """Return (status, subject, message) rows, one per catalog entry that can
+        be probed: the network is used, see CatalogAccessChecker.probe_remote."""
+        return CatalogAccessChecker(self, catalog_path).probe_remote()
+
     def check(self) -> tuple[str, str]:
         """Each variable is optional on its own: only private repositories need one.
 

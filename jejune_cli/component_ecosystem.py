@@ -245,6 +245,21 @@ class CompEcosystem(ConfComp):
                 results.append((repo_path.name, was_updated))
         return results
 
+    def catalog_entry_names(self, catalog_path: Path) -> list[str]:
+        """Names of the entries of *catalog_path*; ValueError when unreadable."""
+        try:
+            data = yaml.safe_load(catalog_path.read_text()) or {}
+        except yaml.YAMLError as exc:
+            raise ValueError(f"invalid YAML: {exc}") from exc
+        documents = data.get("documents") if isinstance(data, dict) else None
+        if not isinstance(documents, list):
+            raise ValueError("no `documents` list")
+        return [
+            document["name"]
+            for document in documents
+            if isinstance(document, dict) and document.get("name")
+        ]
+
     def update_catalog_repos(
         self, catalog_path: Path, deploy_dir: Path | None = None
     ) -> list[UpdateOutcome]:
@@ -327,8 +342,9 @@ class CompEcosystem(ConfComp):
             return UpdateOutcome(
                 entry.name,
                 "failed",
-                f"git exited with status {exc.returncode}: check the repository "
-                "url and its access key (`jejune git-access check-config`)",
+                f"git exited with status {exc.returncode}: check the `url` of the "
+                f"entry ({entry.url}) and its access key "
+                "(`jejune git-access check-config`)",
             )
 
     def check(self) -> tuple[str, str]:

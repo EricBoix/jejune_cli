@@ -1,5 +1,7 @@
 """Cross-check of the entries of a catalog.yaml with their access-key files."""
 
+import os
+import subprocess
 from pathlib import Path
 from typing import Protocol
 
@@ -22,19 +24,30 @@ class TokenSource(Protocol):
         self, token_file: Path | str | None = None
     ) -> tuple[str, str] | None: ...
 
+    def run_git(
+        self,
+        arguments: list[str],
+        repository_url: str | None = None,
+        token_file: Path | str | None = None,
+        **run_options,
+    ) -> subprocess.CompletedProcess: ...
+
 
 class CatalogAccessChecker:
     """Cross-checks the entries of a catalog.yaml with their access-key files."""
+
+    _PROBE_TIMEOUT_SECONDS = 30
 
     def __init__(self, comp: TokenSource, catalog_path: Path) -> None:
         self._comp = comp
         self._catalog_path = catalog_path
         self._key_lines: dict[tuple[int, str], int] = {}
 
-    def run(self) -> list[tuple[str, str, str]]:
-        """Return (status, subject, message) rows; status is ok, warn or error."""
+    def _load_documents(self) -> tuple[list, list[tuple[str, str, str]]]:
+        """Return (documents, error_rows): error_rows is not empty when the
+        catalog cannot be read, in which case documents is empty."""
         if not self._catalog_path.is_file():
-            return [("error", str(self._catalog_path), "catalog file not found")]
+            return [], [("error", str(self._catalog_path), "catalog file not found")]
         text = self._catalog_path.read_text()
         try:
             data = yaml.safe_load(text) or {}
@@ -42,16 +55,89 @@ class CatalogAccessChecker:
         except yaml.YAMLError as exc:
             mark = getattr(exc, "problem_mark", None)
             where = f"{self._catalog_path}:{mark.line + 1}" if mark else ""
-            return [("error", where or str(self._catalog_path), f"invalid YAML: {exc}")]
+            return [], [
+                ("error", where or str(self._catalog_path), f"invalid YAML: {exc}")
+            ]
         documents = data.get("documents", []) if isinstance(data, dict) else None
         if not isinstance(documents, list):
-            return [("error", str(self._catalog_path), "no `documents` list")]
+            return [], [("error", str(self._catalog_path), "no `documents` list")]
+        return documents, []
+
+    def run(self) -> list[tuple[str, str, str]]:
+        """Return (status, subject, message) rows; status is ok, warn or error.
+
+        Local checks only: the files are looked at, the network is never used.
+        """
+        documents, error_rows = self._load_documents()
+        if error_rows:
+            return error_rows
         rows = []
         for index, document in enumerate(documents, 1):
             rows.extend(self._check_document(index, document))
         if not rows:
             rows.append(("ok", str(self._catalog_path), "no document entries"))
         return rows
+
+    def probe_remote(self) -> list[tuple[str, str, str]]:
+        """Return (status, subject, message) rows, one per probed entry.
+
+        Each entry is probed with `git ls-remote` using its own credentials, which
+        tells whether the url exists and whether the key gives read access to it.
+        An entry that run() already reports as unusable (no url, invalid or
+        missing key) is not probed.  GitHub answers "not found" both to a wrong
+        url and to a private repository the key cannot see: hence the message.
+        """
+        documents, _ = self._load_documents()
+        rows = []
+        for index, document in enumerate(documents, 1):
+            if not isinstance(document, dict) or "url" not in document:
+                continue
+            url = document["url"]
+            name = document.get("name", url)
+            public = document.get("public", True)
+            token_file = None if public else document.get("token_file")
+            try:
+                credentials = self._comp.resolve_credentials(token_file)
+            except ValueError:
+                continue
+            if not public and credentials is None:
+                continue
+            rows.append(
+                self._probe_document(index, name, url, token_file)
+            )
+        return rows
+
+    def _probe_document(
+        self, index: int, name: str, url: str, token_file: str | None
+    ) -> tuple[str, str, str]:
+        location = self._location(index, "url")
+        try:
+            completed = self._comp.run_git(
+                ["ls-remote", url, "HEAD"],
+                url,
+                token_file,
+                capture_output=True,
+                text=True,
+                timeout=self._PROBE_TIMEOUT_SECONDS,
+                # Fail instead of waiting for a password on the terminal
+                env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+            )
+        except subprocess.TimeoutExpired:
+            return (
+                "error",
+                location,
+                f"`{name}` not reachable: no answer from {url} "
+                f"after {self._PROBE_TIMEOUT_SECONDS}s",
+            )
+        except OSError as exc:
+            return ("error", location, f"`{name}` cannot be probed: {exc}")
+        if completed.returncode == 0:
+            return ("ok", location, f"`{name}` reachable ({url})")
+        return (
+            "error",
+            location,
+            f"`{name}` not reachable: wrong url or no access ({url})",
+        )
 
     def _index_key_lines(self, root) -> None:
         """Record the 1-based line of each key of each entry of `documents`."""
@@ -139,5 +225,5 @@ class CatalogAccessChecker:
         return (
             "ok",
             location,
-            f"`{name}` is private, token file {token_file} is valid",
+            f"`{name}` is private, token file {token_file} is well-formed",
         )

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .app_context import AppContext
 from .click_theme import ClickTheme
-from .component_ecosystem import UpdateOutcome
+from .component_ecosystem import CompEcosystem, UpdateOutcome
 from .component_git_access import CompGitAccess
 
 
@@ -122,10 +122,12 @@ def ecosystem_status(ctx) -> None:
     click.echo()
     click.echo(click.style("  Documents", bold=True))
     doc_repos = eco.discover_doc_repos(root_dir, tmp_dir)
+    known_names = {name for name, _, _, _ in doc_repos}
     if not doc_repos:
         click.echo(
             click.style("    No document repositories cloned locally.", fg="yellow")
         )
+        _echo_catalog_entries_unknown_to_ecosystem(eco, known_names)
         return
 
     _CLONE_LABEL = {"root": "[JEJUNE_ROOT_DIR]", "tmp": "[.jejune/tmp]"}
@@ -161,6 +163,33 @@ def ecosystem_status(ctx) -> None:
         click.echo(
             f"  {name:<{_W_DN}}  {doc_cell}  {clone_dir:<{_W_DC}}  {'':>{_UTD_PAD}}{utd_cell}"
         )
+    _echo_catalog_entries_unknown_to_ecosystem(eco, known_names)
+
+
+def _echo_catalog_entries_unknown_to_ecosystem(
+    eco: CompEcosystem, known_names: set[str]
+) -> None:
+    """List the catalog entries that are neither in JEJUNE_ROOT_DIR nor in .jejune/tmp."""
+    catalog_path = CompGitAccess.resolve_catalog_path()
+    click.echo()
+    click.echo(click.style("  Catalog", bold=True))
+    if not catalog_path.is_file():
+        click.echo(click.style(f"    No catalog at {catalog_path}.", fg="yellow"))
+        return
+    try:
+        entry_names = eco.catalog_entry_names(catalog_path)
+    except ValueError as exc:
+        click.echo(click.style(f"    {catalog_path}: {exc}", fg="yellow"))
+        return
+    unknown_names = [name for name in entry_names if name not in known_names]
+    if not unknown_names:
+        click.echo(f"    All entries of {catalog_path} are known to the ecosystem.")
+        return
+    icon, foreground = ClickTheme.status_icons["error"]
+    click.echo(f"    Entries of {catalog_path} unknown to the ecosystem:")
+    for name in unknown_names:
+        click.echo(f"      {click.style(icon, fg=foreground)}  {name}")
+    click.echo("    run `jejune ecosystem update` to clone them")
 
 
 @ecosystem.command("update")
@@ -210,7 +239,8 @@ def ecosystem_update(ctx) -> None:
     if failed_count:
         click.echo(
             click.style(
-                f"{failed_count} repositories could not be pulled: "
+                f"{failed_count} repositories could not be pulled "
+                f"(see above): "
                 "run `jejune git-access check-config`.",
                 fg="red",
             ),
