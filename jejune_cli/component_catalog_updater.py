@@ -9,7 +9,6 @@ from .component_catalog_document import CatalogDocument
 from .component_catalog_file import CatalogFile
 from .component_ecosystem import EcosystemDirectories
 
-
 UpdateStatus = Literal["cloned", "updated", "up-to-date", "skipped", "failed"]
 
 
@@ -60,6 +59,24 @@ class CatalogUpdater:
             )
         return outcomes
 
+    def update_all_repos(
+        self, catalog_path: Path, deploy_dir: Path | None = None
+    ) -> list[UpdateOutcome]:
+        """Update the repositories of the catalog (when there is one), then the
+        other repositories cloned in .jejune/tmp/."""
+        outcomes: list[UpdateOutcome] = (
+            self.update_catalog_repos(catalog_path, deploy_dir)
+            if catalog_path.is_file()
+            else []
+        )
+        for name, was_updated in self._ecosystem.update_all_tmp_repos(
+            deploy_dir, skip_names={outcome.name for outcome in outcomes}
+        ):
+            outcomes.append(
+                UpdateOutcome(name, "updated" if was_updated else "up-to-date")
+            )
+        return outcomes
+
     def update_catalog_entry(
         self,
         entry: CatalogDocument,
@@ -80,11 +97,15 @@ class CatalogUpdater:
         token_file = entry.effective_token_file
         try:
             if location.tier == "tmp":
-                was_updated = self._ecosystem.update_tmp_repo(location.local_path, token_file)
+                was_updated = self._ecosystem.update_tmp_repo(
+                    location.local_path, token_file
+                )
                 return UpdateOutcome(
                     entry.name, "updated" if was_updated else "up-to-date"
                 )
-            self._ecosystem.clone_into_tmp(entry.name, entry.url, token_file, deploy_dir)
+            self._ecosystem.clone_into_tmp(
+                entry.name, entry.url, token_file, deploy_dir
+            )
             return UpdateOutcome(entry.name, "cloned")
         except subprocess.CalledProcessError as exc:
             return UpdateOutcome(

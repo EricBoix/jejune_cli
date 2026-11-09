@@ -3,6 +3,7 @@ from pathlib import Path
 import click
 
 from .app_context import AppContext
+from .component_catalog_file import CatalogFile
 from .component_containerized import ContComp
 
 
@@ -28,7 +29,21 @@ def build_cmd(app: AppContext, no_cache: bool, update: bool) -> None:
     """
     active_role_obj = app.role_registry.detect_role()
     if update:
-        app.component_registry.get("ecosystem").update_all_tmp_repos()
+        update_outcomes = app.component_registry.get(
+            "catalog"
+        ).updater.update_all_repos(CatalogFile.resolve_path())
+        failed_outcomes = [
+            outcome for outcome in update_outcomes if outcome.status == "failed"
+        ]
+        for outcome in failed_outcomes:
+            click.echo(
+                click.style(f"  {outcome.name}: {outcome.message}", fg="red"),
+                err=True,
+            )
+        if failed_outcomes:
+            raise click.ClickException(
+                "cannot update all repositories: run `jejune git-access check-config`"
+            )
     if app.role_registry.role_is_deployer_family(active_role_obj):
         raise SystemExit(
             app.component_registry.get("deployment").build(Path("."), no_cache=no_cache)

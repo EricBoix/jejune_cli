@@ -6,7 +6,6 @@ from pathlib import Path
 from .app_context import AppContext
 from .component_catalog_file import CatalogFile
 from .click_theme import ClickTheme
-from .component_catalog_updater import UpdateOutcome
 from .component_ecosystem import CompEcosystem
 
 
@@ -209,25 +208,16 @@ def ecosystem_update(ctx) -> None:
     an entry that cannot be pulled is reported and makes the command exit 1.
     """
     app = ctx.find_object(AppContext)
-    eco = app.component_registry.get("ecosystem")
     catalog = app.component_registry.get("catalog")
     catalog_path = CatalogFile.resolve_path()
-    outcomes: list[UpdateOutcome] = []
-    if catalog_path.is_file():
-        outcomes = catalog.updater.update_catalog_repos(catalog_path)
-    else:
+    if not catalog_path.is_file():
         click.echo(
             click.style(
                 f"No catalog at {catalog_path}: only updating .jejune/tmp/.",
                 fg="yellow",
             )
         )
-    for name, was_updated in eco.update_all_tmp_repos(
-        skip_names={outcome.name for outcome in outcomes}
-    ):
-        outcomes.append(
-            UpdateOutcome(name, "updated" if was_updated else "up-to-date")
-        )
+    outcomes = catalog.updater.update_all_repos(catalog_path)
     if not outcomes:
         click.echo("No repositories found in the catalog nor in .jejune/tmp/.")
         return
