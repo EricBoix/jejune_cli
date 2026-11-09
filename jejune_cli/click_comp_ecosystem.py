@@ -73,20 +73,20 @@ def ecosystem_status(ctx) -> None:
             # self.repos lives in a plugin repo (which might be a latent
             # fragility e.g. for future built-in components)
             name = app.plugin_registry.repo_name_for_plugin(comp.name) or comp.name
-            tier, base = eco.repo_status(name, root_dir, tmp_dir)
-            if tier == "root":
+            location = eco.locate(name, root_dir, tmp_dir)
+            if location.tier == "root":
                 clone_display, remote_display = "[JEJUNE_ROOT_DIR]", ""
-            elif tier == "tmp":
+            elif location.tier == "tmp":
                 clone_display, remote_display = "[.jejune/tmp]", ""
             else:
                 clone_display, remote_display = "", "[REPO_ROOT_DIR]"
             up_to_date: bool | None = (
-                eco.repo_up_to_date(Path(base)) if tier in ("root", "tmp") else None
+                eco.repo_up_to_date(location.local_path) if location.is_local else None
             )
             rows.append(
                 (
                     name,
-                    tier in ("root", "tmp"),
+                    location.is_local,
                     clone_display,
                     remote_display,
                     up_to_date,

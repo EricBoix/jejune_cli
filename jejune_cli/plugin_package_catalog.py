@@ -147,15 +147,14 @@ class PluginPackageCatalog:
 
     def _install_package(self, repo_name: str, plugin_name: str) -> None:
         eco = self._component_registry.get("ecosystem")
-        root_dir, tmp_dir = eco.resolve_dirs()
-        tier, base = eco.repo_status(repo_name, root_dir, tmp_dir)
-        if tier == "remote":
+        location = eco.locate_in(repo_name)
+        if not location.is_local:
             git_url = self._component_registry.get("git-server").remote_pip_url(
                 repo_name
             )
             cmd = ["uv", "pip", "install", "--python", sys.executable, git_url]
         else:
-            cmd = ["uv", "pip", "install", "--python", sys.executable, "-e", base]
+            cmd = ["uv", "pip", "install", "--python", sys.executable, "-e", str(location.local_path)]
         result = subprocess.run(cmd)
         label = (
             click.style("installed", fg="green")

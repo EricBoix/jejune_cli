@@ -161,3 +161,19 @@ def test_ensure_local_clones_a_catalog_repository_with_its_own_url_and_token_fil
     write_catalog(tmp_path, f"    token_file: {token_file}\n")
     ecosystem.ensure_local("jejune_doc_Private")
     assert ecosystem.cloned == [(PRIVATE_URL, "jejune_doc_Private", str(token_file))]
+
+
+def test_locate_prefers_root_then_tmp_then_remote(ecosystem, tmp_path):
+    root_dir, tmp_dir = tmp_path / "root", tmp_path / "tmp"
+    (root_dir / "in_root").mkdir(parents=True)
+    (tmp_dir / "in_tmp").mkdir(parents=True)
+    (root_dir / "both").mkdir()
+    (tmp_dir / "both").mkdir()
+    assert ecosystem.locate("both", root_dir, tmp_dir).tier == "root"
+    assert ecosystem.locate("in_tmp", root_dir, tmp_dir).local_path == tmp_dir / "in_tmp"
+    remote = ecosystem.locate("elsewhere", root_dir, tmp_dir)
+    assert (remote.tier, remote.is_local, remote.remote_path) == (
+        "remote",
+        False,
+        "remote/elsewhere",
+    )

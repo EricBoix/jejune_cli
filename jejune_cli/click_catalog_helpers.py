@@ -184,9 +184,9 @@ def iter_docs(docs, root, eco_tmp, ecosystem):
     """
     for doc in docs:
         name, url = doc["name"], doc["url"]
-        tier, base = ecosystem.repo_status(name, root, eco_tmp)
-        if tier in ("root", "tmp"):
-            repo_dir = Path(base)
+        location = ecosystem.locate(name, root, eco_tmp)
+        if location.is_local:
+            repo_dir = location.local_path
         else:
             repo_dir = DotJejune().tmp_dir() / name
             if not repo_dir.exists():

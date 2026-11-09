@@ -45,10 +45,10 @@ class CompConverters(ContComp):
             name = doc.get("name", "")
             if not name:
                 continue
-            tier, base = self._ecosystem.repo_status(name, root_dir, tmp_dir)
-            if tier not in ("root", "tmp"):
+            location = self._ecosystem.locate(name, root_dir, tmp_dir)
+            if not location.is_local:
                 continue
-            repo_dir = Path(base)
+            repo_dir = location.local_path
             has, _, _ = _has_converter(repo_dir)
             if not has:
                 continue

@@ -35,18 +35,16 @@ class CompCatalog(ConfComp):
             failing = [item for item, ok, _ in results if not ok]
             return ("ok", "") if not failing else ("error", "; ".join(failing))
 
-        root_dir, tmp_dir = self._ecosystem.resolve_dirs()
-        tier, base = self._ecosystem.repo_status(
-            CatalogConfig.REPO_NAME, root_dir, tmp_dir
-        )
-        if tier in ("root", "tmp"):
-            path = Path(base) / CatalogConfig.FULL_CATALOG
+        location = self._ecosystem.locate_in(CatalogConfig.REPO_NAME)
+        if location.is_local:
+            path = location.local_path / CatalogConfig.FULL_CATALOG
             return (
                 ("ok", "")
                 if path.exists()
                 else (
                     "error",
-                    f"{CatalogConfig.FULL_CATALOG} not found under {base}",
+                    f"{CatalogConfig.FULL_CATALOG} not found under "
+                    f"{location.local_path}",
                 )
             )
 
@@ -128,12 +126,14 @@ class CompCatalog(ConfComp):
             )
 
             if self._ecosystem is not None:
-                tier, base = self._ecosystem.repo_status(name, root_dir, tmp_dir)
-                if tier == "remote":
+                location = self._ecosystem.locate(name, root_dir, tmp_dir)
+                if location.is_local:
+                    manifest_dir = location.local_path
+                else:
                     if local_only:
                         continue
                     try:
-                        base = str(self._ecosystem.ensure_local(name))
+                        manifest_dir = self._ecosystem.ensure_local(name)
                     except Exception as exc:
                         results.append(
                             (
@@ -144,7 +144,7 @@ class CompCatalog(ConfComp):
                         )
                         continue
                 manifest_errors, _ = CompManifest(
-                    Path(base)
+                    manifest_dir
                 ).check_manifest_referenced_files()
                 results.append(
                     (
@@ -158,12 +158,9 @@ class CompCatalog(ConfComp):
 
     def full_catalog_path(self, deployments_dir: Path) -> Path | None:
         """Locate full-catalog.yaml via ecosystem resolution, with sibling-path fallback."""
-        root_dir, tmp_dir = self._ecosystem.resolve_dirs(deployments_dir)
-        tier, base = self._ecosystem.repo_status(
-            CatalogConfig.REPO_NAME, root_dir, tmp_dir
-        )
-        if tier in ("root", "tmp"):
-            path = Path(base) / CatalogConfig.FULL_CATALOG
+        location = self._ecosystem.locate_in(CatalogConfig.REPO_NAME, deployments_dir)
+        if location.is_local:
+            path = location.local_path / CatalogConfig.FULL_CATALOG
             return path if path.exists() else None
         candidate = (
             deployments_dir.parent

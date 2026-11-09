@@ -21,6 +21,20 @@ UpdateStatus = Literal["cloned", "updated", "up-to-date", "skipped", "failed"]
 
 
 @dataclass(frozen=True)
+class RepoLocation:
+    """Where a repository is: a local directory (tier root or tmp), else only its
+    remote (`remote_path`, as given by the git-server)."""
+
+    tier: RepoTier
+    local_path: Path | None = None
+    remote_path: str | None = None
+
+    @property
+    def is_local(self) -> bool:
+        return self.local_path is not None
+
+
+@dataclass(frozen=True)
 class UpdateOutcome:
     """What `ecosystem update` did (or could not do) for one repository."""
 
@@ -49,17 +63,22 @@ class CompEcosystem(ConfComp):
         self._plugin_registry = plugin_registry
         self.conditional_dependencies = [(self.ecosystem_needs_remote, git_server)]
 
-    def repo_status(
+    def locate(
         self,
         name: str,
         root_dir: Path | None,
         tmp_dir: Path | None,
-    ) -> tuple[RepoTier, str]:
+    ) -> RepoLocation:
         if root_dir is not None and (root_dir / name).exists():
-            return "root", str(root_dir / name)
+            return RepoLocation("root", local_path=root_dir / name)
         if tmp_dir is not None and (tmp_dir / name).exists():
-            return "tmp", str(tmp_dir / name)
-        return "remote", self._git_server.remote_repo_path(name)
+            return RepoLocation("tmp", local_path=tmp_dir / name)
+        return RepoLocation("remote", remote_path=self._git_server.remote_repo_path(name))
+
+    def locate_in(self, name: str, deploy_dir: Path | None = None) -> RepoLocation:
+        """Same as locate, within the directories resolve_dirs(*deploy_dir*) gives."""
+        root_dir, tmp_dir = self.resolve_dirs(deploy_dir)
+        return self.locate(name, root_dir, tmp_dir)
 
     def resolve(
         self,
@@ -68,9 +87,9 @@ class CompEcosystem(ConfComp):
         tmp_dir: Path | None,
         subpath: str | None = None,
     ) -> str:
-        tier, base = self.repo_status(name, root_dir, tmp_dir)
-        if tier in ("root", "tmp"):
-            return str(Path(base) / subpath) if subpath else base
+        location = self.locate(name, root_dir, tmp_dir)
+        if location.is_local:
+            return str(location.local_path / subpath if subpath else location.local_path)
         return self._git_server.remote_git_url(
             name, f"main:{subpath}" if subpath else None
         )
@@ -115,7 +134,7 @@ class CompEcosystem(ConfComp):
             return False
         root_dir, tmp_dir = self.resolve_dirs()
         return any(
-            self.repo_status(pkg_name, root_dir, tmp_dir)[0] == "remote"
+            not self.locate(pkg_name, root_dir, tmp_dir).is_local
             for comp in active
             if getattr(comp, "repos", [])
             if (pkg_name := self._plugin_registry.repo_name_for_plugin(comp.name))
@@ -123,10 +142,9 @@ class CompEcosystem(ConfComp):
         )
 
     def ensure_local(self, repo_name: str) -> Path:
-        root_dir, tmp_dir = self.resolve_dirs()
-        tier, base = self.repo_status(repo_name, root_dir, tmp_dir)
-        if tier in ("root", "tmp"):
-            return Path(base)
+        location = self.locate_in(repo_name)
+        if location.is_local:
+            return location.local_path
         # A repository of the current catalog is cloned from its own url, with its
         # own access key; any other one from the default git server.
         catalog_path = CatalogFile.resolve_path()
@@ -282,8 +300,8 @@ class CompEcosystem(ConfComp):
         tmp_dir: Path | None,
         deploy_dir: Path | None = None,
     ) -> UpdateOutcome:
-        tier, base = self.repo_status(entry.name, root_dir, tmp_dir)
-        if tier == "root":
+        location = self.locate(entry.name, root_dir, tmp_dir)
+        if location.tier == "root":
             return UpdateOutcome(
                 entry.name,
                 "skipped",
@@ -295,8 +313,8 @@ class CompEcosystem(ConfComp):
             return UpdateOutcome(entry.name, "failed", f"git-access: {exc}")
         token_file = entry.effective_token_file
         try:
-            if tier == "tmp":
-                was_updated = self.update_tmp_repo(Path(base), token_file)
+            if location.tier == "tmp":
+                was_updated = self.update_tmp_repo(location.local_path, token_file)
                 return UpdateOutcome(
                     entry.name, "updated" if was_updated else "up-to-date"
                 )
