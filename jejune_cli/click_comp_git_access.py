@@ -11,6 +11,7 @@ from .click_configuration import (
     print_config_status,
 )
 from .click_theme import ClickTheme
+from .component_catalog_access_checker import CatalogAccessChecker
 from .component_catalog_file import CatalogFile
 from .component_git_access import CompGitAccess
 
@@ -79,7 +80,7 @@ def print_rows(rows: list[tuple[str, str, str]]) -> bool:
 
 def print_catalog_check(comp: CompGitAccess, catalog_path: Path) -> bool:
     """Print one row per catalog entry; return True when there is no error."""
-    return print_rows(comp.check_catalog(catalog_path))
+    return print_rows(CatalogAccessChecker(comp, catalog_path).run())
 
 
 @git_access.command("check-configuration")
@@ -121,7 +122,7 @@ def check_availability(comp, catalog_option):
         local_ok = print_catalog_check(comp, catalog_path)
         click.echo()
         click.echo("Remote probing the repository")
-        probe_ok = print_rows(comp.probe_catalog(catalog_path))
+        probe_ok = print_rows(CatalogAccessChecker(comp, catalog_path).probe_remote())
         if not (local_ok and probe_ok):
             raise SystemExit(1)
 

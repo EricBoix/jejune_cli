@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from ._package_paths import CatalogConfig, TemplatePaths
+from .component_catalog_access_checker import CatalogAccessChecker
 from .component_catalog_file import CatalogFile
 from .click_catalog_helpers import (
     load_catalog_docs,
@@ -17,16 +18,32 @@ from .component_with_config import ConfComp
 class CompCatalog(ConfComp):
     _TRIVIAL_CATALOG: ClassVar[Path] = TemplatePaths.CATALOG_TRIVIAL
 
-    def __init__(self, ecosystem, role_registry, plugin_registry) -> None:
+    def __init__(self, ecosystem, git_access, role_registry, plugin_registry) -> None:
         super().__init__(name="catalog", dependencies=[ecosystem])
         self._ecosystem = ecosystem
+        self._git_access = git_access
         self._role_registry = role_registry
         self.repos = [
             (None, None)
         ]  # registers jejune_catalog as an ecosystem-managed repo
         plugin_registry.register_repo_name(self.name, CatalogConfig.REPO_NAME)
 
+    def check_access(self, catalog_path: Path) -> tuple[str, str]:
+        """The entries of *catalog_path* must have their access keys (own
+        `token_file` or the environment): local checks only."""
+        for status, subject, message in CatalogAccessChecker(
+            self._git_access, catalog_path
+        ).run():
+            if status == "error":
+                return status, f"{subject}: {message}"
+        return "ok", ""
+
     def check(self) -> tuple[str, str]:
+        catalog_path = CatalogFile.resolve_path()
+        if catalog_path.is_file():
+            access_status, access_message = self.check_access(catalog_path)
+            if access_status != "ok":
+                return access_status, access_message
         active_role = self._role_registry.detect_role()
         if self._role_registry.role_is_deployment_catalog_family(active_role):
             cwd = Path.cwd()

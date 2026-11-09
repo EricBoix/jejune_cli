@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from jejune_cli.component_catalog_access_checker import CatalogAccessChecker
 from jejune_cli.component_git_access import CompGitAccess
 
 PUBLIC_URL = "https://example.org/team/jejune_doc_Public"
@@ -54,7 +55,7 @@ def fake_run_git(git_access, monkeypatch, unreachable_urls=()):
 
 def test_probe_uses_the_key_of_each_entry(git_access, catalog_path, token_file, monkeypatch):
     calls = fake_run_git(git_access, monkeypatch)
-    rows = git_access.probe_catalog(catalog_path)
+    rows = CatalogAccessChecker(git_access, catalog_path).probe_remote()
     assert [status for status, _, _ in rows] == ["ok", "ok"]
     assert all("reachable" in message for _, _, message in rows)
     assert calls == [
@@ -65,7 +66,7 @@ def test_probe_uses_the_key_of_each_entry(git_access, catalog_path, token_file, 
 
 def test_probe_reports_wrong_url_or_no_access(git_access, catalog_path, monkeypatch):
     fake_run_git(git_access, monkeypatch, unreachable_urls=[PRIVATE_URL])
-    rows = git_access.probe_catalog(catalog_path)
+    rows = CatalogAccessChecker(git_access, catalog_path).probe_remote()
     assert rows[0][0] == "ok"
     status, subject, message = rows[1]
     assert status == "error"
@@ -82,10 +83,10 @@ def test_probe_skips_entries_without_usable_key(git_access, tmp_path, monkeypatc
         "    public: false\n"
     )
     calls = fake_run_git(git_access, monkeypatch)
-    assert git_access.probe_catalog(catalog_path) == []
+    assert CatalogAccessChecker(git_access, catalog_path).probe_remote() == []
     assert calls == []
     # the local check is the one reporting the missing key
-    assert git_access.check_catalog(catalog_path)[0][0] == "error"
+    assert CatalogAccessChecker(git_access, catalog_path).run()[0][0] == "error"
 
 
 def test_probe_reports_timeout(git_access, catalog_path, monkeypatch):
@@ -93,11 +94,11 @@ def test_probe_reports_timeout(git_access, catalog_path, monkeypatch):
         raise subprocess.TimeoutExpired(arguments, run_options["timeout"])
 
     monkeypatch.setattr(git_access, "run_git", run_git)
-    rows = git_access.probe_catalog(catalog_path)
+    rows = CatalogAccessChecker(git_access, catalog_path).probe_remote()
     assert {status for status, _, _ in rows} == {"error"}
     assert "no answer" in rows[0][2]
 
 
 def test_local_check_says_well_formed_not_valid(git_access, catalog_path):
-    message = git_access.check_catalog(catalog_path)[1][2]
+    message = CatalogAccessChecker(git_access, catalog_path).run()[1][2]
     assert "is well-formed" in message

@@ -69,6 +69,7 @@ def build_components(
     )
     catalog_comp = CompCatalog(
         ecosystem=ecosystem,
+        git_access=git_access,
         role_registry=role_registry,
         plugin_registry=plugin_registry,
     )

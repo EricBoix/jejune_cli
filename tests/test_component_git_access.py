@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from jejune_cli.component_catalog_access_checker import CatalogAccessChecker
 from jejune_cli.component_cont_convert import CompConvert
 from jejune_cli.component_git_access import CompGitAccess
 
@@ -94,7 +95,7 @@ def test_credentials_file_uses_token_variable_and_file_wins(
 def test_check_requires_one_valid_source(git_access, token_file, monkeypatch):
     monkeypatch.delenv(CompGitAccess.TOKEN_FILE_ENV_VAR, raising=False)
     monkeypatch.delenv(CompGitAccess.TOKEN_ENV_VAR, raising=False)
-    assert git_access.check()[0] == "warn"
+    assert git_access.check() == ("ok", "")
     monkeypatch.setenv(CompGitAccess.TOKEN_ENV_VAR, "raw")
     assert git_access.check()[0] == "error"
     monkeypatch.setenv(CompGitAccess.TOKEN_ENV_VAR, "bob:secret")
@@ -206,7 +207,7 @@ def test_run_git_authenticates_only_with_a_token(
     assert not list((tmp_path / ".jejune" / "tmp").glob("git-credentials-*"))
 
 
-def test_check_catalog_rejects_url_without_repository_path(git_access, tmp_path):
+def test_catalog_access_checker_rejects_url_without_repository_path(git_access, tmp_path):
     catalog = tmp_path / "catalog.yaml"
     catalog.write_text(
         "documents:\n"
@@ -214,7 +215,7 @@ def test_check_catalog_rejects_url_without_repository_path(git_access, tmp_path)
         "    url: https://example.org/team/\n"
         "    public: true\n"
     )
-    rows = git_access.check_catalog(catalog)
+    rows = CatalogAccessChecker(git_access, catalog).run()
     assert len(rows) == 1
     status, location, message = rows[0]
     assert status == "error"
@@ -222,10 +223,10 @@ def test_check_catalog_rejects_url_without_repository_path(git_access, tmp_path)
     assert "<owner>/<repository>" in message
 
 
-def test_check_catalog_accepts_url_with_repository_path(git_access, tmp_path):
+def test_catalog_access_checker_accepts_url_with_repository_path(git_access, tmp_path):
     catalog = tmp_path / "catalog.yaml"
     catalog.write_text(
         f"documents:\n  - name: jejune_doc_X\n    url: {REPOSITORY_URL}\n"
         "    public: true\n"
     )
-    assert [status for status, _, _ in git_access.check_catalog(catalog)] == ["ok"]
+    assert [status for status, _, _ in CatalogAccessChecker(git_access, catalog).run()] == ["ok"]
