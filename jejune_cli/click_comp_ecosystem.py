@@ -5,7 +5,8 @@ from pathlib import Path
 
 from .app_context import AppContext
 from .click_theme import ClickTheme
-from .component_ecosystem import CompEcosystem
+from .component_ecosystem import UpdateOutcome
+from .component_git_access import CompGitAccess
 
 
 @click.group(invoke_without_command=True, short_help="Ecosystem repository status")
@@ -165,15 +166,54 @@ def ecosystem_status(ctx) -> None:
 @ecosystem.command("update")
 @click.pass_context
 def ecosystem_update(ctx) -> None:
-    """Fetch and reset all repos cloned in .jejune/tmp to their remote HEAD."""
+    """Clone or update in .jejune/tmp every entry of the catalog (JEJUNE_CATALOG,
+    else ./catalog.yaml), then update the other repos cloned in .jejune/tmp.
+
+    Private entries need an access key (see `jejune git-access check-config`):
+    an entry that cannot be pulled is reported and makes the command exit 1.
+    """
     app = ctx.find_object(AppContext)
     eco = app.component_registry.get("ecosystem")
-    results = eco.update_all_tmp_repos()
-    if not results:
-        click.echo("No repositories found in .jejune/tmp/.")
-        return
-    for name, was_updated in results:
-        status = (
-            click.style("updated", fg="green") if was_updated else "already up-to-date"
+    catalog_path = CompGitAccess.resolve_catalog_path()
+    outcomes: list[UpdateOutcome] = []
+    if catalog_path.is_file():
+        outcomes = eco.update_catalog_repos(catalog_path)
+    else:
+        click.echo(
+            click.style(
+                f"No catalog at {catalog_path}: only updating .jejune/tmp/.",
+                fg="yellow",
+            )
         )
-        click.echo(f"  {name}: {status}")
+    for name, was_updated in eco.update_all_tmp_repos(
+        skip_names={outcome.name for outcome in outcomes}
+    ):
+        outcomes.append(
+            UpdateOutcome(name, "updated" if was_updated else "up-to-date")
+        )
+    if not outcomes:
+        click.echo("No repositories found in the catalog nor in .jejune/tmp/.")
+        return
+    status_foregrounds = {
+        "cloned": "green",
+        "updated": "green",
+        "failed": "red",
+        "skipped": "yellow",
+    }
+    for outcome in outcomes:
+        status = click.style(
+            outcome.status, fg=status_foregrounds.get(outcome.status, "white")
+        )
+        detail = f" ({outcome.message})" if outcome.message else ""
+        click.echo(f"  {outcome.name}: {status}{detail}")
+    failed_count = sum(outcome.status == "failed" for outcome in outcomes)
+    if failed_count:
+        click.echo(
+            click.style(
+                f"{failed_count} repositories could not be pulled: "
+                "run `jejune git-access check-config`.",
+                fg="red",
+            ),
+            err=True,
+        )
+        ctx.exit(1)

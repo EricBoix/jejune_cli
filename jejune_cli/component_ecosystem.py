@@ -2,10 +2,12 @@
 
 import os
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 import click
+import yaml
 
 from .configuration import Configuration
 from .configuration_entry import ConfigurationEntry
@@ -13,6 +15,26 @@ from .component_with_config import ConfComp
 from .dot_jejune import DotJejune
 
 RepoTier = Literal["root", "tmp", "remote"]
+UpdateStatus = Literal["cloned", "updated", "up-to-date", "skipped", "failed"]
+
+
+@dataclass(frozen=True)
+class CatalogEntry:
+    """One document entry of a catalog.yaml."""
+
+    name: str
+    url: str
+    public: bool
+    token_file: str | None
+
+
+@dataclass(frozen=True)
+class UpdateOutcome:
+    """What `ecosystem update` did (or could not do) for one repository."""
+
+    name: str
+    status: UpdateStatus
+    message: str = ""
 
 
 class CompEcosystem(ConfComp):
@@ -175,7 +197,9 @@ class CompEcosystem(ConfComp):
         except (subprocess.CalledProcessError, IndexError, ValueError):
             return None
 
-    def update_tmp_repo(self, repo_path: Path) -> bool:
+    def update_tmp_repo(
+        self, repo_path: Path, token_file: Path | str | None = None
+    ) -> bool:
         """Fetch origin and reset to FETCH_HEAD. Returns True when HEAD changed."""
         head_before = subprocess.run(
             ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
@@ -186,6 +210,7 @@ class CompEcosystem(ConfComp):
         self._git_access.run_git(
             ["-C", str(repo_path), "fetch", "origin"],
             self.origin_url(repo_path),
+            token_file,
             check=True,
         )
         subprocess.run(
@@ -201,19 +226,110 @@ class CompEcosystem(ConfComp):
         return head_before != head_after
 
     def update_all_tmp_repos(
-        self, deploy_dir: Path | None = None
+        self, deploy_dir: Path | None = None, skip_names: set[str] | None = None
     ) -> list[tuple[str, bool]]:
-        """Update every git repo in .jejune/tmp/. Returns [(name, was_updated), ...]."""
+        """Update every git repo in .jejune/tmp/ (but the *skip_names* ones).
+
+        Returns [(name, was_updated), ...].
+        """
         _, tmp_dir = self.resolve_dirs(deploy_dir)
         if tmp_dir is None:
             return []
         results: list[tuple[str, bool]] = []
         for repo_path in sorted(tmp_dir.iterdir()):
+            if skip_names and repo_path.name in skip_names:
+                continue
             if repo_path.is_dir() and (repo_path / ".git").exists():
                 click.echo(f"Updating {repo_path.name} ...")
                 was_updated = self.update_tmp_repo(repo_path)
                 results.append((repo_path.name, was_updated))
         return results
+
+    def update_catalog_repos(
+        self, catalog_path: Path, deploy_dir: Path | None = None
+    ) -> list[UpdateOutcome]:
+        """Clone (when missing) or update, in .jejune/tmp/, every entry of the catalog.
+
+        A failing entry (malformed, unusable git-access configuration, git error)
+        yields a `failed` outcome carrying the reason: the other entries are
+        still processed.
+        """
+        try:
+            data = yaml.safe_load(catalog_path.read_text()) or {}
+        except yaml.YAMLError as exc:
+            return [UpdateOutcome(str(catalog_path), "failed", f"invalid YAML: {exc}")]
+        documents = data.get("documents") if isinstance(data, dict) else None
+        if not isinstance(documents, list):
+            return [UpdateOutcome(str(catalog_path), "failed", "no `documents` list")]
+        root_dir, tmp_dir = self.resolve_dirs(deploy_dir)
+        outcomes: list[UpdateOutcome] = []
+        for index, document in enumerate(documents, 1):
+            if not isinstance(document, dict) or not (
+                document.get("name") and document.get("url")
+            ):
+                outcomes.append(
+                    UpdateOutcome(
+                        f"entry #{index}",
+                        "failed",
+                        "catalog entry without a `name` or a `url`",
+                    )
+                )
+                continue
+            entry = CatalogEntry(
+                name=document["name"],
+                url=document["url"],
+                public=document.get("public", True),
+                token_file=document.get("token_file"),
+            )
+            outcomes.append(
+                self.update_catalog_entry(entry, root_dir, tmp_dir, deploy_dir)
+            )
+        return outcomes
+
+    def update_catalog_entry(
+        self,
+        entry: CatalogEntry,
+        root_dir: Path | None,
+        tmp_dir: Path | None,
+        deploy_dir: Path | None = None,
+    ) -> UpdateOutcome:
+        tier, base = self.repo_status(entry.name, root_dir, tmp_dir)
+        if tier == "root":
+            return UpdateOutcome(
+                entry.name,
+                "skipped",
+                "found in JEJUNE_ROOT_DIR: update it with git there",
+            )
+        # The token file of a public entry is unused (git-access warns about it)
+        token_file = None if entry.public else entry.token_file
+        try:
+            credentials = self._git_access.resolve_credentials(token_file)
+        except ValueError as exc:
+            return UpdateOutcome(entry.name, "failed", f"git-access: {exc}")
+        if not entry.public and credentials is None:
+            return UpdateOutcome(
+                entry.name,
+                "failed",
+                "git-access: private (`public: false`) but no `token_file` and "
+                f"neither {self._git_access.TOKEN_ENV_VAR} nor "
+                f"{self._git_access.TOKEN_FILE_ENV_VAR} is set",
+            )
+        try:
+            if tier == "tmp":
+                was_updated = self.update_tmp_repo(Path(base), token_file)
+                return UpdateOutcome(
+                    entry.name, "updated" if was_updated else "up-to-date"
+                )
+            destination = DotJejune(deploy_dir).tmp_dir() / entry.name
+            self.clone_repository(entry.url, destination, depth=1, token_file=token_file)
+            return UpdateOutcome(entry.name, "cloned")
+        except subprocess.CalledProcessError as exc:
+            return UpdateOutcome(
+                entry.name,
+                "failed",
+                f"git exited with status {exc.returncode}: check the repository "
+                "url and its access key (`jejune git-access check-config`)",
+            )
 
     def check(self) -> tuple[str, str]:
         return "ok", ""
