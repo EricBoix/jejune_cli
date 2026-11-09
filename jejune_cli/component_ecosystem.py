@@ -7,8 +7,9 @@ from pathlib import Path
 from typing import Literal
 
 import click
-import yaml
 
+from .component_catalog_document import CatalogDocument
+from .component_catalog_file import CatalogFile
 from .configuration import Configuration
 from .configuration_entry import ConfigurationEntry
 from .component_with_config import ConfComp
@@ -16,16 +17,6 @@ from .dot_jejune import DotJejune
 
 RepoTier = Literal["root", "tmp", "remote"]
 UpdateStatus = Literal["cloned", "updated", "up-to-date", "skipped", "failed"]
-
-
-@dataclass(frozen=True)
-class CatalogEntry:
-    """One document entry of a catalog.yaml."""
-
-    name: str
-    url: str
-    public: bool
-    token_file: str | None
 
 
 @dataclass(frozen=True)
@@ -174,7 +165,7 @@ class CompEcosystem(ConfComp):
         """Compare local HEAD to the actual remote HEAD via ls-remote (network call).
 
         *token_file* is the access key of a private repository (see
-        catalog_token_files).
+        CatalogFile.token_files).
 
         Returns True when in sync, False when behind, None on any error.
         Uses ls-remote rather than @{upstream} so the result is always current,
@@ -193,28 +184,6 @@ class CompEcosystem(ConfComp):
             return local == remote
         except (subprocess.CalledProcessError, IndexError, ValueError):
             return None
-
-    def catalog_token_files(self, catalog_path: Path) -> dict[str, str]:
-        """Access key file of every private entry of *catalog_path*, by entry name.
-
-        Same rule as update_catalog_entry: the token file of a public entry is
-        unused.  An unreadable catalog yields no token file at all.
-        """
-        try:
-            data = yaml.safe_load(catalog_path.read_text()) or {}
-        except yaml.YAMLError:
-            return {}
-        documents = data.get("documents") if isinstance(data, dict) else None
-        if not isinstance(documents, list):
-            return {}
-        return {
-            document["name"]: document["token_file"]
-            for document in documents
-            if isinstance(document, dict)
-            and document.get("name")
-            and document.get("token_file")
-            and not document.get("public", True)
-        }
 
     def update_tmp_repo(
         self, repo_path: Path, token_file: Path | str | None = None
@@ -254,21 +223,6 @@ class CompEcosystem(ConfComp):
                 results.append((repo_path.name, was_updated))
         return results
 
-    def catalog_entry_names(self, catalog_path: Path) -> list[str]:
-        """Names of the entries of *catalog_path*; ValueError when unreadable."""
-        try:
-            data = yaml.safe_load(catalog_path.read_text()) or {}
-        except yaml.YAMLError as exc:
-            raise ValueError(f"invalid YAML: {exc}") from exc
-        documents = data.get("documents") if isinstance(data, dict) else None
-        if not isinstance(documents, list):
-            raise ValueError("no `documents` list")
-        return [
-            document["name"]
-            for document in documents
-            if isinstance(document, dict) and document.get("name")
-        ]
-
     def update_catalog_repos(
         self, catalog_path: Path, deploy_dir: Path | None = None
     ) -> list[UpdateOutcome]:
@@ -279,18 +233,14 @@ class CompEcosystem(ConfComp):
         still processed.
         """
         try:
-            data = yaml.safe_load(catalog_path.read_text()) or {}
-        except yaml.YAMLError as exc:
-            return [UpdateOutcome(str(catalog_path), "failed", f"invalid YAML: {exc}")]
-        documents = data.get("documents") if isinstance(data, dict) else None
-        if not isinstance(documents, list):
-            return [UpdateOutcome(str(catalog_path), "failed", "no `documents` list")]
+            raw_documents = CatalogFile(catalog_path).raw_documents()
+        except ValueError as exc:
+            return [UpdateOutcome(str(catalog_path), "failed", str(exc))]
         root_dir, tmp_dir = self.resolve_dirs(deploy_dir)
         outcomes: list[UpdateOutcome] = []
-        for index, document in enumerate(documents, 1):
-            if not isinstance(document, dict) or not (
-                document.get("name") and document.get("url")
-            ):
+        for index, raw_document in enumerate(raw_documents, 1):
+            document = CatalogDocument.from_mapping(raw_document)
+            if document is None:
                 outcomes.append(
                     UpdateOutcome(
                         f"entry #{index}",
@@ -299,20 +249,14 @@ class CompEcosystem(ConfComp):
                     )
                 )
                 continue
-            entry = CatalogEntry(
-                name=document["name"],
-                url=document["url"],
-                public=document.get("public", True),
-                token_file=document.get("token_file"),
-            )
             outcomes.append(
-                self.update_catalog_entry(entry, root_dir, tmp_dir, deploy_dir)
+                self.update_catalog_entry(document, root_dir, tmp_dir, deploy_dir)
             )
         return outcomes
 
     def update_catalog_entry(
         self,
-        entry: CatalogEntry,
+        entry: CatalogDocument,
         root_dir: Path | None,
         tmp_dir: Path | None,
         deploy_dir: Path | None = None,
@@ -324,20 +268,11 @@ class CompEcosystem(ConfComp):
                 "skipped",
                 "found in JEJUNE_ROOT_DIR: update it with git there",
             )
-        # The token file of a public entry is unused (git-access warns about it)
-        token_file = None if entry.public else entry.token_file
         try:
-            credentials = self._git_access.resolve_credentials(token_file)
+            entry.resolve_credentials(self._git_access)
         except ValueError as exc:
             return UpdateOutcome(entry.name, "failed", f"git-access: {exc}")
-        if not entry.public and credentials is None:
-            return UpdateOutcome(
-                entry.name,
-                "failed",
-                "git-access: private (`public: false`) but no `token_file` and "
-                f"neither {self._git_access.TOKEN_ENV_VAR} nor "
-                f"{self._git_access.TOKEN_FILE_ENV_VAR} is set",
-            )
+        token_file = entry.effective_token_file
         try:
             if tier == "tmp":
                 was_updated = self.update_tmp_repo(Path(base), token_file)

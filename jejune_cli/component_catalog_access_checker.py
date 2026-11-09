@@ -7,6 +7,8 @@ from urllib.parse import urlparse
 
 import yaml
 
+from .component_catalog_document import CatalogDocument
+
 
 class TokenSource(Protocol):
     """What the checker needs from the git-access component.
@@ -94,15 +96,19 @@ class CatalogAccessChecker:
                 continue
             url = document["url"]
             name = document.get("name", url)
-            public = document.get("public", True)
-            token_file = None if public else document.get("token_file")
+            probed = CatalogDocument(
+                name=name,
+                url=url,
+                public=document.get("public", True),
+                token_file=document.get("token_file"),
+            )
             try:
-                credentials = self._comp.resolve_credentials(token_file)
+                probed.resolve_credentials(self._comp)
             except ValueError:
                 continue
-            if not public and credentials is None:
-                continue
-            rows.append(self._probe_document(index, name, url, token_file))
+            rows.append(
+                self._probe_document(index, name, url, probed.effective_token_file)
+            )
         return rows
 
     def _probe_document(

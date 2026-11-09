@@ -4,6 +4,7 @@ import click
 from pathlib import Path
 
 from .app_context import AppContext
+from .component_catalog_file import CatalogFile
 from .click_theme import ClickTheme
 from .component_ecosystem import CompEcosystem, UpdateOutcome
 from .component_git_access import CompGitAccess
@@ -134,7 +135,7 @@ def ecosystem_status(ctx) -> None:
     # Private catalog entries are reached with their own access key, as `update` does
     catalog_path = CompGitAccess.resolve_catalog_path()
     token_files = (
-        eco.catalog_token_files(catalog_path) if catalog_path.is_file() else {}
+        CatalogFile(catalog_path).token_files() if catalog_path.is_file() else {}
     )
     doc_rows: list[tuple[str, bool, str, bool | None]] = [
         (
@@ -182,7 +183,7 @@ def _echo_catalog_entries_unknown_to_ecosystem(
         click.echo(click.style(f"    No catalog at {catalog_path}.", fg="yellow"))
         return
     try:
-        entry_names = eco.catalog_entry_names(catalog_path)
+        entry_names = CatalogFile(catalog_path).names()
     except ValueError as exc:
         click.echo(click.style(f"    {catalog_path}: {exc}", fg="yellow"))
         return

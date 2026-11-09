@@ -8,6 +8,7 @@ import click
 import yaml
 
 from ._package_paths import CatalogConfig, SchemaPaths
+from .component_catalog_file import CatalogFile
 from .component_git_access import CompGitAccess
 from .dot_jejune import DotJejune
 
@@ -21,7 +22,10 @@ def load_catalog_docs(catalog_file: str | None) -> list[dict]:
     catalog_path = Path(catalog_file)
     if not catalog_path.exists():
         raise click.ClickException(f"Catalog file not found: {catalog_file}")
-    return yaml.safe_load(catalog_path.read_text())["documents"]
+    try:
+        return CatalogFile(catalog_path).raw_documents()
+    except ValueError as exc:
+        raise click.ClickException(f"{catalog_file}: {exc}") from exc
 
 
 def catalog_config_status() -> tuple[str, str]:
@@ -85,7 +89,10 @@ def check_catalog(catalog: Path, root_dir: Path | None) -> list[tuple[str, bool,
     """Check each catalog entry for visibility and local clone; return (name, ok, message)."""
     if not catalog.exists():
         return [("catalog.yaml", False, f"not found: {catalog}")]
-    docs = yaml.safe_load(catalog.read_text()).get("documents", [])
+    try:
+        docs = CatalogFile(catalog).raw_documents()
+    except ValueError as exc:
+        return [("catalog.yaml", False, str(exc))]
     results: list[tuple[str, bool, str]] = []
     for i, doc in enumerate(docs):
         schema_errors = validate_catalog_entry(doc, i)
@@ -129,10 +136,7 @@ def sync_catalog(
     Returns (results, n_added) where n_added is the count of repos appended to
     catalog when do_add is True.
     """
-    existing: set[str] = set()
-    if catalog.exists():
-        for doc in yaml.safe_load(catalog.read_text()).get("documents", []):
-            existing.add(doc["name"])
+    existing = set(CatalogFile(catalog).names()) if catalog.exists() else set()
 
     results: list[tuple[str, bool, str]] = []
     to_add: list[tuple[str, str]] = []

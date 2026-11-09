@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import quote, urlsplit
 
 
-from .catalog_access_checker import CatalogAccessChecker
+from .component_catalog_access_checker import CatalogAccessChecker
 from .component_with_config import ConfComp
 from .configuration import Configuration
 from .configuration_entry import ConfigurationEntry

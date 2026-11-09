@@ -4,9 +4,8 @@ import os
 from pathlib import Path
 from typing import ClassVar
 
-import yaml
-
 from ._package_paths import CatalogConfig, TemplatePaths
+from .component_catalog_file import CatalogFile
 from .click_catalog_helpers import (
     load_catalog_docs,
     validate_catalog_entry,
@@ -89,7 +88,7 @@ class CompCatalog(ConfComp):
 
         ref_docs: dict[str, dict] = {}
         if catalog_ref.is_file():
-            for doc in yaml.safe_load(catalog_ref.read_text()).get("documents", []):
+            for doc in CatalogFile(catalog_ref).raw_documents():
                 if isinstance(doc, dict) and "name" in doc:
                     ref_docs[doc["name"]] = doc
 
@@ -99,9 +98,7 @@ class CompCatalog(ConfComp):
             else (None, None)
         )
 
-        for i, doc in enumerate(
-            yaml.safe_load(catalog_file.read_text()).get("documents", [])
-        ):
+        for i, doc in enumerate(CatalogFile(catalog_file).raw_documents()):
             schema_errors = validate_catalog_entry(doc, i)
             if schema_errors:
                 label = doc.get("name") if isinstance(doc, dict) else None
@@ -184,25 +181,17 @@ class CompCatalog(ConfComp):
         )
         if not catalog_path.is_file():
             return []
-        data = yaml.safe_load(catalog_path.read_text()) or {}
-        return [
-            doc["url"]
-            for doc in data.get("documents", [])
-            if isinstance(doc, dict) and "url" in doc
-        ]
+        return [document.url for document in CatalogFile(catalog_path).documents()]
 
     def private_repositories(self, catalog_path: Path) -> list[tuple[str, str | None]]:
         """Return (url, token_file) of each private entry of *catalog_path*."""
-        data = yaml.safe_load(catalog_path.read_text()) or {}
         return [
-            (doc["url"], doc.get("token_file"))
-            for doc in data.get("documents", [])
-            if isinstance(doc, dict) and not doc.get("public", True) and "url" in doc
+            (document.url, document.token_file)
+            for document in CatalogFile(catalog_path).private_documents()
         ]
 
     def has_private_repos(self, catalog_path: Path) -> bool:
-        data = yaml.safe_load(catalog_path.read_text()) or {}
-        return any(not doc.get("public", True) for doc in data.get("documents", []))
+        return bool(CatalogFile(catalog_path).private_documents())
 
     def trivial_catalog_content(self) -> str | None:
         return (
@@ -227,5 +216,4 @@ class CompCatalog(ConfComp):
 
     def doc_repo_names(self, catalog_path: Path) -> list[str]:
         """Return the list of doc repo names declared in *catalog_path*."""
-        data = yaml.safe_load(catalog_path.read_text()) or {}
-        return [doc["name"] for doc in data.get("documents", []) if "name" in doc]
+        return CatalogFile(catalog_path).names()

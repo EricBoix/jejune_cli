@@ -4,8 +4,8 @@ import subprocess
 from pathlib import Path
 
 import click
-import yaml
 
+from .component_catalog_file import CatalogFile
 from .click_catalog_helpers import (
     _docker_image_name,
     _has_converter,
@@ -36,8 +36,8 @@ class CompConverters(ContComp):
         if not catalog.exists():
             return []
         try:
-            docs = yaml.safe_load(catalog.read_text()).get("documents", [])
-        except Exception:
+            docs = CatalogFile(catalog).raw_documents()
+        except (OSError, ValueError):
             return []
         root_dir, tmp_dir = self._ecosystem.resolve_dirs()
         results: list[tuple[Path, str]] = []
@@ -60,9 +60,8 @@ class CompConverters(ContComp):
         if not catalog.exists():
             return 0
         try:
-            docs = yaml.safe_load(catalog.read_text()).get("documents", [])
-            return len(docs)
-        except Exception:
+            return len(CatalogFile(catalog).raw_documents())
+        except (OSError, ValueError):
             return 0
 
     def is_built(self) -> bool:
