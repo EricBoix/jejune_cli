@@ -5,6 +5,7 @@ import re
 import subprocess
 from pathlib import Path
 
+from ._package_paths import CatalogConfig
 from .configuration import Configuration
 from .configuration_entry import ConfigurationEntry
 from .component_with_config import ConfComp
@@ -222,7 +223,7 @@ class CompDeployment(ConfComp):
         env = os.environ.copy()
         root_dir, tmp_dir = self._ecosystem.resolve_dirs(deploy_dir)
         if root_dir:
-            env["JEJUNE_ROOT_DIR"] = str(root_dir)
+            env[CatalogConfig.ROOT_DIR_ENV_VAR] = str(root_dir)
         plugins_by_name = {p.name: p for p in self._plugin_registry.plugins}
         for dep in self.dependencies:
             repos = getattr(dep, "repos", [])

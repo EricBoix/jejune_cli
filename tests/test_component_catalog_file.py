@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -53,3 +54,12 @@ def test_private_document_requires_credentials():
     private = CatalogDocument("b", "https://h/b.git", public=False)
     with pytest.raises(ValueError, match="private"):
         private.resolve_credentials(git_access)
+
+
+def test_resolve_path_prefers_option_then_environment_then_cwd(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv(CatalogFile.PATH_ENV_VAR, raising=False)
+    assert CatalogFile.resolve_path() == tmp_path / "catalog.yaml"
+    monkeypatch.setenv(CatalogFile.PATH_ENV_VAR, "from-env.yaml")
+    assert CatalogFile.resolve_path() == Path("from-env.yaml")
+    assert CatalogFile.resolve_path(tmp_path / "option.yaml") == tmp_path / "option.yaml"

@@ -15,26 +15,22 @@ from .dot_jejune import DotJejune
 
 def load_catalog_docs(catalog_file: str | None) -> list[dict]:
     """Load and return the documents list from a catalog YAML file."""
-    if catalog_file is None:
-        catalog_file = os.environ.get("JEJUNE_CATALOG") or str(
-            Path.cwd() / "catalog.yaml"
-        )
-    catalog_path = Path(catalog_file)
+    catalog_path = CatalogFile.resolve_path(catalog_file)
     if not catalog_path.exists():
-        raise click.ClickException(f"Catalog file not found: {catalog_file}")
+        raise click.ClickException(f"Catalog file not found: {catalog_path}")
     try:
         return CatalogFile(catalog_path).raw_documents()
     except ValueError as exc:
-        raise click.ClickException(f"{catalog_file}: {exc}") from exc
+        raise click.ClickException(f"{catalog_path}: {exc}") from exc
 
 
 def catalog_config_status() -> tuple[str, str]:
     """Return (status, raw_msg) for catalog configuration."""
-    val = os.environ.get(CatalogConfig.CONFIG_VAR)
+    val = os.environ.get(CatalogConfig.ROOT_DIR_ENV_VAR)
     if not val:
-        return "warn", f"{CatalogConfig.CONFIG_VAR} not configured"
+        return "warn", f"{CatalogConfig.ROOT_DIR_ENV_VAR} not configured"
     if CatalogConfig.PLACEHOLDER in val:
-        return "warn", f"{CatalogConfig.CONFIG_VAR} has placeholder value"
+        return "warn", f"{CatalogConfig.ROOT_DIR_ENV_VAR} has placeholder value"
     return "ok", ""
 
 

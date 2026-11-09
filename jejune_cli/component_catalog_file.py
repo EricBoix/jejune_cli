@@ -1,5 +1,6 @@
 """Reading a catalog.yaml: the one place that knows its `documents` layout."""
 
+import os
 from pathlib import Path
 
 import yaml
@@ -9,6 +10,18 @@ from .component_catalog_document import CatalogDocument
 
 class CatalogFile:
     """A catalog.yaml: `documents`, a list of mappings."""
+
+    PATH_ENV_VAR = "JEJUNE_CATALOG"
+    DEFAULT_FILE_NAME = "catalog.yaml"
+
+    @classmethod
+    def resolve_path(cls, catalog_option: Path | str | None = None) -> Path:
+        """The catalog to use: explicit, else JEJUNE_CATALOG, else ./catalog.yaml."""
+        return Path(
+            catalog_option
+            or os.environ.get(cls.PATH_ENV_VAR)
+            or Path.cwd() / cls.DEFAULT_FILE_NAME
+        )
 
     def __init__(self, path: Path) -> None:
         self._path = path

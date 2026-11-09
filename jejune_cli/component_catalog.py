@@ -1,6 +1,5 @@
 """Catalog configuration component."""
 
-import os
 from pathlib import Path
 from typing import ClassVar
 
@@ -176,9 +175,7 @@ class CompCatalog(ConfComp):
     def repository_urls(self) -> list[str]:
         """Return the URLs of the entries of the catalog of the current directory
         (JEJUNE_CATALOG when set); empty when there is no such catalog."""
-        catalog_path = Path(
-            os.environ.get("JEJUNE_CATALOG") or Path.cwd() / "catalog.yaml"
-        )
+        catalog_path = CatalogFile.resolve_path()
         if not catalog_path.is_file():
             return []
         return [document.url for document in CatalogFile(catalog_path).documents()]

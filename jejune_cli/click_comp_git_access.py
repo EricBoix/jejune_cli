@@ -11,6 +11,7 @@ from .click_configuration import (
     print_config_status,
 )
 from .click_theme import ClickTheme
+from .component_catalog_file import CatalogFile
 from .component_git_access import CompGitAccess
 
 CATALOG_OPTION = click.option(
@@ -43,7 +44,7 @@ def check_config(comp, catalog_option):
         print_config_check(comp.configuration)
     except SystemExit:
         failed = True
-    catalog_path = CompGitAccess.resolve_catalog_path(catalog_option)
+    catalog_path = CatalogFile.resolve_path(catalog_option)
     if catalog_option or catalog_path.is_file():
         click.echo()
         failed = not print_catalog_check(comp, catalog_path) or failed
@@ -94,7 +95,7 @@ def check_configuration(comp, catalog_option):
     check-availability). Exits 1 on any error.
     """
     if not print_catalog_check(
-        comp, CompGitAccess.resolve_catalog_path(catalog_option)
+        comp, CatalogFile.resolve_path(catalog_option)
     ):
         raise SystemExit(1)
 
@@ -109,7 +110,7 @@ def check_availability(comp, catalog_option):
     on the network (`git ls-remote` with the key of the entry): `reachable`, or
     `not reachable: wrong url or no access`. Exits 1 on any error.
     """
-    catalog_path = CompGitAccess.resolve_catalog_path(catalog_option)
+    catalog_path = CatalogFile.resolve_path(catalog_option)
     status, message = comp.check()
     label = "ok" if status == "ok" else message
     click.echo(

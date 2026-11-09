@@ -32,7 +32,7 @@ class CompConverters(ContComp):
 
     def _iter_local_converter_repos(self) -> list[tuple[Path, str]]:
         """Return (repo_dir, image_name) for catalog repos that are local and have a DockerContext."""
-        catalog = Path.cwd() / "catalog.yaml"
+        catalog = CatalogFile.resolve_path()
         if not catalog.exists():
             return []
         try:
@@ -56,7 +56,7 @@ class CompConverters(ContComp):
         return results
 
     def _catalog_document_count(self) -> int:
-        catalog = Path.cwd() / "catalog.yaml"
+        catalog = CatalogFile.resolve_path()
         if not catalog.exists():
             return 0
         try:

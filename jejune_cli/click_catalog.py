@@ -7,6 +7,7 @@ from pathlib import Path
 
 import click
 
+from ._package_paths import CatalogConfig
 from .app_context import AppContext
 from .click_catalog_helpers import (
     load_catalog_docs,
@@ -141,7 +142,7 @@ def catalog_group():
 )
 @click.option(
     "--root-dir",
-    envvar="JEJUNE_ROOT_DIR",
+    envvar=CatalogConfig.ROOT_DIR_ENV_VAR,
     default=None,
     type=click.Path(),
     help="Directory holding jejune_doc_* clones (default: $JEJUNE_ROOT_DIR).",
@@ -203,7 +204,7 @@ def check(catalog_path, root_dir):
 @click.argument("catalog_file", required=False, default=None)
 @click.option(
     "--root-dir",
-    envvar="JEJUNE_ROOT_DIR",
+    envvar=CatalogConfig.ROOT_DIR_ENV_VAR,
     default=None,
     type=click.Path(),
     help="Directory holding side-by-side jejune_* clones (default: $JEJUNE_ROOT_DIR).",
@@ -275,7 +276,7 @@ def catalog_test(catalog_file, root_dir, repo, verbose):
 @click.argument("catalog_file", required=False, default=None)
 @click.option(
     "--root-dir",
-    envvar="JEJUNE_ROOT_DIR",
+    envvar=CatalogConfig.ROOT_DIR_ENV_VAR,
     default=None,
     type=click.Path(),
     help="Directory holding side-by-side clones (default: $JEJUNE_ROOT_DIR).",
@@ -368,7 +369,7 @@ def hint_availability():
 )
 @click.option(
     "--root-dir",
-    envvar="JEJUNE_ROOT_DIR",
+    envvar=CatalogConfig.ROOT_DIR_ENV_VAR,
     default=None,
     type=click.Path(),
     help="Directory holding jejune_doc_* clones (default: $JEJUNE_ROOT_DIR).",

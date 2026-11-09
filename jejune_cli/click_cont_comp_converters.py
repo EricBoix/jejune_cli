@@ -5,6 +5,7 @@ from pathlib import Path
 
 import click
 
+from ._package_paths import CatalogConfig
 from .app_context import AppContext
 from .click_catalog_helpers import (
     convert_test_doc,
@@ -29,7 +30,7 @@ def converters():
 )
 @click.option(
     "--root-dir",
-    envvar="JEJUNE_ROOT_DIR",
+    envvar=CatalogConfig.ROOT_DIR_ENV_VAR,
     default=None,
     type=click.Path(),
     help="Directory holding jejune_doc_* clones (default: $JEJUNE_ROOT_DIR).",

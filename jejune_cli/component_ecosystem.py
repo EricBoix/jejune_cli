@@ -8,6 +8,7 @@ from typing import Literal
 
 import click
 
+from ._package_paths import CatalogConfig
 from .component_catalog_document import CatalogDocument
 from .component_catalog_file import CatalogFile
 from .configuration import Configuration
@@ -35,7 +36,7 @@ class CompEcosystem(ConfComp):
             dependencies=[git_access],
             configuration=Configuration(
                 ConfigurationEntry(
-                    "JEJUNE_ROOT_DIR",
+                    CatalogConfig.ROOT_DIR_ENV_VAR,
                     hint="edit .jejune/ecosystem-env-config and set JEJUNE_ROOT_DIR",
                     source_file=".jejune/ecosystem-env-config",
                     max_severity="warn",
@@ -77,7 +78,7 @@ class CompEcosystem(ConfComp):
     def resolve_dirs(
         self, deploy_dir: Path | None = None
     ) -> tuple[Path | None, Path | None]:
-        raw_root = os.environ.get("JEJUNE_ROOT_DIR")
+        raw_root = os.environ.get(CatalogConfig.ROOT_DIR_ENV_VAR)
         root_dir = Path(raw_root).resolve() if raw_root else None
         tmp = DotJejune(deploy_dir) / "tmp"
         return root_dir, tmp if tmp.is_dir() else None

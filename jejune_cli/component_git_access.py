@@ -11,6 +11,7 @@ from urllib.parse import quote, urlsplit
 
 
 from .component_catalog_access_checker import CatalogAccessChecker
+from .component_catalog_file import CatalogFile
 from .component_with_config import ConfComp
 from .configuration import Configuration
 from .configuration_entry import ConfigurationEntry
@@ -62,13 +63,6 @@ class CompGitAccess(ConfComp):
             ),
         )
 
-    @staticmethod
-    def resolve_catalog_path(catalog_option: Path | None = None) -> Path:
-        """The catalog to check: explicit, else JEJUNE_CATALOG, else ./catalog.yaml."""
-        return catalog_option or Path(
-            os.environ.get("JEJUNE_CATALOG") or Path.cwd() / "catalog.yaml"
-        )
-
     def check_catalog(self, catalog_path: Path) -> list[tuple[str, str, str]]:
         """Return (status, subject, message) rows, one per catalog entry."""
         return CatalogAccessChecker(self, catalog_path).run()
@@ -92,7 +86,7 @@ class CompGitAccess(ConfComp):
             status, message = entry.check()
             if status != "ok":
                 return status, f"{entry.env_var}: {message}"
-        catalog_path = self.resolve_catalog_path()
+        catalog_path = CatalogFile.resolve_path()
         if catalog_path.is_file():
             for status, subject, message in self.check_catalog(catalog_path):
                 if status == "error":

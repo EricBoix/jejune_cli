@@ -7,7 +7,6 @@ from .app_context import AppContext
 from .component_catalog_file import CatalogFile
 from .click_theme import ClickTheme
 from .component_ecosystem import CompEcosystem, UpdateOutcome
-from .component_git_access import CompGitAccess
 
 
 @click.group(invoke_without_command=True, short_help="Ecosystem repository status")
@@ -133,7 +132,7 @@ def ecosystem_status(ctx) -> None:
 
     _CLONE_LABEL = {"root": "[JEJUNE_ROOT_DIR]", "tmp": "[.jejune/tmp]"}
     # Private catalog entries are reached with their own access key, as `update` does
-    catalog_path = CompGitAccess.resolve_catalog_path()
+    catalog_path = CatalogFile.resolve_path()
     token_files = (
         CatalogFile(catalog_path).token_files() if catalog_path.is_file() else {}
     )
@@ -176,7 +175,7 @@ def _echo_catalog_entries_unknown_to_ecosystem(
     eco: CompEcosystem, known_names: set[str]
 ) -> None:
     """List the catalog entries that are neither in JEJUNE_ROOT_DIR nor in .jejune/tmp."""
-    catalog_path = CompGitAccess.resolve_catalog_path()
+    catalog_path = CatalogFile.resolve_path()
     click.echo()
     click.echo(click.style("  Catalog", bold=True))
     if not catalog_path.is_file():
@@ -209,7 +208,7 @@ def ecosystem_update(ctx) -> None:
     """
     app = ctx.find_object(AppContext)
     eco = app.component_registry.get("ecosystem")
-    catalog_path = CompGitAccess.resolve_catalog_path()
+    catalog_path = CatalogFile.resolve_path()
     outcomes: list[UpdateOutcome] = []
     if catalog_path.is_file():
         outcomes = eco.update_catalog_repos(catalog_path)
