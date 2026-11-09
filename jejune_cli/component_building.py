@@ -128,8 +128,8 @@ def build_components(
     )
 
     # Hosts that git-server asserts reachable: catalog entries, Dockerfile clones
-    git_server.set_runtime_dependency("catalog", catalog_comp)
-    git_server.set_runtime_dependency("convert", convert)
+    git_server.add_url_source(catalog_comp)
+    git_server.add_url_source(convert)
 
     for comp in [
         network,

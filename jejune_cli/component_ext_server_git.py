@@ -2,6 +2,7 @@
 
 import socket
 import subprocess
+from typing import Protocol
 from urllib.parse import urlsplit
 
 from ._git_server_config import REPO_ROOT_DIR as _REPO_ROOT_DIR
@@ -11,12 +12,18 @@ from .component_ext_network import CompNetwork
 from .component_ext_command_git import CompCommandGit
 
 
+class RepositoryUrlSource(Protocol):
+    """A component knowing repository URLs in use (catalog entries, `git clone`
+    URLs of a Dockerfile)."""
+
+    def repository_urls(self) -> list[str]: ...
+
+
 class CompServerGit(ExtServer):
     """Asserts that every git host_or_domain in use is reachable.
 
     Besides the default ecosystem host, the hosts are those of the repository
-    URLs supplied by the runtime dependencies that provide `repository_urls()`
-    (catalog entries, `git clone` URLs of a Dockerfile).  They are runtime
+    URLs of the registered URL sources (see add_url_source).  They are not
     dependencies (not in the topology) because the catalog depends on the
     ecosystem which depends on this component.
     """
@@ -27,6 +34,11 @@ class CompServerGit(ExtServer):
             api_url="",
             dependencies=[network, git_command],
         )
+        self._url_sources: list[RepositoryUrlSource] = []
+
+    def add_url_source(self, source: RepositoryUrlSource) -> None:
+        """Have the hosts of the repository URLs of *source* asserted reachable."""
+        self._url_sources.append(source)
 
     def repo_root_dir(self) -> str:
         return _REPO_ROOT_DIR
@@ -37,22 +49,19 @@ class CompServerGit(ExtServer):
 
     def remote_git_url(self, name: str, fragment: str | None = None) -> str:
         """Return the git URL for a repo, with optional #fragment."""
-        url = f"{_REPO_ROOT_DIR}/{name}.git"
+        url = f"{self.remote_repo_path(name)}.git"
         return f"{url}#{fragment}" if fragment else url
 
     def remote_pip_url(self, name: str) -> str:
         """Return the pip-install git URL for a repo."""
-        return f"git+{_REPO_ROOT_DIR}/{name}.git"
+        return f"git+{self.remote_git_url(name)}"
 
     def hosts(self) -> list[tuple[str, int]]:
         """Return the distinct (host_or_domain, port) beyond the default host."""
         default = self._host_and_port(_REPO_ROOT_DIR)
         hosts: list[tuple[str, int]] = []
-        for provider in self.runtime_dependencies.values():
-            repository_urls = getattr(provider, "repository_urls", None)
-            if repository_urls is None:
-                continue
-            for repository_url in repository_urls():
+        for source in self._url_sources:
+            for repository_url in source.repository_urls():
                 host = self._host_and_port(repository_url)
                 if host is not None and host != default and host not in hosts:
                     hosts.append(host)

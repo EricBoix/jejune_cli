@@ -7,7 +7,6 @@ import click
 
 from ._package_paths import CatalogConfig
 from .app_context import AppContext
-from .click_converter_helpers import convert_test_doc
 
 
 @click.group(short_help="Catalog converter image operations")
@@ -57,6 +56,7 @@ def converters_test(
     """
     app = click.get_current_context().find_object(AppContext)
     catalog_comp = app.component_registry.get("catalog")
+    converters_comp = app.component_registry.get("converters")
     docs = catalog_comp.load_documents(catalog_file)
     filter_name = test_name or repo
     if filter_name:
@@ -79,7 +79,9 @@ def converters_test(
     col = 42
 
     for name, _url, repo_dir in catalog_comp.iter_documents(docs, root, eco_tmp):
-        outcome, detail, verbose_output = convert_test_doc(repo_dir, no_cache, no_build)
+        outcome, detail, verbose_output = converters_comp.run_converter_test(
+            repo_dir, no_cache, no_build
+        )
         counts[outcome] += 1
         label = click.style(outcome.replace("_", "-"), fg=_COLORS[outcome])
         click.echo(f"  {name:<{col}}  {label}  {detail}")

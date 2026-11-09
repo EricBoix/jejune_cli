@@ -8,10 +8,8 @@ def make_git_server(*provider_urls):
         network=SimpleNamespace(name="network"),
         git_command=SimpleNamespace(name="git-command"),
     )
-    for index, urls in enumerate(provider_urls):
-        git_server.set_runtime_dependency(
-            f"provider{index}", SimpleNamespace(repository_urls=lambda urls=urls: urls)
-        )
+    for urls in provider_urls:
+        git_server.add_url_source(SimpleNamespace(repository_urls=lambda urls=urls: urls))
     return git_server
 
 
