@@ -42,7 +42,9 @@ def converters():
     "--no-build", is_flag=True, default=False, help="Skip build; use cached image."
 )
 @click.option("--verbose", is_flag=True, default=False, help="Show full docker output.")
-def converters_test(test_name, catalog_file, root_dir, repo, no_cache, no_build, verbose):
+def converters_test(
+    test_name, catalog_file, root_dir, repo, no_cache, no_build, verbose
+):
     """Build and test converter containers for all catalog documents.
 
     An optional TEST_NAME restricts the run to a single repository (by name).
@@ -61,7 +63,9 @@ def converters_test(test_name, catalog_file, root_dir, repo, no_cache, no_build,
     if filter_name:
         docs = [d for d in docs if d["name"] == filter_name]
         if not docs:
-            raise click.ClickException(f"Repository '{filter_name}' not found in catalog.")
+            raise click.ClickException(
+                f"Repository '{filter_name}' not found in catalog."
+            )
     app = click.get_current_context().find_object(AppContext)
     ecosystem = app.component_registry.get("ecosystem")
     eco_root, eco_tmp = ecosystem.resolve_dirs()

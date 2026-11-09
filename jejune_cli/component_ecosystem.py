@@ -16,9 +16,7 @@ RepoTier = Literal["root", "tmp", "remote"]
 
 
 class CompEcosystem(ConfComp):
-    def __init__(
-        self, git_server, git_access, role_registry, plugin_registry
-    ) -> None:
+    def __init__(self, git_server, git_access, role_registry, plugin_registry) -> None:
         super().__init__(
             name="ecosystem",
             dependencies=[git_access],
@@ -160,13 +158,17 @@ class CompEcosystem(ConfComp):
         try:
             local = subprocess.run(
                 ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
-                capture_output=True, text=True, check=True,
+                capture_output=True,
+                text=True,
+                check=True,
             ).stdout.strip()
             # ls-remote output: "<SHA>\tHEAD"
             ls_output = self._git_access.run_git(
                 ["-C", str(repo_path), "ls-remote", "origin", "HEAD"],
                 self.origin_url(repo_path),
-                capture_output=True, text=True, check=True,
+                capture_output=True,
+                text=True,
+                check=True,
             ).stdout.strip()
             remote = ls_output.split("\t")[0]
             return local == remote

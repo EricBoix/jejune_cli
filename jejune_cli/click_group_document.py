@@ -1,5 +1,5 @@
 """Document workspace command group."""
-import click
 
+import click
 
 document = click.Group("document", help="Document workspace commands.")

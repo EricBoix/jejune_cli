@@ -7,7 +7,12 @@ from .dot_jejune import DotJejune
 from .heuristic_step import HeuristicStep
 from .heuristic_step_registry import HeuristicStepRegistry
 from .role_registry import RoleRegistry
-from . import heuristics_catalog_contributor, heuristics_deployer, heuristics_doc_steward, heuristics_no_role
+from . import (
+    heuristics_catalog_contributor,
+    heuristics_deployer,
+    heuristics_doc_steward,
+    heuristics_no_role,
+)
 
 
 def wire_heuristics(

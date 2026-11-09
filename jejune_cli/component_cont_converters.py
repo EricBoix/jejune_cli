@@ -6,7 +6,12 @@ from pathlib import Path
 import click
 import yaml
 
-from .click_catalog_helpers import _docker_image_name, _has_converter, iter_docs, load_catalog_docs
+from .click_catalog_helpers import (
+    _docker_image_name,
+    _has_converter,
+    iter_docs,
+    load_catalog_docs,
+)
 from .component_containerized import ContComp
 from .containerized_context import ContainerizedContext
 
@@ -67,8 +72,7 @@ class CompConverters(ContComp):
             # If documents exist but no repos are local, they haven't been fetched yet.
             return self._catalog_document_count() == 0
         return all(
-            self._context.docker.image_exists(image_name)
-            for _, image_name in repos
+            self._context.docker.image_exists(image_name) for _, image_name in repos
         )
 
     def build(self, no_cache: bool = False) -> None:
@@ -79,7 +83,9 @@ class CompConverters(ContComp):
         root_dir, tmp_dir = self._ecosystem.resolve_dirs()
         extra = ["--no-cache"] if no_cache else []
         built_any = False
-        for _name, _url, repo_dir in iter_docs(docs, root_dir, tmp_dir, self._ecosystem):
+        for _name, _url, repo_dir in iter_docs(
+            docs, root_dir, tmp_dir, self._ecosystem
+        ):
             has, dockerfile, ctx = _has_converter(repo_dir)
             if not has:
                 continue

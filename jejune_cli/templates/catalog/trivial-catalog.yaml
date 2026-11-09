@@ -8,3 +8,10 @@ documents:
   - name: jejune_doc_Four_Noble_Truths
     url: https://github.com/EricBoix/jejune_doc_Four_Noble_Truths
     public: true
+  # A private repository needs `public: false`. Its access key is, in order:
+  # the `token_file` below (a file, chmod 600, holding [username]:[password_or_token]),
+  # else GIT_ACCESS_TOKEN_FILE, else GIT_ACCESS_TOKEN of .jejune/env-secrets.
+  # - name: jejune_doc_My_Private_Document
+  #   url: https://github.com/EricBoix/jejune_doc_My_Private_Document
+  #   public: false
+  #   token_file: ~/.my_private_document_credentials

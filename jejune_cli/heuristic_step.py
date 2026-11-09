@@ -1,4 +1,5 @@
 """HeuristicStep dataclass for next-step guidance."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

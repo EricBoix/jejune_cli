@@ -3,7 +3,11 @@ import os
 import click
 
 from .app_context import AppContext
-from .click_configuration import print_config_hint, print_config_status, print_config_check
+from .click_configuration import (
+    print_config_hint,
+    print_config_status,
+    print_config_check,
+)
 
 
 @click.group(short_help="Manage the LLM inference server")
@@ -35,29 +39,48 @@ def hint_config(comp):
 
 
 @llm.command("check-availability")
-@click.option("--prompt", default=None, show_default=True,
-              help="Prompt sent to the LLM for the inference round-trip test.")
+@click.option(
+    "--prompt",
+    default=None,
+    show_default=True,
+    help="Prompt sent to the LLM for the inference round-trip test.",
+)
 @click.pass_obj
 def check_availability(comp, prompt):
     """Show detailed llm availability (five-stage connectivity and inference check)."""
     check_ctx = comp._check_context()
     if check_ctx is None:
-        missing = [n for n in ("LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME")
-                   if not os.environ.get(n)]
+        missing = [
+            n
+            for n in ("LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME")
+            if not os.environ.get(n)
+        ]
         raise click.ClickException(f"Missing: {', '.join(missing)}")
     url, api_key, model, server_url, inference_path = check_ctx
     effective_prompt = prompt if prompt is not None else comp._TEST_PROMPT
     steps = [
-        ("HTTPS connectivity",    lambda: comp.check_server(server_url)),
-        ("API key",               lambda: comp.check_auth(server_url, api_key)),
-        ("Model exists",          lambda: comp.check_model(server_url, api_key, model)),
-        ("Inference endpoint",    lambda: comp.check_inference_endpoint(url, api_key, inference_path)),
-        ("Inference round-trip",  lambda: comp.check_inference(url, api_key, model, inference_path, effective_prompt)),
+        ("HTTPS connectivity", lambda: comp.check_server(server_url)),
+        ("API key", lambda: comp.check_auth(server_url, api_key)),
+        ("Model exists", lambda: comp.check_model(server_url, api_key, model)),
+        (
+            "Inference endpoint",
+            lambda: comp.check_inference_endpoint(url, api_key, inference_path),
+        ),
+        (
+            "Inference round-trip",
+            lambda: comp.check_inference(
+                url, api_key, model, inference_path, effective_prompt
+            ),
+        ),
     ]
     for i, (label, fn) in enumerate(steps, 1):
         click.echo(f"  [{i}/{len(steps)}] {label}... ", nl=False)
         passed, msg = fn()
-        click.echo(click.style("ok", fg="green") if passed else click.style(f"FAILED — {msg}", fg="red"))
+        click.echo(
+            click.style("ok", fg="green")
+            if passed
+            else click.style(f"FAILED — {msg}", fg="red")
+        )
         if not passed:
             raise SystemExit(1)
 
@@ -81,20 +104,32 @@ def hint_availability(comp):
     """Show how to fix the first failing LLM availability stage."""
     check_ctx = comp._check_context()
     if check_ctx is None:
-        click.echo("edit .jejune/env-secrets: set LLM_MODEL_URL, LLM_API_KEY, LLM_MODEL_NAME")
+        click.echo(
+            "edit .jejune/env-secrets: set LLM_MODEL_URL, LLM_API_KEY, LLM_MODEL_NAME"
+        )
         return
     url, api_key, model, server_url, inference_path = check_ctx
     stages = [
-        (lambda: comp.check_server(server_url),
-         "verify LLM_MODEL_URL / LLM_SERVER_URL is reachable from this host"),
-        (lambda: comp.check_auth(server_url, api_key),
-         "verify LLM_API_KEY in .jejune/env-secrets"),
-        (lambda: comp.check_model(server_url, api_key, model),
-         "verify LLM_MODEL_NAME matches a model available on the server"),
-        (lambda: comp.check_inference_endpoint(url, api_key, inference_path),
-         "verify LLM_INFERENCE_ENDPOINT (default /api/chat)"),
-        (lambda: comp.check_inference(url, api_key, model, inference_path),
-         "check LLM server logs or try a different model"),
+        (
+            lambda: comp.check_server(server_url),
+            "verify LLM_MODEL_URL / LLM_SERVER_URL is reachable from this host",
+        ),
+        (
+            lambda: comp.check_auth(server_url, api_key),
+            "verify LLM_API_KEY in .jejune/env-secrets",
+        ),
+        (
+            lambda: comp.check_model(server_url, api_key, model),
+            "verify LLM_MODEL_NAME matches a model available on the server",
+        ),
+        (
+            lambda: comp.check_inference_endpoint(url, api_key, inference_path),
+            "verify LLM_INFERENCE_ENDPOINT (default /api/chat)",
+        ),
+        (
+            lambda: comp.check_inference(url, api_key, model, inference_path),
+            "check LLM server logs or try a different model",
+        ),
     ]
     for fn, hint in stages:
         passed, _ = fn()

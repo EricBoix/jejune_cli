@@ -30,6 +30,7 @@ from .click_comp_manifest import manifest
 from .click_catalog import catalog_group
 from .click_comp_deployment import deployment
 from .click_comp_ecosystem import ecosystem
+from .click_comp_git_access import git_access
 
 # Infrastructure / cross-cutting groups
 cli.add_command(document)
@@ -60,5 +61,6 @@ cli.add_command(manifest)
 cli.add_command(catalog_group, "catalog")
 cli.add_command(deployment)
 cli.add_command(ecosystem)
+cli.add_command(git_access, "git-access")
 
 cli.aliases = register_aliases(cli, document)

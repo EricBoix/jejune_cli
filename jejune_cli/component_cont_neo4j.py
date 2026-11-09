@@ -232,9 +232,7 @@ class CompNeo4j(ContComp):
             time.sleep(poll_interval)
             elapsed += poll_interval
             print(".", end="", flush=True)
-        raise RuntimeError(
-            f"Neo4j HTTP API not ready after {timeout_seconds} seconds."
-        )
+        raise RuntimeError(f"Neo4j HTTP API not ready after {timeout_seconds} seconds.")
 
     def _neo4j_auth_token(self) -> str:
         user = os.environ.get("NEO4J_USERNAME", "neo4j")

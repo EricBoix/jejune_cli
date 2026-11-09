@@ -46,7 +46,9 @@ class CompManifest(ConfComp):
             errors.extend(self._check_graph_setups_items(schema, entry, index))
         return errors
 
-    def _check_graph_setups_items(self, schema: dict, entry: dict, entry_index: int) -> list[str]:
+    def _check_graph_setups_items(
+        self, schema: dict, entry: dict, entry_index: int
+    ) -> list[str]:
         """Validate the optional graph_setups sequence nested in a graph_extractions entry."""
         item_required = schema.get("graph_setups_item_required_fields", [])
         item_optional = schema.get("graph_setups_item_optional_fields", [])
@@ -59,7 +61,9 @@ class CompManifest(ConfComp):
                     errors.append(f"{label}: required field '{field_name}' missing")
             unknown_item_fields = [key for key in item if key not in item_known]
             if unknown_item_fields:
-                errors.append(f"{label}: unknown field(s): {', '.join(unknown_item_fields)}")
+                errors.append(
+                    f"{label}: unknown field(s): {', '.join(unknown_item_fields)}"
+                )
         return errors
 
     def check_manifest_referenced_files(

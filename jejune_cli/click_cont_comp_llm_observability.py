@@ -56,13 +56,21 @@ def start(comp, otlp_port, ui_port):
     if ui_port is None:
         ui_port = comp.ui_port
     click.echo(f"Starting {comp.container_name} ...")
-    result = subprocess.run([
-        "docker", "run", "--rm", "--detach",
-        "--name", comp.container_name,
-        "--publish", f"{otlp_port}:{comp.otlp_port}",
-        "--publish", f"{ui_port}:{comp.ui_port}",
-        comp.image_name,
-    ])
+    result = subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "--detach",
+            "--name",
+            comp.container_name,
+            "--publish",
+            f"{otlp_port}:{comp.otlp_port}",
+            "--publish",
+            f"{ui_port}:{comp.ui_port}",
+            comp.image_name,
+        ]
+    )
     if result.returncode != 0:
         raise SystemExit(result.returncode)
     click.echo(f"  OTLP receiver : http://localhost:{otlp_port}")

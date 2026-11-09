@@ -53,7 +53,9 @@ class CompConvert(ContComp):
         doc_dir = CompConvert._doc_dir()
         if not doc_dir:
             return []
-        dockerfile = doc_dir if doc_dir.is_file() else doc_dir / "DockerContext" / "Dockerfile"
+        dockerfile = (
+            doc_dir if doc_dir.is_file() else doc_dir / "DockerContext" / "Dockerfile"
+        )
         return self.dockerfile_git_urls(dockerfile) if dockerfile.is_file() else []
 
     def build(
