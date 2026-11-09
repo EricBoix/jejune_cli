@@ -58,6 +58,7 @@ class CompGitAccess(ConfComp):
                     max_severity="warn",
                     env_var_validator=self.validate_token_file,
                 ),
+                failure_hint="run `jejune git-access check-config`",
             ),
         )
 
