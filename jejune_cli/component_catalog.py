@@ -488,6 +488,6 @@ class CompCatalog(ConfComp):
             else:
                 repo_dir = DotJejune().tmp_dir() / name
                 if not repo_dir.exists():
-                    print(f"Cloning {name} ...")
+                    click.echo(f"Cloning {name} ...")
                     self._ecosystem.clone_into_tmp(name, url, doc.get("token_file"))
             yield name, url, repo_dir
