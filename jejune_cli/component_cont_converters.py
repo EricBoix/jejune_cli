@@ -84,6 +84,7 @@ class CompConverters(ContComp):
             return
         extra = ["--no-cache"] if no_cache else []
         built_any = False
+        failed_images: list[str] = []
         token_files = CatalogFile(CatalogFile.resolve_path()).token_files()
         for name, _url, repo_dir in collection.iter_documents(
             selection.documents, selection.directories
@@ -103,21 +104,37 @@ class CompConverters(ContComp):
                     if credentials
                     else []
                 )
-                subprocess.run(
-                    [
-                        "docker",
-                        "build",
-                        *extra,
-                        *secret,
-                        "-t",
-                        image_name,
-                        "-f",
-                        str(dockerfile),
-                        str(ctx),
-                    ],
-                    check=True,
-                )
+                try:
+                    subprocess.run(
+                        [
+                            "docker",
+                            "build",
+                            *extra,
+                            *secret,
+                            "-t",
+                            image_name,
+                            "-f",
+                            str(dockerfile),
+                            str(ctx),
+                        ],
+                        check=True,
+                    )
+                except subprocess.CalledProcessError as error:
+                    click.echo(
+                        click.style(
+                            f"  docker build of {image_name} failed (exit code {error.returncode}), see the docker output above",
+                            fg="red",
+                        ),
+                        err=True,
+                    )
+                    failed_images.append(image_name)
+                    continue
             built_any = True
+        if failed_images:
+            raise click.ClickException(
+                f"{len(failed_images)} docker build(s) failed: "
+                + ", ".join(failed_images)
+            )
         if not built_any:
             click.echo("  no converter repos found in catalog")
 
