@@ -6,6 +6,7 @@ from pathlib import Path
 import click
 
 from .component_catalog_file import CatalogFile
+from .component_cont_convert import CompConvert
 from .component_containerized import ContComp
 from .containerized_context import ContainerizedContext
 
@@ -83,7 +84,8 @@ class CompConverters(ContComp):
             return
         extra = ["--no-cache"] if no_cache else []
         built_any = False
-        for _name, _url, repo_dir in collection.iter_documents(
+        token_files = CatalogFile(CatalogFile.resolve_path()).token_files()
+        for name, _url, repo_dir in collection.iter_documents(
             selection.documents, selection.directories
         ):
             has, dockerfile, ctx = self.has_converter(repo_dir)
@@ -91,19 +93,30 @@ class CompConverters(ContComp):
                 continue
             image_name = self.docker_image_name(repo_dir)
             click.echo(f"  Building {image_name} ...")
-            subprocess.run(
-                [
-                    "docker",
-                    "build",
-                    *extra,
-                    "-t",
-                    image_name,
-                    "-f",
-                    str(dockerfile),
-                    str(ctx),
-                ],
-                check=True,
-            )
+            # Private repositories are cloned with the credentials handed over as
+            # a BuildKit secret: they never end up in an image layer.
+            with self._context.git_access.credentials_file(
+                CompConvert.dockerfile_git_urls(dockerfile), token_files.get(name)
+            ) as credentials:
+                secret = (
+                    ["--secret", f"id=git_credentials,src={credentials}"]
+                    if credentials
+                    else []
+                )
+                subprocess.run(
+                    [
+                        "docker",
+                        "build",
+                        *extra,
+                        *secret,
+                        "-t",
+                        image_name,
+                        "-f",
+                        str(dockerfile),
+                        str(ctx),
+                    ],
+                    check=True,
+                )
             built_any = True
         if not built_any:
             click.echo("  no converter repos found in catalog")
@@ -174,7 +187,9 @@ class CompConverters(ContComp):
         run_result = subprocess.run(
             ["docker", "run", "--rm", image, "--test"], capture_output=True, text=True
         )
-        verbose_lines.extend((run_result.stdout + run_result.stderr).strip().splitlines())
+        verbose_lines.extend(
+            (run_result.stdout + run_result.stderr).strip().splitlines()
+        )
         return (
             ("unchanged", "tests passed", "\n".join(verbose_lines))
             if run_result.returncode == 0
