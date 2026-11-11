@@ -205,15 +205,6 @@ jejune convert run          # run the converter container
 Catalog Curator commands operate across a catalog of repositories.
 They are shown in `--help` when `full-catalog.yaml` is detected in the current directory.
 
-### pdf-to-markdown commands
-
-```bash
-jejune pdf-to-markdown test                            # run Convert/test_main.py for each repo in the catalog
-jejune pdf-to-markdown test \
-  --catalog /path/to/jejune_deployments/deploy_my_deployment/catalog.yaml \
-  --root-dir /Users/you/workspace/                    # test against a specific deployment catalog
-```
-
 ---
 
 ## Deployer commands
