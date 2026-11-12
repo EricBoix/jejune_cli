@@ -23,10 +23,17 @@ class CompCatalog(ConfComp):
         self._role_registry = role_registry
         self.updater = CatalogUpdater(ecosystem, git_access)
         self.collection = CatalogCollection(ecosystem)
-        self.repos = [
-            (None, None)
-        ]  # registers jejune_catalog as an ecosystem-managed repo
         plugin_registry.register_repo_name(self.name, CatalogConfig.REPO_NAME)
+
+    @property
+    def repos(self) -> list[tuple[None, None]]:
+        # registers jejune_catalog as an ecosystem-managed repo, except for the
+        # catalog-contributor role where jejune_catalog is the current directory
+        if self._role_registry.role_is_catalog_contributor_family(
+            self._role_registry.detect_role()
+        ):
+            return []
+        return [(None, None)]
 
     def check_access(self, catalog_path: Path) -> tuple[str, str]:
         """The entries of *catalog_path* must have their access keys (own

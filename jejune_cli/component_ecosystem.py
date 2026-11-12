@@ -74,7 +74,9 @@ class CompEcosystem(ConfComp):
             return RepoLocation("root", local_path=root_dir / name)
         if tmp_dir is not None and (tmp_dir / name).exists():
             return RepoLocation("tmp", local_path=tmp_dir / name)
-        return RepoLocation("remote", remote_path=self._git_server.remote_repo_path(name))
+        return RepoLocation(
+            "remote", remote_path=self._git_server.remote_repo_path(name)
+        )
 
     def locate_in(self, name: str, deploy_dir: Path | None = None) -> RepoLocation:
         """Same as locate, within the directories resolve_dirs(*deploy_dir*) gives."""
@@ -88,14 +90,14 @@ class CompEcosystem(ConfComp):
     ) -> str:
         location = self.locate(name, directories)
         if location.is_local:
-            return str(location.local_path / subpath if subpath else location.local_path)
+            return str(
+                location.local_path / subpath if subpath else location.local_path
+            )
         return self._git_server.remote_git_url(
             name, f"main:{subpath}" if subpath else None
         )
 
-    def resolve_dirs(
-        self, deploy_dir: Path | None = None
-    ) -> EcosystemDirectories:
+    def resolve_dirs(self, deploy_dir: Path | None = None) -> EcosystemDirectories:
         raw_root = os.environ.get(CatalogConfig.ROOT_DIR_ENV_VAR)
         root_dir = Path(raw_root).resolve() if raw_root else None
         tmp = DotJejune(deploy_dir) / "tmp"
@@ -108,7 +110,10 @@ class CompEcosystem(ConfComp):
     ) -> list[tuple[str, RepoTier, str, bool]]:
         seen: set[str] = set()
         results: list[tuple[str, RepoTier, str, bool]] = []
-        for tier, base in (("root", directories.root_dir), ("tmp", directories.tmp_dir)):
+        for tier, base in (
+            ("root", directories.root_dir),
+            ("tmp", directories.tmp_dir),
+        ):
             if base is None:
                 continue
             for p in sorted(base.glob("jejune_doc_*")):
@@ -127,6 +132,11 @@ class CompEcosystem(ConfComp):
 
     def ecosystem_needs_remote(self) -> bool:
         """Does the ecosystem still need to reach a remote git server?"""
+        # The catalog-contributor role always fetches the documents of catalog.yaml
+        if self._role_registry.role_is_catalog_contributor_family(
+            self._role_registry.detect_role()
+        ):
+            return True
         active = self._role_registry.current_role_components()
         if active is None:
             return False
