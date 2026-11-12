@@ -107,7 +107,9 @@ class CompConverters(ContComp):
             self._context.docker.image_exists(image_name) for _, image_name in repos
         )
 
-    def locate_pdf_to_markdown(self, directories: EcosystemDirectories) -> ConverterSource:
+    def locate_pdf_to_markdown(
+        self, directories: EcosystemDirectories
+    ) -> ConverterSource:
         """The local pdf-to-markdown: JEJUNE_ROOT_DIR first, then .jejune/tmp, else
         cloned into .jejune/tmp."""
         location = self._ecosystem.locate(self.PDF_TO_MARKDOWN_NAME, directories)
