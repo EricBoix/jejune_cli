@@ -34,11 +34,37 @@ jejune graph             # build and export the knowledge graph
 jejune convert           # convert documents via Docker
 
 # Catalog Curator  (inferred from full-catalog.yaml)
-jejune pdf-to-markdown   # test the pipeline across the catalog
+jejune converters        # build and test the converter images across the catalog
 
 # Deployer  (inferred from docker-compose.yml)
 jejune deployment        # manage deployments
 ```
+
+### Testing pdf-to-markdown changes against the catalog
+
+By default a converter image clones its `jejune_doc_*` from GitHub and uses the
+pdf-to-markdown version locked in the `uv.lock` of the document. To check a local
+(even uncommitted) pdf-to-markdown against every document, without pushing anything:
+
+```sh
+jejune converters build --local-pdf-to-markdown   # or --local-documents, or --local for both
+jejune converters test --no-build                 # reports which sources each image was built with
+```
+
+pdf-to-markdown and the documents are looked for in `$JEJUNE_ROOT_DIR` (or `--root-dir`),
+then in `.jejune/tmp` (pdf-to-markdown is cloned there when found nowhere).
+`converters test` without `--no-build` rebuilds the images with the default sources:
+its report then shows `document: git, pdf-to-markdown: locked`.
+
+Check for available/considered repositories sources with
+
+```bash
+jejune ecosystem status        # Might consider/require "jejune ecosystem udpate"
+```
+
+Every `DockerContext/Dockerfile` selects its sources with the `DOC_SOURCE` and
+`PDF_TO_MARKDOWN_SOURCE` build arguments, and the repository root carries a
+`.dockerignore` restricting what is copied from a local clone.
 
 ### Activity Diagram
 
@@ -138,7 +164,7 @@ Edit `.jejune/env-secrets` after `doc-steward` init:
 
 | File | Role |
 | ---- | ---- |
-| `.jejune/catalog.yaml` | Lists known `jejune_doc_*` repositories; used by `pdf-to-markdown test` |
+| `.jejune/catalog.yaml` | Lists known `jejune_doc_*` repositories; used by `converters build` and `converters test` |
 | `.jejune/env-config` | Non-secret defaults (`NEO4J_PORT`, `NEO4J_URI`, `NEO4J_USERNAME`) |
 | `.jejune/env-secrets` | Created by `init`; fill in credentials and `JEJUNE_ROOT_DIR`; gitignored via `.jejune` |
 
