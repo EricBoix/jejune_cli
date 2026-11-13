@@ -136,25 +136,46 @@ def test_local_sources_are_independent_and_both_selectable(tmp_path):
 
 @pytest.mark.parametrize("tier", ["root", "tmp"])
 def test_pdf_to_markdown_found_in_a_tier_is_not_cloned(tier, tmp_path):
+    unshallowed = []
     instance = CompConverters.__new__(CompConverters)
     instance._ecosystem = SimpleNamespace(
         locate=lambda name, directories: SimpleNamespace(
             tier=tier, local_path=tmp_path, is_local=True
         ),
         ensure_local=lambda name: pytest.fail("must not clone"),
+        unshallow=unshallowed.append,
     )
     assert instance.locate_pdf_to_markdown(None) == ConverterSource(tier, tmp_path)
+    # Only the clone managed by jejune_cli (.jejune/tmp) is given its whole history:
+    # a checkout of JEJUNE_ROOT_DIR belongs to the user
+    assert unshallowed == ([tmp_path] if tier == "tmp" else [])
 
 
-def test_pdf_to_markdown_found_nowhere_is_cloned_into_tmp(tmp_path):
+def test_pdf_to_markdown_found_nowhere_is_cloned_into_tmp_with_its_history(tmp_path):
     cloned = []
+    unshallowed = []
     instance = CompConverters.__new__(CompConverters)
     instance._ecosystem = SimpleNamespace(
         locate=lambda name, directories: SimpleNamespace(is_local=False),
         ensure_local=lambda name: cloned.append(name) or tmp_path,
+        unshallow=unshallowed.append,
     )
     assert instance.locate_pdf_to_markdown(None) == ConverterSource("tmp", tmp_path)
     assert cloned == ["pdf-to-markdown"]
+    assert unshallowed == [tmp_path]
+
+
+def test_converters_register_pdf_to_markdown_with_the_ecosystem():
+    registered = []
+    CompConverters(
+        docker_daemon=SimpleNamespace(name="docker-daemon"),
+        ecosystem=SimpleNamespace(
+            register_repository=lambda *arguments: registered.append(arguments)
+        ),
+        catalog_comp=None,
+        context=SimpleNamespace(docker=None, docker_daemon=None),
+    )
+    assert registered == [("converters", "pdf-to-markdown")]
 
 
 @pytest.mark.parametrize(

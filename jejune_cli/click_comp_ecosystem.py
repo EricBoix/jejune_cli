@@ -60,40 +60,55 @@ def ecosystem_status(ctx) -> None:
             for subpath, env_key in getattr(comp, "repos", [])
         ]
     )
+    # Repositories registered with the ecosystem on behalf of active components
+    registered = (
+        []
+        if active is None
+        else eco.registered_repositories(
+            [comp.name for comp in app.component_registry if comp in active]
+        )
+    )
     click.echo(click.style("  Components", bold=True))
-    if not repos:
+    if not repos and not registered:
         click.echo(
             click.style(
                 "    No repositories required for the current role.", fg="yellow"
             )
         )
     else:
+        # The following makes the assumption that every component that sets
+        # self.repos lives in a plugin repo (which might be a latent
+        # fragility e.g. for future built-in components)
+        # A registered repository, unlike those, has its remote probed when it is
+        # not cloned: reachable or not is what its icon tells.
+        states = [
+            eco.repository_state(
+                app.plugin_registry.repo_name_for_plugin(comp.name) or comp.name,
+                directories,
+            )
+            for comp, _, _ in repos
+        ]
+        listed = {state.name for state in states}
+        states += [
+            eco.repository_state(name, directories, probe_remote=True)
+            for name in registered
+            if name not in listed
+        ]
         rows: list[tuple[str, bool, str, str, bool | None]] = []
-        for comp, _, _ in repos:
-            # The following makes the assumption that every component that sets
-            # self.repos lives in a plugin repo (which might be a latent
-            # fragility e.g. for future built-in components)
-            name = app.plugin_registry.repo_name_for_plugin(comp.name) or comp.name
-            location = eco.locate(name, directories)
-            if location.tier == "root":
+        for state in states:
+            if state.location.tier == "root":
                 clone_display, remote_display = "[JEJUNE_ROOT_DIR]", ""
-            elif location.tier == "tmp":
+            elif state.location.tier == "tmp":
                 clone_display, remote_display = "[.jejune/tmp]", ""
             else:
-                clone_display = ""
-                remote_display = app.component_registry.get(
-                    "git-server"
-                ).remote_git_url(name)
-            up_to_date: bool | None = (
-                eco.repo_up_to_date(location.local_path) if location.is_local else None
-            )
+                clone_display, remote_display = "", state.remote_url
             rows.append(
                 (
-                    name,
-                    location.is_local,
+                    state.name,
+                    state.is_available,
                     clone_display,
                     remote_display,
-                    up_to_date,
+                    state.up_to_date,
                 )
             )
 

@@ -62,6 +62,9 @@ class CompConverters(ContComp):
         self._ecosystem = ecosystem
         self._catalog_comp = catalog_comp
         self.cli_name = self.name
+        # pdf-to-markdown is a repository of the ecosystem (listed by `ecosystem
+        # status`, updated by `ecosystem update`) as soon as it is cloned
+        ecosystem.register_repository(self.name, self.PDF_TO_MARKDOWN_NAME)
 
     def _iter_local_converter_repos(self) -> list[tuple[Path, str]]:
         """Return (repo_dir, image_name) for catalog repos that are local and have a DockerContext."""
@@ -111,13 +114,19 @@ class CompConverters(ContComp):
         self, directories: EcosystemDirectories
     ) -> ConverterSource:
         """The local pdf-to-markdown: JEJUNE_ROOT_DIR first, then .jejune/tmp, else
-        cloned into .jejune/tmp."""
+        cloned into .jejune/tmp.  A clone of .jejune/tmp is given its whole git
+        history (the commit count is part of the pdf-to-markdown version); a
+        checkout of JEJUNE_ROOT_DIR belongs to the user and is left untouched."""
         location = self._ecosystem.locate(self.PDF_TO_MARKDOWN_NAME, directories)
         if location.is_local:
-            return ConverterSource(location.tier, location.local_path)
-        return ConverterSource(
-            "tmp", self._ecosystem.ensure_local(self.PDF_TO_MARKDOWN_NAME)
-        )
+            source = ConverterSource(location.tier, location.local_path)
+        else:
+            source = ConverterSource(
+                "tmp", self._ecosystem.ensure_local(self.PDF_TO_MARKDOWN_NAME)
+            )
+        if source.tier == "tmp":
+            self._ecosystem.unshallow(source.path)
+        return source
 
     @classmethod
     def source_arguments(

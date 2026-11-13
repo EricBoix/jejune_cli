@@ -48,7 +48,28 @@ class RepoLocation:
         return self.local_path is not None
 
 
+@dataclass(frozen=True)
+class RepositoryState:
+    """What the ecosystem knows of a repository: where it is and, when it is local,
+    whether the clone is up to date (`up_to_date`) or, when it is only remote,
+    its url and whether that remote could be reached (`reachable`, None when the
+    remote was not probed)."""
+
+    name: str
+    location: RepoLocation
+    remote_url: str | None = None
+    reachable: bool | None = None
+    up_to_date: bool | None = None
+
+    @property
+    def is_available(self) -> bool:
+        """The repository is cloned locally or its remote could be reached."""
+        return self.location.is_local or self.reachable is True
+
+
 class CompEcosystem(ConfComp):
+    REMOTE_PROBE_TIMEOUT_SECONDS = 15
+
     def __init__(self, git_server, git_access, role_registry, plugin_registry) -> None:
         super().__init__(
             name="ecosystem",
@@ -66,7 +87,93 @@ class CompEcosystem(ConfComp):
         self._git_access = git_access
         self._role_registry = role_registry
         self._plugin_registry = plugin_registry
+        self._registered_repositories: dict[str, list[str]] = {}
         self.conditional_dependencies = [(self.ecosystem_needs_remote, git_server)]
+
+    def register_repository(
+        self, owner_component_name: str, repository_name: str
+    ) -> None:
+        """Register *repository_name* as a repository managed by the ecosystem on
+        behalf of a component: `ecosystem status` lists it whenever that component
+        is active in the current role (idempotent)."""
+        owned = self._registered_repositories.setdefault(owner_component_name, [])
+        if repository_name not in owned:
+            owned.append(repository_name)
+
+    def registered_repositories(self, component_names: list[str]) -> list[str]:
+        """The repositories registered by the given components, sorted and without
+        duplicates."""
+        return sorted(
+            {
+                repository_name
+                for component_name in component_names
+                for repository_name in self._registered_repositories.get(
+                    component_name, []
+                )
+            }
+        )
+
+    def repository_state(
+        self,
+        name: str,
+        directories: EcosystemDirectories,
+        probe_remote: bool = False,
+    ) -> RepositoryState:
+        """The state of repository *name*; the remote of a repository found nowhere
+        locally is only probed (network) when *probe_remote*."""
+        location = self.locate(name, directories)
+        if location.is_local:
+            return RepositoryState(
+                name, location, up_to_date=self.repo_up_to_date(location.local_path)
+            )
+        remote_url = self._git_server.remote_git_url(name)
+        return RepositoryState(
+            name,
+            location,
+            remote_url=remote_url,
+            reachable=self.remote_reachable(remote_url) if probe_remote else None,
+        )
+
+    def remote_reachable(self, repository_url: str) -> bool:
+        """Can *repository_url* be reached anonymously (public repositories)?"""
+        try:
+            completed = self._git_access.ls_remote_anonymous(
+                ["--exit-code", "--heads", repository_url],
+                timeout=self.REMOTE_PROBE_TIMEOUT_SECONDS,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+        # 2: reachable, but no reference (empty repository)
+        return completed.returncode in (0, 2)
+
+    def unshallow(self, repo_path: Path) -> None:
+        """Fetch the whole history of a shallow clone (nothing to do for a complete
+        one): git derived values, e.g. a commit count, need it."""
+        shallow = subprocess.run(
+            ["git", "-C", str(repo_path), "rev-parse", "--is-shallow-repository"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        if shallow != "true":
+            return
+        try:
+            self._git_access.run_git(
+                ["-C", str(repo_path), "fetch", "--unshallow"],
+                self._git_access.origin_url(repo_path),
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as error:
+            click.echo(
+                click.style(
+                    f"  cannot fetch the whole history of {repo_path.name}: "
+                    f"{error.stderr.strip()}",
+                    fg="yellow",
+                ),
+                err=True,
+            )
 
     def locate(self, name: str, directories: EcosystemDirectories) -> RepoLocation:
         root_dir, tmp_dir = directories.root_dir, directories.tmp_dir

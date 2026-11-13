@@ -56,15 +56,24 @@ jejune converters test --no-build                 # reports which sources each i
 ```
 
 pdf-to-markdown and the documents are looked for in `$JEJUNE_ROOT_DIR` (or `--root-dir`),
-then in `.jejune/tmp` (pdf-to-markdown is cloned there when found nowhere).
+then in `.jejune/tmp` (pdf-to-markdown is cloned there when found nowhere, with its
+whole git history: the commit count is part of its version; a checkout of
+`$JEJUNE_ROOT_DIR` is never touched).
 `converters test` without `--no-build` rebuilds the images with the default sources:
 its report then shows `document: git, pdf-to-markdown: locked`.
 
-Check for available/considered repositories sources with
+pdf-to-markdown is a repository registered with the ecosystem (by the `converters`
+component), like the documents of the catalog. Check where each repository comes from with
 
 ```bash
-jejune ecosystem status        # Might consider/require "jejune ecosystem udpate"
+jejune ecosystem status        # Might consider/require "jejune ecosystem update"
 ```
+
+Until pdf-to-markdown is cloned, its row shows the remote url with a green check when
+that remote can be reached and a red cross when it cannot; once cloned, the row shows
+`[JEJUNE_ROOT_DIR]` or `[.jejune/tmp]`. `jejune ecosystem update` refreshes a clone of
+`.jejune/tmp` but never clones a missing one: the first
+`jejune converters build --local-pdf-to-markdown` does.
 
 Every `DockerContext/Dockerfile` selects its sources with the `DOC_SOURCE` and
 `PDF_TO_MARKDOWN_SOURCE` build arguments, and the repository root carries a
