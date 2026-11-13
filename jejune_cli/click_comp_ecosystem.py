@@ -43,21 +43,31 @@ class _StatusTable:
         return f"{'':>{pad}}{cell}{icon_blank}{'':<{trail}}"
 
     @staticmethod
-    def header(first, location_header, first_width, location_width) -> str:
-        """The header row: *first* is bold."""
+    def icon_cell(ok: bool, icon_header: str) -> str:
+        """The ✓/✗ cell, centred under *icon_header*."""
+        icon, color = ClickTheme.status_icons["ok" if ok else "error"]
+        pad = (len(icon_header) - _StatusTable.ICON_WIDTH) // 2
+        trail = len(icon_header) - pad - _StatusTable.ICON_WIDTH
+        return f"{'':>{pad}}{click.style(icon, fg=color)}{'':<{trail}}"
+
+    @staticmethod
+    def header(
+        first, icon_header, location_header, first_width, location_width
+    ) -> str:
+        """The header row: *first* is bold and *location_header* is centred."""
         bold_first = click.style(f"{first:<{first_width}}", bold=True)
         return (
-            f"  {bold_first}  {'':>{_StatusTable.ICON_WIDTH}}  "
-            f"{location_header:<{location_width}}  "
+            f"  {bold_first}  {icon_header}  "
+            f"{location_header:^{location_width}}  "
             f"{_StatusTable.UP_TO_DATE_HEADER}  {_StatusTable.COMMIT_HEADER}"
         )
 
     @staticmethod
-    def rule(first_width, location_width, commit_width) -> str:
+    def rule(first_width, icon_header, location_width, commit_width) -> str:
         total = (
             first_width
             + 2
-            + _StatusTable.ICON_WIDTH
+            + len(icon_header)
             + 2
             + location_width
             + 2
@@ -141,13 +151,14 @@ def ecosystem_status(ctx) -> None:
         _W_R = max(len("Repository"), max(len(r[2]) for r in rows))
         _W_COMMIT = max(len(_StatusTable.COMMIT_HEADER), max(len(r[4]) for r in rows))
 
-        click.echo(_StatusTable.header("Component", "Repository", _W_N, _W_R))
-        click.echo(_StatusTable.rule(_W_N, _W_R, _W_COMMIT))
+        click.echo(
+            _StatusTable.header("Component", "Available", "Repository", _W_N, _W_R)
+        )
+        click.echo(_StatusTable.rule(_W_N, "Available", _W_R, _W_COMMIT))
         for name, found, location, up_to_date, commit in rows:
-            icon, fg = ClickTheme.status_icons["ok" if found else "error"]
-            status_cell = click.style(icon, fg=fg)
             click.echo(
-                f"  {name:<{_W_N}}  {status_cell}  {location:<{_W_R}}  "
+                f"  {name:<{_W_N}}  {_StatusTable.icon_cell(found, 'Available')}  "
+                f"{location:<{_W_R}}  "
                 f"{_StatusTable.up_to_date_cell(up_to_date)}  {commit}"
             )
 
@@ -181,13 +192,12 @@ def ecosystem_status(ctx) -> None:
     _W_DC = max(len("Repository"), max(len(r[2]) for r in doc_rows))
     _W_DCOMMIT = max(len(_StatusTable.COMMIT_HEADER), max(len(r[4]) for r in doc_rows))
 
-    click.echo(_StatusTable.header("Document", "Repository", _W_DN, _W_DC))
-    click.echo(_StatusTable.rule(_W_DN, _W_DC, _W_DCOMMIT))
+    click.echo(_StatusTable.header("Document", "Manifest", "Repository", _W_DN, _W_DC))
+    click.echo(_StatusTable.rule(_W_DN, "Manifest", _W_DC, _W_DCOMMIT))
     for name, has_doc, location, up_to_date, commit in doc_rows:
-        icon, fg = ClickTheme.status_icons["ok" if has_doc else "error"]
-        doc_cell = click.style(icon, fg=fg)
         click.echo(
-            f"  {name:<{_W_DN}}  {doc_cell}  {location:<{_W_DC}}  "
+            f"  {name:<{_W_DN}}  {_StatusTable.icon_cell(has_doc, 'Manifest')}  "
+            f"{location:<{_W_DC}}  "
             f"{_StatusTable.up_to_date_cell(up_to_date)}  {commit}"
         )
     _echo_catalog_entries_unknown_to_ecosystem(eco, known_names)

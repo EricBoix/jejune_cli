@@ -256,7 +256,13 @@ def test_status_header_lists_the_ecosystem_directory_and_the_commit_column(
         line.split() == ["ECOSYSTEM_DIR", ".jejune/tmp"] for line in output.splitlines()
     )
     header = next(line for line in output.splitlines() if "Component" in line)
-    assert header.split() == ["Component", "Repository", "Up-to-date", "Commit"]
+    assert header.split() == [
+        "Component",
+        "Available",
+        "Repository",
+        "Up-to-date",
+        "Commit",
+    ]
 
 
 @pytest.mark.parametrize(
