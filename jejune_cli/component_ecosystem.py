@@ -60,6 +60,7 @@ class RepositoryState:
     remote_url: str | None = None
     reachable: bool | None = None
     up_to_date: bool | None = None
+    commit: str | None = None
 
     @property
     def is_available(self) -> bool:
@@ -69,6 +70,7 @@ class RepositoryState:
 
 class CompEcosystem(ConfComp):
     REMOTE_PROBE_TIMEOUT_SECONDS = 15
+    SHORT_SHA_LENGTH = 7
 
     def __init__(self, git_server, git_access, role_registry, plugin_registry) -> None:
         super().__init__(
@@ -124,15 +126,41 @@ class CompEcosystem(ConfComp):
         location = self.locate(name, directories)
         if location.is_local:
             return RepositoryState(
-                name, location, up_to_date=self.repo_up_to_date(location.local_path)
+                name,
+                location,
+                up_to_date=self.repo_up_to_date(location.local_path),
+                commit=self.short_head(location.local_path),
             )
         remote_url = self._git_server.remote_git_url(name)
+        reachable = self.remote_reachable(remote_url) if probe_remote else None
         return RepositoryState(
             name,
             location,
             remote_url=remote_url,
-            reachable=self.remote_reachable(remote_url) if probe_remote else None,
+            reachable=reachable,
+            commit=self.remote_short_head(remote_url) if reachable else None,
         )
+
+    def short_head(self, repo_path: Path) -> str | None:
+        """The short commit SHA of HEAD in the clone *repo_path* (None on error)."""
+        try:
+            return self._git_access.head_sha(repo_path)[: self.SHORT_SHA_LENGTH]
+        except subprocess.CalledProcessError:
+            return None
+
+    def remote_short_head(
+        self, repository_url: str, token_file: Path | str | None = None
+    ) -> str | None:
+        """The short commit SHA of the remote HEAD (default branch) of
+        *repository_url* via ls-remote (network call); None on any error."""
+        try:
+            # ls-remote output: "<SHA>\tHEAD"
+            ls_output = self._git_access.ls_remote(
+                repository_url, token_file, "HEAD", check=True
+            ).stdout.strip()
+        except subprocess.CalledProcessError:
+            return None
+        return ls_output.split("\t")[0][: self.SHORT_SHA_LENGTH] or None
 
     def remote_reachable(self, repository_url: str) -> bool:
         """Can *repository_url* be reached anonymously (public repositories)?"""

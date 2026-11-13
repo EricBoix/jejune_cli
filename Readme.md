@@ -69,9 +69,14 @@ component), like the documents of the catalog. Check where each repository comes
 jejune ecosystem status        # Might consider/require "jejune ecosystem update"
 ```
 
-Until pdf-to-markdown is cloned, its row shows the remote url with a green check when
-that remote can be reached and a red cross when it cannot; once cloned, the row shows
-`[JEJUNE_ROOT_DIR]` or `[.jejune/tmp]`. `jejune ecosystem update` refreshes a clone of
+The header of the output lists `JEJUNE_ROOT_DIR`, `REPO_ROOT_DIR` and `ECOSYSTEM_DIR`
+(the directory where the ecosystem clones the repositories it registers, most often
+`.jejune/tmp`). Until pdf-to-markdown is cloned, the `Repository` column of its row shows
+`[REPO_ROOT_DIR]/pdf-to-markdown.git` with a green check when that remote can be reached
+and a red cross when it cannot; once cloned, the row shows `[JEJUNE_ROOT_DIR]` or
+`[ECOSYSTEM_DIR]`. The last column, `Commit`, is the short commit of the clone or, for a
+reachable remote, of the HEAD of its default branch.
+`jejune ecosystem update` refreshes a clone of
 `.jejune/tmp` but never clones a missing one: the first
 `jejune converters build --local-pdf-to-markdown` does.
 

@@ -8,6 +8,9 @@ from jejune_cli import click_comp_ecosystem
 from jejune_cli.component_ecosystem import CompEcosystem, EcosystemDirectories
 
 REMOTE_URL = "https://example.org/team/pdf-to-markdown.git"
+REMOTE_LABEL = "[REPO_ROOT_DIR]/pdf-to-markdown.git"
+LOCAL_SHA = "1234567890abcdef"
+REMOTE_SHA = "fedcba0987654321"
 
 
 class FakeGitAccess:
@@ -29,6 +32,12 @@ class FakeGitAccess:
 
     def origin_url(self, repo_path):
         return REMOTE_URL
+
+    def head_sha(self, repo_path):
+        return LOCAL_SHA
+
+    def ls_remote(self, repository_url, token_file=None, *references, **run_options):
+        return SimpleNamespace(stdout=f"{REMOTE_SHA}\tHEAD\n")
 
 
 @pytest.fixture
@@ -217,7 +226,8 @@ def test_status_lists_pdf_to_markdown_not_cloned_with_its_remote(
             monkeypatch, tmp_path, reachable, EcosystemDirectories(None, None)
         )
     )
-    assert REMOTE_URL in row and "✓" in row and "✗" not in row
+    assert REMOTE_LABEL in row and "✓" in row and "✗" not in row
+    assert row.endswith(REMOTE_SHA[:7])
 
 
 def test_status_flags_pdf_to_markdown_with_an_unreachable_remote(
@@ -229,11 +239,29 @@ def test_status_flags_pdf_to_markdown_with_an_unreachable_remote(
             monkeypatch, tmp_path, unreachable, EcosystemDirectories(None, None)
         )
     )
-    assert REMOTE_URL in row and "✗" in row and "✓" not in row
+    assert REMOTE_LABEL in row and "✗" in row and "✓" not in row
+    # An unreachable remote has no commit to show
+    assert REMOTE_SHA[:7] not in row
+
+
+def test_status_header_lists_the_ecosystem_directory_and_the_commit_column(
+    monkeypatch, tmp_path, make_ecosystem
+):
+    output = status_output(
+        monkeypatch,
+        tmp_path,
+        make_ecosystem(),
+        EcosystemDirectories(None, None),
+    )
+    assert any(
+        line.split() == ["ECOSYSTEM_DIR", ".jejune/tmp"] for line in output.splitlines()
+    )
+    header = next(line for line in output.splitlines() if "Component" in line)
+    assert header.split() == ["Component", "Repository", "Up-to-date", "Commit"]
 
 
 @pytest.mark.parametrize(
-    "tier, clone_label", [("root", "[JEJUNE_ROOT_DIR]"), ("tmp", "[.jejune/tmp]")]
+    "tier, clone_label", [("root", "[JEJUNE_ROOT_DIR]"), ("tmp", "[ECOSYSTEM_DIR]")]
 )
 def test_status_shows_where_pdf_to_markdown_is_cloned(
     tier, clone_label, monkeypatch, tmp_path, make_ecosystem
@@ -250,4 +278,5 @@ def test_status_shows_where_pdf_to_markdown_is_cloned(
         status_output(monkeypatch, tmp_path, ecosystem, directories)
     )
     # A cloned repository is not probed: an unreachable remote does not matter
-    assert clone_label in row and REMOTE_URL not in row and "✗" not in row
+    assert clone_label in row and REMOTE_LABEL not in row and "✗" not in row
+    assert row.endswith(LOCAL_SHA[:7])

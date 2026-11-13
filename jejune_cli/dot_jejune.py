@@ -6,7 +6,10 @@ from typing import ClassVar
 
 class DotJejune:
     _DOT_JEJUNE: ClassVar[str] = ".jejune"
-    _TMP_PATTERN: ClassVar[str] = str(Path(_DOT_JEJUNE) / "tmp") + "/"
+    # The directory (relative to the deployment) where the ecosystem clones the
+    # repositories it registers
+    TMP_RELATIVE_PATH: ClassVar[str] = str(Path(_DOT_JEJUNE) / "tmp")
+    _TMP_PATTERN: ClassVar[str] = TMP_RELATIVE_PATH + "/"
 
     def __init__(self, cwd: Path | None = None) -> None:
         self._cwd = cwd if cwd is not None else Path.cwd()
