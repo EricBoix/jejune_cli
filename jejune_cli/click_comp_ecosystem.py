@@ -109,49 +109,24 @@ def ecosystem_status(ctx) -> None:
 
     # --- Components table ---
     active = app.role_registry.role_components(role)
-    repos = (
-        []
-        if active is None
-        else [
-            (comp, subpath, env_key)
-            for comp in app.component_registry
-            if comp in active
-            for subpath, env_key in getattr(comp, "repos", [])
-        ]
+    # Repositories needed by the active components, plus those registered with the
+    # ecosystem on their behalf. The remote of those not cloned is probed: reachable
+    # or not is what their icon tells.
+    states = eco.repository_states(
+        (
+            []
+            if active is None
+            else [comp for comp in app.component_registry if comp in active]
+        ),
+        directories,
     )
-    # Repositories registered with the ecosystem on behalf of active components
-    registered = (
-        []
-        if active is None
-        else eco.registered_repositories(
-            [comp.name for comp in app.component_registry if comp in active]
-        )
-    )
-    if not repos and not registered:
+    if not states:
         click.echo(
             click.style(
                 "    No repositories required for the current role.", fg="yellow"
             )
         )
     else:
-        # The following makes the assumption that every component that sets
-        # self.repos lives in a plugin repo (which might be a latent
-        # fragility e.g. for future built-in components)
-        # A registered repository, unlike those, has its remote probed when it is
-        # not cloned: reachable or not is what its icon tells.
-        states = [
-            eco.repository_state(
-                app.plugin_registry.repo_name_for_plugin(comp.name) or comp.name,
-                directories,
-            )
-            for comp, _, _ in repos
-        ]
-        listed = {state.name for state in states}
-        states += [
-            eco.repository_state(name, directories, probe_remote=True)
-            for name in registered
-            if name not in listed
-        ]
         rows: list[tuple[str, bool, str, bool | None, str]] = []
         for state in states:
             if state.location.is_local:

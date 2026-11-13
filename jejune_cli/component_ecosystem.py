@@ -69,7 +69,7 @@ class RepositoryState:
 
 
 class CompEcosystem(ConfComp):
-    REMOTE_PROBE_TIMEOUT_SECONDS = 15
+    REMOTE_PROBE_TIMEOUT_SECONDS = 5
     SHORT_SHA_LENGTH = 7
 
     def __init__(self, git_server, git_access, role_registry, plugin_registry) -> None:
@@ -132,14 +132,42 @@ class CompEcosystem(ConfComp):
                 commit=self.short_head(location.local_path),
             )
         remote_url = self._git_server.remote_git_url(name)
-        reachable = self.remote_reachable(remote_url) if probe_remote else None
+        reachable, commit = self.probe_remote(remote_url) if probe_remote else (None, None)
         return RepositoryState(
             name,
             location,
             remote_url=remote_url,
             reachable=reachable,
-            commit=self.remote_short_head(remote_url) if reachable else None,
+            commit=commit,
         )
+
+    def repository_states(
+        self, active_components: list, directories: EcosystemDirectories
+    ) -> list[RepositoryState]:
+        """The state of every repository the *active_components* need: first those
+        listed by the components themselves, then those registered on their behalf.
+        The remote of a repository that is not cloned is probed."""
+        # The following makes the assumption that every component that sets
+        # self.repos lives in a plugin repo (which might be a latent
+        # fragility e.g. for future built-in components)
+        states = [
+            self.repository_state(
+                self._plugin_registry.repo_name_for_plugin(comp.name) or comp.name,
+                directories,
+                probe_remote=True,
+            )
+            for comp in active_components
+            for _ in getattr(comp, "repos", [])
+        ]
+        listed = {state.name for state in states}
+        states += [
+            self.repository_state(name, directories, probe_remote=True)
+            for name in self.registered_repositories(
+                [comp.name for comp in active_components]
+            )
+            if name not in listed
+        ]
+        return states
 
     def short_head(self, repo_path: Path) -> str | None:
         """The short commit SHA of HEAD in the clone *repo_path* (None on error)."""
@@ -148,31 +176,24 @@ class CompEcosystem(ConfComp):
         except subprocess.CalledProcessError:
             return None
 
-    def remote_short_head(
-        self, repository_url: str, token_file: Path | str | None = None
-    ) -> str | None:
-        """The short commit SHA of the remote HEAD (default branch) of
-        *repository_url* via ls-remote (network call); None on any error."""
+    def probe_remote(self, repository_url: str) -> tuple[bool, str | None]:
+        """Can *repository_url* be reached and, if so, what is the short commit SHA
+        of its remote HEAD (default branch)? Network call: authentication is
+        delegated to git-access."""
         try:
-            # ls-remote output: "<SHA>\tHEAD"
-            ls_output = self._git_access.ls_remote(
-                repository_url, token_file, "HEAD", check=True
-            ).stdout.strip()
-        except subprocess.CalledProcessError:
-            return None
-        return ls_output.split("\t")[0][: self.SHORT_SHA_LENGTH] or None
-
-    def remote_reachable(self, repository_url: str) -> bool:
-        """Can *repository_url* be reached anonymously (public repositories)?"""
-        try:
-            completed = self._git_access.ls_remote_anonymous(
-                ["--exit-code", "--heads", repository_url],
+            completed = self._git_access.ls_remote(
+                repository_url,
+                None,
+                "HEAD",
                 timeout=self.REMOTE_PROBE_TIMEOUT_SECONDS,
             )
         except (OSError, subprocess.TimeoutExpired):
-            return False
-        # 2: reachable, but no reference (empty repository)
-        return completed.returncode in (0, 2)
+            return False, None
+        if completed.returncode != 0:
+            return False, None
+        # ls-remote output: "<SHA>\tHEAD" (nothing for an empty repository)
+        sha = completed.stdout.strip().split("\t")[0]
+        return True, sha[: self.SHORT_SHA_LENGTH] or None
 
     def unshallow(self, repo_path: Path) -> None:
         """Fetch the whole history of a shallow clone (nothing to do for a complete

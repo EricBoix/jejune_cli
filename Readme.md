@@ -75,7 +75,10 @@ The header of the output lists `JEJUNE_ROOT_DIR`, `REPO_ROOT_DIR` and `ECOSYSTEM
 `[REPO_ROOT_DIR]/pdf-to-markdown.git` with a green check when that remote can be reached
 and a red cross when it cannot; once cloned, the row shows `[JEJUNE_ROOT_DIR]` or
 `[ECOSYSTEM_DIR]`. The last column, `Commit`, is the short commit of the clone or, for a
-reachable remote, of the HEAD of its default branch.
+reachable remote, of the HEAD of its default branch. Every repository that is not cloned
+has its remote probed, authenticated through git-access (`GIT_ACCESS_TOKEN` or
+`GIT_ACCESS_TOKEN_FILE`) when it is private; `jejune git-access check-availability`
+probes the same repositories and tells which one cannot be reached.
 `jejune ecosystem update` refreshes a clone of
 `.jejune/tmp` but never clones a missing one: the first
 `jejune converters build --local-pdf-to-markdown` does.

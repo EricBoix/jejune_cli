@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 from click.testing import CliRunner
 
-from jejune_cli import click_comp_ecosystem
+from jejune_cli import click_comp_ecosystem, click_comp_git_access
 from jejune_cli.component_ecosystem import CompEcosystem, EcosystemDirectories
 
 REMOTE_URL = "https://example.org/team/pdf-to-markdown.git"
@@ -21,11 +21,6 @@ class FakeGitAccess:
         self.probe_error = probe_error
         self.git_commands = []
 
-    def ls_remote_anonymous(self, arguments, timeout):
-        if self.probe_error:
-            raise self.probe_error
-        return SimpleNamespace(returncode=self.probe_returncode)
-
     def run_git(self, arguments, repository_url=None, token_file=None, **run_options):
         self.git_commands.append(arguments)
         return SimpleNamespace(returncode=0)
@@ -37,7 +32,11 @@ class FakeGitAccess:
         return LOCAL_SHA
 
     def ls_remote(self, repository_url, token_file=None, *references, **run_options):
-        return SimpleNamespace(stdout=f"{REMOTE_SHA}\tHEAD\n")
+        if self.probe_error:
+            raise self.probe_error
+        return SimpleNamespace(
+            returncode=self.probe_returncode, stdout=f"{REMOTE_SHA}\tHEAD\n"
+        )
 
 
 @pytest.fixture
@@ -51,7 +50,7 @@ def make_ecosystem():
             ),
             git_access or FakeGitAccess(),
             SimpleNamespace(),
-            SimpleNamespace(),
+            SimpleNamespace(repo_name_for_plugin=lambda name: None),
         )
 
     return make
@@ -90,7 +89,7 @@ def test_local_repository_state_is_the_clone_one(tier, tmp_path, make_ecosystem)
 
 @pytest.mark.parametrize(
     "probe_returncode, expected_reachable",
-    [(0, True), (2, True), (128, False)],
+    [(0, True), (128, False)],
 )
 def test_remote_repository_state_probes_the_remote_on_demand(
     probe_returncode, expected_reachable, make_ecosystem
@@ -108,11 +107,11 @@ def test_remote_repository_state_probes_the_remote_on_demand(
 
 
 @pytest.mark.parametrize(
-    "probe_error", [subprocess.TimeoutExpired("git", 15), FileNotFoundError("git")]
+    "probe_error", [subprocess.TimeoutExpired("git", 5), FileNotFoundError("git")]
 )
 def test_unreachable_remote_when_git_fails_to_run(probe_error, make_ecosystem):
     ecosystem = make_ecosystem(FakeGitAccess(probe_error=probe_error))
-    assert ecosystem.remote_reachable(REMOTE_URL) is False
+    assert ecosystem.probe_remote(REMOTE_URL) == (False, None)
 
 
 def git(repository_path, *arguments):
@@ -280,3 +279,38 @@ def test_status_shows_where_pdf_to_markdown_is_cloned(
     # A cloned repository is not probed: an unreachable remote does not matter
     assert clone_label in row and REMOTE_LABEL not in row and "✗" not in row
     assert row.endswith(LOCAL_SHA[:7])
+
+
+def test_repository_states_probe_the_repositories_listed_by_components(make_ecosystem):
+    ecosystem = make_ecosystem(FakeGitAccess(probe_returncode=0))
+    listing_component = FakeComponent("catalog", repos=[("subpath", "ENV_KEY")])
+    (state,) = ecosystem.repository_states(
+        [listing_component], EcosystemDirectories(None, None)
+    )
+    assert state.reachable is True and state.commit == REMOTE_SHA[:7]
+
+
+@pytest.mark.parametrize(
+    "probe_returncode, expected_status", [(0, "ok"), (128, "error")]
+)
+def test_git_access_probes_the_ecosystem_repositories_not_cloned(
+    probe_returncode, expected_status, tmp_path, make_ecosystem
+):
+    ecosystem = make_ecosystem(FakeGitAccess(probe_returncode))
+    ecosystem.register_repository("converters", "pdf-to-markdown")
+    ecosystem.resolve_dirs = lambda deploy_dir=None: EcosystemDirectories(None, None)
+    (row,) = click_comp_git_access.ecosystem_probe_rows(FakeApplication(ecosystem))
+    assert row[:2] == (expected_status, "pdf-to-markdown") and REMOTE_URL in row[2]
+
+
+def test_git_access_does_not_probe_a_cloned_ecosystem_repository(
+    tmp_path, make_ecosystem
+):
+    (tmp_path / "pdf-to-markdown").mkdir()
+    ecosystem = make_ecosystem()
+    ecosystem.repo_up_to_date = lambda path: True
+    ecosystem.register_repository("converters", "pdf-to-markdown")
+    ecosystem.resolve_dirs = lambda deploy_dir=None: EcosystemDirectories(
+        tmp_path, None
+    )
+    assert click_comp_git_access.ecosystem_probe_rows(FakeApplication(ecosystem)) == []

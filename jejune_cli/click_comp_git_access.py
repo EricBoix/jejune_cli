@@ -103,28 +103,67 @@ def check_configuration(comp, catalog_option):
 
 @git_access.command("check-availability")
 @CATALOG_OPTION
-@click.pass_obj
-def check_availability(comp, catalog_option):
+@click.pass_context
+def check_availability(ctx, catalog_option):
     """Show git-access availability detail (environment variables and catalog entries).
 
     After the local checks of check-configuration, every catalog entry is probed
     on the network (`git ls-remote` with the key of the entry): `reachable`, or
-    `not reachable: wrong url or no access`. Exits 1 on any error.
+    `not reachable: wrong url or no access`. The ecosystem repositories that are
+    not cloned locally are probed the same way, with the credentials of the
+    environment. Exits 1 on any error.
     """
+    comp = ctx.obj
     catalog_path = CatalogFile.resolve_path(catalog_option)
     status, message = comp.check()
     label = "ok" if status == "ok" else message
     click.echo(
         f"  access  {click.style(label, fg=ClickTheme.status_foregrounds.get(status, 'white'))}"
     )
+    all_ok = True
     if catalog_option or catalog_path.is_file():
         click.echo()
         local_ok = print_catalog_check(comp, catalog_path)
         click.echo()
         click.echo("Remote probing the repository")
         probe_ok = print_rows(CatalogAccessChecker(comp, catalog_path).probe_remote())
-        if not (local_ok and probe_ok):
-            raise SystemExit(1)
+        all_ok = local_ok and probe_ok
+    ecosystem_rows = ecosystem_probe_rows(ctx.find_object(AppContext))
+    if ecosystem_rows:
+        click.echo()
+        click.echo("Remote probing the ecosystem")
+        all_ok = print_rows(ecosystem_rows) and all_ok
+    if not all_ok:
+        raise SystemExit(1)
+
+
+def ecosystem_probe_rows(app: AppContext) -> list[tuple[str, str, str]]:
+    """One (status, subject, message) row per ecosystem repository that is not
+    cloned locally: whether its remote can be reached."""
+    ecosystem = app.component_registry.get("ecosystem")
+    role = app.role_registry.detect_role()
+    active = app.role_registry.role_components(role)
+    states = ecosystem.repository_states(
+        (
+            []
+            if active is None
+            else [comp for comp in app.component_registry if comp in active]
+        ),
+        ecosystem.resolve_dirs(),
+    )
+    return [
+        (
+            "ok" if state.reachable else "error",
+            state.name,
+            (
+                f"reachable ({state.remote_url})"
+                if state.reachable
+                else f"not reachable: wrong url or no access ({state.remote_url})"
+            ),
+        )
+        for state in states
+        if not state.location.is_local
+    ]
 
 
 @git_access.command("status-availability")
