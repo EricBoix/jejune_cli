@@ -6,6 +6,7 @@ import pytest
 
 from jejune_cli.component_registry import ComponentRegistry
 from jejune_cli.role import Role
+from jejune_cli.role_definitions import wire_roles
 from jejune_cli.role_registry import RoleRegistry
 
 
@@ -47,3 +48,24 @@ class TestBuildHierarchyLines:
         )
         with pytest.raises(ValueError, match="exactly one root"):
             registry.build_hierarchy_lines()
+
+
+class TestDeployerRole:
+    DEPLOYER_UI_COMPONENT_NAMES = ("docs-server", "kg-viewer", "md-browser", "hub")
+
+    @staticmethod
+    def deployer_component_names() -> tuple[str, ...]:
+        registry = RoleRegistry(ComponentRegistry())
+        wire_roles(registry)
+        deployer = registry.get("deployer")
+        assert deployer is not None
+        return deployer.component_names
+
+    def test_hub_is_registered_to_deployer_role(self) -> None:
+        assert "hub" in self.deployer_component_names()
+
+    @pytest.mark.parametrize("component_name", DEPLOYER_UI_COMPONENT_NAMES)
+    def test_every_ui_component_is_registered_to_deployer_role(
+        self, component_name: str
+    ) -> None:
+        assert component_name in self.deployer_component_names()

@@ -130,6 +130,7 @@ def wire_roles(registry: RoleRegistry) -> None:
                 "docs-server",
                 "kg-viewer",
                 "md-browser",
+                "hub",
             ),
             includes=("contributor", "deployment-catalog"),
             section_title="Deployer commands",
