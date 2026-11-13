@@ -20,7 +20,7 @@ Both filters are applied before display by "jejune next".
 
 ```text
 doc-steward      .jejune/ directory detected
-catalog-curator  full-catalog.yaml detected
+catalog-curator  catalog.yaml + jejune_catalog git remote detected
 deployer         docker-compose.yml detected
 contributor      base role inherited by all other roles
 ```

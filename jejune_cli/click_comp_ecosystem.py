@@ -80,7 +80,10 @@ def ecosystem_status(ctx) -> None:
             elif location.tier == "tmp":
                 clone_display, remote_display = "[.jejune/tmp]", ""
             else:
-                clone_display, remote_display = "", "[REPO_ROOT_DIR]"
+                clone_display = ""
+                remote_display = app.component_registry.get(
+                    "git-server"
+                ).remote_git_url(name)
             up_to_date: bool | None = (
                 eco.repo_up_to_date(location.local_path) if location.is_local else None
             )

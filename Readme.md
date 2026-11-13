@@ -33,7 +33,7 @@ jejune llm-observability # manage the LLM observability backend
 jejune graph             # build and export the knowledge graph
 jejune convert           # convert documents via Docker
 
-# Catalog Curator  (inferred from full-catalog.yaml)
+# Catalog Curator  (inferred from catalog.yaml in a git repository with a jejune_catalog remote)
 jejune converters        # build and test the converter images across the catalog
 
 # Deployer  (inferred from docker-compose.yml)
@@ -44,7 +44,11 @@ jejune deployment        # manage deployments
 
 By default a converter image clones its `jejune_doc_*` from GitHub and uses the
 pdf-to-markdown version locked in the `uv.lock` of the document. To check a local
-(even uncommitted) pdf-to-markdown against every document, without pushing anything:
+pdf-to-markdown against every document, without pushing anything, **first commit
+the change locally in pdf-to-markdown (do not push)**: the version of pdf-to-markdown
+then carries the git commit (e.g. `0.1.1.dev41+gf6691d12d`), which identifies exactly
+what was tested; uncommitted changes only add a date to the version. A rejected local
+commit costs nothing (`git reset`): GitHub never sees it.
 
 ```sh
 jejune converters build --local-pdf-to-markdown   # or --local-documents, or --local for both
@@ -91,7 +95,7 @@ directory).
 | Role | Detected when | Visible commands |
 | ---- | ------------- | ---------------- |
 | `doc-steward` | `.jejune/` directory exists in cwd | neo4j, llm, llm-observability, graph, convert |
-| `catalog-curator` | `full-catalog.yaml` exists in cwd | pdf-to-markdown |
+| `catalog-curator` | `catalog.yaml` in a git repository with a `jejune_catalog` remote | pdf-to-markdown |
 | `deployer` | `docker-compose.yml` exists in cwd | deployment |
 | *(none)* | no indicator found | all commands |
 
@@ -229,7 +233,7 @@ jejune convert run          # run the converter container
 ## Catalog Curator commands
 
 Catalog Curator commands operate across a catalog of repositories.
-They are shown in `--help` when `full-catalog.yaml` is detected in the current directory.
+They are shown in `--help` when `catalog.yaml` is detected in a git repository whose remote is `jejune_catalog`.
 
 ---
 
@@ -295,7 +299,7 @@ jejune deployment list <deployments-dir>               # list available deployme
 `docker compose` re-reads `deployment.env` on every run. Regeneration is only
 needed when a change alters the compose structure, for example setting or
 removing `OXIGRAPH_URI` (adds or removes the oxigraph service), or adding or
-removing private repositories in `catalog.yaml` (adds or removes the `gh_token`
+removing private repositories in `catalog.yaml` (adds or removes the `git_credentials`
 secret).
 
 ```bash

@@ -1,4 +1,4 @@
-# Schema for deployment/collection catalog files (full-catalog.yaml, deployment catalog.yaml).
+# Schema for deployment/collection catalog files (reference catalog, deployment catalog).
 required_fields:
   name: string
   url: string

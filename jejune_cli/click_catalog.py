@@ -157,8 +157,8 @@ def check(catalog_path, root_dir):
             )
         app = click.get_current_context().find_object(AppContext)
         catalog_comp = app.component_registry.get("catalog")
-        full_cat = catalog_comp.full_catalog_path(dep_path.parent) or Path()
-        results = catalog_comp.check_deployment(dep_path, full_cat)
+        reference_catalog = catalog_comp.reference_catalog_path(dep_path.parent) or Path()
+        results = catalog_comp.check_deployment(dep_path, reference_catalog)
         if not _print_deployment_results(results):
             sys.exit(1)
     else:
@@ -399,7 +399,7 @@ def sync(catalog_path, root_dir, do_add):
 @catalog_group.command("check-deployment")
 @click.argument("deployment_path", type=click.Path(exists=True))
 def check_deployment(deployment_path):
-    """Validate a deployment directory against full-catalog.yaml.
+    """Validate a deployment directory against the reference catalog.
 
     DEPLOYMENT_PATH is the path to a jejune_deployments/deploy_*/ directory.
     The reference catalog is resolved from the sibling jejune_catalog/ repo.
@@ -407,7 +407,7 @@ def check_deployment(deployment_path):
     dep_path = Path(deployment_path)
     app = click.get_current_context().find_object(AppContext)
     catalog_comp = app.component_registry.get("catalog")
-    full_cat = catalog_comp.full_catalog_path(dep_path.parent) or Path()
-    results = catalog_comp.check_deployment(dep_path, full_cat)
+    reference_catalog = catalog_comp.reference_catalog_path(dep_path.parent) or Path()
+    results = catalog_comp.check_deployment(dep_path, reference_catalog)
     if not _print_deployment_results(results):
         raise SystemExit(1)

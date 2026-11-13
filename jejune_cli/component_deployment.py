@@ -180,12 +180,11 @@ class CompDeployment(ConfComp):
         name = deploy_dir.resolve().name.lower()
         has_private = self.has_private_repos(deploy_dir)
         build_secrets = (
-            "      secrets:\n        - catalog\n        - gh_token\n        - git_credentials"
+            "      secrets:\n        - catalog\n        - git_credentials"
             if has_private
             else "      secrets:\n        - catalog"
         )
-        gh_secret_def = (
-            '  gh_token:\n    file: "${GH_TOKEN_FILE:-~/.github_token}"\n'
+        git_secret_def = (
             "  # git-credential-store lines, one per private catalog entry: see CompGitAccess\n"
             '  git_credentials:\n    file: "${GIT_CREDENTIALS_FILE:-/dev/null}"'
             if has_private
@@ -200,7 +199,7 @@ class CompDeployment(ConfComp):
             template,
             NAME=name,
             BUILD_SECRETS=build_secrets,
-            GH_SECRET_DEF=gh_secret_def,
+            GIT_SECRET_DEF=git_secret_def,
             OXIGRAPH_SERVICE=oxigraph_service,
         )
 

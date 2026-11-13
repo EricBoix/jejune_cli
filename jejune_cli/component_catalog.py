@@ -54,33 +54,33 @@ class CompCatalog(ConfComp):
         active_role = self._role_registry.detect_role()
         if self._role_registry.role_is_deployment_catalog_family(active_role):
             cwd = Path.cwd()
-            full_cat = self.full_catalog_path(cwd.parent) or Path()
-            results = self.check_deployment(cwd, full_cat, local_only=True)
+            reference_catalog = self.reference_catalog_path(cwd.parent) or Path()
+            results = self.check_deployment(cwd, reference_catalog, local_only=True)
             failing = [item for item, ok, _ in results if not ok]
             return ("ok", "") if not failing else ("error", "; ".join(failing))
 
         location = self._ecosystem.locate_in(CatalogConfig.REPO_NAME)
         if location.is_local:
-            path = location.local_path / CatalogConfig.FULL_CATALOG
+            path = location.local_path / CatalogConfig.REFERENCE_CATALOG
             return (
                 ("ok", "")
                 if path.exists()
                 else (
                     "error",
-                    f"{CatalogConfig.FULL_CATALOG} not found under "
+                    f"{CatalogConfig.REFERENCE_CATALOG} not found under "
                     f"{location.local_path}",
                 )
             )
 
         try:
             local = self._ecosystem.ensure_local(CatalogConfig.REPO_NAME)
-            path = local / CatalogConfig.FULL_CATALOG
+            path = local / CatalogConfig.REFERENCE_CATALOG
             return (
                 ("ok", "")
                 if path.exists()
                 else (
                     "error",
-                    f"{CatalogConfig.FULL_CATALOG} not found after clone",
+                    f"{CatalogConfig.REFERENCE_CATALOG} not found after clone",
                 )
             )
         except Exception as exc:
@@ -180,16 +180,16 @@ class CompCatalog(ConfComp):
 
         return results
 
-    def full_catalog_path(self, deployments_dir: Path) -> Path | None:
-        """Locate full-catalog.yaml via ecosystem resolution, with sibling-path fallback."""
+    def reference_catalog_path(self, deployments_dir: Path) -> Path | None:
+        """Locate the reference catalog (jejune_catalog/catalog.yaml) via ecosystem resolution, with sibling-path fallback."""
         location = self._ecosystem.locate_in(CatalogConfig.REPO_NAME, deployments_dir)
         if location.is_local:
-            path = location.local_path / CatalogConfig.FULL_CATALOG
+            path = location.local_path / CatalogConfig.REFERENCE_CATALOG
             return path if path.exists() else None
         candidate = (
             deployments_dir.parent
             / CatalogConfig.REPO_NAME
-            / CatalogConfig.FULL_CATALOG
+            / CatalogConfig.REFERENCE_CATALOG
         )
         return candidate if candidate.exists() else None
 

@@ -145,5 +145,5 @@ class CompConvert(ContComp):
         """True when the convert command should be visible in the CLI help."""
         return (
             self.configuration.check()[0] == "ok"
-            or (cwd / CatalogConfig.FULL_CATALOG).exists()
+            or (cwd / CatalogConfig.REFERENCE_CATALOG).exists()
         )

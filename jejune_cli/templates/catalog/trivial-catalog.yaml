@@ -1,7 +1,7 @@
 # Deployment-specific catalog
 # This file is most often a subset of full catalog (to be used as syntax
 # reference and complete list of official repositories) located at
-#   https://github.com/EricBoix/jejune_catalog/blob/main/full-catalog.yaml
+#   https://github.com/EricBoix/jejune_catalog/blob/main/catalog.yaml
 #
 # Remove unwanted documents and add private ones as needed.
 documents:

@@ -104,13 +104,15 @@ def manifest_sample():
 @manifest.command("slug")
 @click.argument("manifest_file", required=False, default=None, type=click.Path())
 @click.option(
+    "--reference-catalog",
     "--full-catalog",
-    "full_catalog_path",
+    "reference_catalog_path",
     default=None,
     type=click.Path(),
-    help="Path to full-catalog.yaml (consult for slug uniqueness).",
+    help="Path to the reference catalog, jejune_catalog/catalog.yaml (consult for "
+    "slug uniqueness). --full-catalog is a deprecated alias.",
 )
-def manifest_slug(manifest_file, full_catalog_path):
+def manifest_slug(manifest_file, reference_catalog_path):
     """Compute a doc_name slug from manifest.yaml.
 
     MANIFEST_FILE defaults to manifest.yaml in the current directory.
@@ -130,10 +132,12 @@ def manifest_slug(manifest_file, full_catalog_path):
     isbn = doc.get("isbn") or ""
 
     existing: set[str] = set()
-    if full_catalog_path:
-        full_cat = Path(full_catalog_path)
-        if full_cat.exists():
-            for entry in yaml.safe_load(full_cat.read_text()).get("documents", []):
+    if reference_catalog_path:
+        reference_catalog = Path(reference_catalog_path)
+        if reference_catalog.exists():
+            for entry in yaml.safe_load(reference_catalog.read_text()).get(
+                "documents", []
+            ):
                 if "doc_name" in entry:
                     existing.add(entry["doc_name"])
 
@@ -160,5 +164,5 @@ def manifest_slug(manifest_file, full_catalog_path):
             return
 
     raise click.ClickException(
-        "Could not generate a unique slug — all candidates exist in full-catalog.yaml."
+        "Could not generate a unique slug — all candidates exist in the reference catalog."
     )

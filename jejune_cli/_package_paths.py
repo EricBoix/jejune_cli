@@ -21,6 +21,6 @@ class SchemaPaths:
 
 class CatalogConfig:
     REPO_NAME = "jejune_catalog"
-    FULL_CATALOG = "full-catalog.yaml"
+    REFERENCE_CATALOG = "catalog.yaml"
     ROOT_DIR_ENV_VAR = "JEJUNE_ROOT_DIR"
     PLACEHOLDER = "_CHANGE_ME"

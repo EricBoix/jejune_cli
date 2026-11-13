@@ -27,8 +27,9 @@ def init(ctx, dir_name: str | None) -> None:
     """Scaffold a new UI deployment directory inside the current directory.
 
     DIR_NAME defaults to the name of the current directory when omitted.
-    Creates catalog.yaml (seeded from the sibling jejune_docs_server repo's
-    full-catalog.yaml when available), docker-compose.yml, and deployment.env.
+    Creates the deployment catalog.yaml (seeded from the reference catalog,
+    jejune_catalog/catalog.yaml, when available), docker-compose.yml, and
+    deployment.env.
     A .gitignore and secrets.env.template are added only when the catalog
     contains private repositories.
     """
@@ -51,10 +52,10 @@ def init(ctx, dir_name: str | None) -> None:
     shutil.copy(TemplatePaths.DEPLOYER_UI / "env-config", jejune_dir / "env-config")
 
     catalog_comp = app.component_registry.get("catalog")
-    full_catalog = catalog_comp.full_catalog_path(deployments_dir)
-    if full_catalog:
-        shutil.copy(full_catalog, deploy_dir / "catalog.yaml")
-        click.echo(f"Seeded catalog.yaml from {full_catalog}")
+    reference_catalog = catalog_comp.reference_catalog_path(deployments_dir)
+    if reference_catalog:
+        shutil.copy(reference_catalog, deploy_dir / "catalog.yaml")
+        click.echo(f"Seeded catalog.yaml from {reference_catalog}")
     else:
         template = catalog_comp.trivial_catalog_content()
         if template:

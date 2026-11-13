@@ -66,9 +66,9 @@ def register_heuristics(
     def _deploy_catalog_check_fails() -> bool:
         cwd = Path.cwd()
         catalog_comp = component_registry.get("catalog")
-        full_cat = catalog_comp.full_catalog_path(cwd.parent) or Path()
+        reference_catalog = catalog_comp.reference_catalog_path(cwd.parent) or Path()
         try:
-            results = catalog_comp.check_deployment(cwd, full_cat)
+            results = catalog_comp.check_deployment(cwd, reference_catalog)
             return any(not ok for _, ok, _ in results)
         except Exception:
             return False

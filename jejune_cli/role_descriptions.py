@@ -36,8 +36,8 @@ ROLE_DESCRIPTIONS: dict[str, RoleDescription] = {
             " and making the collection available for deployment."
         ),
         responsibilities=(
-            "Maintains jejune_docs_server/DockerContext/full-catalog.yaml: the canonical reference of all known jejune_doc_* repositories (name, url, public fields). This file is the single source of truth; any deployment catalog must be a validated subset of it.",
-            "Registers new documents (upon notification from a Document Steward) by adding an entry to full-catalog.yaml.",
+            "Maintains the reference catalog, jejune_catalog/catalog.yaml: the canonical reference of all known jejune_doc_* repositories (name, url, public fields). This file is the single source of truth; any deployment catalog must be a validated subset of it.",
+            "Registers new documents (upon notification from a Document Steward) by adding an entry to the reference catalog.",
             "Runs 'jejune catalog check' periodically to validate that catalog entries match actual GitHub repository visibility.",
             "Runs 'jejune catalog sync' to detect locally cloned jj_doc_* repositories that are not yet in the catalog.",
         ),
@@ -48,7 +48,7 @@ ROLE_DESCRIPTIONS: dict[str, RoleDescription] = {
             "The Deployer configures a specific deployment of the jejune system."
         ),
         responsibilities=(
-            "Creates a deployment-specific catalog at jj_deployments/deploy_<name>/catalog.yaml: a subset of full-catalog.yaml, selecting the documents relevant for that deployment. build_docs.py validates names and URLs against full-catalog.yaml at build time and rejects any entry not present in it.",
+            "Creates a deployment-specific catalog at jj_deployments/deploy_<name>/catalog.yaml: a subset of the reference catalog, selecting the documents relevant for that deployment. build_docs.py validates names and URLs against the reference catalog at build time and rejects any entry not present in it.",
             "Validates the deployment catalog before building via 'jejune catalog check-deployment /path/to/jj_deployments/deploy_<name>'.",
             "Builds jejune_docs_server with the deployment catalog injected as a Docker secret. When CATALOG_FILE is not set, the full catalog is used by default.",
             "Configures deployment-specific environment (Neo4j credentials, LLM endpoint, etc.).",
