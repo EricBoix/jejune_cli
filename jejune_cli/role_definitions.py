@@ -64,6 +64,7 @@ def wire_roles(registry: RoleRegistry) -> None:
                 "git-access",
                 "next",
                 "discover",
+                "update",
             ),
         )
     )

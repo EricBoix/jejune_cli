@@ -15,6 +15,7 @@ from .click_build import build_cmd
 from .click_discover import discover_cmd
 from .click_doctor import availability
 from .click_next_steps import next_cmd
+from .click_update import update_cmd
 
 # Doc-steward component commands
 from .click_comp_llm import llm
@@ -46,6 +47,7 @@ cli.add_command(build_cmd)
 cli.add_command(discover_cmd)
 cli.add_command(availability)
 cli.add_command(next_cmd)
+cli.add_command(update_cmd)
 
 # Doc-steward component commands
 cli.add_command(neo4j)

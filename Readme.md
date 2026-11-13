@@ -144,6 +144,13 @@ uv tool install git+https://github.com/EricBoix/jejune_cli
 jejune doctor
 ```
 
+**Updating a persistent tool install:**
+
+```bash
+jejune update               # reinstall from the original install origin, then plugin packages
+jejune update --no-plugins  # reinstall jejune only
+```
+
 **Development install (editable):**
 
 ```bash
