@@ -6,6 +6,8 @@ import subprocess
 
 import click
 
+from .app_context import AppContext
+
 
 class JejuneUpdater:
     """Reinstalls the jejune uv tool from its recorded install origin."""
@@ -69,10 +71,15 @@ class JejuneUpdater:
     default=False,
     help="Skip `jejune plugin-packages install` after reinstalling jejune.",
 )
-def update_cmd(no_plugins: bool) -> None:
+@click.pass_context
+def update_cmd(ctx: click.Context, no_plugins: bool) -> None:
     """Reinstall jejune (uv tool install --reinstall --refresh) from the origin it
     was installed from, then run `jejune plugin-packages install`."""
     updater = JejuneUpdater()
     updater.reinstall_tool()
     if not no_plugins:
         updater.install_plugin_packages()
+        # The `jejune` subprocess already displayed the next steps.
+        app = ctx.find_object(AppContext)
+        if app is not None:
+            app.heuristic_step_registry.suppress_next_steps()
