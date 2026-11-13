@@ -93,14 +93,8 @@ def ecosystem_status(ctx) -> None:
     # --- Environment header ---
     _W = 15  # width of label column
 
-    root_val = str(root_dir) if root_dir else click.style("(not set)", fg="yellow")
-    root_ok = root_dir is not None and root_dir.is_dir()
-    root_status = (
-        click.style("set", fg="green")
-        if root_ok
-        else click.style("not set", fg="yellow")
-    )
-    click.echo(f"  {'JEJUNE_ROOT_DIR':<{_W}}  {root_val:<50}  {root_status}")
+    root_val = str(root_dir) if root_dir else click.style("<UNSET>", fg="red")
+    click.echo(f"  {'JEJUNE_ROOT_DIR':<{_W}}  {root_val}")
 
     repo_root_dir = app.component_registry.get("git-server").repo_root_dir()
     click.echo(f"  {'REPO_ROOT_DIR':<{_W}}  {repo_root_dir}")
