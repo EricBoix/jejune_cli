@@ -106,7 +106,10 @@ def build_components(
         context=context,
     )
     convert = CompConvert(
-        pypi_server=pypi_server, git_access=git_access, context=context
+        pypi_server=pypi_server,
+        git_access=git_access,
+        ecosystem=ecosystem,
+        context=context,
     )
     converters_comp = CompConverters(
         docker_daemon=docker_daemon,

@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal
@@ -89,29 +90,39 @@ class CompEcosystem(ConfComp):
         self._git_access = git_access
         self._role_registry = role_registry
         self._plugin_registry = plugin_registry
-        self._registered_repositories: dict[str, list[str]] = {}
+        # owner component name -> repository name -> condition (None: unconditional)
+        self._registered_repositories: dict[
+            str, dict[str, Callable[[], bool] | None]
+        ] = {}
         self.conditional_dependencies = [(self.ecosystem_needs_remote, git_server)]
 
     def register_repository(
-        self, owner_component_name: str, repository_name: str
+        self,
+        owner_component_name: str,
+        repository_name: str,
+        when: Callable[[], bool] | None = None,
     ) -> None:
         """Register *repository_name* as a repository managed by the ecosystem on
         behalf of a component: `ecosystem status` lists it whenever that component
-        is active in the current role (idempotent)."""
-        owned = self._registered_repositories.setdefault(owner_component_name, [])
-        if repository_name not in owned:
-            owned.append(repository_name)
+        is active in the current role (idempotent). With *when*, the repository is
+        only registered while *when* returns true: it is evaluated lazily, at each
+        listing, since the configuration is loaded after the components are built.
+        An unconditional registration prevails over a conditional one."""
+        owned = self._registered_repositories.setdefault(owner_component_name, {})
+        if repository_name not in owned or when is None:
+            owned[repository_name] = when
 
     def registered_repositories(self, component_names: list[str]) -> list[str]:
-        """The repositories registered by the given components, sorted and without
-        duplicates."""
+        """The repositories registered by the given components (whose condition, if
+        any, holds), sorted and without duplicates."""
         return sorted(
             {
                 repository_name
                 for component_name in component_names
-                for repository_name in self._registered_repositories.get(
-                    component_name, []
-                )
+                for repository_name, condition in self._registered_repositories.get(
+                    component_name, {}
+                ).items()
+                if condition is None or condition()
             }
         )
 
@@ -132,7 +143,9 @@ class CompEcosystem(ConfComp):
                 commit=self.short_head(location.local_path),
             )
         remote_url = self._git_server.remote_git_url(name)
-        reachable, commit = self.probe_remote(remote_url) if probe_remote else (None, None)
+        reachable, commit = (
+            self.probe_remote(remote_url) if probe_remote else (None, None)
+        )
         return RepositoryState(
             name,
             location,

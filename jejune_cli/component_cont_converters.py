@@ -8,6 +8,7 @@ from pathlib import Path
 
 import click
 
+from ._package_paths import PdfToMarkdownConfig
 from .component_catalog_file import CatalogFile
 from .component_cont_convert import CompConvert
 from .component_containerized import ContComp
@@ -34,7 +35,7 @@ class ConverterSource:
 
 class CompConverters(ContComp):
     DOC_PREFIX = "jejune_doc_"
-    PDF_TO_MARKDOWN_NAME = "pdf-to-markdown"
+    PDF_TO_MARKDOWN_NAME = PdfToMarkdownConfig.REPO_NAME
     # Names shared with the Dockerfile of every document (ARG, named build contexts)
     DOCUMENT_CONTEXT_NAME = "jejune-doc"
     DOCUMENT_SOURCE_ARGUMENT = "DOC_SOURCE"

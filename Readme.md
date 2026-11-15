@@ -63,7 +63,8 @@ whole git history: the commit count is part of its version; a checkout of
 its report then shows `document: git, pdf-to-markdown: locked`.
 
 pdf-to-markdown is a repository registered with the ecosystem (by the `converters`
-component), like the documents of the catalog. Check where each repository comes from with
+component, and by the `convert` component when the document of `CONVERT_DOC_DIR` offers a
+`Convert/main.py`), like the documents of the catalog. Check where each repository comes from with
 
 ```bash
 jejune ecosystem status        # Might consider/require "jejune ecosystem update"

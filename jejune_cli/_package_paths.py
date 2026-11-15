@@ -19,6 +19,11 @@ class SchemaPaths:
     MANIFEST = ROOT / "manifest.yaml"
 
 
+class PdfToMarkdownConfig:
+    # Shared by the components that register this repository with the ecosystem
+    REPO_NAME = "pdf-to-markdown"
+
+
 class CatalogConfig:
     REPO_NAME = "jejune_catalog"
     REFERENCE_CATALOG = "catalog.yaml"

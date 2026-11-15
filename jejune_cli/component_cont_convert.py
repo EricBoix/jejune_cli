@@ -5,7 +5,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from ._package_paths import CatalogConfig
+from ._package_paths import CatalogConfig, PdfToMarkdownConfig
 from .component_containerized import ContComp
 from .configuration import Configuration
 from .configuration_entry import ConfigurationEntry
@@ -14,7 +14,11 @@ from .containerized_context import ContainerizedContext
 
 class CompConvert(ContComp):
     def __init__(
-        self, pypi_server, git_access, context: ContainerizedContext | None = None
+        self,
+        pypi_server,
+        git_access,
+        ecosystem,
+        context: ContainerizedContext | None = None,
     ) -> None:
         super().__init__(
             name="convert",
@@ -32,6 +36,19 @@ class CompConvert(ContComp):
             context=context,
         )
         self.cli_name = self.name
+        # The Convert/main.py of a document uses pdf-to-markdown: it is a repository
+        # of the ecosystem as soon as the document offers such a main.py
+        ecosystem.register_repository(
+            self.name, PdfToMarkdownConfig.REPO_NAME, when=self.offers_converter_main
+        )
+
+    def offers_converter_main(self) -> bool:
+        """True when the document of CONVERT_DOC_DIR has a Convert/main.py."""
+        doc_dir = CompConvert._doc_dir()
+        if not doc_dir:
+            return False
+        base = doc_dir.parent.parent if doc_dir.is_file() else doc_dir
+        return (base / "Convert" / "main.py").is_file()
 
     # `git clone` options (some taking a value, e.g. `--depth 1`) precede the URL
     _GIT_CLONE_URL = re.compile(

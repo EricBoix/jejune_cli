@@ -69,6 +69,34 @@ def test_registration_is_idempotent_and_filtered_by_component(make_ecosystem):
     assert ecosystem.registered_repositories(["unknown"]) == []
 
 
+def test_conditional_registration_is_evaluated_at_each_listing(make_ecosystem):
+    ecosystem = make_ecosystem()
+    condition_holds = {"value": False}
+    ecosystem.register_repository(
+        "convert", "pdf-to-markdown", when=lambda: condition_holds["value"]
+    )
+    assert ecosystem.registered_repositories(["convert"]) == []
+    condition_holds["value"] = True
+    assert ecosystem.registered_repositories(["convert"]) == ["pdf-to-markdown"]
+
+
+def test_unconditional_registration_prevails_over_a_conditional_one(make_ecosystem):
+    ecosystem = make_ecosystem()
+    ecosystem.register_repository("convert", "pdf-to-markdown", when=lambda: False)
+    ecosystem.register_repository("convert", "pdf-to-markdown")
+    ecosystem.register_repository("convert", "pdf-to-markdown", when=lambda: False)
+    assert ecosystem.registered_repositories(["convert"]) == ["pdf-to-markdown"]
+
+
+def test_repository_registered_by_two_components_is_listed_once(make_ecosystem):
+    ecosystem = make_ecosystem()
+    ecosystem.register_repository("converters", "pdf-to-markdown")
+    ecosystem.register_repository("convert", "pdf-to-markdown", when=lambda: True)
+    assert ecosystem.registered_repositories(["converters", "convert"]) == [
+        "pdf-to-markdown"
+    ]
+
+
 @pytest.mark.parametrize("tier", ["root", "tmp"])
 def test_local_repository_state_is_the_clone_one(tier, tmp_path, make_ecosystem):
     (tmp_path / "pdf-to-markdown").mkdir()
