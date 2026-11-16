@@ -49,7 +49,40 @@ class _RootClickGroup(click.Group):
                     f"No such command '{cmd_name}'. "
                     "Role-specific commands require a recognized workspace."
                 )
+        if cmd is not None and ctx.obj is not None:
+            self._reject_command_of_other_role(ctx.obj, cmd_name)
         return cmd
+
+    @staticmethod
+    def _reject_command_of_other_role(app: AppContext, cmd_name: str) -> None:
+        """Refuse a role-owned command the active role does not include.
+
+        format_commands only hides such commands from --help: without this check
+        they would still be invocable.
+        """
+        active_role = app.role_registry.detect_role()
+        if not active_role:
+            return
+        plugin_target_roles = {
+            plugin.name: plugin.target_role
+            for plugin in app.plugin_registry.plugins
+            if plugin.target_role
+        }
+        if cmd_name in plugin_target_roles:
+            target_role = plugin_target_roles[cmd_name]
+            if app.role_registry.role_inherits(active_role, target_role):
+                return
+            offering_roles = [target_role]
+        else:
+            if not app.role_registry.is_role_owned_cli_command(cmd_name):
+                return
+            if cmd_name in app.role_registry.role_visible_cli_commands(active_role):
+                return
+            offering_roles = app.role_registry.roles_offering_cli_command(cmd_name)
+        raise click.UsageError(
+            f"Command '{cmd_name}' exists but is only available to role: "
+            f"{', '.join(offering_roles)} (current role: {active_role.name})."
+        )
 
     def format_usage(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         app = ctx.obj
@@ -69,7 +102,7 @@ class _RootClickGroup(click.Group):
         app = ctx.obj
         if app is None:
             return
-        active_role = app.role_registry.detect_role_name()
+        active_role = app.role_registry.detect_role()
 
         app.component_registry.load_all_configurations(Path.cwd())
 
@@ -97,12 +130,7 @@ class _RootClickGroup(click.Group):
                 if plugin.target_role == role_name
             ]
 
-        for role_obj in app.role_registry.display_roles:
-            if (
-                active_role in app.role_registry.roles
-                and not app.role_registry.role_inherits(active_role, role_obj.name)
-            ):
-                continue
+        for role_obj in app.role_registry.display_roles_shown_to(active_role):
             rows = _rows(app.role_registry.role_cli_commands(role_obj))
             rows += _plugin_rows(role_obj.name)
             rows += [

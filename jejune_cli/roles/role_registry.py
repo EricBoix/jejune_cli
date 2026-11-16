@@ -121,6 +121,48 @@ class RoleRegistry:
             if (comp := registry.get(name)) is not None and comp.cli_name is not None
         ] + list(role.extra_commands)
 
+    def role_visible_cli_commands(self, role: Role) -> frozenset[str]:
+        """Return CLI command names *role* may invoke: its own plus those of every inherited role."""
+        return frozenset(
+            command_name
+            for candidate in self.roles_included_by(role)
+            for command_name in self.role_cli_commands(candidate)
+        )
+
+    def roles_included_by(self, role: Role) -> list[Role]:
+        """Return *role* and every role it inherits, abstract ones included."""
+        return [
+            candidate
+            for candidate in self._roles.values()
+            if self.role_inherits(role, candidate.name)
+        ]
+
+    def display_roles_shown_to(self, role: Role) -> list[Role]:
+        """Return the non-abstract roles shown in --help for *role* (all of them when no role is active)."""
+        if not role:
+            return self.display_roles
+        included_names = {candidate.name for candidate in self.roles_included_by(role)}
+        return [
+            candidate
+            for candidate in self.display_roles
+            if candidate.name in included_names
+        ]
+
+    def is_role_owned_cli_command(self, command_name: str) -> bool:
+        """Tell whether some role contributes *command_name* (otherwise it is infrastructure)."""
+        return any(
+            command_name in self.role_cli_commands(candidate)
+            for candidate in self._roles.values()
+        )
+
+    def roles_offering_cli_command(self, command_name: str) -> list[str]:
+        """Return the names of the non-abstract roles that may invoke *command_name*."""
+        return [
+            candidate.name
+            for candidate in self.display_roles
+            if command_name in self.role_visible_cli_commands(candidate)
+        ]
+
     def role_is_deployer_family(self, role: Role) -> bool:
         return self.role_inherits(role, "deployer")
 

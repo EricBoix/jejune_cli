@@ -160,6 +160,23 @@ jejune role          # show detected role and reason
 jejune role list     # list all known roles
 ```
 
+### Role-gating
+
+The role gates invocation as well as `--help`: a command that belongs to a role
+the active role does not include is refused, even when typed in full. The error
+names the roles that offer it:
+
+```text
+$ jejune convert build     # from a catalog-contributor workspace
+Error: Command 'convert' exists but is only available to role: doc-steward (current role: catalog-contributor).
+```
+
+A role may run its own commands and those of the roles it inherits (for example
+`ecosystem` and `git-access`, inherited from `contributor`). Commands owned by no
+role (`document`, `role`, `build`, ...) are available everywhere. With no role
+detected, the commands stay available, and a mistyped one is reported as needing a
+recognized workspace.
+
 ---
 
 ## Installing jejune_cli

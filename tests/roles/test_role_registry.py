@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from jejune_cli.core.component_registry import ComponentRegistry
@@ -69,3 +71,71 @@ class TestDeployerRole:
         self, component_name: str
     ) -> None:
         assert component_name in self.deployer_component_names()
+
+
+class TestRoleVisibleCliCommands:
+    """Invocation gating: a role may only invoke commands of itself and inherited roles."""
+
+    @staticmethod
+    def make_registry() -> RoleRegistry:
+        known_component_names = {
+            "convert",
+            "converters",
+            "ecosystem",
+            "catalog",
+            "manifest",
+        }
+        component_registry = SimpleNamespace(
+            get=lambda name: (
+                SimpleNamespace(cli_name=name)
+                if name in known_component_names
+                else None
+            )
+        )
+        registry = RoleRegistry(component_registry)
+        wire_roles(registry)
+        return registry
+
+    def test_catalog_contributor_cannot_invoke_convert(self) -> None:
+        registry = self.make_registry()
+        role = registry.get("catalog-contributor")
+        assert "convert" not in registry.role_visible_cli_commands(role)
+        assert "manifest" not in registry.role_visible_cli_commands(role)
+
+    def test_catalog_contributor_invokes_inherited_and_own_commands(self) -> None:
+        registry = self.make_registry()
+        visible = registry.role_visible_cli_commands(
+            registry.get("catalog-contributor")
+        )
+        assert {"converters", "catalog", "ecosystem", "git-access"} <= visible
+
+    def test_doc_steward_cannot_invoke_converters(self) -> None:
+        registry = self.make_registry()
+        visible = registry.role_visible_cli_commands(registry.get("doc-steward"))
+        assert "converters" not in visible
+        assert {"convert", "manifest", "ecosystem"} <= visible
+
+    def test_convert_is_offered_by_doc_steward_only(self) -> None:
+        registry = self.make_registry()
+        assert registry.is_role_owned_cli_command("convert")
+        assert registry.roles_offering_cli_command("convert") == ["doc-steward"]
+
+    def test_unowned_command_is_infrastructure(self) -> None:
+        assert not self.make_registry().is_role_owned_cli_command("document")
+
+    def test_help_shows_inherited_non_abstract_roles_only(self) -> None:
+        registry = self.make_registry()
+        shown_names = [
+            role.name
+            for role in registry.display_roles_shown_to(
+                registry.get("catalog-contributor")
+            )
+        ]
+        assert "catalog-contributor" in shown_names
+        assert "contributor" in shown_names
+        assert "deployment-catalog" not in shown_names
+        assert "doc-steward" not in shown_names
+
+    def test_help_shows_every_display_role_when_no_role_is_active(self) -> None:
+        registry = self.make_registry()
+        assert registry.display_roles_shown_to(Role.NONE) == registry.display_roles
