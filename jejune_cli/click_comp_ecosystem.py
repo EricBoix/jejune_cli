@@ -1,6 +1,7 @@
 """The `jejune ecosystem` command group."""
 
 import click
+from dataclasses import dataclass
 from pathlib import Path
 
 from .app_context import AppContext
@@ -105,6 +106,20 @@ class _StatusTable:
         return "  " + "─" * total
 
 
+@dataclass(frozen=True)
+class _StatusRow:
+    """One line of a table of `ecosystem status`: *found* is the state under the
+    icon column (Available or Manifest); *image_aligned* only applies to the
+    Documents table."""
+
+    name: str
+    found: bool
+    location: str
+    up_to_date: bool | None
+    commit: str
+    image_aligned: bool | None = None
+
+
 @click.group(invoke_without_command=True, short_help="Ecosystem repository status")
 @click.pass_context
 def ecosystem(ctx: click.Context) -> None:
@@ -128,14 +143,14 @@ def ecosystem_status(ctx) -> None:
     click.echo()
 
     # --- Environment header ---
-    _W = 15  # width of label column
+    label_width = 15  # width of label column
 
     root_val = str(root_dir) if root_dir else click.style("<UNSET>", fg="red")
-    click.echo(f"  {'JEJUNE_ROOT_DIR':<{_W}}  {root_val}")
+    click.echo(f"  {'JEJUNE_ROOT_DIR':<{label_width}}  {root_val}")
 
     repo_root_dir = app.component_registry.get("git-server").repo_root_dir()
-    click.echo(f"  {'REPO_ROOT_DIR':<{_W}}  {repo_root_dir}")
-    click.echo(f"  {'ECOSYSTEM_DIR':<{_W}}  {DotJejune.TMP_RELATIVE_PATH}")
+    click.echo(f"  {'REPO_ROOT_DIR':<{label_width}}  {repo_root_dir}")
+    click.echo(f"  {'ECOSYSTEM_DIR':<{label_width}}  {DotJejune.TMP_RELATIVE_PATH}")
     click.echo()
 
     # --- Components table ---
@@ -158,35 +173,42 @@ def ecosystem_status(ctx) -> None:
             )
         )
     else:
-        rows: list[tuple[str, bool, str, bool | None, str]] = []
+        rows: list[_StatusRow] = []
         for state in states:
             if state.location.is_local:
                 location = _StatusTable.LOCATION_LABEL[state.location.tier]
             else:
                 location = _StatusTable.remote_label(state.remote_url, repo_root_dir)
             rows.append(
-                (
-                    state.name,
-                    state.is_available,
-                    location,
-                    state.up_to_date,
-                    state.commit or "",
+                _StatusRow(
+                    name=state.name,
+                    found=state.is_available,
+                    location=location,
+                    up_to_date=state.up_to_date,
+                    commit=state.commit or "",
                 )
             )
 
-        _W_N = max(len("Component"), max(len(r[0]) for r in rows))
-        _W_R = max(len("Repository"), max(len(r[2]) for r in rows))
-        _W_COMMIT = max(len(_StatusTable.COMMIT_HEADER), max(len(r[4]) for r in rows))
+        name_width = max(len("Component"), max(len(row.name) for row in rows))
+        location_width = max(len("Repository"), max(len(row.location) for row in rows))
+        commit_width = max(
+            len(_StatusTable.COMMIT_HEADER), max(len(row.commit) for row in rows)
+        )
 
         click.echo(
-            _StatusTable.header("Component", "Available", "Repository", _W_N, _W_R)
+            _StatusTable.header(
+                "Component", "Available", "Repository", name_width, location_width
+            )
         )
-        click.echo(_StatusTable.rule(_W_N, "Available", _W_R, _W_COMMIT))
-        for name, found, location, up_to_date, commit in rows:
+        click.echo(
+            _StatusTable.rule(name_width, "Available", location_width, commit_width)
+        )
+        for row in rows:
             click.echo(
-                f"  {name:<{_W_N}}  {_StatusTable.icon_cell(found, 'Available')}  "
-                f"{location:<{_W_R}}  "
-                f"{_StatusTable.up_to_date_cell(up_to_date)}  {commit}"
+                f"  {row.name:<{name_width}}  "
+                f"{_StatusTable.icon_cell(row.found, 'Available')}  "
+                f"{row.location:<{location_width}}  "
+                f"{_StatusTable.up_to_date_cell(row.up_to_date)}  {row.commit}"
             )
 
     # --- Documents table ---
@@ -208,14 +230,14 @@ def ecosystem_status(ctx) -> None:
     component_names = [] if active is None else [comp.name for comp in active]
     # The Image column exists when a component of the role builds images of documents
     with_image = eco.offers_document_images(component_names)
-    doc_rows: list[tuple[str, bool, str, bool | None, str, bool | None]] = [
-        (
-            name,
-            has_doc,
-            _StatusTable.LOCATION_LABEL.get(tier, tier),
-            eco.repo_up_to_date(Path(path_str), token_files.get(name)),
-            eco.short_head(Path(path_str)) or "",
-            (
+    doc_rows: list[_StatusRow] = [
+        _StatusRow(
+            name=name,
+            found=has_doc,
+            location=_StatusTable.LOCATION_LABEL.get(tier, tier),
+            up_to_date=eco.repo_up_to_date(Path(path_str), token_files.get(name)),
+            commit=eco.short_head(Path(path_str)) or "",
+            image_aligned=(
                 eco.document_image_aligned(component_names, name, token_files.get(name))
                 if with_image
                 else None
@@ -223,27 +245,49 @@ def ecosystem_status(ctx) -> None:
         )
         for name, tier, path_str, has_doc in doc_repos
     ]
-    _W_DN = max(len("Document"), max(len(r[0]) for r in doc_rows))
-    _W_DC = max(len("Repository"), max(len(r[2]) for r in doc_rows))
-    _W_DCOMMIT = max(len(_StatusTable.COMMIT_HEADER), max(len(r[4]) for r in doc_rows))
+    doc_name_width = max(len("Document"), max(len(row.name) for row in doc_rows))
+    doc_location_width = max(
+        len("Repository"), max(len(row.location) for row in doc_rows)
+    )
+    doc_commit_width = max(
+        len(_StatusTable.COMMIT_HEADER), max(len(row.commit) for row in doc_rows)
+    )
 
     click.echo(
         _StatusTable.header(
-            "Document", "Manifest", "Repository", _W_DN, _W_DC, _W_DCOMMIT, with_image
+            "Document",
+            "Manifest",
+            "Repository",
+            doc_name_width,
+            doc_location_width,
+            doc_commit_width,
+            with_image,
         )
     )
-    click.echo(_StatusTable.rule(_W_DN, "Manifest", _W_DC, _W_DCOMMIT, with_image))
-    for name, has_doc, location, up_to_date, commit, image_aligned in doc_rows:
-        row = (
-            f"  {name:<{_W_DN}}  {_StatusTable.icon_cell(has_doc, 'Manifest')}  "
-            f"{location:<{_W_DC}}  "
-            f"{_StatusTable.up_to_date_cell(up_to_date)}  "
+    click.echo(
+        _StatusTable.rule(
+            doc_name_width,
+            "Manifest",
+            doc_location_width,
+            doc_commit_width,
+            with_image,
+        )
+    )
+    for doc_row in doc_rows:
+        line = (
+            f"  {doc_row.name:<{doc_name_width}}  "
+            f"{_StatusTable.icon_cell(doc_row.found, 'Manifest')}  "
+            f"{doc_row.location:<{doc_location_width}}  "
+            f"{_StatusTable.up_to_date_cell(doc_row.up_to_date)}  "
         )
         if with_image:
-            row += f"{commit:<{_W_DCOMMIT}}  {_StatusTable.image_cell(image_aligned)}"
+            line += (
+                f"{doc_row.commit:<{doc_commit_width}}  "
+                f"{_StatusTable.image_cell(doc_row.image_aligned)}"
+            )
         else:
-            row += commit
-        click.echo(row)
+            line += doc_row.commit
+        click.echo(line)
     _echo_catalog_entries_unknown_to_ecosystem(eco, known_names)
 
 
