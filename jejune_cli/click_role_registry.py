@@ -4,7 +4,7 @@ import textwrap
 import click
 
 from jejune_cli.core.app_context import AppContext
-from .role_descriptions import role_description
+from jejune_cli.roles.role_descriptions import role_description
 
 _WRAP_WIDTH = 78
 

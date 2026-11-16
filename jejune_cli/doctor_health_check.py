@@ -7,7 +7,7 @@ from jejune_cli.core.component_registry import ComponentRegistry
 from jejune_cli.core.component_containerized import ContComp
 from jejune_cli.core.component_with_config import ConfComp
 from .plugin_registry import PluginRegistry
-from .role_registry import RoleRegistry
+from jejune_cli.roles.role_registry import RoleRegistry
 
 
 def run_avail(

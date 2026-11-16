@@ -8,8 +8,8 @@ import sys
 from pathlib import Path
 import click
 
-from .heuristic_step import HeuristicCondition, HeuristicStep
-from .role_registry import RoleRegistry
+from jejune_cli.roles.heuristic_step import HeuristicCondition, HeuristicStep
+from jejune_cli.roles.role_registry import RoleRegistry
 
 
 class HeuristicStepRegistry:

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from jejune_cli.heuristic_step import HeuristicStep
-from jejune_cli.heuristic_step_registry import HeuristicStepRegistry
+from jejune_cli.roles.heuristic_step import HeuristicStep
+from jejune_cli.roles.heuristic_step_registry import HeuristicStepRegistry
 
 
 class StubRoleRegistry:

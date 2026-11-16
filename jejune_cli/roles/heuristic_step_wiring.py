@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from jejune_cli.core.component_registry import ComponentRegistry
 from jejune_cli.core.dot_jejune import DotJejune
-from .heuristic_step import HeuristicStep
-from .heuristic_step_registry import HeuristicStepRegistry
-from .role_registry import RoleRegistry
-from . import (
+from jejune_cli.roles.heuristic_step import HeuristicStep
+from jejune_cli.roles.heuristic_step_registry import HeuristicStepRegistry
+from jejune_cli.roles.role_registry import RoleRegistry
+from jejune_cli.roles import (
     heuristics_catalog_contributor,
     heuristics_deployer,
     heuristics_doc_steward,

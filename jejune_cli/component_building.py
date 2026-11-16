@@ -29,7 +29,7 @@ from .component_deployment import CompDeployment
 from jejune_cli.core.containers_cross_process_coordination import ContainerCoordination
 from .plugin_package_catalog import PluginPackageCatalog
 from .plugin_registry import PluginRegistry
-from .role_registry import RoleRegistry
+from jejune_cli.roles.role_registry import RoleRegistry
 
 
 def build_components(

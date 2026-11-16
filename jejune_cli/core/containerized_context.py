@@ -9,7 +9,7 @@ from jejune_cli.component_ext_server_git import CompServerGit
 from jejune_cli.component_ext_plugin_packages import CompPluginPackages
 from jejune_cli.component_ecosystem import CompEcosystem
 from jejune_cli.component_git_access import CompGitAccess
-from jejune_cli.role_registry import RoleRegistry
+from jejune_cli.roles.role_registry import RoleRegistry
 
 
 @dataclass

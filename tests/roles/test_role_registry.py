@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 
 from jejune_cli.core.component_registry import ComponentRegistry
-from jejune_cli.role import Role
-from jejune_cli.role_definitions import wire_roles
-from jejune_cli.role_registry import RoleRegistry
+from jejune_cli.roles.role import Role
+from jejune_cli.roles.role_definitions import wire_roles
+from jejune_cli.roles.role_registry import RoleRegistry
 
 
 class TestBuildHierarchyLines:

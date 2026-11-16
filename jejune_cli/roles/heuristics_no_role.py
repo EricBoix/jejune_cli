@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from .heuristic_step import HeuristicStep
-from .heuristic_step_registry import HeuristicStepRegistry
-from .role_registry import RoleRegistry
+from jejune_cli.roles.heuristic_step import HeuristicStep
+from jejune_cli.roles.heuristic_step_registry import HeuristicStepRegistry
+from jejune_cli.roles.role_registry import RoleRegistry
 
 
 def register_heuristics(
