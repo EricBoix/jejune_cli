@@ -243,8 +243,10 @@ class CompConvert(ContComp):
             local_pdf_to_markdown=local_pdf_to_markdown,
         )
 
-    def is_built(self) -> bool:
-        return self._context.docker.image_exists(CompConvert._image_tag())
+    def is_built(self, local_pdf_to_markdown: bool = False) -> bool:
+        return self._context.docker.image_exists(
+            CompConvert._image_tag(local_pdf_to_markdown=local_pdf_to_markdown)
+        )
 
     def image_built(self) -> tuple[bool, str]:
         return (True, "ok") if self.is_built() else (False, "not built")

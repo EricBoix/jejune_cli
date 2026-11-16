@@ -158,15 +158,22 @@ def build(
     default=False,
     help="Run container tests (pytest) instead of converting.",
 )
+@click.option(
+    "--local-pdf-to-markdown",
+    is_flag=True,
+    default=False,
+    help="Run the image built with the local pdf-to-markdown "
+    "(`jejune convert build --local-pdf-to-markdown`).",
+)
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
 @click.pass_obj
-def run_cmd(conv, output_dir, test, extra_args):
+def run_cmd(conv, output_dir, test, local_pdf_to_markdown, extra_args):
     """Run the converter container, forwarding EXTRA_ARGS to the entrypoint."""
-    image = conv._image_tag()
-    built, _ = conv.image_built()
-    if not built:
+    image = conv._image_tag(local_pdf_to_markdown=local_pdf_to_markdown)
+    if not conv.is_built(local_pdf_to_markdown):
+        flag = " --local-pdf-to-markdown" if local_pdf_to_markdown else ""
         raise click.ClickException(
-            f"Docker image {image!r} is not built. Run `jejune convert build` first."
+            f"Docker image {image!r} is not built. Run `jejune convert build{flag}` first."
         )
     if test:
         result = subprocess.run(
