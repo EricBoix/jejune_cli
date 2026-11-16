@@ -51,6 +51,26 @@ class ConverterCommits:
         # ls-remote output: "<SHA>\tHEAD" (nothing for an empty repository)
         return completed.stdout.strip().split("\t")[0] or None
 
+    @staticmethod
+    def has_uncommitted_changes(checkout: Path) -> bool:
+        """Does *checkout* have modified tracked files? Untracked files are ignored.
+        Raises CalledProcessError when it is not a git checkout."""
+        return bool(
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(checkout),
+                    "status",
+                    "--porcelain",
+                    "--untracked-files=no",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
+        )
+
     @classmethod
     def local_commit(cls, git_access, checkout: Path) -> str | None:
         """The commit SHA of HEAD in *checkout*, suffixed with DIRTY_SUFFIX when it

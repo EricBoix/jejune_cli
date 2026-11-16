@@ -268,9 +268,13 @@ class CompEcosystem(ConfComp):
         return states
 
     def short_head(self, repo_path: Path) -> str | None:
-        """The short commit SHA of HEAD in the clone *repo_path* (None on error)."""
+        """The short commit SHA of HEAD in the clone *repo_path*, suffixed with
+        DIRTY_SUFFIX when tracked files are modified (None on error)."""
         try:
-            return self._git_access.head_sha(repo_path)[: self.SHORT_SHA_LENGTH]
+            short_sha = self._git_access.head_sha(repo_path)[: self.SHORT_SHA_LENGTH]
+            if ConverterCommits.has_uncommitted_changes(repo_path):
+                return short_sha + ConverterCommits.DIRTY_SUFFIX
+            return short_sha
         except subprocess.CalledProcessError:
             return None
 
@@ -468,11 +472,14 @@ class CompEcosystem(ConfComp):
         *token_file* is the access key of a private repository (see
         CatalogFile.token_files).
 
-        Returns True when in sync, False when behind, None on any error.
+        Returns True when in sync, False when behind or when tracked files have
+        uncommitted changes (untracked files are ignored), None on any error.
         Uses ls-remote rather than @{upstream} so the result is always current,
         not cached from the last fetch.
         """
         try:
+            if ConverterCommits.has_uncommitted_changes(repo_path):
+                return False
             local = self._git_access.head_sha(repo_path)
             # ls-remote output: "<SHA>\tHEAD"
             ls_output = self._git_access.ls_remote(

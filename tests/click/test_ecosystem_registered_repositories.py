@@ -10,6 +10,7 @@ from jejune_cli.components.component_ecosystem import (
     CompEcosystem,
     EcosystemDirectories,
 )
+from jejune_cli.components.containers.converter_commits import ConverterCommits
 
 REMOTE_URL = "https://example.org/team/pdf-to-markdown.git"
 REMOTE_LABEL = "[REPO_ROOT_DIR]/pdf-to-markdown.git"
@@ -41,6 +42,14 @@ class FakeGitAccess:
         return SimpleNamespace(
             returncode=self.probe_returncode, stdout=f"{REMOTE_SHA}\tHEAD\n"
         )
+
+
+@pytest.fixture(autouse=True)
+def clean_working_tree(monkeypatch):
+    """The fake repositories are no git checkouts: they have no uncommitted changes."""
+    monkeypatch.setattr(
+        ConverterCommits, "has_uncommitted_changes", staticmethod(lambda path: False)
+    )
 
 
 @pytest.fixture
@@ -453,3 +462,16 @@ def test_documents_table_rule_spans_the_image_column():
     rule = table.rule(10, "Manifest", 12, 7, True)
     assert header.endswith(f"Commit   {table.IMAGE_HEADER}")
     assert len(rule) - 2 == len(header) - 2
+
+
+def test_dirty_clone_is_not_up_to_date_and_its_commit_is_flagged(
+    monkeypatch, make_ecosystem
+):
+    monkeypatch.setattr(
+        ConverterCommits, "has_uncommitted_changes", staticmethod(lambda path: True)
+    )
+    ecosystem = make_ecosystem()
+    assert ecosystem.repo_up_to_date("clone") is False
+    assert ecosystem.short_head("clone") == (
+        LOCAL_SHA[: ecosystem.SHORT_SHA_LENGTH] + ConverterCommits.DIRTY_SUFFIX
+    )
