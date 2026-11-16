@@ -5,7 +5,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from jejune_cli import click_comp_ecosystem, click_comp_git_access
+from jejune_cli import click_group_ecosystem, click_group_git_access
 from jejune_cli.component_ecosystem import CompEcosystem, EcosystemDirectories
 
 REMOTE_URL = "https://example.org/team/pdf-to-markdown.git"
@@ -231,9 +231,9 @@ def status_output(monkeypatch, tmp_path, ecosystem, directories):
     ecosystem.resolve_dirs = lambda deploy_dir=None: directories
     ecosystem.discover_doc_repos = lambda directories, remote_names=None: []
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(click_comp_ecosystem, "AppContext", FakeApplication)
+    monkeypatch.setattr(click_group_ecosystem, "AppContext", FakeApplication)
     result = CliRunner().invoke(
-        click_comp_ecosystem.ecosystem_status, [], obj=FakeApplication(ecosystem)
+        click_group_ecosystem.ecosystem_status, [], obj=FakeApplication(ecosystem)
     )
     assert result.exit_code == 0, result.output
     return result.output
@@ -334,7 +334,7 @@ def test_git_access_probes_the_ecosystem_repositories_not_cloned(
     ecosystem = make_ecosystem(FakeGitAccess(probe_returncode))
     ecosystem.register_repository("converters", "pdf-to-markdown")
     ecosystem.resolve_dirs = lambda deploy_dir=None: EcosystemDirectories(None, None)
-    (row,) = click_comp_git_access.ecosystem_probe_rows(FakeApplication(ecosystem))
+    (row,) = click_group_git_access.ecosystem_probe_rows(FakeApplication(ecosystem))
     assert row[:2] == (expected_status, "pdf-to-markdown") and REMOTE_URL in row[2]
 
 
@@ -348,7 +348,7 @@ def test_git_access_does_not_probe_a_cloned_ecosystem_repository(
     ecosystem.resolve_dirs = lambda deploy_dir=None: EcosystemDirectories(
         tmp_path, None
     )
-    assert click_comp_git_access.ecosystem_probe_rows(FakeApplication(ecosystem)) == []
+    assert click_group_git_access.ecosystem_probe_rows(FakeApplication(ecosystem)) == []
 
 
 class FakeImageGitAccess(FakeGitAccess):
@@ -436,14 +436,14 @@ def test_document_image_alignment_with_the_remote_head(
 
 @pytest.mark.parametrize("aligned", [True, False, None])
 def test_image_cell_is_as_wide_as_its_header(aligned):
-    cell = click_comp_ecosystem._StatusTable.image_cell(aligned)
+    cell = click_group_ecosystem._StatusTable.image_cell(aligned)
     assert len(click.unstyle(cell)) == len(
-        click_comp_ecosystem._StatusTable.IMAGE_HEADER
+        click_group_ecosystem._StatusTable.IMAGE_HEADER
     )
 
 
 def test_documents_table_rule_spans_the_image_column():
-    table = click_comp_ecosystem._StatusTable
+    table = click_group_ecosystem._StatusTable
     header = click.unstyle(
         table.header("Document", "Manifest", "Repository", 10, 12, 7, True)
     )

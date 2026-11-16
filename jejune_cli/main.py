@@ -18,20 +18,20 @@ from .click_next_steps import next_cmd
 from .click_update import update_cmd
 
 # Doc-steward component commands
-from .click_comp_llm import llm
+from .click_group_llm import llm
 from .click_cont_comp_oxigraph import oxigraph
 from .click_cont_comp_llm_observability import llm_observability
 from .click_cont_comp_neo4j import neo4j
 from .click_cont_comp_graph import graph
 from .click_cont_comp_convert import convert
 from .click_cont_comp_converters import converters
-from .click_comp_manifest import manifest
+from .click_group_manifest import manifest
 
 # Deployer component commands
 from .click_catalog import catalog_group
-from .click_comp_deployment import deployment
-from .click_comp_ecosystem import ecosystem
-from .click_comp_git_access import git_access
+from .click_group_deployment import deployment
+from .click_group_ecosystem import ecosystem
+from .click_group_git_access import git_access
 
 # Infrastructure / cross-cutting groups
 cli.add_command(document)
