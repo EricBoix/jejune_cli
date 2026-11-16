@@ -5,18 +5,18 @@ from pathlib import Path
 import click
 
 from jejune_cli.core.app_context import AppContext
-from .click_configuration import (
+from jejune_cli.click.click_configuration import (
     print_config_check,
     print_config_hint,
     print_config_status,
 )
-from .click_cont_comp_neo4j_helpers import (
+from jejune_cli.click.containers.click_cont_comp_neo4j_helpers import (
     get_llm_model_names,
     resolve_llm_decorated_filename,
     resolve_restore_dump_location,
 )
-from .click_production_command import ProductionCommand
-from .click_cont_comp_neo4j_to_rdf_ttl import dump_turtle
+from jejune_cli.click.click_production_command import ProductionCommand
+from jejune_cli.click.containers.click_cont_comp_neo4j_to_rdf_ttl import dump_turtle
 
 
 def _launch_container(neo4j_comp, data_dir: Path, port: str, credentials: str) -> None:

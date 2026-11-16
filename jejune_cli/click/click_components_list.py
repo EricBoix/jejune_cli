@@ -5,7 +5,7 @@ import click
 from jejune_cli.core.app_context import AppContext
 from jejune_cli.core.component_base import BaseComp
 from jejune_cli.components.component_ext import ExtComp
-from .click_theme import ClickTheme
+from jejune_cli.click.click_theme import ClickTheme
 
 
 @click.command("list")

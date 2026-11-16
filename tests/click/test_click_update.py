@@ -6,8 +6,8 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from jejune_cli import click_update
-from jejune_cli.click_update import JejuneUpdater, update_cmd
+from jejune_cli.click import click_update
+from jejune_cli.click.click_update import JejuneUpdater, update_cmd
 
 GIT_DIRECT_URL = {
     "url": "https://github.com/EricBoix/jejune_cli",

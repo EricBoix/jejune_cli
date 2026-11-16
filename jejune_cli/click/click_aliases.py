@@ -1,10 +1,14 @@
 import click
 
-from .click_group_deployment import deployment, up as _up_cmd, down as _down_cmd
-from .click_group_manifest import manifest, manifest_check_availability
-from .click_doctor import doctor as _doctor_cmd
-from .click_workspace_deployer import init as _deployer_init
-from .click_workspace_doc_steward import init as _doc_steward_init
+from jejune_cli.click.click_group_deployment import (
+    deployment,
+    up as _up_cmd,
+    down as _down_cmd,
+)
+from jejune_cli.click.click_group_manifest import manifest, manifest_check_availability
+from jejune_cli.click.click_doctor import doctor as _doctor_cmd
+from jejune_cli.click.click_workspace_deployer import init as _deployer_init
+from jejune_cli.click.click_workspace_doc_steward import init as _doc_steward_init
 
 
 class AliasShim(click.BaseCommand):

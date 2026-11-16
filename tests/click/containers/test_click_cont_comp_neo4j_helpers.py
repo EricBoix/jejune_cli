@@ -1,7 +1,9 @@
 import click
 import pytest
 
-from jejune_cli.click_cont_comp_neo4j_helpers import resolve_restore_dump_location
+from jejune_cli.click.containers.click_cont_comp_neo4j_helpers import (
+    resolve_restore_dump_location,
+)
 
 
 @pytest.fixture
@@ -62,9 +64,7 @@ def test_path_already_in_backups_is_not_copied(
     assert list(temporary_directory.iterdir()) == []
 
 
-def test_absolute_path_elsewhere_is_copied(
-    results_dir, temporary_directory, tmp_path
-):
+def test_absolute_path_elsewhere_is_copied(results_dir, temporary_directory, tmp_path):
     (tmp_path / "my.dump").write_text("content")
     backups_dir, dump_name = resolve_restore_dump_location(
         results_dir, str(tmp_path / "my.dump"), temporary_directory
@@ -73,7 +73,9 @@ def test_absolute_path_elsewhere_is_copied(
     assert dump_name == "my.dump"
 
 
-def test_nonexistent_path_raises(results_dir, temporary_directory, tmp_path, monkeypatch):
+def test_nonexistent_path_raises(
+    results_dir, temporary_directory, tmp_path, monkeypatch
+):
     monkeypatch.chdir(tmp_path)
     with pytest.raises(click.ClickException):
         resolve_restore_dump_location(

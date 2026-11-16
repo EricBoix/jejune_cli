@@ -1,7 +1,7 @@
 import click
 
 from jejune_cli.core.app_context import AppContext
-from .click_configuration import (
+from jejune_cli.click.click_configuration import (
     print_config_check,
     print_config_hint,
     print_config_status,

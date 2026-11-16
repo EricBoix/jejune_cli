@@ -2,17 +2,17 @@
 
 import click
 
-from .click_doctor import (
+from jejune_cli.click.click_doctor import (
     config_check_availability,
     config_hint_availability,
     config_status_availability,
 )
 from jejune_cli.core.app_context import AppContext
-from .click_helpers import print_two_col_table
-from .click_catalog_config import curator_config_group
-from .click_workspace_deployer import deployer_group
-from .click_workspace_doc_steward import doc_steward_group
-from .click_theme import ClickTheme
+from jejune_cli.click.click_helpers import print_two_col_table
+from jejune_cli.click.click_catalog_config import curator_config_group
+from jejune_cli.click.click_workspace_deployer import deployer_group
+from jejune_cli.click.click_workspace_doc_steward import doc_steward_group
+from jejune_cli.click.click_theme import ClickTheme
 
 
 def register_role_config_subgroup(group: click.Group) -> None:

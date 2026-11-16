@@ -5,12 +5,12 @@ from pathlib import Path
 import click
 
 from jejune_cli.core.app_context import AppContext
-from .click_configuration import (
+from jejune_cli.click.click_configuration import (
     print_config_check,
     print_config_hint,
     print_config_status,
 )
-from .click_theme import ClickTheme
+from jejune_cli.click.click_theme import ClickTheme
 from jejune_cli.components.catalog.component_catalog_access_checker import (
     CatalogAccessChecker,
 )

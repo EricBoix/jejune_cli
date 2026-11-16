@@ -3,7 +3,7 @@ from pathlib import Path
 import click
 
 from jejune_cli.core.app_context import AppContext
-from .click_version import version_option
+from jejune_cli.click.click_version import version_option
 from jejune_cli.plugins.plugin_cli_wiring import load_plugins
 
 

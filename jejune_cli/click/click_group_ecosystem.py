@@ -6,7 +6,7 @@ from pathlib import Path
 
 from jejune_cli.core.app_context import AppContext
 from jejune_cli.components.catalog.component_catalog_file import CatalogFile
-from .click_theme import ClickTheme
+from jejune_cli.click.click_theme import ClickTheme
 from jejune_cli.components.component_ecosystem import CompEcosystem
 from jejune_cli.core.dot_jejune import DotJejune
 

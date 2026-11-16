@@ -6,9 +6,9 @@ from pathlib import Path
 import click
 
 from jejune_cli.core.app_context import AppContext
-from .doctor_health_check import run_all, run_avail
-from .click_helpers import print_two_col_table
-from .click_theme import ClickTheme
+from jejune_cli.click.doctor_health_check import run_all, run_avail
+from jejune_cli.click.click_helpers import print_two_col_table
+from jejune_cli.click.click_theme import ClickTheme
 from jejune_cli.core.component_base import BaseComp
 from jejune_cli.core.component_containerized import ContComp
 from jejune_cli.components.component_ext import ExtComp
@@ -17,7 +17,7 @@ from jejune_cli.core.component_with_config import ConfComp
 from jejune_cli.plugins.plugin_registry import PluginRegistry
 from jejune_cli.roles.role_registry import RoleRegistry
 from jejune_cli.core.dot_jejune import DotJejune
-from .doctor_column import Column
+from jejune_cli.click.doctor_column import Column
 
 # ---------------------------------------------------------------------------
 # Shared availability helper

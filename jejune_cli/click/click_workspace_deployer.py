@@ -8,7 +8,7 @@ import click
 
 from jejune_cli.core._package_paths import TemplatePaths
 from jejune_cli.core.app_context import AppContext
-from .stale_editable_installs import StaleEditableInstalls
+from jejune_cli.click.stale_editable_installs import StaleEditableInstalls
 
 
 class _DeployerInit(click.Command):

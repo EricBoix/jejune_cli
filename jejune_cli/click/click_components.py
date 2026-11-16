@@ -2,9 +2,9 @@
 
 import click
 
-from .click_components_list import components_list
-from .click_components_tree import components_tree
-from .click_doctor import doctor
+from jejune_cli.click.click_components_list import components_list
+from jejune_cli.click.click_components_tree import components_tree
+from jejune_cli.click.click_doctor import doctor
 
 
 @click.group(short_help="Inspect registered components")

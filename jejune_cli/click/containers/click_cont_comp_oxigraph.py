@@ -6,9 +6,9 @@ from pathlib import Path
 import click
 
 from jejune_cli.core.app_context import AppContext
-from .click_configuration import print_config_check
+from jejune_cli.click.click_configuration import print_config_check
 from jejune_cli.components.containers.component_cont_oxigraph import CompOxigraph
-from .oxigraph_simplifier import OxigraphSimplifier
+from jejune_cli.oxigraph_simplifier import OxigraphSimplifier
 
 _KG_VIEWER_IMAGE = "jejune:kg-graph-viewer"
 _KG_VIEWER_DEFAULT_PORT = "8782"

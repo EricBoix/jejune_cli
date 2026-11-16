@@ -5,7 +5,9 @@ from pathlib import Path
 import click
 
 from jejune_cli.core.app_context import AppContext
-from .click_cont_comp_neo4j_helpers import resolve_llm_decorated_filename
+from jejune_cli.click.containers.click_cont_comp_neo4j_helpers import (
+    resolve_llm_decorated_filename,
+)
 
 
 @click.command("dump-turtle")

@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-jejune = "jejune_cli.main:cli"
+jejune = "jejune_cli.click.main:cli"
 
 [tool.jejune]
 ecosystem-repo-base = "https://github.com/EricBoix"

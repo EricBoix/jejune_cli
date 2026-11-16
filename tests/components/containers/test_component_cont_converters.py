@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 from click.testing import CliRunner
 
-from jejune_cli import click_cont_comp_converters
+from jejune_cli.click.containers import click_cont_comp_converters
 from jejune_cli.components.containers import component_cont_converters
 from jejune_cli.components.containers.component_cont_converters import (
     CompConverters,

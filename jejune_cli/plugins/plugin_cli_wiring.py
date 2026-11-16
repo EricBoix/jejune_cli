@@ -3,7 +3,7 @@
 import click
 
 from jejune_cli.core.app_context import AppContext
-from jejune_cli.click_group_configuration import register_role_config_subgroup
+from jejune_cli.click.click_group_configuration import register_role_config_subgroup
 from jejune_cli.plugins.plugin_description import PluginDescription
 
 

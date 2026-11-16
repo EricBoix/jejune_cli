@@ -385,7 +385,7 @@ dependency group of `pyproject.toml`. Tests live in the `tests/` directory.
 ```bash
 uv sync                                            # installs the dev group too
 uv run pytest                                      # run the whole suite
-uv run pytest tests/test_component_registry.py     # run a single test file
+uv run pytest tests/core/test_component_registry.py # run a single test file
 uv run pytest -k invalidate_order                  # run tests matching an expression
 ```
 

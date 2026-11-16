@@ -5,7 +5,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from jejune_cli import click_group_ecosystem, click_group_git_access
+from jejune_cli.click import click_group_ecosystem, click_group_git_access
 from jejune_cli.components.component_ecosystem import (
     CompEcosystem,
     EcosystemDirectories,

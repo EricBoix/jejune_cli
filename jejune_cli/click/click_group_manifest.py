@@ -7,7 +7,7 @@ from pathlib import Path
 import click
 import yaml
 
-from .click_theme import ClickTheme
+from jejune_cli.click.click_theme import ClickTheme
 from jejune_cli.components.component_manifest import CompManifest
 
 

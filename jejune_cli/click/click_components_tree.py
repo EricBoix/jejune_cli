@@ -4,7 +4,7 @@ import click
 
 from jejune_cli.core.app_context import AppContext
 from jejune_cli.core.component_base import BaseComp
-from .click_theme import ClickTheme
+from jejune_cli.click.click_theme import ClickTheme
 
 
 def build_tree_lines(components: list[BaseComp]) -> list[str]:

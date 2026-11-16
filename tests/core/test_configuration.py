@@ -1,6 +1,6 @@
 import pytest
 
-from jejune_cli.click_configuration import print_config_check
+from jejune_cli.click.click_configuration import print_config_check
 from jejune_cli.core.configuration import Configuration
 from jejune_cli.core.configuration_entry import ConfigurationEntry
 
