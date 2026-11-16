@@ -9,14 +9,14 @@ from typing import Callable
 
 import click
 
-from .component_broken_plugin import BrokenPluginComp
+from jejune_cli.plugins.component_broken_plugin import BrokenPluginComp
 from jejune_cli.core.component_registry import ComponentRegistry, UnresolvedPlugin
 from jejune_cli.core.component_with_config import ConfComp
 from jejune_cli.core.configuration import Configuration
 from jejune_cli.core.configuration_entry import ConfigurationEntry
 from jejune_cli.core.containerized_context import ContainerizedContext
-from .plugin_comp import PluginComp
-from .plugin_description import PluginDescription
+from jejune_cli.plugins.plugin_comp import PluginComp
+from jejune_cli.plugins.plugin_description import PluginDescription
 
 
 class PluginRegistry:

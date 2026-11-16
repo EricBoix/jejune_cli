@@ -1,6 +1,6 @@
 """Stub component for a plugin whose entry-point module failed to import."""
 
-from .plugin_comp import PluginComp
+from jejune_cli.plugins.plugin_comp import PluginComp
 
 
 class BrokenPluginComp(PluginComp):

@@ -16,7 +16,7 @@ from typing import Callable
 
 import click
 
-from .plugin_role_description import PluginRoleDescription
+from jejune_cli.plugins.plugin_role_description import PluginRoleDescription
 from jejune_cli.core.component_base import BaseComp
 from jejune_cli.core.containerized_context import ContainerizedContext
 

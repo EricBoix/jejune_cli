@@ -3,8 +3,8 @@
 import click
 
 from jejune_cli.core.app_context import AppContext
-from .click_group_configuration import register_role_config_subgroup
-from .plugin_description import PluginDescription
+from jejune_cli.click_group_configuration import register_role_config_subgroup
+from jejune_cli.plugins.plugin_description import PluginDescription
 
 
 def load_plugins(app: AppContext) -> None:

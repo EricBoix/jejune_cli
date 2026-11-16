@@ -14,7 +14,7 @@ from .component_ext_server_docker_hub import CompServerDockerHub
 from .component_ext_server_git import CompServerGit
 from .component_ext_server_llm import CompServerLlm
 from .component_ext_server_llm_observability import CompServerLlmObservability
-from .component_ext_plugin_packages import CompPluginPackages
+from jejune_cli.plugins.component_ext_plugin_packages import CompPluginPackages
 from .component_ecosystem import CompEcosystem
 from .component_git_access import CompGitAccess
 from .component_catalog import CompCatalog
@@ -27,8 +27,8 @@ from .component_cont_graph import CompGraph
 from .component_cont_neo4j_to_rdf_ttl import CompNeo4jToRdfTtl
 from .component_deployment import CompDeployment
 from jejune_cli.core.containers_cross_process_coordination import ContainerCoordination
-from .plugin_package_catalog import PluginPackageCatalog
-from .plugin_registry import PluginRegistry
+from jejune_cli.plugins.plugin_package_catalog import PluginPackageCatalog
+from jejune_cli.plugins.plugin_registry import PluginRegistry
 from jejune_cli.roles.role_registry import RoleRegistry
 
 

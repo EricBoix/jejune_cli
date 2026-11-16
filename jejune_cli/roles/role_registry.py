@@ -3,7 +3,7 @@
 import os
 
 from jejune_cli.core.component_registry import ComponentRegistry
-from jejune_cli.plugin_role_description import PluginRoleDescription
+from jejune_cli.plugins.plugin_role_description import PluginRoleDescription
 from jejune_cli.core.component_base import BaseComp
 from jejune_cli.roles.role import Role
 

@@ -9,7 +9,7 @@ import click
 from jejune_cli.core.component_registry import ComponentRegistry
 from jejune_cli.roles.role_registry import RoleRegistry
 from jejune_cli.core.containers_cross_process_coordination import ContainerCoordination
-from jejune_cli.plugin_registry import PluginRegistry
+from jejune_cli.plugins.plugin_registry import PluginRegistry
 from jejune_cli.roles.heuristic_step_registry import HeuristicStepRegistry
 from jejune_cli.component_building import build_components
 from jejune_cli.roles.role_definitions import wire_roles

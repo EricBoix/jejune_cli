@@ -7,7 +7,7 @@ from .click_aliases import register_aliases
 from .click_group_configuration import configuration
 from .click_components import components
 from .click_containers import containers_cli
-from .click_plugin_package_catalog import plugin_packages_group
+from jejune_cli.click_plugin_package_catalog import plugin_packages_group
 from .click_role_registry import role, roles
 
 # Top-level commands

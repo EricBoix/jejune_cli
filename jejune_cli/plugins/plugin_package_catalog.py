@@ -14,7 +14,7 @@ else:
     import tomli as tomllib  # type: ignore[no-reuse-import]
 
 from jejune_cli.core.component_registry import ComponentRegistry
-from .plugin_registry import PluginRegistry
+from jejune_cli.plugins.plugin_registry import PluginRegistry
 from jejune_cli.roles.role_registry import RoleRegistry
 
 

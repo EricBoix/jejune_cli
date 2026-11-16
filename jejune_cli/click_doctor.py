@@ -14,7 +14,7 @@ from jejune_cli.core.component_containerized import ContComp
 from .component_ext import ExtComp
 from .component_ext_server import ExtServer
 from jejune_cli.core.component_with_config import ConfComp
-from .plugin_registry import PluginRegistry
+from jejune_cli.plugins.plugin_registry import PluginRegistry
 from jejune_cli.roles.role_registry import RoleRegistry
 from jejune_cli.core.dot_jejune import DotJejune
 from .doctor_column import Column

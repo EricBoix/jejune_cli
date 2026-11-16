@@ -1,6 +1,6 @@
 """Plugin-packages component — tracks whether role plugin packages are installed."""
 
-from .component_ext import ExtComp
+from jejune_cli.component_ext import ExtComp
 
 
 class CompPluginPackages(ExtComp):
