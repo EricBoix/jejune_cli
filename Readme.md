@@ -77,7 +77,10 @@ The header of the output lists `JEJUNE_ROOT_DIR`, `REPO_ROOT_DIR` and `ECOSYSTEM
 `.jejune/tmp`). Until pdf-to-markdown is cloned, the `Repository` column of its row shows
 `[REPO_ROOT_DIR]/pdf-to-markdown.git` with a green check when that remote can be reached
 and a red cross when it cannot; once cloned, the row shows `[JEJUNE_ROOT_DIR]` or
-`[ECOSYSTEM_DIR]`. The last column, `Commit`, is the short commit of the clone or, for a
+`[ECOSYSTEM_DIR]`. For a doc-steward the `Documents` table has a single row, the document
+of the current directory, whose `Repository` column is always `[CWD]` (none of
+`JEJUNE_ROOT_DIR`, `REPO_ROOT_DIR` and `ECOSYSTEM_DIR` is considered for it). The
+`Catalog` block only appears when a `catalog.yaml` exists. The last column, `Commit`, is the short commit of the clone or, for a
 reachable remote, of the HEAD of its default branch. Every repository that is not cloned
 has its remote probed, authenticated through git-access (`GIT_ACCESS_TOKEN` or
 `GIT_ACCESS_TOKEN_FILE`) when it is private; `jejune git-access check-availability`

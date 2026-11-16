@@ -15,7 +15,11 @@ class _StatusTable:
     """What the tables of `ecosystem status` share: the placeholders standing for
     the directories listed in the header, and the Up-to-date / Commit cells."""
 
-    LOCATION_LABEL = {"root": "[JEJUNE_ROOT_DIR]", "tmp": "[ECOSYSTEM_DIR]"}
+    LOCATION_LABEL = {
+        "root": "[JEJUNE_ROOT_DIR]",
+        "tmp": "[ECOSYSTEM_DIR]",
+        "cwd": "[CWD]",
+    }
     REPO_ROOT_LABEL = "[REPO_ROOT_DIR]"
     ICON_WIDTH = 1  # display width of ✓/✗
     UP_TO_DATE_HEADER = "Up-to-date"
@@ -213,7 +217,12 @@ def ecosystem_status(ctx) -> None:
 
     # --- Documents table ---
     click.echo()
-    doc_repos = eco.discover_doc_repos(directories)
+    # A doc-steward only handles the document of the current directory
+    doc_repos = (
+        [eco.cwd_doc_repo()]
+        if app.role_registry.role_is_doc_steward_family(role)
+        else eco.discover_doc_repos(directories)
+    )
     known_names = {name for name, _, _, _ in doc_repos}
     if not doc_repos:
         click.echo(
@@ -296,11 +305,11 @@ def _echo_catalog_entries_unknown_to_ecosystem(
 ) -> None:
     """List the catalog entries that are neither in JEJUNE_ROOT_DIR nor in .jejune/tmp."""
     catalog_path = CatalogFile.resolve_path()
+    # No catalog (e.g. a doc-steward): nothing to tell about it
+    if not catalog_path.is_file():
+        return
     click.echo()
     click.echo(click.style("  Catalog", bold=True))
-    if not catalog_path.is_file():
-        click.echo(click.style(f"    No catalog at {catalog_path}.", fg="yellow"))
-        return
     try:
         entry_names = CatalogFile(catalog_path).names()
     except ValueError as exc:

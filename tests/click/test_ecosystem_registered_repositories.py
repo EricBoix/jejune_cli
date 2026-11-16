@@ -220,7 +220,7 @@ class FakeApplication:
     """What `ecosystem status` needs: a catalog-contributor role whose only active
     component is `converters`."""
 
-    def __init__(self, ecosystem):
+    def __init__(self, ecosystem, doc_steward=False):
         converters = FakeComponent("converters")
         self.component_registry = FakeComponentRegistry(
             {
@@ -234,6 +234,7 @@ class FakeApplication:
         self.role_registry = SimpleNamespace(
             detect_role=lambda: SimpleNamespace(name="catalog-contributor"),
             role_components=lambda role: {converters},
+            role_is_doc_steward_family=lambda role: doc_steward,
         )
         self.plugin_registry = SimpleNamespace(repo_name_for_plugin=lambda name: None)
 
@@ -249,6 +250,43 @@ def status_output(monkeypatch, tmp_path, ecosystem, directories):
     )
     assert result.exit_code == 0, result.output
     return result.output
+
+
+def doc_steward_status_output(monkeypatch, document_dir, ecosystem, directories):
+    ecosystem.resolve_dirs = lambda deploy_dir=None: directories
+    monkeypatch.chdir(document_dir)
+    monkeypatch.setattr(click_group_ecosystem, "AppContext", FakeApplication)
+    result = CliRunner().invoke(
+        click_group_ecosystem.ecosystem_status,
+        [],
+        obj=FakeApplication(ecosystem, doc_steward=True),
+    )
+    assert result.exit_code == 0, result.output
+    return result.output
+
+
+@pytest.mark.parametrize("root_dir_is_set", [True, False])
+def test_doc_steward_documents_table_only_lists_the_current_directory(
+    root_dir_is_set, monkeypatch, tmp_path, make_ecosystem
+):
+    (tmp_path / "jejune_doc_Other").mkdir()
+    document_dir = tmp_path / "jejune_doc_Mine"
+    document_dir.mkdir()
+    (document_dir / "manifest.yaml").write_text("")
+    ecosystem = make_ecosystem()
+    ecosystem.repo_up_to_date = lambda path, token_file=None: True
+    output = doc_steward_status_output(
+        monkeypatch,
+        document_dir,
+        ecosystem,
+        EcosystemDirectories(tmp_path if root_dir_is_set else None, None),
+    )
+    document_rows = [line for line in output.splitlines() if "jejune_doc_" in line]
+    assert len(document_rows) == 1, output
+    assert "jejune_doc_Mine" in document_rows[0]
+    assert "[CWD]" in document_rows[0]
+    # No catalog.yaml: no Catalog block
+    assert "Catalog" not in output
 
 
 def pdf_to_markdown_row(output):

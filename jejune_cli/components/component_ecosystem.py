@@ -392,6 +392,18 @@ class CompEcosystem(ConfComp):
                     )
         return results
 
+    def cwd_doc_repo(self) -> tuple[str, Literal["cwd"], str, bool]:
+        """The document of the current directory, in the shape of discover_doc_repos'
+        items. Neither JEJUNE_ROOT_DIR, REPO_ROOT_DIR nor ECOSYSTEM_DIR is considered:
+        the document is always located in the current directory."""
+        document_path = Path.cwd()
+        return (
+            document_path.name,
+            "cwd",
+            str(document_path),
+            (document_path / "manifest.yaml").exists(),
+        )
+
     def ecosystem_needs_remote(self) -> bool:
         """Does the ecosystem still need to reach a remote git server?"""
         # The catalog-contributor role always fetches the documents of catalog.yaml
