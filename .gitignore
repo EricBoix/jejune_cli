@@ -3,3 +3,5 @@
 __pycache__/
 jejune_cli/_sha.py
 dist
+.jejune/
+.pytest_cache/
