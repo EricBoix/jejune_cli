@@ -2,13 +2,15 @@
 
 from dataclasses import dataclass
 
-from jejune_cli.component_ext_command_docker import CompCommandDocker
-from jejune_cli.component_ext_server_docker_daemon import CompServerDockerDaemon
+from jejune_cli.components.ext.component_ext_command_docker import CompCommandDocker
+from jejune_cli.components.ext.component_ext_server_docker_daemon import (
+    CompServerDockerDaemon,
+)
 from jejune_cli.core.containers_cross_process_coordination import ContainerCoordination
-from jejune_cli.component_ext_server_git import CompServerGit
+from jejune_cli.components.ext.component_ext_server_git import CompServerGit
 from jejune_cli.plugins.component_ext_plugin_packages import CompPluginPackages
-from jejune_cli.component_ecosystem import CompEcosystem
-from jejune_cli.component_git_access import CompGitAccess
+from jejune_cli.components.component_ecosystem import CompEcosystem
+from jejune_cli.components.component_git_access import CompGitAccess
 from jejune_cli.roles.role_registry import RoleRegistry
 
 

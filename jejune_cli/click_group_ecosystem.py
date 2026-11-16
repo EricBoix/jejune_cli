@@ -5,9 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from jejune_cli.core.app_context import AppContext
-from .component_catalog_file import CatalogFile
+from jejune_cli.components.catalog.component_catalog_file import CatalogFile
 from .click_theme import ClickTheme
-from .component_ecosystem import CompEcosystem
+from jejune_cli.components.component_ecosystem import CompEcosystem
 from jejune_cli.core.dot_jejune import DotJejune
 
 

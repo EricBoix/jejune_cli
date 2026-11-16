@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from jejune_cli.core._package_paths import CatalogConfig
-from jejune_cli.component_git_access import CompGitAccess
+from jejune_cli.components.component_git_access import CompGitAccess
 from jejune_cli.roles.role import Role
 from jejune_cli.roles.role_registry import RoleRegistry
 

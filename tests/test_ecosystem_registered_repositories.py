@@ -6,7 +6,10 @@ import pytest
 from click.testing import CliRunner
 
 from jejune_cli import click_group_ecosystem, click_group_git_access
-from jejune_cli.component_ecosystem import CompEcosystem, EcosystemDirectories
+from jejune_cli.components.component_ecosystem import (
+    CompEcosystem,
+    EcosystemDirectories,
+)
 
 REMOTE_URL = "https://example.org/team/pdf-to-markdown.git"
 REMOTE_LABEL = "[REPO_ROOT_DIR]/pdf-to-markdown.git"

@@ -7,7 +7,7 @@ import click
 
 from jejune_cli.core.app_context import AppContext
 from .click_configuration import print_config_check
-from .component_cont_oxigraph import CompOxigraph
+from jejune_cli.components.containers.component_cont_oxigraph import CompOxigraph
 from .oxigraph_simplifier import OxigraphSimplifier
 
 _KG_VIEWER_IMAGE = "jejune:kg-graph-viewer"

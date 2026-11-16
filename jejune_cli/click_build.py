@@ -3,7 +3,7 @@ from pathlib import Path
 import click
 
 from jejune_cli.core.app_context import AppContext
-from .component_catalog_file import CatalogFile
+from jejune_cli.components.catalog.component_catalog_file import CatalogFile
 from jejune_cli.core.component_containerized import ContComp
 
 

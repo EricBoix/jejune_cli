@@ -11,8 +11,8 @@ from .click_helpers import print_two_col_table
 from .click_theme import ClickTheme
 from jejune_cli.core.component_base import BaseComp
 from jejune_cli.core.component_containerized import ContComp
-from .component_ext import ExtComp
-from .component_ext_server import ExtServer
+from jejune_cli.components.component_ext import ExtComp
+from jejune_cli.components.ext.component_ext_server import ExtServer
 from jejune_cli.core.component_with_config import ConfComp
 from jejune_cli.plugins.plugin_registry import PluginRegistry
 from jejune_cli.roles.role_registry import RoleRegistry

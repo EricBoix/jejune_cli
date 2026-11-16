@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from jejune_cli.core._package_paths import TemplatePaths
-from jejune_cli.component_ext import ExtComp
+from jejune_cli.components.component_ext import ExtComp
 from jejune_cli.core.component_registry import ComponentRegistry
 from jejune_cli.roles.heuristic_step import ComponentCondition, HeuristicStep
 from jejune_cli.roles.heuristic_step_registry import HeuristicStepRegistry

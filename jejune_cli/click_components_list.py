@@ -4,7 +4,7 @@ import click
 
 from jejune_cli.core.app_context import AppContext
 from jejune_cli.core.component_base import BaseComp
-from .component_ext import ExtComp
+from jejune_cli.components.component_ext import ExtComp
 from .click_theme import ClickTheme
 
 

@@ -8,7 +8,7 @@ import click
 import yaml
 
 from .click_theme import ClickTheme
-from .component_manifest import CompManifest
+from jejune_cli.components.component_manifest import CompManifest
 
 
 @click.group("manifest", short_help="Document manifest operations")

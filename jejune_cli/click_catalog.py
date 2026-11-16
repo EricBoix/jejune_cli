@@ -9,8 +9,8 @@ import click
 
 from jejune_cli.core._package_paths import CatalogConfig
 from jejune_cli.core.app_context import AppContext
-from .component_catalog_collection import CatalogCollection
-from .component_manifest import CompManifest
+from jejune_cli.components.catalog.component_catalog_collection import CatalogCollection
+from jejune_cli.components.component_manifest import CompManifest
 
 
 def _detect_role():

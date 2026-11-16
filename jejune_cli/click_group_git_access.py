@@ -11,9 +11,11 @@ from .click_configuration import (
     print_config_status,
 )
 from .click_theme import ClickTheme
-from .component_catalog_access_checker import CatalogAccessChecker
-from .component_catalog_file import CatalogFile
-from .component_git_access import CompGitAccess
+from jejune_cli.components.catalog.component_catalog_access_checker import (
+    CatalogAccessChecker,
+)
+from jejune_cli.components.catalog.component_catalog_file import CatalogFile
+from jejune_cli.components.component_git_access import CompGitAccess
 
 CATALOG_OPTION = click.option(
     "--catalog",
