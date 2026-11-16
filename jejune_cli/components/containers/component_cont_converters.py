@@ -379,55 +379,45 @@ class CompConverters(ContComp):
         df = ctx / "Dockerfile"
         return (ctx.is_dir() and df.exists()), df, ctx
 
-    @classmethod
     def run_converter_test(
-        cls, repo_dir: Path, no_cache: bool, no_build: bool
+        self,
+        repo_dir: Path,
+        document_name: str,
+        catalog_file: str | None,
+        root_dir: str | None,
+        no_cache: bool,
+        local_documents: bool = False,
+        local_pdf_to_markdown: bool = False,
     ) -> tuple[str, str, str]:
-        """Return (outcome, detail, verbose_output). outcome taken among skipped, build_failed, unchanged or changed."""
-        has, dockerfile, context = cls.has_converter(repo_dir)
+        """Return (outcome, detail, verbose_output). outcome taken among skipped,
+        build_failed, image_not_found, unchanged or changed. The image built with
+        the selected sources is built first when absent (or when no_cache)."""
+        has, _, _ = self.has_converter(repo_dir)
         if not has:
             return "skipped", "no DockerContext", ""
-        image = cls.docker_image_name(repo_dir)
+        image = self.docker_image_name(repo_dir, local_documents, local_pdf_to_markdown)
         verbose_lines: list[str] = []
-        if not no_build:
-            extra = ["--no-cache"] if no_cache else []
-            build_result = subprocess.run(
-                [
-                    "docker",
-                    "build",
-                    *extra,
-                    "-t",
-                    image,
-                    "-f",
-                    str(dockerfile),
-                    str(context),
-                ],
-                capture_output=True,
-                text=True,
-            )
-            verbose_lines.extend(
-                (build_result.stdout + build_result.stderr).strip().splitlines()
-            )
-            if build_result.returncode != 0:
-                tail = (build_result.stderr or build_result.stdout).strip().splitlines()
-                return (
-                    "build_failed",
-                    tail[-1] if tail else "build failed",
-                    "\n".join(verbose_lines),
+        if no_cache or not self._context.docker.image_exists(image):
+            try:
+                self.build(
+                    no_cache,
+                    catalog_file,
+                    document_name,
+                    root_dir,
+                    local_documents,
+                    local_pdf_to_markdown,
                 )
-        else:
-            images_result = subprocess.run(
-                ["docker", "images", "-q", image], capture_output=True, text=True
-            )
-            if not (images_result.returncode == 0 and images_result.stdout.strip()):
-                return "build_failed", f"image {image!r} not found", ""
+            except click.ClickException as error:
+                return "build_failed", error.format_message(), ""
+            if not self._context.docker.image_exists(image):
+                return "image_not_found", f"image {image!r} not found", ""
         run_result = subprocess.run(
             ["docker", "run", "--rm", image, "--test"], capture_output=True, text=True
         )
         verbose_lines.extend(
             (run_result.stdout + run_result.stderr).strip().splitlines()
         )
-        sources = cls.image_source_summary(image)
+        sources = self.image_source_summary(image)
         return (
             ("unchanged", f"tests passed ({sources})", "\n".join(verbose_lines))
             if run_result.returncode == 0

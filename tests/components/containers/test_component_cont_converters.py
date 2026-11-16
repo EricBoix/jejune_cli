@@ -269,3 +269,84 @@ def test_local_flag_stands_for_both_local_flags(arguments, expected, monkeypatch
     )
     assert result.exit_code == 0, result.output
     assert application.built_with[-2:] == expected
+
+
+class FakeDocker:
+    def __init__(self, existing_images):
+        self.existing_images = set(existing_images)
+
+    def image_exists(self, tag):
+        return tag in self.existing_images
+
+
+@pytest.fixture
+def testable_converters(converters, monkeypatch):
+    """converters whose build is recorded and whose docker run passes."""
+    converters.builds = []
+    converters.build_creates = True
+    converters.build_error = None
+
+    def fake_build(*arguments):
+        converters.builds.append(arguments)
+        if converters.build_error:
+            raise converters.build_error
+        if converters.build_creates:
+            converters._context.docker.existing_images.add(
+                "jejune:convert_catalog_Private-local"
+            )
+
+    converters.build = fake_build
+    monkeypatch.setattr(
+        component_cont_converters.subprocess,
+        "run",
+        lambda command, capture_output, text: SimpleNamespace(
+            returncode=0, stdout="{}", stderr=""
+        ),
+    )
+    return converters
+
+
+def run_test(converters, tmp_path, existing_images, **options):
+    converters._context.docker = FakeDocker(existing_images)
+    return converters.run_converter_test(
+        tmp_path / "jejune_doc_Private", "Private", None, None, False, **options
+    )
+
+
+def test_test_does_not_build_an_existing_image(testable_converters, tmp_path):
+    outcome, _, _ = run_test(
+        testable_converters,
+        tmp_path,
+        ["jejune:convert_catalog_Private"],
+    )
+    assert outcome == "unchanged"
+    assert testable_converters.builds == []
+
+
+def test_test_builds_a_missing_image_with_the_local_flags(
+    testable_converters, tmp_path
+):
+    outcome, _, _ = run_test(
+        testable_converters,
+        tmp_path,
+        ["jejune:convert_catalog_Private"],
+        local_documents=True,
+        local_pdf_to_markdown=True,
+    )
+    assert outcome == "unchanged"
+    assert testable_converters.builds == [(False, None, "Private", None, True, True)]
+
+
+def test_test_reports_a_failed_build(testable_converters, tmp_path):
+    testable_converters.build_error = component_cont_converters.click.ClickException(
+        "1 docker build(s) failed"
+    )
+    outcome, detail, _ = run_test(testable_converters, tmp_path, [])
+    assert (outcome, detail) == ("build_failed", "1 docker build(s) failed")
+
+
+def test_test_reports_an_image_absent_after_its_build(testable_converters, tmp_path):
+    testable_converters.build_creates = False
+    outcome, detail, _ = run_test(testable_converters, tmp_path, [])
+    assert outcome == "image_not_found"
+    assert detail == "image 'jejune:convert_catalog_Private' not found"

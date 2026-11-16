@@ -52,15 +52,17 @@ commit costs nothing (`git reset`): GitHub never sees it.
 
 ```sh
 jejune converters build --local-pdf-to-markdown   # or --local-documents, or --local for both
-jejune converters test --no-build                 # reports which sources each image was built with
+jejune converters test --local-pdf-to-markdown    # same flags: tests those images, building the missing ones
 ```
 
 pdf-to-markdown and the documents are looked for in `$JEJUNE_ROOT_DIR` (or `--root-dir`),
 then in `.jejune/tmp` (pdf-to-markdown is cloned there when found nowhere, with its
 whole git history: the commit count is part of its version; a checkout of
 `$JEJUNE_ROOT_DIR` is never touched).
-`converters test` without `--no-build` rebuilds the images with the default sources:
-its report then shows `document: git, pdf-to-markdown: locked`.
+`converters test` accepts the same `--local*` flags as `converters build`: it tests the
+images built with those sources, building first (with the same flags) those that do not
+exist yet. Its report shows which sources each image was built with; without any flag it
+tests the default images (`document: git, pdf-to-markdown: locked`).
 
 pdf-to-markdown is a repository registered with the ecosystem (by the `converters`
 component, and by the `convert` component when the document of `CONVERT_DOC_DIR` offers a

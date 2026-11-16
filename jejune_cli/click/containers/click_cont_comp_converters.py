@@ -104,35 +104,71 @@ def converters_build(
     "--no-cache", is_flag=True, default=False, help="Bypass Docker layer cache."
 )
 @click.option(
-    "--no-build", is_flag=True, default=False, help="Skip build; use cached image."
+    "--local-documents",
+    is_flag=True,
+    default=False,
+    help="Test the images built with the local jejune_doc_* clones.",
+)
+@click.option(
+    "--local-pdf-to-markdown",
+    is_flag=True,
+    default=False,
+    help="Test the images built with the local pdf-to-markdown.",
+)
+@click.option(
+    "--local",
+    is_flag=True,
+    default=False,
+    help="Same as --local-documents --local-pdf-to-markdown.",
 )
 @click.option("--verbose", is_flag=True, default=False, help="Show full docker output.")
 def converters_test(
-    test_name, catalog_file, root_dir, repo, no_cache, no_build, verbose
+    test_name,
+    catalog_file,
+    root_dir,
+    repo,
+    no_cache,
+    local_documents,
+    local_pdf_to_markdown,
+    local,
+    verbose,
 ):
-    """Build and test converter containers for all catalog documents.
+    """Build (when needed) and test converter containers for all catalog documents.
 
     An optional TEST_NAME restricts the run to a single repository (by name).
 
-    For each document that has a DockerContext/, builds the converter image
-    (unless --no-build) then runs `docker run --test` (pytest vs. reference).
+    For each document that has a DockerContext/, tests the converter image built
+    with the selected sources (default ones, or the --local-* ones): the image is
+    first built, as `converters build` does with the same flags, when it does
+    not exist yet (or with --no-cache). Then runs `docker run --test` (pytest
+    vs. reference).
 
     \b
-    unchanged    — tests pass (conversion matches reference)
-    changed      — tests fail (conversion drift detected)
-    build-failed — image did not build
-    skipped      — no DockerContext in this repo
+    unchanged       — tests pass (conversion matches reference)
+    changed         — tests fail (conversion drift detected)
+    build-failed    — image did not build
+    image-not-found — image still absent after its build
+    skipped         — no DockerContext in this repo
     """
+    local_documents = local_documents or local
+    local_pdf_to_markdown = local_pdf_to_markdown or local
     app = click.get_current_context().find_object(AppContext)
     collection = app.component_registry.get("catalog").collection
     converters_comp = app.component_registry.get("converters")
     selection = collection.select(catalog_file, test_name or repo, root_dir)
 
-    counts = {"unchanged": 0, "changed": 0, "build_failed": 0, "skipped": 0}
+    counts = {
+        "unchanged": 0,
+        "changed": 0,
+        "build_failed": 0,
+        "image_not_found": 0,
+        "skipped": 0,
+    }
     _COLORS = {
         "unchanged": "green",
         "changed": "red",
         "build_failed": "red",
+        "image_not_found": "red",
         "skipped": "yellow",
     }
     col = 42
@@ -141,7 +177,13 @@ def converters_test(
         selection.documents, selection.directories
     ):
         outcome, detail, verbose_output = converters_comp.run_converter_test(
-            repo_dir, no_cache, no_build
+            repo_dir,
+            name,
+            catalog_file,
+            root_dir,
+            no_cache,
+            local_documents,
+            local_pdf_to_markdown,
         )
         counts[outcome] += 1
         label = click.style(outcome.replace("_", "-"), fg=_COLORS[outcome])
@@ -155,9 +197,10 @@ def converters_test(
         f"  {counts['unchanged']} unchanged  "
         f"{counts['changed']} changed  "
         f"{counts['build_failed']} build-failed  "
+        f"{counts['image_not_found']} image-not-found  "
         f"{counts['skipped']} skipped"
     )
-    if counts["changed"] or counts["build_failed"]:
+    if counts["changed"] or counts["build_failed"] or counts["image_not_found"]:
         sys.exit(1)
 
 
