@@ -10,6 +10,7 @@ from .component_containerized import ContComp
 from .configuration import Configuration
 from .configuration_entry import ConfigurationEntry
 from .containerized_context import ContainerizedContext
+from .converter_image_name import ConverterImageName
 
 
 class CompConvert(ContComp):
@@ -41,6 +42,18 @@ class CompConvert(ContComp):
         ecosystem.register_repository(
             self.name, PdfToMarkdownConfig.REPO_NAME, when=self.offers_converter_main
         )
+
+    @property
+    def image_name(self) -> str:
+        """The image of the document of CONVERT_DOC_DIR (it depends on that variable,
+        which may be set after the construction of the component)."""
+        return CompConvert._image_tag()
+
+    @image_name.setter
+    def image_name(self, _value: str) -> None:
+        # ContComp.__init__ assigns the placeholder it was given: the image name is
+        # always computed from CONVERT_DOC_DIR
+        pass
 
     def offers_converter_main(self) -> bool:
         """True when the document of CONVERT_DOC_DIR has a Convert/main.py."""
@@ -146,11 +159,11 @@ class CompConvert(ContComp):
     def _image_tag() -> str:
         doc_dir = CompConvert._doc_dir()
         if not doc_dir:
-            return "jejune:convert"
+            return ConverterImageName.build(ConverterImageName.DOCUMENT_OWNER, "")
         base = (
             doc_dir.resolve().parent.parent if doc_dir.is_file() else doc_dir.resolve()
         )
-        return f"jejune:convert_{base.name.removeprefix('jejune_doc_')}"
+        return ConverterImageName.build(ConverterImageName.DOCUMENT_OWNER, base.name)
 
     def is_built(self) -> bool:
         return self._context.docker.image_exists(CompConvert._image_tag())

@@ -14,6 +14,7 @@ from .component_cont_convert import CompConvert
 from .component_containerized import ContComp
 from .component_ecosystem import EcosystemDirectories, RepoTier
 from .containerized_context import ContainerizedContext
+from .converter_image_name import ConverterImageName
 
 
 @dataclass(frozen=True)
@@ -34,7 +35,7 @@ class ConverterSource:
 
 
 class CompConverters(ContComp):
-    DOC_PREFIX = "jejune_doc_"
+    DOC_PREFIX = ConverterImageName.DOC_PREFIX
     PDF_TO_MARKDOWN_NAME = PdfToMarkdownConfig.REPO_NAME
     # Names shared with the Dockerfile of every document (ARG, named build contexts)
     DOCUMENT_CONTEXT_NAME = "jejune-doc"
@@ -107,8 +108,15 @@ class CompConverters(ContComp):
             # Vacuously built only when catalog has no documents.
             # If documents exist but no repos are local, they haven't been fetched yet.
             return self._catalog_document_count() == 0
+        # An image built from local sources (--local*) is as built as the default one
         return all(
-            self._context.docker.image_exists(image_name) for _, image_name in repos
+            any(
+                self._context.docker.image_exists(variant)
+                for variant in ConverterImageName.variants(
+                    ConverterImageName.CATALOG_OWNER, repo_dir.resolve().name
+                )
+            )
+            for repo_dir, _ in repos
         )
 
     def locate_pdf_to_markdown(
@@ -207,7 +215,9 @@ class CompConverters(ContComp):
             has, dockerfile, ctx = self.has_converter(repo_dir)
             if not has:
                 continue
-            image_name = self.docker_image_name(repo_dir)
+            image_name = self.docker_image_name(
+                repo_dir, local_documents, local_pdf_to_markdown
+            )
             document = (
                 ConverterSource(
                     self._ecosystem.locate(name, selection.directories).tier, repo_dir
@@ -279,11 +289,18 @@ class CompConverters(ContComp):
     # ---------------------------------------------------------------------------
 
     @classmethod
-    def docker_image_name(cls, repo_dir: Path) -> str:
-        name = repo_dir.resolve().name
-        if name.startswith(cls.DOC_PREFIX):
-            name = name[len(cls.DOC_PREFIX) :]
-        return f"jejune:convert_{name}" if name else "jejune:convert"
+    def docker_image_name(
+        cls,
+        repo_dir: Path,
+        local_documents: bool = False,
+        local_pdf_to_markdown: bool = False,
+    ) -> str:
+        return ConverterImageName.build(
+            ConverterImageName.CATALOG_OWNER,
+            repo_dir.resolve().name,
+            local_documents,
+            local_pdf_to_markdown,
+        )
 
     @staticmethod
     def has_converter(repo_dir: Path) -> tuple[bool, Path, Path]:

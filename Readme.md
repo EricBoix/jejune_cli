@@ -84,6 +84,19 @@ probes the same repositories and tells which one cannot be reached.
 `.jejune/tmp` but never clones a missing one: the first
 `jejune converters build --local-pdf-to-markdown` does.
 
+The converter image of a document is named `jejune:convert_<owner>_<slug>[<suffix>]`:
+
+- `<owner>` is `catalog` (built by `jejune converters build`, catalog-contributor) or
+  `doc` (built by `jejune convert build`, doc-steward), so that both never overwrite
+  each other;
+- `<slug>` is the name of the document repository without its `jejune_doc_` prefix;
+- `<suffix>` is `-local_doc` (`--local-documents`), `-local_pdf`
+  (`--local-pdf-to-markdown`) or `-local` (both, i.e. `--local`), and empty otherwise.
+
+The build fails when the tag exceeds the 128 characters accepted by docker or holds
+a character it refuses. Images built with the former names (`jejune:convert_<slug>`)
+must be rebuilt.
+
 Every `DockerContext/Dockerfile` selects its sources with the `DOC_SOURCE` and
 `PDF_TO_MARKDOWN_SOURCE` build arguments, and the repository root carries a
 `.dockerignore` restricting what is copied from a local clone.
