@@ -97,32 +97,17 @@ def hint_availability(conv):
     "repositories (default: GIT_ACCESS_TOKEN_FILE or GIT_ACCESS_TOKEN of .jejune/env-secrets).",
 )
 @click.option(
-    "--local-documents",
-    "local_documents",
-    is_flag=True,
-    default=False,
-    help="Copy the local document (the one of CONVERT_DOC_DIR) into the image (instead of git cloning it).",
-)
-@click.option(
     "--local-pdf-to-markdown",
     is_flag=True,
     default=False,
     help="Use the local pdf-to-markdown (instead of the uv.lock version).",
-)
-@click.option(
-    "--local",
-    is_flag=True,
-    default=False,
-    help="Same as --local-documents --local-pdf-to-markdown.",
 )
 @click.pass_obj
 def build(
     conv,
     no_cache: bool,
     token_file: str | None,
-    local_documents: bool,
     local_pdf_to_markdown: bool,
-    local: bool,
 ):
     """Build the converter Docker image.
 
@@ -135,21 +120,18 @@ def build(
     to docker build as the BuildKit secret `git_credentials`.
 
     By default the image clones the document from GitHub and uses the
-    pdf-to-markdown version locked in the uv.lock of the document. The --local-*
-    flags use instead the local document, and the local pdf-to-markdown searched
+    pdf-to-markdown version locked in the uv.lock of the document. The
+    --local-pdf-to-markdown flag uses instead the local pdf-to-markdown, searched
     in $JEJUNE_ROOT_DIR, then in .jejune/tmp (cloned there when found nowhere).
     The sources used are recorded as image labels.
     """
-    local_documents = local_documents or local
-    local_pdf_to_markdown = local_pdf_to_markdown or local
     try:
         click.echo(
-            f"Building {conv._image_tag(local_documents, local_pdf_to_markdown)} ..."
+            f"Building {conv._image_tag(local_pdf_to_markdown=local_pdf_to_markdown)} ..."
         )
         conv.build(
             no_cache=no_cache,
             token_file=token_file,
-            local_documents=local_documents,
             local_pdf_to_markdown=local_pdf_to_markdown,
         )
     except ValueError as exc:
