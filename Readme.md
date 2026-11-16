@@ -374,6 +374,9 @@ Conditions to run it:
 
 ## Development
 
+Design notes (state machine, role inheritance, ecosystem repository
+resolution) live in the [Doc directory](Doc/Readme.md).
+
 ### Testing
 
 The test suite uses [pytest](https://docs.pytest.org/), declared in the `dev`

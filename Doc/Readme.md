@@ -1,5 +1,8 @@
 # Doc directory
 
+This directory holds design notes and assets for developers of `jejune_cli`.
+For installation and command usage see the [main Readme](../Readme.md).
+
 ## jejune_cli command feature/design
 
 ### jejune state machine

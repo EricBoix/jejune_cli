@@ -10,6 +10,7 @@
             "description": "Words used for jejune_cli repository",
             "addWords": true
         }
-    }
+    },
+    "cSpell.dictionaries": ["jejune_cli"]
 
 }
