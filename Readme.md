@@ -389,7 +389,27 @@ uv run pytest tests/test_component_registry.py     # run a single test file
 uv run pytest -k invalidate_order                  # run tests matching an expression
 ```
 
-Python files are formatted with black: `uv run black <file>`.
+### Formatting
+
+Python files are formatted with [black](https://black.readthedocs.io/), with
+its default options (nothing is configured in `[tool.black]` of
+`pyproject.toml`).
+
+black is deliberately **not** a dev-dependency. Most contributors use VS Code,
+whose Black Formatter extension (`ms-python.black-formatter`, recommended in
+`.vscode/extensions.json`) bundles its own black. A second black installed
+through `uv` could be a different version and the two would reformat each
+other's output, causing formatting-only commits back and forth.
+
+Point the shell at the extension's bundled black instead:
+
+```bash
+export PYTHONPATH=$(ls -d ~/.vscode/extensions/ms-python.black-formatter-*/bundled/libs | tail -1)
+uv run python -m black <file>          # format a file
+uv run python -m black --version       # compare with the version the IDE uses
+```
+
+The extension folder name contains its version, hence the glob.
 
 ---
 

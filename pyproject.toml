@@ -31,8 +31,15 @@ dev = [
 packages = ["jejune_cli"]
 
 
+# black is deliberately NOT a dev-dependency: the IDE (VS Code Black Formatter
+# extension) and the shell must use the same black version, otherwise the two
+# reformat each other's output. Run the extension's bundled copy:
+#   PYTHONPATH=~/.vscode/extensions/ms-python.black-formatter-*/bundled/libs \
+#     uv run python -m black <file>
+# (the extension folder name carries a version: use the glob.)
+# See Readme.md, section "Development > Formatting". No option is set: black's
+# defaults (e.g. line length 88) apply.
 [tool.black]
-line-length = 88
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
