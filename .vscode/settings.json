@@ -11,6 +11,9 @@
             "addWords": true
         }
     },
-    "cSpell.dictionaries": ["jejune_cli"]
-
+    "cSpell.dictionaries": ["jejune_cli"],
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.formatOnSave": true
+    }
 }
