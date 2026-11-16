@@ -18,8 +18,8 @@ class _StatusTable:
     REPO_ROOT_LABEL = "[REPO_ROOT_DIR]"
     ICON_WIDTH = 1  # display width of ✓/✗
     UP_TO_DATE_HEADER = "Up-to-date"
-    UP_TO_DATE_PAD = (len(UP_TO_DATE_HEADER) - 1) // 2
     COMMIT_HEADER = "Commit"
+    IMAGE_HEADER = "Image"
 
     @staticmethod
     def remote_label(remote_url: str, repo_root_dir: str) -> str:
@@ -29,18 +29,29 @@ class _StatusTable:
         return remote_url
 
     @staticmethod
-    def up_to_date_cell(up_to_date: bool | None) -> str:
-        """The centred, padded Up-to-date cell."""
-        if up_to_date is None:
+    def status_cell(status: bool | None, header: str) -> str:
+        """The ✓/✗ cell (blank when *status* is None), centred under *header*."""
+        if status is None:
             icon, color = "", ""
         else:
-            icon, color = ClickTheme.status_icons["ok" if up_to_date else "error"]
+            icon, color = ClickTheme.status_icons["ok" if status else "error"]
         cell = click.style(icon, fg=color) if color else ""
-        pad = _StatusTable.UP_TO_DATE_PAD
-        trail = len(_StatusTable.UP_TO_DATE_HEADER) - pad - _StatusTable.ICON_WIDTH
+        pad = (len(header) - _StatusTable.ICON_WIDTH) // 2
+        trail = len(header) - pad - _StatusTable.ICON_WIDTH
         # Unstyled blanks of the icon width when there is no icon
         icon_blank = "" if cell else " " * _StatusTable.ICON_WIDTH
         return f"{'':>{pad}}{cell}{icon_blank}{'':<{trail}}"
+
+    @staticmethod
+    def up_to_date_cell(up_to_date: bool | None) -> str:
+        """The centred, padded Up-to-date cell."""
+        return _StatusTable.status_cell(up_to_date, _StatusTable.UP_TO_DATE_HEADER)
+
+    @staticmethod
+    def image_cell(aligned: bool | None) -> str:
+        """The centred, padded Image cell: is the document of the converter image the
+        HEAD of its remote?"""
+        return _StatusTable.status_cell(aligned, _StatusTable.IMAGE_HEADER)
 
     @staticmethod
     def icon_cell(ok: bool, icon_header: str) -> str:
@@ -52,18 +63,33 @@ class _StatusTable:
 
     @staticmethod
     def header(
-        first, icon_header, location_header, first_width, location_width
+        first,
+        icon_header,
+        location_header,
+        first_width,
+        location_width,
+        commit_width: int = len(COMMIT_HEADER),
+        with_image: bool = False,
     ) -> str:
-        """The header row: *first* is bold and *location_header* is centred."""
+        """The header row: *first* is bold and *location_header* is centred. With
+        *with_image*, an Image column follows the (padded) Commit one."""
         bold_first = click.style(f"{first:<{first_width}}", bold=True)
-        return (
+        row = (
             f"  {bold_first}  {icon_header}  "
             f"{location_header:^{location_width}}  "
-            f"{_StatusTable.UP_TO_DATE_HEADER}  {_StatusTable.COMMIT_HEADER}"
+            f"{_StatusTable.UP_TO_DATE_HEADER}  "
         )
+        if with_image:
+            return (
+                f"{row}{_StatusTable.COMMIT_HEADER:<{commit_width}}  "
+                f"{_StatusTable.IMAGE_HEADER}"
+            )
+        return f"{row}{_StatusTable.COMMIT_HEADER}"
 
     @staticmethod
-    def rule(first_width, icon_header, location_width, commit_width) -> str:
+    def rule(
+        first_width, icon_header, location_width, commit_width, with_image=False
+    ) -> str:
         total = (
             first_width
             + 2
@@ -74,6 +100,7 @@ class _StatusTable:
             + len(_StatusTable.UP_TO_DATE_HEADER)
             + 2
             + commit_width
+            + (2 + len(_StatusTable.IMAGE_HEADER) if with_image else 0)
         )
         return "  " + "─" * total
 
@@ -178,13 +205,21 @@ def ecosystem_status(ctx) -> None:
     token_files = (
         CatalogFile(catalog_path).token_files() if catalog_path.is_file() else {}
     )
-    doc_rows: list[tuple[str, bool, str, bool | None, str]] = [
+    component_names = [] if active is None else [comp.name for comp in active]
+    # The Image column exists when a component of the role builds images of documents
+    with_image = eco.offers_document_images(component_names)
+    doc_rows: list[tuple[str, bool, str, bool | None, str, bool | None]] = [
         (
             name,
             has_doc,
             _StatusTable.LOCATION_LABEL.get(tier, tier),
             eco.repo_up_to_date(Path(path_str), token_files.get(name)),
             eco.short_head(Path(path_str)) or "",
+            (
+                eco.document_image_aligned(component_names, name, token_files.get(name))
+                if with_image
+                else None
+            ),
         )
         for name, tier, path_str, has_doc in doc_repos
     ]
@@ -192,14 +227,23 @@ def ecosystem_status(ctx) -> None:
     _W_DC = max(len("Repository"), max(len(r[2]) for r in doc_rows))
     _W_DCOMMIT = max(len(_StatusTable.COMMIT_HEADER), max(len(r[4]) for r in doc_rows))
 
-    click.echo(_StatusTable.header("Document", "Manifest", "Repository", _W_DN, _W_DC))
-    click.echo(_StatusTable.rule(_W_DN, "Manifest", _W_DC, _W_DCOMMIT))
-    for name, has_doc, location, up_to_date, commit in doc_rows:
-        click.echo(
+    click.echo(
+        _StatusTable.header(
+            "Document", "Manifest", "Repository", _W_DN, _W_DC, _W_DCOMMIT, with_image
+        )
+    )
+    click.echo(_StatusTable.rule(_W_DN, "Manifest", _W_DC, _W_DCOMMIT, with_image))
+    for name, has_doc, location, up_to_date, commit, image_aligned in doc_rows:
+        row = (
             f"  {name:<{_W_DN}}  {_StatusTable.icon_cell(has_doc, 'Manifest')}  "
             f"{location:<{_W_DC}}  "
-            f"{_StatusTable.up_to_date_cell(up_to_date)}  {commit}"
+            f"{_StatusTable.up_to_date_cell(up_to_date)}  "
         )
+        if with_image:
+            row += f"{commit:<{_W_DCOMMIT}}  {_StatusTable.image_cell(image_aligned)}"
+        else:
+            row += commit
+        click.echo(row)
     _echo_catalog_entries_unknown_to_ecosystem(eco, known_names)
 
 

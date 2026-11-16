@@ -84,6 +84,25 @@ probes the same repositories and tells which one cannot be reached.
 `.jejune/tmp` but never clones a missing one: the first
 `jejune converters build --local-pdf-to-markdown` does.
 
+For `pdf-to-markdown` the `Up-to-date` column does not compare a clone: it tells whether
+the pdf-to-markdown inside the converter images of the current role is the HEAD of its
+GitHub repository. Every build records the commits it used as image labels
+(`docker inspect --format '{{json .Config.Labels}}' <image>`):
+
+- `jejune.pdf-to-markdown-commit`: the commit of the local checkout (suffixed with
+  `-dirty` when it has uncommitted changes, which never equals a remote HEAD) or, for a
+  locked build, the commit of the `uv.lock` of the cloned document, read from the image
+  after the build;
+- `jejune.document-commit`: the commit of the document (idem for a local document).
+
+A document cloned by the Dockerfile is pinned to its commit: jejune_cli resolves the
+remote HEAD, passes it as the build argument `DOC_COMMIT` (checked out by the
+`Dockerfile` of the document) and records it in the label, so that a cached clone layer
+can never make the label lie. The `Up-to-date` cell is blank when no image is built or
+the remote cannot be reached. In the document table, the `Image` column does the same
+for the document itself (the `Up-to-date` column of that table still compares the
+clone). Images built before these labels existed must be rebuilt.
+
 The converter image of a document is named `jejune:convert_<owner>_<slug>[<suffix>]`:
 
 - `<owner>` is `catalog` (built by `jejune converters build`, catalog-contributor) or

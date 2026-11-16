@@ -10,6 +10,7 @@ from .component_containerized import ContComp
 from .configuration import Configuration
 from .configuration_entry import ConfigurationEntry
 from .containerized_context import ContainerizedContext
+from .converter_commits import ConverterCommits
 from .converter_image_name import ConverterImageName
 
 
@@ -40,8 +41,12 @@ class CompConvert(ContComp):
         # The Convert/main.py of a document uses pdf-to-markdown: it is a repository
         # of the ecosystem as soon as the document offers such a main.py
         ecosystem.register_repository(
-            self.name, PdfToMarkdownConfig.REPO_NAME, when=self.offers_converter_main
+            self.name,
+            PdfToMarkdownConfig.REPO_NAME,
+            when=self.offers_converter_main,
+            used_commits=self.image_pdf_to_markdown_commits,
         )
+        ecosystem.register_document_images(self.name, self.image_document_commits)
 
     @property
     def image_name(self) -> str:
@@ -54,6 +59,28 @@ class CompConvert(ContComp):
         # ContComp.__init__ assigns the placeholder it was given: the image name is
         # always computed from CONVERT_DOC_DIR
         pass
+
+    def image_pdf_to_markdown_commits(self) -> list[str]:
+        """The pdf-to-markdown commit recorded in the image, when it is built."""
+        return ConverterCommits.labelled_commits(
+            self._context.docker,
+            [self.image_name],
+            ConverterCommits.PDF_TO_MARKDOWN_COMMIT_LABEL,
+        )
+
+    def image_document_commits(self, document_name: str) -> list[str]:
+        """The commit of the document *document_name* recorded in the image, when it
+        is the document of CONVERT_DOC_DIR and the image is built."""
+        if (
+            ConverterImageName.build(ConverterImageName.DOCUMENT_OWNER, document_name)
+            != self.image_name
+        ):
+            return []
+        return ConverterCommits.labelled_commits(
+            self._context.docker,
+            [self.image_name],
+            ConverterCommits.DOCUMENT_COMMIT_LABEL,
+        )
 
     def offers_converter_main(self) -> bool:
         """True when the document of CONVERT_DOC_DIR has a Convert/main.py."""
@@ -107,10 +134,20 @@ class CompConvert(ContComp):
                 raise ValueError(f"DockerContext not found at {ctx}")
             dockerfile, context = ctx / "Dockerfile", ctx
         extra = ["--no-cache"] if no_cache else []
+        document_urls = self.dockerfile_git_urls(dockerfile)
+        # The document is always cloned by the Dockerfile: it is pinned to the commit
+        # recorded in the image, which is the remote HEAD at the time of the build
+        document_commit = (
+            ConverterCommits.remote_head(
+                self._context.git_access, document_urls[0], token_file
+            )
+            if document_urls
+            else None
+        )
         # The Dockerfile clones private repositories with the credentials handed
         # over as a BuildKit secret: they never end up in an image layer.
         with self._context.git_access.credentials_file(
-            self.dockerfile_git_urls(dockerfile), token_file
+            document_urls, token_file
         ) as credentials:
             secret = (
                 ["--secret", f"id=git_credentials,src={credentials}"]
@@ -123,6 +160,7 @@ class CompConvert(ContComp):
                     "build",
                     *extra,
                     *secret,
+                    *ConverterCommits.build_arguments(document_commit, True, None),
                     "-t",
                     CompConvert._image_tag(),
                     "-f",
@@ -130,6 +168,16 @@ class CompConvert(ContComp):
                     str(context),
                 ],
                 check=True,
+            )
+        # pdf-to-markdown is the one locked by the uv.lock of the cloned document,
+        # which is only known inside the image
+        locked_commit = ConverterCommits.locked_pdf_to_markdown_commit(
+            CompConvert._image_tag()
+        )
+        if locked_commit:
+            ConverterCommits.add_labels(
+                CompConvert._image_tag(),
+                {ConverterCommits.PDF_TO_MARKDOWN_COMMIT_LABEL: locked_commit},
             )
 
     def check(self) -> tuple[str, str]:

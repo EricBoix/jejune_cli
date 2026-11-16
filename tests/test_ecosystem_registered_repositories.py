@@ -1,6 +1,7 @@
 import subprocess
 from types import SimpleNamespace
 
+import click
 import pytest
 from click.testing import CliRunner
 
@@ -348,3 +349,104 @@ def test_git_access_does_not_probe_a_cloned_ecosystem_repository(
         tmp_path, None
     )
     assert click_comp_git_access.ecosystem_probe_rows(FakeApplication(ecosystem)) == []
+
+
+class FakeImageGitAccess(FakeGitAccess):
+    """The HEAD of every remote is REMOTE_SHA."""
+
+
+@pytest.mark.parametrize(
+    "used_commits, expected",
+    [
+        ([REMOTE_SHA], True),
+        ([REMOTE_SHA, LOCAL_SHA], False),
+        ([REMOTE_SHA + "-dirty"], False),
+        ([], None),
+    ],
+)
+def test_used_commits_replace_the_clone_comparison(
+    used_commits, expected, make_ecosystem, tmp_path
+):
+    ecosystem = make_ecosystem(FakeImageGitAccess())
+    ecosystem.repo_up_to_date = lambda path: pytest.fail("the clone is not compared")
+    directories = EcosystemDirectories(None, None)
+    state = ecosystem.repository_state(
+        "pdf-to-markdown", directories, used_commits=used_commits
+    )
+    assert state.up_to_date is expected
+
+
+def test_used_commits_replace_the_clone_comparison_of_a_cloned_repository(
+    make_ecosystem, tmp_path
+):
+    (tmp_path / "pdf-to-markdown").mkdir()
+    ecosystem = make_ecosystem(FakeImageGitAccess())
+    ecosystem.repo_up_to_date = lambda path: True
+    state = ecosystem.repository_state(
+        "pdf-to-markdown",
+        EcosystemDirectories(tmp_path, None),
+        used_commits=[LOCAL_SHA],
+    )
+    assert state.up_to_date is False
+    assert state.location.is_local
+
+
+def test_unreachable_remote_leaves_the_alignment_unknown(make_ecosystem):
+    ecosystem = make_ecosystem(FakeGitAccess(probe_returncode=128))
+    state = ecosystem.repository_state(
+        "pdf-to-markdown", EcosystemDirectories(None, None), used_commits=[LOCAL_SHA]
+    )
+    assert state.up_to_date is None
+
+
+def test_only_the_active_components_say_which_commits_they_use(make_ecosystem):
+    ecosystem = make_ecosystem()
+    ecosystem.register_repository(
+        "convert", "pdf-to-markdown", used_commits=lambda: ["first"]
+    )
+    ecosystem.register_repository(
+        "converters", "pdf-to-markdown", used_commits=lambda: ["second"]
+    )
+    assert ecosystem.used_commits("pdf-to-markdown", ["convert"]) == ["first"]
+    assert ecosystem.used_commits("pdf-to-markdown", ["convert", "converters"]) == [
+        "first",
+        "second",
+    ]
+    assert ecosystem.used_commits("pdf-to-markdown", ["other"]) is None
+
+
+@pytest.mark.parametrize(
+    "document_commits, expected",
+    [
+        ([REMOTE_SHA], True),
+        ([LOCAL_SHA], False),
+        ([], None),
+    ],
+)
+def test_document_image_alignment_with_the_remote_head(
+    document_commits, expected, make_ecosystem
+):
+    ecosystem = make_ecosystem(FakeImageGitAccess())
+    ecosystem.register_document_images("convert", lambda name: document_commits)
+    assert ecosystem.offers_document_images(["convert"])
+    assert not ecosystem.offers_document_images(["other"])
+    assert ecosystem.document_image_aligned(["convert"], "jejune_doc_X") is expected
+    assert ecosystem.document_image_aligned(["other"], "jejune_doc_X") is None
+
+
+@pytest.mark.parametrize("aligned", [True, False, None])
+def test_image_cell_is_as_wide_as_its_header(aligned):
+    cell = click_comp_ecosystem._StatusTable.image_cell(aligned)
+    assert len(click.unstyle(cell)) == len(
+        click_comp_ecosystem._StatusTable.IMAGE_HEADER
+    )
+
+
+def test_documents_table_rule_spans_the_image_column():
+    table = click_comp_ecosystem._StatusTable
+    header = click.unstyle(
+        table.header("Document", "Manifest", "Repository", 10, 12, 7, True)
+    )
+    rule = table.rule(10, "Manifest", 12, 7, True)
+    assert header.endswith(f"Commit   {table.IMAGE_HEADER}")
+    assert len(rule) - 2 == len(header) - 2

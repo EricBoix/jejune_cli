@@ -6,6 +6,7 @@ import pytest
 from jejune_cli.component_catalog_access_checker import CatalogAccessChecker
 from jejune_cli.component_cont_convert import CompConvert
 from jejune_cli.component_git_access import CompGitAccess
+from jejune_cli.converter_commits import ConverterCommits
 
 # Reserved example domain: the tests must not depend on the default ecosystem host
 REPOSITORY_HOST_AND_PATH = "example.org/team/jejune_doc_X.git"
@@ -139,6 +140,13 @@ def test_convert_build_passes_credentials_as_docker_secret(
     monkeypatch.setattr(
         subprocess, "run", lambda command, **kwargs: commands.append(command)
     )
+    # The commits recorded in the image: what git and docker answer is not under test
+    monkeypatch.setattr(
+        ConverterCommits, "remote_head", lambda *arguments, **options: None
+    )
+    monkeypatch.setattr(
+        ConverterCommits, "locked_pdf_to_markdown_commit", lambda image: None
+    )
     convert = CompConvert.__new__(CompConvert)
     convert._context = SimpleNamespace(git_access=git_access)
     convert.configuration = SimpleNamespace(check=lambda: ("ok", "", ""))
@@ -207,7 +215,9 @@ def test_run_git_authenticates_only_with_a_token(
     assert not list((tmp_path / ".jejune" / "tmp").glob("git-credentials-*"))
 
 
-def test_catalog_access_checker_rejects_url_without_repository_path(git_access, tmp_path):
+def test_catalog_access_checker_rejects_url_without_repository_path(
+    git_access, tmp_path
+):
     catalog = tmp_path / "catalog.yaml"
     catalog.write_text(
         "documents:\n"
@@ -229,4 +239,6 @@ def test_catalog_access_checker_accepts_url_with_repository_path(git_access, tmp
         f"documents:\n  - name: jejune_doc_X\n    url: {REPOSITORY_URL}\n"
         "    public: true\n"
     )
-    assert [status for status, _, _ in CatalogAccessChecker(git_access, catalog).run()] == ["ok"]
+    assert [
+        status for status, _, _ in CatalogAccessChecker(git_access, catalog).run()
+    ] == ["ok"]

@@ -14,6 +14,7 @@ from .component_cont_convert import CompConvert
 from .component_containerized import ContComp
 from .component_ecosystem import EcosystemDirectories, RepoTier
 from .containerized_context import ContainerizedContext
+from .converter_commits import ConverterCommits
 from .converter_image_name import ConverterImageName
 
 
@@ -41,9 +42,6 @@ class CompConverters(ContComp):
     DOCUMENT_CONTEXT_NAME = "jejune-doc"
     DOCUMENT_SOURCE_ARGUMENT = "DOC_SOURCE"
     PDF_TO_MARKDOWN_SOURCE_ARGUMENT = "PDF_TO_MARKDOWN_SOURCE"
-    # Image labels recording where the inputs of an image came from
-    DOCUMENT_LABEL = "jejune.document"
-    PDF_TO_MARKDOWN_LABEL = "jejune.pdf-to-markdown"
     DEFAULT_DOCUMENT_SOURCE = "git"
     DEFAULT_PDF_TO_MARKDOWN_SOURCE = "locked"
 
@@ -66,7 +64,40 @@ class CompConverters(ContComp):
         self.cli_name = self.name
         # pdf-to-markdown is a repository of the ecosystem (listed by `ecosystem
         # status`, updated by `ecosystem update`) as soon as it is cloned
-        ecosystem.register_repository(self.name, self.PDF_TO_MARKDOWN_NAME)
+        ecosystem.register_repository(
+            self.name,
+            self.PDF_TO_MARKDOWN_NAME,
+            used_commits=self.image_pdf_to_markdown_commits,
+        )
+        ecosystem.register_document_images(self.name, self.image_document_commits)
+
+    def image_variants(self, repo_dir_name: str) -> list[str]:
+        """Every image name of the converter of *repo_dir_name* (whatever its local
+        sources)."""
+        return ConverterImageName.variants(
+            ConverterImageName.CATALOG_OWNER, repo_dir_name
+        )
+
+    def image_pdf_to_markdown_commits(self) -> list[str]:
+        """The pdf-to-markdown commits recorded in the built images of the documents
+        of the catalog."""
+        return [
+            commit
+            for repo_dir, _ in self._iter_local_converter_repos()
+            for commit in ConverterCommits.labelled_commits(
+                self._context.docker,
+                self.image_variants(repo_dir.resolve().name),
+                ConverterCommits.PDF_TO_MARKDOWN_COMMIT_LABEL,
+            )
+        ]
+
+    def image_document_commits(self, document_name: str) -> list[str]:
+        """The commits of the document *document_name* recorded in its built images."""
+        return ConverterCommits.labelled_commits(
+            self._context.docker,
+            self.image_variants(document_name),
+            ConverterCommits.DOCUMENT_COMMIT_LABEL,
+        )
 
     def _iter_local_converter_repos(self) -> list[tuple[Path, str]]:
         """Return (repo_dir, image_name) for catalog repos that are local and have a DockerContext."""
@@ -161,9 +192,9 @@ class CompConverters(ContComp):
                 ]
         arguments += [
             "--label",
-            f"{cls.DOCUMENT_LABEL}={document.label_value(cls.DEFAULT_DOCUMENT_SOURCE)}",
+            f"{ConverterCommits.DOCUMENT_SOURCE_LABEL}={document.label_value(cls.DEFAULT_DOCUMENT_SOURCE)}",
             "--label",
-            f"{cls.PDF_TO_MARKDOWN_LABEL}="
+            f"{ConverterCommits.PDF_TO_MARKDOWN_SOURCE_LABEL}="
             f"{pdf_to_markdown.label_value(cls.DEFAULT_PDF_TO_MARKDOWN_SOURCE)}",
         ]
         return arguments
@@ -180,9 +211,12 @@ class CompConverters(ContComp):
         labels = (
             (json.loads(inspected.stdout) or {}) if inspected.returncode == 0 else {}
         )
-        document = labels.get(cls.DOCUMENT_LABEL, cls.DEFAULT_DOCUMENT_SOURCE)
+        document = labels.get(
+            ConverterCommits.DOCUMENT_SOURCE_LABEL, cls.DEFAULT_DOCUMENT_SOURCE
+        )
         pdf_to_markdown = labels.get(
-            cls.PDF_TO_MARKDOWN_LABEL, cls.DEFAULT_PDF_TO_MARKDOWN_SOURCE
+            ConverterCommits.PDF_TO_MARKDOWN_SOURCE_LABEL,
+            cls.DEFAULT_PDF_TO_MARKDOWN_SOURCE,
         )
         return f"document: {document}, pdf-to-markdown: {pdf_to_markdown}"
 
@@ -225,6 +259,26 @@ class CompConverters(ContComp):
                 if local_documents
                 else ConverterSource()
             )
+            git_access = self._context.git_access
+            document_urls = CompConvert.dockerfile_git_urls(dockerfile)
+            # A document cloned by the Dockerfile is pinned to the remote HEAD
+            # recorded in the image; a local one is recorded as it is
+            document_commit = (
+                ConverterCommits.local_commit(git_access, repo_dir)
+                if document.is_local
+                else (
+                    ConverterCommits.remote_head(
+                        git_access, document_urls[0], token_files.get(name)
+                    )
+                    if document_urls
+                    else None
+                )
+            )
+            pdf_to_markdown_commit = (
+                ConverterCommits.local_commit(git_access, pdf_to_markdown.path)
+                if pdf_to_markdown.is_local
+                else None
+            )
             click.echo(
                 f"  Building {image_name} "
                 f"(document: {document.label_value(self.DEFAULT_DOCUMENT_SOURCE)}, "
@@ -254,6 +308,11 @@ class CompConverters(ContComp):
                             *extra,
                             *secret,
                             *self.source_arguments(document, pdf_to_markdown),
+                            *ConverterCommits.build_arguments(
+                                document_commit,
+                                not document.is_local,
+                                pdf_to_markdown_commit,
+                            ),
                             "-t",
                             image_name,
                             "-f",
@@ -272,6 +331,17 @@ class CompConverters(ContComp):
                     )
                     failed_images.append(image_name)
                     continue
+            if not pdf_to_markdown.is_local:
+                # pdf-to-markdown is the one locked by the uv.lock of the cloned
+                # document, which is only known inside the image
+                locked_commit = ConverterCommits.locked_pdf_to_markdown_commit(
+                    image_name
+                )
+                if locked_commit:
+                    ConverterCommits.add_labels(
+                        image_name,
+                        {ConverterCommits.PDF_TO_MARKDOWN_COMMIT_LABEL: locked_commit},
+                    )
             built_any = True
         if failed_images:
             raise click.ClickException(

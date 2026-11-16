@@ -8,8 +8,11 @@ from click.testing import CliRunner
 
 from jejune_cli import click_cont_comp_converters, component_cont_converters
 from jejune_cli.component_cont_converters import CompConverters, ConverterSource
+from jejune_cli.converter_commits import ConverterCommits
 
 PRIVATE_URL = "https://example.org/team/jejune_doc_Private.git"
+REMOTE_COMMIT = "a" * 40
+LOCAL_COMMIT = "b" * 40
 
 
 @pytest.fixture
@@ -49,6 +52,18 @@ def converters(tmp_path, monkeypatch):
     monkeypatch.setattr(
         component_cont_converters.CatalogFile, "resolve_path", lambda: tmp_path
     )
+    # The commits recorded in the image: what git and docker answer is not under test
+    monkeypatch.setattr(
+        ConverterCommits,
+        "remote_head",
+        lambda git_access, repository_url, token_file=None, **options: REMOTE_COMMIT,
+    )
+    monkeypatch.setattr(
+        ConverterCommits, "local_commit", lambda git_access, checkout: LOCAL_COMMIT
+    )
+    monkeypatch.setattr(
+        ConverterCommits, "locked_pdf_to_markdown_commit", lambda image: None
+    )
     instance.requested = requested
     instance.credentials = tmp_path / "credentials"
     return instance
@@ -85,11 +100,13 @@ def test_default_build_selects_no_local_source_but_labels_the_image(
         lambda command, check: commands.append(command),
     )
     converters.build()
-    assert option_pairs(commands[0], "--build-arg") == []
+    # The document cloned by the Dockerfile is pinned to the commit recorded
+    assert option_pairs(commands[0], "--build-arg") == [f"DOC_COMMIT={REMOTE_COMMIT}"]
     assert option_pairs(commands[0], "--build-context") == []
     assert option_pairs(commands[0], "--label") == [
         "jejune.document=git",
         "jejune.pdf-to-markdown=locked",
+        f"jejune.document-commit={REMOTE_COMMIT}",
     ]
 
 
@@ -105,13 +122,14 @@ def test_local_document_is_copied_and_needs_no_credentials(
     converters.build(local_documents=True)
     assert converters.requested == []
     assert "--secret" not in commands[0]
+    # A local document is not cloned: nothing to pin, its commit is only recorded
     assert option_pairs(commands[0], "--build-arg") == ["DOC_SOURCE=local"]
     assert option_pairs(commands[0], "--build-context") == [
         f"jejune-doc={tmp_path / 'jejune_doc_Private'}"
     ]
-    assert "jejune.document=root:" + str(tmp_path / "jejune_doc_Private") in (
-        option_pairs(commands[0], "--label")
-    )
+    labels = option_pairs(commands[0], "--label")
+    assert "jejune.document=root:" + str(tmp_path / "jejune_doc_Private") in labels
+    assert f"jejune.document-commit={LOCAL_COMMIT}" in labels
 
 
 def test_local_sources_are_independent_and_both_selectable(tmp_path):
@@ -167,15 +185,27 @@ def test_pdf_to_markdown_found_nowhere_is_cloned_into_tmp_with_its_history(tmp_p
 
 def test_converters_register_pdf_to_markdown_with_the_ecosystem():
     registered = []
-    CompConverters(
+    document_images = []
+    converters = CompConverters(
         docker_daemon=SimpleNamespace(name="docker-daemon"),
         ecosystem=SimpleNamespace(
-            register_repository=lambda *arguments: registered.append(arguments)
+            register_repository=lambda *arguments, **options: registered.append(
+                (arguments, options)
+            ),
+            register_document_images=lambda *arguments: document_images.append(
+                arguments
+            ),
         ),
         catalog_comp=None,
         context=SimpleNamespace(docker=None, docker_daemon=None),
     )
-    assert registered == [("converters", "pdf-to-markdown")]
+    assert registered == [
+        (
+            ("converters", "pdf-to-markdown"),
+            {"used_commits": converters.image_pdf_to_markdown_commits},
+        )
+    ]
+    assert document_images == [("converters", converters.image_document_commits)]
 
 
 @pytest.mark.parametrize(
