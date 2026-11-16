@@ -5,8 +5,8 @@ import os
 import urllib.error
 import urllib.request
 
-from .configuration import Configuration
-from .configuration_entry import ConfigurationEntry
+from jejune_cli.core.configuration import Configuration
+from jejune_cli.core.configuration_entry import ConfigurationEntry
 from .component_ext_server import ExtServer
 from .component_ext_network import CompNetwork
 

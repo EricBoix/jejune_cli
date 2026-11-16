@@ -2,9 +2,9 @@ from pathlib import Path
 
 import click
 
-from .app_context import AppContext
+from jejune_cli.core.app_context import AppContext
 from .component_catalog_file import CatalogFile
-from .component_containerized import ContComp
+from jejune_cli.core.component_containerized import ContComp
 
 
 @click.command("build")

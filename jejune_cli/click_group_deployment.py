@@ -6,7 +6,7 @@ from pathlib import Path
 
 import click
 
-from .app_context import AppContext
+from jejune_cli.core.app_context import AppContext
 
 
 @click.group(short_help="Manage deployments")

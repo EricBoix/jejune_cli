@@ -5,11 +5,11 @@ import re
 import subprocess
 from pathlib import Path
 
-from ._package_paths import CatalogConfig, PdfToMarkdownConfig
-from .component_containerized import ContComp
-from .configuration import Configuration
-from .configuration_entry import ConfigurationEntry
-from .containerized_context import ContainerizedContext
+from jejune_cli.core._package_paths import CatalogConfig, PdfToMarkdownConfig
+from jejune_cli.core.component_containerized import ContComp
+from jejune_cli.core.configuration import Configuration
+from jejune_cli.core.configuration_entry import ConfigurationEntry
+from jejune_cli.core.containerized_context import ContainerizedContext
 from .converter_commits import ConverterCommits
 from .converter_image_name import ConverterImageName
 

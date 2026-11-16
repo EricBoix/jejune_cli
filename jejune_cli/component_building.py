@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from .component_registry import ComponentRegistry
-from .containerized_context import ContainerizedContext
+from jejune_cli.core.component_registry import ComponentRegistry
+from jejune_cli.core.containerized_context import ContainerizedContext
 from .component_ext_command_docker import CompCommandDocker
 from .component_ext_network import CompNetwork
 from .component_ext_command_git import CompCommandGit
@@ -26,7 +26,7 @@ from .component_cont_oxigraph import CompOxigraph
 from .component_cont_graph import CompGraph
 from .component_cont_neo4j_to_rdf_ttl import CompNeo4jToRdfTtl
 from .component_deployment import CompDeployment
-from .containers_cross_process_coordination import ContainerCoordination
+from jejune_cli.core.containers_cross_process_coordination import ContainerCoordination
 from .plugin_package_catalog import PluginPackageCatalog
 from .plugin_registry import PluginRegistry
 from .role_registry import RoleRegistry

@@ -2,9 +2,9 @@
 
 import os
 
-from .component_registry import ComponentRegistry
+from jejune_cli.core.component_registry import ComponentRegistry
 from .plugin_role_description import PluginRoleDescription
-from .component_base import BaseComp
+from jejune_cli.core.component_base import BaseComp
 from .role import Role
 
 

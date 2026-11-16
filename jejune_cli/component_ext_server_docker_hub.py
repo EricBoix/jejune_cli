@@ -2,7 +2,7 @@
 
 import subprocess
 
-from .component_with_config import ConfComp
+from jejune_cli.core.component_with_config import ConfComp
 
 
 class CompServerDockerHub(ConfComp):

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from .configuration_entry import ConfigurationEntry
+from jejune_cli.core.configuration_entry import ConfigurationEntry
 
 
 class Configuration:

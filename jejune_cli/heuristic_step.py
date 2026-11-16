@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Protocol, runtime_checkable
 
-from .component_registry import ComponentRegistry
+from jejune_cli.core.component_registry import ComponentRegistry
 
 
 @runtime_checkable

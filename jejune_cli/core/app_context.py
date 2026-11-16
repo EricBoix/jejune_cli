@@ -6,14 +6,14 @@ from pathlib import Path
 
 import click
 
-from .component_registry import ComponentRegistry
-from .role_registry import RoleRegistry
-from .containers_cross_process_coordination import ContainerCoordination
-from .plugin_registry import PluginRegistry
-from .heuristic_step_registry import HeuristicStepRegistry
-from .component_building import build_components
-from .role_definitions import wire_roles
-from .heuristic_step_wiring import wire_heuristics
+from jejune_cli.core.component_registry import ComponentRegistry
+from jejune_cli.role_registry import RoleRegistry
+from jejune_cli.core.containers_cross_process_coordination import ContainerCoordination
+from jejune_cli.plugin_registry import PluginRegistry
+from jejune_cli.heuristic_step_registry import HeuristicStepRegistry
+from jejune_cli.component_building import build_components
+from jejune_cli.role_definitions import wire_roles
+from jejune_cli.heuristic_step_wiring import wire_heuristics
 
 
 class AppContext:

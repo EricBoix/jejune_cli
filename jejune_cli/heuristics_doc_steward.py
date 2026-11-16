@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from .component_containerized import ContComp
-from .component_registry import ComponentRegistry
+from jejune_cli.core.component_containerized import ContComp
+from jejune_cli.core.component_registry import ComponentRegistry
 from .heuristic_step import ComponentCondition, HeuristicStep
 from .heuristic_step_registry import HeuristicStepRegistry
 from .role_registry import RoleRegistry

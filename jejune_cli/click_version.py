@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from ._sha import SHA
+from jejune_cli.core._sha import SHA
 
 
 def version_string() -> str:

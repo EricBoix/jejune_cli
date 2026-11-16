@@ -9,9 +9,9 @@ from pathlib import Path
 
 import click
 
-from ._package_paths import TemplatePaths
-from .app_context import AppContext
-from .dot_jejune import DotJejune
+from jejune_cli.core._package_paths import TemplatePaths
+from jejune_cli.core.app_context import AppContext
+from jejune_cli.core.dot_jejune import DotJejune
 
 
 @click.command("init")

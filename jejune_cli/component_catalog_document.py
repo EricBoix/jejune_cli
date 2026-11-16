@@ -6,7 +6,7 @@ from typing import Protocol
 
 import yaml
 
-from ._package_paths import SchemaPaths
+from jejune_cli.core._package_paths import SchemaPaths
 
 
 class CredentialsResolver(Protocol):
@@ -61,7 +61,9 @@ class CatalogDocument:
             elif not isinstance(doc[field], _TYPE_MAP.get(ftype, object)):
                 errors.append(f"'{field}' must be a {ftype}")
         for field, ftype in schema.get("optional_fields", {}).items():
-            if field in doc and not isinstance(doc[field], _TYPE_MAP.get(ftype, object)):
+            if field in doc and not isinstance(
+                doc[field], _TYPE_MAP.get(ftype, object)
+            ):
                 errors.append(f"'{field}' must be a {ftype}")
         if errors:
             errors.append(f"see {SchemaPaths.CATALOG} for the expected format")

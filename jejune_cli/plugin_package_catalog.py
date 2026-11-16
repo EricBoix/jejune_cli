@@ -13,7 +13,7 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib  # type: ignore[no-reuse-import]
 
-from .component_registry import ComponentRegistry
+from jejune_cli.core.component_registry import ComponentRegistry
 from .plugin_registry import PluginRegistry
 from .role_registry import RoleRegistry
 

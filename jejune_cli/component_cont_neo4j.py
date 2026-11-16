@@ -11,10 +11,10 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from .component_containerized import ContComp
-from .configuration import Configuration
-from .configuration_entry import ConfigurationEntry
-from .containerized_context import ContainerizedContext
+from jejune_cli.core.component_containerized import ContComp
+from jejune_cli.core.configuration import Configuration
+from jejune_cli.core.configuration_entry import ConfigurationEntry
+from jejune_cli.core.containerized_context import ContainerizedContext
 
 
 class CompNeo4j(ContComp):

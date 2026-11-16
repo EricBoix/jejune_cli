@@ -2,7 +2,7 @@
 
 import click
 
-from .app_context import AppContext
+from jejune_cli.core.app_context import AppContext
 from .click_group_configuration import register_role_config_subgroup
 from .plugin_description import PluginDescription
 

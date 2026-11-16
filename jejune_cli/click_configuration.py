@@ -1,6 +1,6 @@
 import click
 
-from .configuration import Configuration
+from jejune_cli.core.configuration import Configuration
 
 
 def print_config_check(config: Configuration, exit_on_not_set: bool = False) -> None:

@@ -8,12 +8,12 @@ from pathlib import Path
 
 import click
 
-from ._package_paths import PdfToMarkdownConfig
+from jejune_cli.core._package_paths import PdfToMarkdownConfig
 from .component_catalog_file import CatalogFile
 from .component_cont_convert import CompConvert
-from .component_containerized import ContComp
+from jejune_cli.core.component_containerized import ContComp
 from .component_ecosystem import EcosystemDirectories, RepoTier
-from .containerized_context import ContainerizedContext
+from jejune_cli.core.containerized_context import ContainerizedContext
 from .converter_commits import ConverterCommits
 from .converter_image_name import ConverterImageName
 

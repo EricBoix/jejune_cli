@@ -3,14 +3,14 @@
 from pathlib import Path
 from typing import ClassVar
 
-from ._package_paths import CatalogConfig, TemplatePaths
+from jejune_cli.core._package_paths import CatalogConfig, TemplatePaths
 from .component_catalog_access_checker import CatalogAccessChecker
 from .component_catalog_collection import CatalogCollection
 from .component_catalog_document import CatalogDocument
 from .component_catalog_file import CatalogFile
 from .component_catalog_updater import CatalogUpdater
 from .component_manifest import CompManifest
-from .component_with_config import ConfComp
+from jejune_cli.core.component_with_config import ConfComp
 
 
 class CompCatalog(ConfComp):

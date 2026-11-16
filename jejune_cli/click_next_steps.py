@@ -2,8 +2,8 @@
 
 import click
 
-from .app_context import AppContext
-from .dot_jejune import DotJejune
+from jejune_cli.core.app_context import AppContext
+from jejune_cli.core.dot_jejune import DotJejune
 
 
 class _NextGroup(click.Group):

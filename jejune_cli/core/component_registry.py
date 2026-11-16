@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .component_base import BaseComp
+from jejune_cli.core.component_base import BaseComp
 
 
 class UnresolvedPlugin:

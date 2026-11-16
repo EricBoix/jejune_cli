@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ._package_paths import TemplatePaths
+from jejune_cli.core._package_paths import TemplatePaths
 from .component_ext import ExtComp
-from .component_registry import ComponentRegistry
+from jejune_cli.core.component_registry import ComponentRegistry
 from .heuristic_step import ComponentCondition, HeuristicStep
 from .heuristic_step_registry import HeuristicStepRegistry
 from .role_definitions import RoleDetectors

@@ -2,8 +2,8 @@
 
 import click
 
-from .app_context import AppContext
-from .component_base import BaseComp
+from jejune_cli.core.app_context import AppContext
+from jejune_cli.core.component_base import BaseComp
 from .component_ext import ExtComp
 from .click_theme import ClickTheme
 

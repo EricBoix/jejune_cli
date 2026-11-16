@@ -7,8 +7,8 @@ from pathlib import Path
 
 import click
 
-from ._package_paths import CatalogConfig
-from .app_context import AppContext
+from jejune_cli.core._package_paths import CatalogConfig
+from jejune_cli.core.app_context import AppContext
 from .component_catalog_collection import CatalogCollection
 from .component_manifest import CompManifest
 

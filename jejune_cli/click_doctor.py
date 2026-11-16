@@ -5,18 +5,18 @@ from pathlib import Path
 
 import click
 
-from .app_context import AppContext
+from jejune_cli.core.app_context import AppContext
 from .doctor_health_check import run_all, run_avail
 from .click_helpers import print_two_col_table
 from .click_theme import ClickTheme
-from .component_base import BaseComp
-from .component_containerized import ContComp
+from jejune_cli.core.component_base import BaseComp
+from jejune_cli.core.component_containerized import ContComp
 from .component_ext import ExtComp
 from .component_ext_server import ExtServer
-from .component_with_config import ConfComp
+from jejune_cli.core.component_with_config import ConfComp
 from .plugin_registry import PluginRegistry
 from .role_registry import RoleRegistry
-from .dot_jejune import DotJejune
+from jejune_cli.core.dot_jejune import DotJejune
 from .doctor_column import Column
 
 # ---------------------------------------------------------------------------

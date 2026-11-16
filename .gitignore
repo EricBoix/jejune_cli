@@ -1,7 +1,8 @@
 .env
 .venv/
 __pycache__/
-jejune_cli/_sha.py
+jejune_cli/core/_sha.py
 dist
 .jejune/
 .pytest_cache/
+.jejune/tmp/

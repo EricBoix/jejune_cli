@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from ._package_paths import CatalogConfig
+from jejune_cli.core._package_paths import CatalogConfig
 from .component_git_access import CompGitAccess
 from .role import Role
 from .role_registry import RoleRegistry

@@ -9,13 +9,13 @@ from typing import Literal
 
 import click
 
-from ._package_paths import CatalogConfig
+from jejune_cli.core._package_paths import CatalogConfig
 from .component_catalog_file import CatalogFile
-from .configuration import Configuration
-from .configuration_entry import ConfigurationEntry
-from .component_with_config import ConfComp
+from jejune_cli.core.configuration import Configuration
+from jejune_cli.core.configuration_entry import ConfigurationEntry
+from jejune_cli.core.component_with_config import ConfComp
 from .converter_commits import ConverterCommits
-from .dot_jejune import DotJejune
+from jejune_cli.core.dot_jejune import DotJejune
 
 RepoTier = Literal["root", "tmp", "remote"]
 

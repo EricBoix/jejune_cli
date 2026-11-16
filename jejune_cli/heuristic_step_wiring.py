@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from .component_registry import ComponentRegistry
-from .dot_jejune import DotJejune
+from jejune_cli.core.component_registry import ComponentRegistry
+from jejune_cli.core.dot_jejune import DotJejune
 from .heuristic_step import HeuristicStep
 from .heuristic_step_registry import HeuristicStepRegistry
 from .role_registry import RoleRegistry

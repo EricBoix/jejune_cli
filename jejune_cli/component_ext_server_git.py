@@ -5,7 +5,7 @@ import subprocess
 from typing import Protocol
 from urllib.parse import urlsplit
 
-from ._git_server_config import REPO_ROOT_DIR as _REPO_ROOT_DIR
+from jejune_cli.core._git_server_config import REPO_ROOT_DIR as _REPO_ROOT_DIR
 from .component_git_access import CompGitAccess
 from .component_ext_server import ExtServer
 from .component_ext_network import CompNetwork

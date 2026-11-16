@@ -2,10 +2,10 @@
 
 import sys
 
-from .component_base import BaseComp
-from .component_registry import ComponentRegistry
-from .component_containerized import ContComp
-from .component_with_config import ConfComp
+from jejune_cli.core.component_base import BaseComp
+from jejune_cli.core.component_registry import ComponentRegistry
+from jejune_cli.core.component_containerized import ContComp
+from jejune_cli.core.component_with_config import ConfComp
 from .plugin_registry import PluginRegistry
 from .role_registry import RoleRegistry
 

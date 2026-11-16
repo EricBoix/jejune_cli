@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-_PKG = Path(__file__).parent
+_PKG = Path(__file__).parent.parent
 
 
 class TemplatePaths:

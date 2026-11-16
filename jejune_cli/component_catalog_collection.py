@@ -8,12 +8,12 @@ from pathlib import Path
 
 import click
 
-from ._package_paths import CatalogConfig
+from jejune_cli.core._package_paths import CatalogConfig
 from .component_catalog_document import CatalogDocument
 from .component_catalog_file import CatalogFile
 from .component_ecosystem import EcosystemDirectories
 from .component_git_access import CompGitAccess
-from .dot_jejune import DotJejune
+from jejune_cli.core.dot_jejune import DotJejune
 
 
 @dataclass(frozen=True)

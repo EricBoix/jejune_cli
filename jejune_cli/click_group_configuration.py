@@ -7,7 +7,7 @@ from .click_doctor import (
     config_hint_availability,
     config_status_availability,
 )
-from .app_context import AppContext
+from jejune_cli.core.app_context import AppContext
 from .click_helpers import print_two_col_table
 from .click_catalog_config import curator_config_group
 from .click_workspace_deployer import deployer_group

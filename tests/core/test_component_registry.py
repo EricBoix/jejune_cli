@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from jejune_cli.component_base import BaseComp
-from jejune_cli.component_registry import ComponentRegistry, UnresolvedPlugin
+from jejune_cli.core.component_base import BaseComp
+from jejune_cli.core.component_registry import ComponentRegistry, UnresolvedPlugin
 
 
 class StubComp(BaseComp):

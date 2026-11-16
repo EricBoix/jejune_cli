@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from .component_base import BaseComp
-from .configuration import Configuration
+from jejune_cli.core.component_base import BaseComp
+from jejune_cli.core.configuration import Configuration
 
 
 class ConfComp(BaseComp):

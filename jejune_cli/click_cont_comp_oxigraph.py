@@ -5,7 +5,7 @@ from pathlib import Path
 
 import click
 
-from .app_context import AppContext
+from jejune_cli.core.app_context import AppContext
 from .click_configuration import print_config_check
 from .component_cont_oxigraph import CompOxigraph
 from .oxigraph_simplifier import OxigraphSimplifier

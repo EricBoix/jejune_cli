@@ -1,6 +1,6 @@
 """Minimal component type for plugins that declare no custom component."""
 
-from .component_with_config import ConfComp
+from jejune_cli.core.component_with_config import ConfComp
 
 
 class PluginComp(ConfComp):

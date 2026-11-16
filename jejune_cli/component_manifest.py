@@ -5,9 +5,9 @@ from typing import ClassVar
 
 import yaml
 
-from ._package_paths import SchemaPaths, TemplatePaths
-from .component_with_config import ConfComp
-from .configuration import Configuration
+from jejune_cli.core._package_paths import SchemaPaths, TemplatePaths
+from jejune_cli.core.component_with_config import ConfComp
+from jejune_cli.core.configuration import Configuration
 
 
 class CompManifest(ConfComp):

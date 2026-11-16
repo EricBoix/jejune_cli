@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from .app_context import AppContext
+from jejune_cli.core.app_context import AppContext
 from .click_cont_comp_neo4j_helpers import resolve_llm_decorated_filename
 
 

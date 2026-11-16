@@ -6,7 +6,7 @@ import subprocess
 
 import click
 
-from .app_context import AppContext
+from jejune_cli.core.app_context import AppContext
 
 
 class JejuneUpdater:

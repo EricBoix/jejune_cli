@@ -1,8 +1,8 @@
 import pytest
 
 from jejune_cli.click_configuration import print_config_check
-from jejune_cli.configuration import Configuration
-from jejune_cli.configuration_entry import ConfigurationEntry
+from jejune_cli.core.configuration import Configuration
+from jejune_cli.core.configuration_entry import ConfigurationEntry
 
 
 @pytest.fixture

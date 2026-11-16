@@ -4,8 +4,8 @@ import sys
 
 import click
 
-from ._package_paths import CatalogConfig
-from .app_context import AppContext
+from jejune_cli.core._package_paths import CatalogConfig
+from jejune_cli.core.app_context import AppContext
 
 
 @click.group(short_help="Catalog converter image operations")

@@ -3,8 +3,8 @@
 import urllib.error
 import urllib.request
 
-from .configuration import Configuration
-from .component_with_config import ConfComp
+from jejune_cli.core.configuration import Configuration
+from jejune_cli.core.component_with_config import ConfComp
 
 
 class ExtServer(ConfComp):

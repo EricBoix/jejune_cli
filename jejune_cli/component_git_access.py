@@ -9,10 +9,10 @@ from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import quote, urlsplit
 
-from .component_with_config import ConfComp
-from .configuration import Configuration
-from .configuration_entry import ConfigurationEntry
-from .dot_jejune import DotJejune
+from jejune_cli.core.component_with_config import ConfComp
+from jejune_cli.core.configuration import Configuration
+from jejune_cli.core.configuration_entry import ConfigurationEntry
+from jejune_cli.core.dot_jejune import DotJejune
 
 
 class CompGitAccess(ConfComp):

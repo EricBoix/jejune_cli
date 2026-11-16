@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from .app_context import AppContext
+from jejune_cli.core.app_context import AppContext
 from .click_configuration import (
     print_config_check,
     print_config_hint,
@@ -95,9 +95,7 @@ def check_configuration(comp, catalog_option):
     the urls nor the acceptance of the keys by the server are checked (see
     check-availability). Exits 1 on any error.
     """
-    if not print_catalog_check(
-        comp, CatalogFile.resolve_path(catalog_option)
-    ):
+    if not print_catalog_check(comp, CatalogFile.resolve_path(catalog_option)):
         raise SystemExit(1)
 
 

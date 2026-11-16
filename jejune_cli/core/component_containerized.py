@@ -5,9 +5,9 @@ from pathlib import Path
 
 import click
 
-from .component_with_config import ConfComp
-from .configuration import Configuration
-from .containerized_context import ContainerizedContext
+from jejune_cli.core.component_with_config import ConfComp
+from jejune_cli.core.configuration import Configuration
+from jejune_cli.core.containerized_context import ContainerizedContext
 
 
 class ContComp(ConfComp):

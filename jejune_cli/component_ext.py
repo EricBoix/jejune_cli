@@ -1,6 +1,6 @@
 """Abstract base for external (user-installed) components."""
 
-from .component_base import BaseComp
+from jejune_cli.core.component_base import BaseComp
 
 
 class ExtComp(BaseComp):
