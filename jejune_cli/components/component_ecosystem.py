@@ -202,8 +202,9 @@ class CompEcosystem(ConfComp):
         """The state of repository *name*; the remote of a repository found nowhere
         locally is only probed (network) when *probe_remote*. With *used_commits*
         (the commits of the repository in use, e.g. in docker images), up_to_date
-        tells whether they are the remote HEAD (None when there are none or the
-        remote cannot be reached) instead of whether the clone is up to date."""
+        tells whether they are the remote HEAD instead of whether the clone is up to
+        date (when there are none, or the remote cannot be reached, it is the
+        status of the clone, None if there is no clone)."""
         location = self.locate(name, directories)
         if location.is_local:
             state = RepositoryState(
@@ -231,9 +232,12 @@ class CompEcosystem(ConfComp):
             self._git_server.remote_git_url(name),
             timeout=self.REMOTE_PROBE_TIMEOUT_SECONDS,
         )
-        return replace(
-            state, up_to_date=ConverterCommits.is_aligned(used_commits, remote_head)
-        )
+        images_aligned = ConverterCommits.is_aligned(used_commits, remote_head)
+        if images_aligned is None:
+            # Nothing to compare (no image built, or remote unreachable): the clone
+            # status, if there is a clone, is the best information available
+            return state
+        return replace(state, up_to_date=images_aligned)
 
     def repository_states(
         self, active_components: list, directories: EcosystemDirectories
