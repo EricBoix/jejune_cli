@@ -43,12 +43,12 @@ class RoleRegistry:
 
     @property
     def abstract_roles(self) -> set[str]:
-        return {name for name, r in self._roles.items() if r.is_abstract}
+        return {name for name, role in self._roles.items() if role.is_abstract}
 
     @property
     def display_roles(self) -> "list[Role]":
         """Non-abstract roles (shown in --help)."""
-        return [r for r in self._roles.values() if not r.is_abstract]
+        return [role for role in self._roles.values() if not role.is_abstract]
 
     def section_title(self, role_name: str) -> str:
         role = self._roles.get(role_name)
@@ -77,11 +77,11 @@ class RoleRegistry:
             result = self._roles.get(override, Role.NONE)
         else:
             result = Role.NONE
-            for r in self._roles.values():
-                if r.detector is not None:
+            for role in self._roles.values():
+                if role.detector is not None:
                     try:
-                        if r.detector():
-                            result = r
+                        if role.detector():
+                            result = role
                             break
                     except Exception:
                         pass
@@ -96,7 +96,13 @@ class RoleRegistry:
 
         def _resolve(role: Role) -> "frozenset[BaseComp]":
             return frozenset(
-                filter(None, (registry.get(n) for n in role.component_names))
+                filter(
+                    None,
+                    (
+                        registry.get(component_name)
+                        for component_name in role.component_names
+                    ),
+                )
             )
 
         own = _resolve(role)
@@ -152,15 +158,15 @@ class RoleRegistry:
 
         def _reachable(role: str) -> set[str]:
             seen: set[str] = set()
-            r_obj = self._roles.get(role)
-            stack = list(r_obj.includes if r_obj else ())
+            reachable_role = self._roles.get(role)
+            stack = list(reachable_role.includes if reachable_role else ())
             while stack:
                 candidate_name = stack.pop()
                 if candidate_name not in seen:
                     seen.add(candidate_name)
-                    r_obj2 = self._roles.get(candidate_name)
-                    if r_obj2:
-                        stack.extend(r_obj2.includes)
+                    candidate_role = self._roles.get(candidate_name)
+                    if candidate_role:
+                        stack.extend(candidate_role.includes)
             return seen
 
         parentless_role_names = [
@@ -180,114 +186,142 @@ class RoleRegistry:
                 continue
             role_obj = self._roles[role_name]
             parents = list(role_obj.includes)
-            for p in parents:
+            for parent_name in parents:
                 via_others: set[str] = set()
-                for o in parents:
-                    if o != p:
-                        via_others |= {o} | _reachable(o)
-                if p not in via_others:
-                    children.setdefault(p, []).append(role_name)
+                for other_parent_name in parents:
+                    if other_parent_name != parent_name:
+                        via_others |= {other_parent_name} | _reachable(
+                            other_parent_name
+                        )
+                if parent_name not in via_others:
+                    children.setdefault(parent_name, []).append(role_name)
 
-        H_GAP, PAD = 4, 1
+        horizontal_gap, box_padding = 4, 1
 
-        def _bw(name: str) -> int:
-            return len(name) + 2 * PAD + 2
+        def _box_width(name: str) -> int:
+            return len(name) + 2 * box_padding + 2
 
-        def _sw(node: str) -> int:
-            kids = children.get(node, [])
-            if not kids:
-                return _bw(node)
-            return max(_bw(node), sum(_sw(k) for k in kids) + H_GAP * (len(kids) - 1))
+        def _subtree_width(node: str) -> int:
+            child_names = children.get(node, [])
+            if not child_names:
+                return _box_width(node)
+            return max(
+                _box_width(node),
+                sum(_subtree_width(child_name) for child_name in child_names)
+                + horizontal_gap * (len(child_names) - 1),
+            )
 
         x_left: dict[str, int] = {}
 
         def _assign(node: str, left: int) -> None:
             x_left[node] = left
-            kids = children.get(node, [])
-            if not kids:
+            child_names = children.get(node, [])
+            if not child_names:
                 return
-            kw = sum(_sw(k) for k in kids) + H_GAP * (len(kids) - 1)
-            cur = left + max(0, (_sw(node) - kw) // 2)
-            for k in kids:
-                _assign(k, cur)
-                cur += _sw(k) + H_GAP
+            children_width = sum(
+                _subtree_width(child_name) for child_name in child_names
+            ) + horizontal_gap * (len(child_names) - 1)
+            child_left = left + max(0, (_subtree_width(node) - children_width) // 2)
+            for child_name in child_names:
+                _assign(child_name, child_left)
+                child_left += _subtree_width(child_name) + horizontal_gap
 
         _assign(root, 0)
 
-        def _bl(node: str) -> int:
-            return x_left[node] + (_sw(node) - _bw(node)) // 2
+        def _box_left(node: str) -> int:
+            return x_left[node] + (_subtree_width(node) - _box_width(node)) // 2
 
-        def _bc(node: str) -> int:
-            return _bl(node) + _bw(node) // 2
+        def _box_center(node: str) -> int:
+            return _box_left(node) + _box_width(node) // 2
 
         levels: list[list[str]] = []
-        cur_lvl: list[str] = [root]
-        while cur_lvl:
-            levels.append(cur_lvl)
-            nxt: list[str] = []
-            for n in cur_lvl:
-                nxt.extend(children.get(n, []))
-            cur_lvl = nxt
+        current_level: list[str] = [root]
+        while current_level:
+            levels.append(current_level)
+            next_level: list[str] = []
+            for node_name in current_level:
+                next_level.extend(children.get(node_name, []))
+            current_level = next_level
 
-        W = _sw(root) + 2
+        diagram_width = _subtree_width(root) + 2
 
         def _row() -> list[str]:
-            return [" "] * W
+            return [" "] * diagram_width
 
         def _put(row: list[str], col: int, text: str) -> None:
-            for i, c in enumerate(text):
-                if 0 <= col + i < len(row):
-                    row[col + i] = c
+            for offset, character in enumerate(text):
+                if 0 <= col + offset < len(row):
+                    row[col + offset] = character
 
         output: list[str] = []
 
-        for lvl_i, level in enumerate(levels):
-            tr, mr, br = _row(), _row(), _row()
-            for n in level:
-                bl, bw = _bl(n), _bw(n)
-                _put(tr, bl, "┌" + "─" * (bw - 2) + "┐")
-                _put(mr, bl, "│" + " " * PAD + n + " " * PAD + "│")
-                _put(br, bl, "└" + "─" * (bw - 2) + "┘")
-            output += ["".join(tr).rstrip(), "".join(mr).rstrip(), "".join(br).rstrip()]
+        for level_index, level in enumerate(levels):
+            top_row, middle_row, bottom_row = _row(), _row(), _row()
+            for node_name in level:
+                left_column, box_width_value = _box_left(node_name), _box_width(
+                    node_name
+                )
+                _put(top_row, left_column, "┌" + "─" * (box_width_value - 2) + "┐")
+                _put(
+                    middle_row,
+                    left_column,
+                    "│" + " " * box_padding + node_name + " " * box_padding + "│",
+                )
+                _put(bottom_row, left_column, "└" + "─" * (box_width_value - 2) + "┘")
+            output += [
+                "".join(top_row).rstrip(),
+                "".join(middle_row).rstrip(),
+                "".join(bottom_row).rstrip(),
+            ]
 
-            if lvl_i == len(levels) - 1:
+            if level_index == len(levels) - 1:
                 break
 
-            has_multi = any(len(children.get(n, [])) > 1 for n in level)
+            has_multi = any(len(children.get(node_name, [])) > 1 for node_name in level)
 
             if has_multi:
-                c1, c2, c3 = _row(), _row(), _row()
-                _JOIN = {"─": "┴", "┌": "├", "┐": "┤", "┬": "┼"}
-                for n in level:
-                    kids = children.get(n, [])
-                    if not kids:
+                stem_row, bar_row, drop_row = _row(), _row(), _row()
+                _JUNCTION = {"─": "┴", "┌": "├", "┐": "┤", "┬": "┼"}
+                for node_name in level:
+                    child_names = children.get(node_name, [])
+                    if not child_names:
                         continue
-                    pc = _bc(n)
-                    _put(c1, pc, "│")
-                    if len(kids) == 1:
-                        _put(c2, pc, "│")
-                        _put(c3, _bc(kids[0]), "│")
+                    parent_center = _box_center(node_name)
+                    _put(stem_row, parent_center, "│")
+                    if len(child_names) == 1:
+                        _put(bar_row, parent_center, "│")
+                        _put(drop_row, _box_center(child_names[0]), "│")
                     else:
-                        lm = min(_bc(k) for k in kids)
-                        rm = max(_bc(k) for k in kids)
-                        for x in range(lm, rm + 1):
-                            c2[x] = "─"
-                        for k in kids:
-                            cc = _bc(k)
-                            c2[cc] = "┌" if cc == lm else ("┐" if cc == rm else "┬")
-                        c2[pc] = _JOIN.get(c2[pc], "┴")
-                        for k in kids:
-                            _put(c3, _bc(k), "│")
+                        leftmost_center = min(
+                            _box_center(child_name) for child_name in child_names
+                        )
+                        rightmost_center = max(
+                            _box_center(child_name) for child_name in child_names
+                        )
+                        for column in range(leftmost_center, rightmost_center + 1):
+                            bar_row[column] = "─"
+                        for child_name in child_names:
+                            child_center = _box_center(child_name)
+                            bar_row[child_center] = (
+                                "┌"
+                                if child_center == leftmost_center
+                                else ("┐" if child_center == rightmost_center else "┬")
+                            )
+                        bar_row[parent_center] = _JUNCTION.get(
+                            bar_row[parent_center], "┴"
+                        )
+                        for child_name in child_names:
+                            _put(drop_row, _box_center(child_name), "│")
                 output += [
-                    "".join(c1).rstrip(),
-                    "".join(c2).rstrip(),
-                    "".join(c3).rstrip(),
+                    "".join(stem_row).rstrip(),
+                    "".join(bar_row).rstrip(),
+                    "".join(drop_row).rstrip(),
                 ]
             else:
-                c1 = _row()
-                for n in level:
-                    if children.get(n):
-                        _put(c1, _bc(n), "│")
-                output.append("".join(c1).rstrip())
+                stem_row = _row()
+                for node_name in level:
+                    if children.get(node_name):
+                        _put(stem_row, _box_center(node_name), "│")
+                output.append("".join(stem_row).rstrip())
 
         return output
