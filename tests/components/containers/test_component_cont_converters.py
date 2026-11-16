@@ -13,6 +13,7 @@ from jejune_cli.components.containers.component_cont_converters import (
     ConverterSource,
 )
 from jejune_cli.components.containers.converter_commits import ConverterCommits
+from jejune_cli.components.containers.converter_sources import ConverterSources
 
 PRIVATE_URL = "https://example.org/team/jejune_doc_Private.git"
 REMOTE_COMMIT = "a" * 40
@@ -139,13 +140,13 @@ def test_local_document_is_copied_and_needs_no_credentials(
 def test_local_sources_are_independent_and_both_selectable(tmp_path):
     document = ConverterSource("tmp", tmp_path / "document")
     pdf_to_markdown = ConverterSource("root", tmp_path / "pdf-to-markdown")
-    only_pdf_to_markdown = CompConverters.source_arguments(
+    only_pdf_to_markdown = ConverterSources.source_arguments(
         ConverterSource(), pdf_to_markdown
     )
     assert option_pairs(only_pdf_to_markdown, "--build-arg") == [
         "PDF_TO_MARKDOWN_SOURCE=local"
     ]
-    both = CompConverters.source_arguments(document, pdf_to_markdown)
+    both = ConverterSources.source_arguments(document, pdf_to_markdown)
     assert option_pairs(both, "--build-arg") == [
         "DOC_SOURCE=local",
         "PDF_TO_MARKDOWN_SOURCE=local",

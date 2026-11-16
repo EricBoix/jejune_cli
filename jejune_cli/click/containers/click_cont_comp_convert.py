@@ -96,8 +96,34 @@ def hint_availability(conv):
     help="File holding [username]:[password_or_token] to clone private "
     "repositories (default: GIT_ACCESS_TOKEN_FILE or GIT_ACCESS_TOKEN of .jejune/env-secrets).",
 )
+@click.option(
+    "--local-documents",
+    "local_documents",
+    is_flag=True,
+    default=False,
+    help="Copy the local document (the one of CONVERT_DOC_DIR) into the image (instead of git cloning it).",
+)
+@click.option(
+    "--local-pdf-to-markdown",
+    is_flag=True,
+    default=False,
+    help="Use the local pdf-to-markdown (instead of the uv.lock version).",
+)
+@click.option(
+    "--local",
+    is_flag=True,
+    default=False,
+    help="Same as --local-documents --local-pdf-to-markdown.",
+)
 @click.pass_obj
-def build(conv, no_cache: bool, token_file: str | None):
+def build(
+    conv,
+    no_cache: bool,
+    token_file: str | None,
+    local_documents: bool,
+    local_pdf_to_markdown: bool,
+    local: bool,
+):
     """Build the converter Docker image.
 
     If CONVERT_DOC_DIR points to a Dockerfile, uses the project root as build
@@ -107,10 +133,25 @@ def build(conv, no_cache: bool, token_file: str | None):
     whose Dockerfile clones from GitHub.  When the Dockerfile clones a private
     repository, the credentials of --token-file (or GIT_ACCESS_TOKEN_FILE, or GIT_ACCESS_TOKEN) are passed
     to docker build as the BuildKit secret `git_credentials`.
+
+    By default the image clones the document from GitHub and uses the
+    pdf-to-markdown version locked in the uv.lock of the document. The --local-*
+    flags use instead the local document, and the local pdf-to-markdown searched
+    in $JEJUNE_ROOT_DIR, then in .jejune/tmp (cloned there when found nowhere).
+    The sources used are recorded as image labels.
     """
+    local_documents = local_documents or local
+    local_pdf_to_markdown = local_pdf_to_markdown or local
     try:
-        click.echo(f"Building {conv._image_tag()} ...")
-        conv.build(no_cache=no_cache, token_file=token_file)
+        click.echo(
+            f"Building {conv._image_tag(local_documents, local_pdf_to_markdown)} ..."
+        )
+        conv.build(
+            no_cache=no_cache,
+            token_file=token_file,
+            local_documents=local_documents,
+            local_pdf_to_markdown=local_pdf_to_markdown,
+        )
     except ValueError as exc:
         raise click.ClickException(str(exc)) from exc
     except subprocess.CalledProcessError as exc:

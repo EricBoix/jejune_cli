@@ -3,47 +3,28 @@
 import json
 import subprocess
 from contextlib import nullcontext
-from dataclasses import dataclass
 from pathlib import Path
 
 import click
 
-from jejune_cli.core._package_paths import PdfToMarkdownConfig
 from jejune_cli.components.catalog.component_catalog_file import CatalogFile
 from jejune_cli.components.containers.component_cont_convert import CompConvert
 from jejune_cli.core.component_containerized import ContComp
-from jejune_cli.components.component_ecosystem import EcosystemDirectories, RepoTier
+from jejune_cli.components.component_ecosystem import EcosystemDirectories
 from jejune_cli.core.containerized_context import ContainerizedContext
 from jejune_cli.components.containers.converter_commits import ConverterCommits
 from jejune_cli.components.containers.converter_image_name import ConverterImageName
-
-
-@dataclass(frozen=True)
-class ConverterSource:
-    """Where an input of a converter image comes from: a local directory found in a
-    tier of the ecosystem or, without any, the default one (the `git clone` of the
-    Dockerfile for a document, the uv.lock version for pdf-to-markdown)."""
-
-    tier: RepoTier | None = None
-    path: Path | None = None
-
-    @property
-    def is_local(self) -> bool:
-        return self.path is not None
-
-    def label_value(self, default: str) -> str:
-        return f"{self.tier}:{self.path}" if self.is_local else default
+from jejune_cli.components.containers.converter_sources import (
+    ConverterSource,
+    ConverterSources,
+)
 
 
 class CompConverters(ContComp):
     DOC_PREFIX = ConverterImageName.DOC_PREFIX
-    PDF_TO_MARKDOWN_NAME = PdfToMarkdownConfig.REPO_NAME
-    # Names shared with the Dockerfile of every document (ARG, named build contexts)
-    DOCUMENT_CONTEXT_NAME = "jejune-doc"
-    DOCUMENT_SOURCE_ARGUMENT = "DOC_SOURCE"
-    PDF_TO_MARKDOWN_SOURCE_ARGUMENT = "PDF_TO_MARKDOWN_SOURCE"
-    DEFAULT_DOCUMENT_SOURCE = "git"
-    DEFAULT_PDF_TO_MARKDOWN_SOURCE = "locked"
+    PDF_TO_MARKDOWN_NAME = ConverterSources.PDF_TO_MARKDOWN_NAME
+    DEFAULT_DOCUMENT_SOURCE = ConverterSources.DEFAULT_DOCUMENT_SOURCE
+    DEFAULT_PDF_TO_MARKDOWN_SOURCE = ConverterSources.DEFAULT_PDF_TO_MARKDOWN_SOURCE
 
     def __init__(
         self,
@@ -153,51 +134,7 @@ class CompConverters(ContComp):
     def locate_pdf_to_markdown(
         self, directories: EcosystemDirectories
     ) -> ConverterSource:
-        """The local pdf-to-markdown: JEJUNE_ROOT_DIR first, then .jejune/tmp, else
-        cloned into .jejune/tmp.  A clone of .jejune/tmp is given its whole git
-        history (the commit count is part of the pdf-to-markdown version); a
-        checkout of JEJUNE_ROOT_DIR belongs to the user and is left untouched."""
-        location = self._ecosystem.locate(self.PDF_TO_MARKDOWN_NAME, directories)
-        if location.is_local:
-            source = ConverterSource(location.tier, location.local_path)
-        else:
-            source = ConverterSource(
-                "tmp", self._ecosystem.ensure_local(self.PDF_TO_MARKDOWN_NAME)
-            )
-        if source.tier == "tmp":
-            self._ecosystem.unshallow(source.path)
-        return source
-
-    @classmethod
-    def source_arguments(
-        cls, document: ConverterSource, pdf_to_markdown: ConverterSource
-    ) -> list[str]:
-        """The `docker build` arguments selecting the local sources (the default
-        ones when absent) and labelling the image with the sources it was built with."""
-        arguments: list[str] = []
-        for source, context_name, argument_name in (
-            (document, cls.DOCUMENT_CONTEXT_NAME, cls.DOCUMENT_SOURCE_ARGUMENT),
-            (
-                pdf_to_markdown,
-                cls.PDF_TO_MARKDOWN_NAME,
-                cls.PDF_TO_MARKDOWN_SOURCE_ARGUMENT,
-            ),
-        ):
-            if source.is_local:
-                arguments += [
-                    "--build-arg",
-                    f"{argument_name}=local",
-                    "--build-context",
-                    f"{context_name}={source.path}",
-                ]
-        arguments += [
-            "--label",
-            f"{ConverterCommits.DOCUMENT_SOURCE_LABEL}={document.label_value(cls.DEFAULT_DOCUMENT_SOURCE)}",
-            "--label",
-            f"{ConverterCommits.PDF_TO_MARKDOWN_SOURCE_LABEL}="
-            f"{pdf_to_markdown.label_value(cls.DEFAULT_PDF_TO_MARKDOWN_SOURCE)}",
-        ]
-        return arguments
+        return ConverterSources.locate_pdf_to_markdown(self._ecosystem, directories)
 
     @classmethod
     def image_source_summary(cls, image: str) -> str:
@@ -307,7 +244,9 @@ class CompConverters(ContComp):
                             "build",
                             *extra,
                             *secret,
-                            *self.source_arguments(document, pdf_to_markdown),
+                            *ConverterSources.source_arguments(
+                                document, pdf_to_markdown
+                            ),
                             *ConverterCommits.build_arguments(
                                 document_commit,
                                 not document.is_local,
