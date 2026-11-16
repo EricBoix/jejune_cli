@@ -127,7 +127,7 @@ def stats(comp, simple, assert_counts):
     if assert_counts is not None:
         try:
             expected_nodes, expected_relationships = (
-                int(x) for x in assert_counts.split("/")
+                int(count_text) for count_text in assert_counts.split("/")
             )
         except ValueError:
             raise click.BadParameter(
@@ -152,7 +152,10 @@ def stats(comp, simple, assert_counts):
     column_width = max((len(label) for label, _ in nodes_by_label), default=0)
     column_width = max(
         column_width,
-        max((len(t) for t, _ in relationships_by_type), default=0),
+        max(
+            (len(relationship_type) for relationship_type, _ in relationships_by_type),
+            default=0,
+        ),
         len("Relationships"),
     )
 

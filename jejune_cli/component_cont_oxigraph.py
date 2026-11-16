@@ -252,7 +252,7 @@ class CompOxigraph(ContComp):
     def list_graphs(self, port: str) -> list[str]:
         """Return all named graph URIs in the store."""
         bindings = self._sparql_select(port, "SELECT DISTINCT ?g WHERE { GRAPH ?g {} }")
-        return [b["g"]["value"] for b in bindings]
+        return [binding["g"]["value"] for binding in bindings]
 
     def is_store_empty(self, port: str) -> bool:
         return len(self.list_graphs(port)) == 0
@@ -288,11 +288,11 @@ class CompOxigraph(ContComp):
             return
 
         new_node_labels: dict[str, str] = {}
-        for b in new_bindings:
-            new_node_labels[b["label"]["value"]] = b["node"]["value"]
+        for binding in new_bindings:
+            new_node_labels[binding["label"]["value"]] = binding["node"]["value"]
 
         existing_clusters: dict[str, str] = {}
-        for b in self._sparql_select(
+        for binding in self._sparql_select(
             port,
             f"""
             SELECT ?label ?cluster WHERE {{
@@ -303,7 +303,7 @@ class CompOxigraph(ContComp):
             }}
             """,
         ):
-            existing_clusters[b["label"]["value"]] = b["cluster"]["value"]
+            existing_clusters[binding["label"]["value"]] = binding["cluster"]["value"]
 
         new_labels_needing_cluster = {
             lbl for lbl in new_node_labels if lbl not in existing_clusters
@@ -311,7 +311,7 @@ class CompOxigraph(ContComp):
 
         existing_matches: dict[str, list[str]] = {}
         if new_labels_needing_cluster:
-            for b in self._sparql_select(
+            for binding in self._sparql_select(
                 port,
                 f"""
                 SELECT ?other ?label WHERE {{
@@ -323,9 +323,11 @@ class CompOxigraph(ContComp):
                 }}
                 """,
             ):
-                lbl = b["label"]["value"]
+                lbl = binding["label"]["value"]
                 if lbl in new_labels_needing_cluster:
-                    existing_matches.setdefault(lbl, []).append(b["other"]["value"])
+                    existing_matches.setdefault(lbl, []).append(
+                        binding["other"]["value"]
+                    )
 
         insert_triples: list[str] = []
         for label, node_uri in new_node_labels.items():
@@ -362,10 +364,12 @@ class CompOxigraph(ContComp):
 
     def _recompute_alignment(self, port: str) -> None:
         """Full recompute of urn:jejune:alignment from all per-file named graphs."""
-        all_graphs = [g for g in self.list_graphs(port) if g != self._ALIGNMENT_GRAPH]
+        all_graphs = [
+            graph for graph in self.list_graphs(port) if graph != self._ALIGNMENT_GRAPH
+        ]
         label_to_nodes: dict[str, list[str]] = {}
         for graph_uri in all_graphs:
-            for b in self._sparql_select(
+            for binding in self._sparql_select(
                 port,
                 f"""
                 SELECT ?node ?label WHERE {{
@@ -376,8 +380,8 @@ class CompOxigraph(ContComp):
                 }}
                 """,
             ):
-                label_to_nodes.setdefault(b["label"]["value"], []).append(
-                    b["node"]["value"]
+                label_to_nodes.setdefault(binding["label"]["value"], []).append(
+                    binding["node"]["value"]
                 )
 
         alignment = Graph()

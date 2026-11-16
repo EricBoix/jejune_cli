@@ -21,9 +21,9 @@ class CompNetwork(ExtComp):
         return ("ok", "") if ok else ("error", f"{self.remote_server} not reachable")
 
     def port_free(self, port: int) -> bool:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as network_socket:
             try:
-                s.bind(("", port))
+                network_socket.bind(("", port))
                 return True
             except OSError:
                 return False

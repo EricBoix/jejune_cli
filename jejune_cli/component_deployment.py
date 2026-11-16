@@ -95,9 +95,9 @@ class CompDeployment(ConfComp):
     def host_ports(self, deploy_dir: Path) -> list[tuple[int, str]]:
         self.configuration.load(deploy_dir)
         return [
-            (int(val), e.env_var)
-            for e in self.configuration
-            if (val := os.environ.get(e.env_var))
+            (int(val), entry.env_var)
+            for entry in self.configuration
+            if (val := os.environ.get(entry.env_var))
         ]
 
     def occupied_host_ports(self, deploy_dir: Path) -> list[tuple[int, str]]:
@@ -117,7 +117,7 @@ class CompDeployment(ConfComp):
     def hint_for_occupied_ports(self, base_dir: Path) -> dict[str, str]:
         result = {}
         for port, var in self.occupied_host_ports(base_dir):
-            entry = next(e for e in self.configuration if e.env_var == var)
+            entry = next(entry for entry in self.configuration if entry.env_var == var)
             src = entry.source_file or "deployment.env"
             result[var] = (
                 f"Port {port} is already in use: configure {var} in {src}"
@@ -126,7 +126,14 @@ class CompDeployment(ConfComp):
         return result
 
     def has_private_repos(self, deploy_dir: Path) -> bool:
-        catalog_dep = next((d for d in self.dependencies if d.name == "catalog"), None)
+        catalog_dep = next(
+            (
+                dependency
+                for dependency in self.dependencies
+                if dependency.name == "catalog"
+            ),
+            None,
+        )
         if catalog_dep is None:
             return False
         return catalog_dep.has_private_repos(deploy_dir / "catalog.yaml")
@@ -205,17 +212,18 @@ class CompDeployment(ConfComp):
 
     def check_ui_services(self) -> list[tuple[str, bool, str]]:
         relevant = [
-            p
-            for p in self._plugin_registry.plugins
-            if self._plugin_registry.repo_name_for_plugin(p.name) in self.plugin_deps
+            plugin
+            for plugin in self._plugin_registry.plugins
+            if self._plugin_registry.repo_name_for_plugin(plugin.name)
+            in self.plugin_deps
         ]
         return [
             (
-                (p.name, *self._plugin_registry.check_plugin_availability(p))
-                if p.check_availability
-                else (p.name, False, "not installed")
+                (plugin.name, *self._plugin_registry.check_plugin_availability(plugin))
+                if plugin.check_availability
+                else (plugin.name, False, "not installed")
             )
-            for p in relevant
+            for plugin in relevant
         ]
 
     def _build_env(self, deploy_dir: Path) -> dict:
@@ -223,7 +231,9 @@ class CompDeployment(ConfComp):
         directories = self._ecosystem.resolve_dirs(deploy_dir)
         if directories.root_dir:
             env[CatalogConfig.ROOT_DIR_ENV_VAR] = str(directories.root_dir)
-        plugins_by_name = {p.name: p for p in self._plugin_registry.plugins}
+        plugins_by_name = {
+            plugin.name: plugin for plugin in self._plugin_registry.plugins
+        }
         for dep in self.dependencies:
             repos = getattr(dep, "repos", [])
             if not repos:
@@ -238,9 +248,7 @@ class CompDeployment(ConfComp):
                 continue
             for subpath, key in repos:
                 if key:
-                    env[key] = self._ecosystem.resolve(
-                        repo_name, directories, subpath
-                    )
+                    env[key] = self._ecosystem.resolve(repo_name, directories, subpath)
         return env
 
     def run_compose(
@@ -257,7 +265,14 @@ class CompDeployment(ConfComp):
         if no_cache:
             subprocess.run(["docker", "builder", "prune", "--force"], check=True)
         compose_args = ["build", "--no-cache"] if no_cache else ["build"]
-        catalog_dep = next((d for d in self.dependencies if d.name == "catalog"), None)
+        catalog_dep = next(
+            (
+                dependency
+                for dependency in self.dependencies
+                if dependency.name == "catalog"
+            ),
+            None,
+        )
         private_repositories = (
             catalog_dep.private_repositories(deploy_dir / "catalog.yaml")
             if catalog_dep is not None and (deploy_dir / "catalog.yaml").is_file()

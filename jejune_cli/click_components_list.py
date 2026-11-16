@@ -24,8 +24,8 @@ def components_list(ctx) -> None:
         status, _ = comp.check()
         rows.append((comp.name, kind, status))
 
-    _W_NAME = max(len("Component"), max(len(r[0]) for r in rows))
-    _W_KIND = max(len("Type"), max(len(r[1]) for r in rows))
+    _W_NAME = max(len("Component"), max(len(row[0]) for row in rows))
+    _W_KIND = max(len("Type"), max(len(row[1]) for row in rows))
 
     click.echo(f"  {'Component':<{_W_NAME}}  {'Type':<{_W_KIND}}  Status")
     click.echo("  " + "─" * (_W_NAME + 2 + _W_KIND + 2 + len("Status")))

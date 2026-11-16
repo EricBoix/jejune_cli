@@ -108,8 +108,8 @@ class PluginRegistry:
                 inst.set_configuration(
                     Configuration(
                         *(
-                            ConfigurationEntry(v, hint=plugin.config_hint)
-                            for v in plugin.config_vars
+                            ConfigurationEntry(config_var, hint=plugin.config_hint)
+                            for config_var in plugin.config_vars
                         )
                     )
                 )
@@ -197,8 +197,9 @@ class PluginRegistry:
             ):
                 comp.dependencies.append(plugin_packages)
         if any(
-            getattr(c, "plugin_deps", []) + getattr(c, "install_plugin_deps", [])
-            for c in self._component_registry
+            getattr(component, "plugin_deps", [])
+            + getattr(component, "install_plugin_deps", [])
+            for component in self._component_registry
         ):
             self._component_registry.invalidate_order()
 

@@ -370,10 +370,10 @@ class CompEcosystem(ConfComp):
         ):
             if base is None:
                 continue
-            for p in sorted(base.glob("jejune_doc_*")):
-                if p.is_dir() and p.name not in seen:
-                    seen.add(p.name)
-                    results.append((p.name, tier, str(p), (p / "manifest.yaml").exists()))  # type: ignore[arg-type]
+            for document_path in sorted(base.glob("jejune_doc_*")):
+                if document_path.is_dir() and document_path.name not in seen:
+                    seen.add(document_path.name)
+                    results.append((document_path.name, tier, str(document_path), (document_path / "manifest.yaml").exists()))  # type: ignore[arg-type]
         if remote_names:
             for name in remote_names:
                 if name not in seen:

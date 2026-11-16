@@ -89,9 +89,12 @@ class _RootClickGroup(click.Group):
 
         def _plugin_rows(role_name: str) -> list[tuple[str, str]]:
             return [
-                (f"jejune {p.name}", p.group.get_short_help_str(limit=formatter.width))
-                for p in app.plugin_registry.plugins
-                if p.target_role == role_name
+                (
+                    f"jejune {plugin.name}",
+                    plugin.group.get_short_help_str(limit=formatter.width),
+                )
+                for plugin in app.plugin_registry.plugins
+                if plugin.target_role == role_name
             ]
 
         for role_obj in app.role_registry.display_roles:

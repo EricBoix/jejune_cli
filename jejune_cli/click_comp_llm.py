@@ -51,9 +51,9 @@ def check_availability(comp, prompt):
     check_ctx = comp._check_context()
     if check_ctx is None:
         missing = [
-            n
-            for n in ("LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME")
-            if not os.environ.get(n)
+            variable_name
+            for variable_name in ("LLM_MODEL_URL", "LLM_API_KEY", "LLM_MODEL_NAME")
+            if not os.environ.get(variable_name)
         ]
         raise click.ClickException(f"Missing: {', '.join(missing)}")
     url, api_key, model, server_url, inference_path = check_ctx
@@ -73,8 +73,8 @@ def check_availability(comp, prompt):
             ),
         ),
     ]
-    for i, (label, fn) in enumerate(steps, 1):
-        click.echo(f"  [{i}/{len(steps)}] {label}... ", nl=False)
+    for step_number, (label, fn) in enumerate(steps, 1):
+        click.echo(f"  [{step_number}/{len(steps)}] {label}... ", nl=False)
         passed, msg = fn()
         click.echo(
             click.style("ok", fg="green")

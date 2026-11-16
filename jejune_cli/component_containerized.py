@@ -68,10 +68,10 @@ class ContComp(ConfComp):
     def docker_env_args(self) -> list[str]:
         """Return [--env KEY=VALUE, ...] for each configured env var present in os.environ."""
         args: list[str] = []
-        for e in self.configuration:
-            val = os.environ.get(e.env_var)
+        for entry in self.configuration:
+            val = os.environ.get(entry.env_var)
             if val is not None:
-                args += ["--env", f"{e.env_var}={val}"]
+                args += ["--env", f"{entry.env_var}={val}"]
         return args
 
     def build(self, no_cache: bool = False) -> None:

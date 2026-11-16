@@ -89,10 +89,12 @@ class CompServerGit(ExtServer):
 
     def check_default_host(self, timeout: int = 5) -> tuple[str, str]:
         try:
-            r = CompGitAccess.ls_remote_anonymous([_REPO_ROOT_DIR], timeout)
-            if r.returncode == 0:
+            ls_remote_result = CompGitAccess.ls_remote_anonymous(
+                [_REPO_ROOT_DIR], timeout
+            )
+            if ls_remote_result.returncode == 0:
                 return "ok", ""
-            stderr = r.stderr.lower()
+            stderr = ls_remote_result.stderr.lower()
             if "not found" in stderr:
                 return "ok", ""
             return "error", "git server not reachable"

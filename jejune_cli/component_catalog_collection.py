@@ -57,8 +57,7 @@ class CatalogCollection:
         """Clone missing catalog repos into .jejune/tmp/; return count ready."""
         selection = self.select(catalog_file, repo, root_dir)
         return sum(
-            1
-            for _ in self.iter_documents(selection.documents, selection.directories)
+            1 for _ in self.iter_documents(selection.documents, selection.directories)
         )
 
     @staticmethod
@@ -107,9 +106,14 @@ class CatalogCollection:
             return False, ""
         if result.returncode == 128:
             return True, ""
-        return None, f"git ls-remote exited {result.returncode}: {result.stderr.strip()}"
+        return (
+            None,
+            f"git ls-remote exited {result.returncode}: {result.stderr.strip()}",
+        )
 
-    def check_collection(self, catalog: Path, root_dir: Path | None) -> list[tuple[str, bool, str]]:
+    def check_collection(
+        self, catalog: Path, root_dir: Path | None
+    ) -> list[tuple[str, bool, str]]:
         """Check each catalog entry for visibility and local clone; return (name, ok, message)."""
         if not catalog.exists():
             return [("catalog.yaml", False, f"not found: {catalog}")]
@@ -118,11 +122,17 @@ class CatalogCollection:
         except ValueError as exc:
             return [("catalog.yaml", False, str(exc))]
         results: list[tuple[str, bool, str]] = []
-        for i, doc in enumerate(docs):
-            schema_errors = CatalogDocument.validate_mapping(doc, i)
+        for document_index, doc in enumerate(docs):
+            schema_errors = CatalogDocument.validate_mapping(doc, document_index)
             if schema_errors:
                 label = doc.get("name") if isinstance(doc, dict) else None
-                results.append((label or f"entry #{i}", False, "; ".join(schema_errors)))
+                results.append(
+                    (
+                        label or f"entry #{document_index}",
+                        False,
+                        "; ".join(schema_errors),
+                    )
+                )
                 continue
             name = doc["name"]
             url = doc["url"].rstrip("/")
@@ -187,7 +197,11 @@ class CatalogCollection:
                 continue
             elif is_private:
                 results.append(
-                    (name, True, "private — add manually to deployment catalog if needed")
+                    (
+                        name,
+                        True,
+                        "private — add manually to deployment catalog if needed",
+                    )
                 )
             else:
                 results.append((name, False, "public repo missing from catalog"))

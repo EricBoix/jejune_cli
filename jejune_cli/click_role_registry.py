@@ -88,7 +88,9 @@ def role(ctx):
     else:
         click.echo(f"role:   {click.style('(none)', fg='yellow')}")
     if role_components:
-        click.echo(f"shows:  {', '.join(sorted(c.name for c in role_components))}")
+        click.echo(
+            f"shows:  {', '.join(sorted(component.name for component in role_components))}"
+        )
     else:
         click.echo("shows:  all components")
 

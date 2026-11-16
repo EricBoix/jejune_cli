@@ -110,13 +110,13 @@ def _print_config_table(
     """
     if not rows:
         return
-    _W_C = max(len("Component configuration"), max(len(r[0]) for r in rows))
+    _W_C = max(len("Component configuration"), max(len(row[0]) for row in rows))
     _W_S = max(
         len("Status"),
-        max(len(ClickTheme.status_icons.get(r[1], (r[1], ""))[0]) for r in rows),
+        max(len(ClickTheme.status_icons.get(row[1], (row[1], ""))[0]) for row in rows),
     )
-    _W_K = max(len("Check"), max(len(r[2]) for r in rows))
-    _W_H = max(len(hint_header), max(len(r[3]) for r in rows))
+    _W_K = max(len("Check"), max(len(row[2]) for row in rows))
+    _W_H = max(len(hint_header), max(len(row[3]) for row in rows))
     divider = "  " + "─" * (_W_C + 2 + _W_S + 2 + _W_K + 2 + _W_H)
     click.echo(
         f"  {'Component configuration':<{_W_C}}  {'Status':<{_W_S}}  {'Check':<{_W_K}}  {hint_header}"

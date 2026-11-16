@@ -8,7 +8,7 @@ from .click_theme import ClickTheme
 
 
 def build_tree_lines(components: list[BaseComp]) -> list[str]:
-    by_name = {c.name: c for c in components}
+    by_name = {component.name: component for component in components}
 
     # Top-level within the active set = not required by any other active component
     required: set[str] = {
@@ -17,7 +17,9 @@ def build_tree_lines(components: list[BaseComp]) -> list[str]:
         for dep in comp.dependencies
         if dep.name in by_name
     }
-    top_level = [c for c in components if c.name not in required]
+    top_level = [
+        component for component in components if component.name not in required
+    ]
 
     visited: set[str] = set()
     status_cache: dict[str, tuple[str, str]] = {}
@@ -35,12 +37,15 @@ def build_tree_lines(components: list[BaseComp]) -> list[str]:
         if comp is None:
             return
         children: list[tuple[str, str]] = (
-            [(d.name, "") for d in comp.dependencies]
-            + [(d.name, "[opt] ") for d in comp.optional_dependencies]
-            + [(d.name, "[cond] ") for _, d in comp.conditional_dependencies]
+            [(dependency.name, "") for dependency in comp.dependencies]
+            + [(dependency.name, "[opt] ") for dependency in comp.optional_dependencies]
+            + [
+                (dependency.name, "[cond] ")
+                for _, dependency in comp.conditional_dependencies
+            ]
         )
-        for i, (dep_name, label) in enumerate(children):
-            is_last = i == len(children) - 1
+        for index, (dep_name, label) in enumerate(children):
+            is_last = index == len(children) - 1
             conn = "└── " if is_last else "├── "
             back = " [↑]" if dep_name in visited else ""
             lines.append(
@@ -51,12 +56,12 @@ def build_tree_lines(components: list[BaseComp]) -> list[str]:
                 _render_children(dep_name, prefix + ("    " if is_last else "│   "))
 
     lines: list[str] = []
-    for i, comp in enumerate(top_level):
+    for index, comp in enumerate(top_level):
         lines.append(f"{comp.name} {_status_icon(comp.name)}")
         if comp.name not in visited:
             visited.add(comp.name)
             _render_children(comp.name, "")
-        if i < len(top_level) - 1:
+        if index < len(top_level) - 1:
             lines.append("")
     return lines
 

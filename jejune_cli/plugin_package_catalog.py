@@ -58,8 +58,8 @@ class PluginPackageCatalog:
                     f"  {repo_name}: {click.style('pyproject.toml not found', fg='red')}"
                 )
                 continue
-            with open(pyproject_path, "rb") as f:
-                data = tomllib.load(f)
+            with open(pyproject_path, "rb") as pyproject_file:
+                data = tomllib.load(pyproject_file)
             eps = (
                 data.get("project", {})
                 .get("entry-points", {})
@@ -108,15 +108,15 @@ class PluginPackageCatalog:
     def expected_plugin_names(self, role: str | None = None) -> list[str]:
         """Return sorted list of plugin names expected for *role*."""
         if role is None:
-            r = self._role_registry.detect_role()
-            role = r.name if r else None
+            detected_role = self._role_registry.detect_role()
+            role = detected_role.name if detected_role else None
         return sorted(self._expected_plugin_names(role))
 
     def packages_installed(self, role: str | None = None) -> bool:
         """Return True when all expected plugin packages for *role* are installed."""
         if role is None:
-            r = self._role_registry.detect_role()
-            role = r.name if r else None
+            detected_role = self._role_registry.detect_role()
+            role = detected_role.name if detected_role else None
         repo_names = self._all_repo_names(role)
         if not repo_names:
             return True
@@ -132,8 +132,8 @@ class PluginPackageCatalog:
     def install_packages(self, role: str | None = None, no_cache: bool = False) -> None:
         """Install all expected plugin packages for *role*."""
         if role is None:
-            r = self._role_registry.detect_role()
-            role = r.name if r else None
+            detected_role = self._role_registry.detect_role()
+            role = detected_role.name if detected_role else None
         repo_names = self._all_repo_names(role)
         if not repo_names:
             return
@@ -154,7 +154,15 @@ class PluginPackageCatalog:
             )
             cmd = ["uv", "pip", "install", "--python", sys.executable, git_url]
         else:
-            cmd = ["uv", "pip", "install", "--python", sys.executable, "-e", str(location.local_path)]
+            cmd = [
+                "uv",
+                "pip",
+                "install",
+                "--python",
+                sys.executable,
+                "-e",
+                str(location.local_path),
+            ]
         result = subprocess.run(cmd)
         label = (
             click.style("installed", fg="green")

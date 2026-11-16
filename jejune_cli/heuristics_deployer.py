@@ -263,7 +263,10 @@ def register_heuristics(
     )
     registry.register_role_ordering(
         "deployer",
-        {inst.hint: (i - len(_ext_deps)) * 10 for i, inst in enumerate(_ext_deps)}
+        {
+            inst.hint: (index - len(_ext_deps)) * 10
+            for index, inst in enumerate(_ext_deps)
+        }
         | {
             "Install plugin packages": -3,
             "Regenerate docker-compose.yml": -2,

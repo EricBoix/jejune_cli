@@ -334,16 +334,20 @@ class CompNeo4j(ContComp):
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read())
-        except (urllib.error.URLError, OSError) as e:
-            reason = e.reason if hasattr(e, "reason") else e
+        except (urllib.error.URLError, OSError) as error:
+            reason = error.reason if hasattr(error, "reason") else error
             raise RuntimeError(f"could not reach Neo4j HTTP API: {reason}")
         if data.get("errors"):
             raise RuntimeError(f"Neo4j error: {data['errors'][0]['message']}")
         results = data["results"]
         total_nodes = results[0]["data"][0]["row"][0]
-        nodes_by_label = [(r["row"][0], r["row"][1]) for r in results[1]["data"]]
+        nodes_by_label = [
+            (data_row["row"][0], data_row["row"][1]) for data_row in results[1]["data"]
+        ]
         total_relationships = results[2]["data"][0]["row"][0]
-        relationships_by_type = [(r["row"][0], r["row"][1]) for r in results[3]["data"]]
+        relationships_by_type = [
+            (data_row["row"][0], data_row["row"][1]) for data_row in results[3]["data"]
+        ]
         return total_nodes, nodes_by_label, total_relationships, relationships_by_type
 
     def check(self) -> tuple[str, str]:

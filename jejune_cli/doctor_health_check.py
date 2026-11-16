@@ -27,8 +27,8 @@ def run_avail(
         sys.exit()
 
     active_components = component_registry.sorted_active_set(role_comps)
-    plugin_names = {p.name for p in plugin_registry.plugins}
-    role_names = {c.name for c in role_comps}
+    plugin_names = {plugin.name for plugin in plugin_registry.plugins}
+    role_names = {component.name for component in role_comps}
 
     avail: list[tuple[str, str, str]] = []
     for inst in active_components:

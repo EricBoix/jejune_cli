@@ -97,7 +97,7 @@ class ComponentRegistry:
         return self._expected_plugin_names - self._comps_by_name.keys()
 
     def names(self) -> list[str]:
-        return [c.name for c in self._ordered()]
+        return [component.name for component in self._ordered()]
 
     def __iter__(self):
         return iter(list(self._ordered()))
@@ -125,10 +125,14 @@ class ComponentRegistry:
 
     def sorted_subset(self, components: list[BaseComp]) -> list[BaseComp]:
         """Return *components* in the registry's topological order."""
-        comp_set = {c.name for c in components}
-        ordered = [c for c in self._ordered() if c.name in comp_set]
-        ordered_names = {c.name for c in ordered}
-        ordered += [c for c in components if c.name not in ordered_names]
+        comp_set = {component.name for component in components}
+        ordered = [
+            component for component in self._ordered() if component.name in comp_set
+        ]
+        ordered_names = {component.name for component in ordered}
+        ordered += [
+            component for component in components if component.name not in ordered_names
+        ]
         return ordered
 
     def load_all_configurations(self, base_dir: Path) -> None:

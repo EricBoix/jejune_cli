@@ -56,7 +56,7 @@ def manifest_check_availability():
     )
     _, file_refs = comp.check_manifest_referenced_files()
     if file_refs:
-        key_width = max(len(k) for k, _ in file_refs)
+        key_width = max(len(reference_key) for reference_key, _ in file_refs)
         for key, rel in file_refs:
             exists = (comp.doc_repository_directory / rel).exists()
             entry_status = "ok" if exists else "error"

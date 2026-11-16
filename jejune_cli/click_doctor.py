@@ -36,7 +36,7 @@ def _resolve_avail_hint(
     is_deployer_plugin = (
         deployer is not None
         and inst.name in deployer.component_names
-        and any(p.name == inst.name for p in plugin_registry.plugins)
+        and any(plugin.name == inst.name for plugin in plugin_registry.plugins)
     )
     if is_deployer_plugin:
         if isinstance(inst, ContComp) and not inst.is_built():
@@ -310,7 +310,14 @@ def _print_health_table(
 
 
 def _resolve_port_conflict_hints(active_components: list[BaseComp]) -> dict[str, str]:
-    deploy_comp = next((c for c in active_components if c.name == "deployment"), None)
+    deploy_comp = next(
+        (
+            component
+            for component in active_components
+            if component.name == "deployment"
+        ),
+        None,
+    )
     if deploy_comp is not None and hasattr(deploy_comp, "hint_for_occupied_ports"):
         return deploy_comp.hint_for_occupied_ports(Path("."))
     return {}
@@ -345,15 +352,17 @@ def _visible_component_names(
     verbose: bool,
 ) -> list[str]:
     if verbose:
-        return [c.name for c in active_components]
+        return [component.name for component in active_components]
     avail_ok = {comp for comp, status, _ in avail_results if status == "ok"}
     ext_names = {
-        c.name for c in active_components if isinstance(c, (ExtComp, ExtServer))
+        component.name
+        for component in active_components
+        if isinstance(component, (ExtComp, ExtServer))
     }
     return [
-        c.name
-        for c in active_components
-        if c.name not in ext_names or c.name not in avail_ok
+        component.name
+        for component in active_components
+        if component.name not in ext_names or component.name not in avail_ok
     ]
 
 
@@ -386,11 +395,11 @@ def doctor(ctx, verbose: bool):
     active_role_obj = app.role_registry.detect_role()
     active_role = app.role_registry.detect_role_name()
 
-    d = DotJejune()
+    dot_jejune = DotJejune()
     if (
         not active_role_obj
         or app.role_registry.role_is_doc_steward_family(active_role_obj)
-    ) and not d.is_dir():
+    ) and not dot_jejune.is_dir():
         click.echo(
             click.style(
                 "Current working directory is not a jejune workspace.",
@@ -409,9 +418,9 @@ def doctor(ctx, verbose: bool):
     )
     img_status = ContComp.image_build_status(active_components)
     external_image_names = {
-        c.name
-        for c in active_components
-        if isinstance(c, ContComp) and c.is_external_image
+        component.name
+        for component in active_components
+        if isinstance(component, ContComp) and component.is_external_image
     }
     component_names = _visible_component_names(
         avail_results, active_components, verbose

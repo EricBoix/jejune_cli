@@ -157,7 +157,9 @@ def check(catalog_path, root_dir):
             )
         app = click.get_current_context().find_object(AppContext)
         catalog_comp = app.component_registry.get("catalog")
-        reference_catalog = catalog_comp.reference_catalog_path(dep_path.parent) or Path()
+        reference_catalog = (
+            catalog_comp.reference_catalog_path(dep_path.parent) or Path()
+        )
         results = catalog_comp.check_deployment(dep_path, reference_catalog)
         if not _print_deployment_results(results):
             sys.exit(1)
@@ -234,9 +236,7 @@ def catalog_test(catalog_file, root_dir, repo, verbose):
 
     all_ok = True
 
-    for name, _url, repo_dir in collection.iter_documents(
-        docs, selection.directories
-    ):
+    for name, _url, repo_dir in collection.iter_documents(docs, selection.directories):
         cloned_label = click.style("cloned", fg="green")
         errors, file_refs = CompManifest(repo_dir).check_manifest_referenced_files()
         if errors:
@@ -250,7 +250,9 @@ def catalog_test(catalog_file, root_dir, repo, verbose):
             doc_label = click.style("valid", fg="green")
             click.echo(f"  {name:<40}  {cloned_label} / {doc_label}")
             if verbose:
-                key_width = max((len(k) for k, _ in file_refs), default=0)
+                key_width = max(
+                    (len(reference_key) for reference_key, _ in file_refs), default=0
+                )
                 for key, rel in file_refs:
                     click.echo(f"      {key:<{key_width}}  {rel}")
 

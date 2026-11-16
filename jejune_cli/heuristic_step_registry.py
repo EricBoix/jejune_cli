@@ -143,11 +143,11 @@ class HeuristicStepRegistry:
 
             return sorted(
                 (
-                    s
-                    for s in self._steps
-                    if self._role_applies(s, active_role)
-                    and self._matches(s)
-                    and self._step_viable(s)
+                    step
+                    for step in self._steps
+                    if self._role_applies(step, active_role)
+                    and self._matches(step)
+                    and self._step_viable(step)
                 ),
                 key=_key,
             )
@@ -194,10 +194,10 @@ class HeuristicStepRegistry:
                 click.echo(f"  {line}")
         if preamble and steps:
             click.echo(f"  Then:")
-        for s in steps:
-            cmd = s.resolved_command()
+        for step in steps:
+            cmd = step.resolved_command()
             suffix = f"  →  {cmd}" if cmd else ""
-            click.echo(f"  • {s.label}{suffix}")
+            click.echo(f"  • {step.label}{suffix}")
 
     def evaluate_state(
         self,
@@ -212,7 +212,7 @@ class HeuristicStepRegistry:
         ):
             result = []
             for step in sorted(
-                self._steps, key=lambda s: self._sort_key(s, active_role, None)
+                self._steps, key=lambda step: self._sort_key(step, active_role, None)
             ):
                 cond_results: list[tuple[str, bool]] = []
                 for fn in step.conditions:

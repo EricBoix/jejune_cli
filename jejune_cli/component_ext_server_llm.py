@@ -66,8 +66,8 @@ class CompServerLlm(ExtServer):
             return True, "ok"
         except urllib.error.HTTPError:
             return True, "ok"
-        except urllib.error.URLError as e:
-            return False, f"unreachable: {e.reason}"
+        except urllib.error.URLError as error:
+            return False, f"unreachable: {error.reason}"
 
     @staticmethod
     def check_auth(url: str, api_key: str) -> tuple[bool, str]:
@@ -78,8 +78,8 @@ class CompServerLlm(ExtServer):
             with urllib.request.urlopen(req, timeout=CompServerLlm._TIMEOUT) as resp:
                 resp.read()
             return True, "ok"
-        except urllib.error.URLError as e:
-            return False, f"auth failed: {e.reason}"
+        except urllib.error.URLError as error:
+            return False, f"auth failed: {error.reason}"
 
     @staticmethod
     def check_model(url: str, api_key: str, model: str) -> tuple[bool, str]:
@@ -89,12 +89,12 @@ class CompServerLlm(ExtServer):
         try:
             with urllib.request.urlopen(req, timeout=CompServerLlm._TIMEOUT) as resp:
                 data = json.loads(resp.read())
-        except urllib.error.URLError as e:
-            return False, f"model list unavailable: {e.reason}"
+        except urllib.error.URLError as error:
+            return False, f"model list unavailable: {error.reason}"
         except json.JSONDecodeError:
             return False, "model list: unexpected response format"
 
-        models = [m.get("id", "") for m in data.get("data", [])]
+        models = [model.get("id", "") for model in data.get("data", [])]
         if model in models:
             return True, "ok"
         if models:
@@ -119,12 +119,12 @@ class CompServerLlm(ExtServer):
             with urllib.request.urlopen(req, timeout=CompServerLlm._TIMEOUT) as resp:
                 resp.read()
             return True, "ok"
-        except urllib.error.HTTPError as e:
-            if e.code in (400, 422):
+        except urllib.error.HTTPError as error:
+            if error.code in (400, 422):
                 return True, "ok"
-            return False, f"endpoint error {e.code}: {e.reason}"
-        except urllib.error.URLError as e:
-            return False, f"endpoint unreachable: {e.reason}"
+            return False, f"endpoint error {error.code}: {error.reason}"
+        except urllib.error.URLError as error:
+            return False, f"endpoint unreachable: {error.reason}"
 
     @staticmethod
     def check_inference(
@@ -151,10 +151,10 @@ class CompServerLlm(ExtServer):
             ) as resp:
                 resp.read()
             return True, "ok"
-        except urllib.error.HTTPError as e:
-            return False, f"inference failed: {e.code} {e.reason}"
-        except urllib.error.URLError as e:
-            return False, f"inference failed: {e.reason}"
+        except urllib.error.HTTPError as error:
+            return False, f"inference failed: {error.code} {error.reason}"
+        except urllib.error.URLError as error:
+            return False, f"inference failed: {error.reason}"
         except TimeoutError:
             return (
                 False,

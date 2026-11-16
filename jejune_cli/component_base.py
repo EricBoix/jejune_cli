@@ -61,16 +61,22 @@ class BaseComp(ABC):
 
     def ordering_deps(self) -> "list[BaseComp]":
         """Required + conditional deps; used for topological ordering (optional excluded)."""
-        return self.dependencies + [d for _, d in self.conditional_dependencies]
+        return self.dependencies + [
+            dependency for _, dependency in self.conditional_dependencies
+        ]
 
     def all_deps(self) -> "list[BaseComp]":
         """Required + optional + conditional; used for registry validation."""
         return (
             self.dependencies
             + self.optional_dependencies
-            + [d for _, d in self.conditional_dependencies]
+            + [dependency for _, dependency in self.conditional_dependencies]
         )
 
     def active_deps(self) -> "list[BaseComp]":
         """Required + active conditional deps; used for runtime checks."""
-        return self.dependencies + [d for c, d in self.conditional_dependencies if c()]
+        return self.dependencies + [
+            dependency
+            for condition, dependency in self.conditional_dependencies
+            if condition()
+        ]

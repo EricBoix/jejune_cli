@@ -76,7 +76,7 @@ class ContainerCoordination:
         """
         with self._registry_lock():
             entries = self._load()
-            eid = max((e["id"] for e in entries), default=0) + 1
+            eid = max((entry["id"] for entry in entries), default=0) + 1
             entry = {"id": eid, "component": component, "container": container, **meta}
             self._save(entries + [entry])
             return entry
@@ -94,7 +94,7 @@ class ContainerCoordination:
         """
         with self._registry_lock():
             entries = self._load()
-            eid = max((e["id"] for e in entries), default=0) + 1
+            eid = max((entry["id"] for entry in entries), default=0) + 1
             container = name_factory(eid)
             entry = {"id": eid, "component": component, "container": container, **meta}
             self._save(entries + [entry])
@@ -104,8 +104,10 @@ class ContainerCoordination:
         """Atomically remove registry entries for the given container names."""
         names = set(container_names)
         with self._registry_lock():
-            self._save([e for e in self._load() if e["container"] not in names])
+            self._save(
+                [entry for entry in self._load() if entry["container"] not in names]
+            )
 
     def json_for_component(self, component: str) -> list[dict]:
         """Return entries for *component* from the JSON registry (not live Docker state)."""
-        return [e for e in self._load() if e["component"] == component]
+        return [entry for entry in self._load() if entry["component"] == component]

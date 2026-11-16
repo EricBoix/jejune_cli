@@ -58,10 +58,14 @@ def init(ctx, dir_name: str | None) -> None:
         shutil.copy2(TemplatePaths.ECOSYSTEM_ENV_CONFIG, eco_dst)
         created.append("ecosystem-env-config")
 
-    for f in created:
-        click.echo(click.style(f"  created  .jejune/{f}", fg="green"))
-    for f in skipped:
-        click.echo(click.style(f"  skipped  .jejune/{f} (already exists)", fg="yellow"))
+    for workspace_file in created:
+        click.echo(click.style(f"  created  .jejune/{workspace_file}", fg="green"))
+    for workspace_file in skipped:
+        click.echo(
+            click.style(
+                f"  skipped  .jejune/{workspace_file} (already exists)", fg="yellow"
+            )
+        )
 
     gitignore = target / ".gitignore"
     entry = ".jejune\n"

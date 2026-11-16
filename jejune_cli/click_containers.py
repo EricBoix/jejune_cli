@@ -70,5 +70,5 @@ def containers_exit(ctx):
         name = entry["container"]
         click.echo(f"Stopping {name} ...")
         app.containerized_context.docker.stop_container(name)
-    app.coordination.unregister(*(e["container"] for e in entries))
+    app.coordination.unregister(*(entry["container"] for entry in entries))
     click.echo(click.style("All containers stopped.", fg="green"))

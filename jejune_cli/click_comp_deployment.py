@@ -28,11 +28,11 @@ def status(ctx) -> None:
         raise SystemExit(1)
     results = app.component_registry.get("deployment").check_ui_services()
     plugin_port = {
-        p.name: os.environ.get(p.config_vars[0], "?")
-        for p in app.plugin_registry.plugins
-        if p.config_vars
+        plugin.name: os.environ.get(plugin.config_vars[0], "?")
+        for plugin in app.plugin_registry.plugins
+        if plugin.config_vars
     }
-    _W = max(len(n) for n, *_ in results)
+    _W = max(len(result_name) for result_name, *_ in results)
     for name, ok, msg in results:
         label = click.style("ok", fg="green") if ok else click.style("error", fg="red")
         if not ok:

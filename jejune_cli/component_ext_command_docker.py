@@ -15,12 +15,12 @@ class CompCommandDocker(ExtCommand):
 
     def image_exists(self, tag: str) -> bool:
         """Return True if the Docker image *tag* exists locally."""
-        r = subprocess.run(
+        result = subprocess.run(
             ["docker", "images", "-q", tag],
             capture_output=True,
             text=True,
         )
-        return bool(r.returncode == 0 and r.stdout.strip())
+        return bool(result.returncode == 0 and result.stdout.strip())
 
     def container_exists(self, name: str) -> bool:
         """Return True if a container named *name* exists (running or stopped)."""
@@ -76,12 +76,12 @@ class CompCommandDocker(ExtCommand):
         if rm:
             cmd.append("--rm")
         cmd.extend(["--detach", "--name", name])
-        for p in publish or []:
-            cmd.extend(["--publish", p])
-        for v in volumes or []:
-            cmd.extend(["-v", v])
-        for e in env or []:
-            cmd.extend(["--env", e])
+        for published_port in publish or []:
+            cmd.extend(["--publish", published_port])
+        for volume in volumes or []:
+            cmd.extend(["-v", volume])
+        for environment_variable in env or []:
+            cmd.extend(["--env", environment_variable])
         cmd.append(image)
         cmd.extend(cmd_args or [])
         return subprocess.run(cmd).returncode

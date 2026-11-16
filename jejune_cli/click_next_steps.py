@@ -68,7 +68,9 @@ def next_state_cmd(ctx, list_preconditions: bool) -> None:
     if list_preconditions:
         if named_preconditions:
             click.echo("Preconditions:")
-            _W = max(len(n) for n in named_preconditions)
+            _W = max(
+                len(precondition_name) for precondition_name in named_preconditions
+            )
             for name in sorted(named_preconditions):
                 try:
                     val = named_preconditions[name]()
@@ -105,7 +107,9 @@ def next_state_cmd(ctx, list_preconditions: bool) -> None:
         click.echo("No heuristic rules registered.")
         return
     for step, cond_results, anti_results in entries:
-        active = all(v for _, v in cond_results) and not any(v for _, v in anti_results)
+        active = all(condition_met for _, condition_met in cond_results) and not any(
+            condition_met for _, condition_met in anti_results
+        )
         mark = click.style("✓", fg="green") if active else click.style("✗", fg="red")
         cmd = step.resolved_command()
         cmd_hint = f"  ({cmd})" if cmd else ""

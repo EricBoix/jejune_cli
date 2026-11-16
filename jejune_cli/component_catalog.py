@@ -119,12 +119,16 @@ class CompCatalog(ConfComp):
             else None
         )
 
-        for i, doc in enumerate(CatalogFile(catalog_file).raw_documents()):
-            schema_errors = CatalogDocument.validate_mapping(doc, i)
+        for document_index, doc in enumerate(CatalogFile(catalog_file).raw_documents()):
+            schema_errors = CatalogDocument.validate_mapping(doc, document_index)
             if schema_errors:
                 label = doc.get("name") if isinstance(doc, dict) else None
                 results.append(
-                    (label or f"entry #{i}", False, "; ".join(schema_errors))
+                    (
+                        label or f"entry #{document_index}",
+                        False,
+                        "; ".join(schema_errors),
+                    )
                 )
                 continue
             name = doc["name"]
