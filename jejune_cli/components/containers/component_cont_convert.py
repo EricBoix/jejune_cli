@@ -2,7 +2,6 @@
 
 import os
 import re
-import subprocess
 from pathlib import Path
 
 from jejune_cli.core._package_paths import CatalogConfig, PdfToMarkdownConfig
@@ -69,21 +68,18 @@ class CompConvert(ContComp):
         """The pdf-to-markdown commit recorded in the image, when it is built."""
         return ConverterCommits.labelled_commits(
             self._context.docker,
-            [self.image_name],
+            self.image_variants(),
             ConverterCommits.PDF_TO_MARKDOWN_COMMIT_LABEL,
         )
 
     def image_document_commits(self, document_name: str) -> list[str]:
         """The commit of the document *document_name* recorded in the image, when it
         is the document of CONVERT_DOC_DIR and the image is built."""
-        if (
-            ConverterImageName.build(ConverterImageName.DOCUMENT_OWNER, document_name)
-            != self.image_name
-        ):
+        if document_name != CompConvert._document_name():
             return []
         return ConverterCommits.labelled_commits(
             self._context.docker,
-            [self.image_name],
+            self.image_variants(),
             ConverterCommits.DOCUMENT_COMMIT_LABEL,
         )
 
@@ -124,6 +120,7 @@ class CompConvert(ContComp):
         self,
         no_cache: bool = False,
         token_file: Path | str | None = None,
+        local_documents: bool = True,
         local_pdf_to_markdown: bool = False,
     ) -> None:
         if self.configuration.check()[0] != "ok":
@@ -141,10 +138,13 @@ class CompConvert(ContComp):
             if not ctx.is_dir():
                 raise ValueError(f"DockerContext not found at {ctx}")
             dockerfile, context = ctx / "Dockerfile", ctx
-        extra = ["--no-cache"] if no_cache else []
-        image_name = CompConvert._image_tag(local_pdf_to_markdown=local_pdf_to_markdown)
-        # The document is always cloned by the Dockerfile
-        document = ConverterSource()
+        image_name = CompConvert._image_tag(local_documents, local_pdf_to_markdown)
+        # The local document is the one of CONVERT_DOC_DIR
+        document = (
+            ConverterSource("cwd", context if doc_dir.is_file() else context.parent)
+            if local_documents
+            else ConverterSource()
+        )
         pdf_to_markdown = (
             ConverterSources.locate_pdf_to_markdown(
                 self._ecosystem, self._ecosystem.resolve_dirs()
@@ -152,55 +152,17 @@ class CompConvert(ContComp):
             if local_pdf_to_markdown
             else ConverterSource()
         )
-        git_access = self._context.git_access
-        document_urls = self.dockerfile_git_urls(dockerfile)
-        # The document is pinned to the commit recorded in the image, which is the
-        # remote HEAD at the time of the build
-        document_commit = (
-            ConverterCommits.remote_head(git_access, document_urls[0], token_file)
-            if document_urls
-            else None
+        ConverterSources.build_image(
+            self._context.git_access,
+            image_name=image_name,
+            dockerfile=dockerfile,
+            context_dir=context,
+            document=document,
+            document_urls=self.dockerfile_git_urls(dockerfile),
+            pdf_to_markdown=pdf_to_markdown,
+            token_file=token_file,
+            no_cache=no_cache,
         )
-        pdf_to_markdown_commit = (
-            ConverterCommits.local_commit(git_access, pdf_to_markdown.path)
-            if pdf_to_markdown.is_local
-            else None
-        )
-        # The Dockerfile clones private repositories with the credentials handed
-        # over as a BuildKit secret: they never end up in an image layer.
-        with git_access.credentials_file(document_urls, token_file) as credentials:
-            secret = (
-                ["--secret", f"id=git_credentials,src={credentials}"]
-                if credentials
-                else []
-            )
-            subprocess.run(
-                [
-                    "docker",
-                    "build",
-                    *extra,
-                    *secret,
-                    *ConverterSources.source_arguments(document, pdf_to_markdown),
-                    *ConverterCommits.build_arguments(
-                        document_commit, True, pdf_to_markdown_commit
-                    ),
-                    "-t",
-                    image_name,
-                    "-f",
-                    str(dockerfile),
-                    str(context),
-                ],
-                check=True,
-            )
-        if not pdf_to_markdown.is_local:
-            # pdf-to-markdown is the one locked by the uv.lock of the cloned
-            # document, which is only known inside the image
-            locked_commit = ConverterCommits.locked_pdf_to_markdown_commit(image_name)
-            if locked_commit:
-                ConverterCommits.add_labels(
-                    image_name,
-                    {ConverterCommits.PDF_TO_MARKDOWN_COMMIT_LABEL: locked_commit},
-                )
 
     def check(self) -> tuple[str, str]:
         if self.configuration.check()[0] != "ok":
@@ -226,26 +188,44 @@ class CompConvert(ContComp):
         return Path(val) if val else None
 
     @staticmethod
-    def _image_tag(local_pdf_to_markdown: bool = False) -> str:
+    def _document_name() -> str:
+        """The name of the document directory of CONVERT_DOC_DIR (empty when unset)."""
         doc_dir = CompConvert._doc_dir()
         if not doc_dir:
-            return ConverterImageName.build(
-                ConverterImageName.DOCUMENT_OWNER,
-                "",
-                local_pdf_to_markdown=local_pdf_to_markdown,
-            )
-        base = (
+            return ""
+        return (
             doc_dir.resolve().parent.parent if doc_dir.is_file() else doc_dir.resolve()
-        )
+        ).name
+
+    @staticmethod
+    def _image_tag(
+        local_documents: bool = True, local_pdf_to_markdown: bool = False
+    ) -> str:
         return ConverterImageName.build(
             ConverterImageName.DOCUMENT_OWNER,
-            base.name,
-            local_pdf_to_markdown=local_pdf_to_markdown,
+            CompConvert._document_name(),
+            local_documents,
+            local_pdf_to_markdown,
         )
 
-    def is_built(self, local_pdf_to_markdown: bool = False) -> bool:
-        return self._context.docker.image_exists(
-            CompConvert._image_tag(local_pdf_to_markdown=local_pdf_to_markdown)
+    def is_built(
+        self, local_documents: bool | None = None, local_pdf_to_markdown: bool = False
+    ) -> bool:
+        """True when the image of the document is built. Without *local_documents*,
+        an image built from local sources is as built as the default one."""
+        if local_documents is not None:
+            return self._context.docker.image_exists(
+                CompConvert._image_tag(local_documents, local_pdf_to_markdown)
+            )
+        return any(
+            self._context.docker.image_exists(variant)
+            for variant in self.image_variants()
+        )
+
+    def image_variants(self) -> list[str]:
+        """Every image name of the document of CONVERT_DOC_DIR, whatever its sources."""
+        return ConverterImageName.variants(
+            ConverterImageName.DOCUMENT_OWNER, CompConvert._document_name()
         )
 
     def image_built(self) -> tuple[bool, str]:

@@ -97,6 +97,13 @@ def hint_availability(conv):
     "repositories (default: GIT_ACCESS_TOKEN_FILE or GIT_ACCESS_TOKEN of .jejune/env-secrets).",
 )
 @click.option(
+    "--no-local-document",
+    is_flag=True,
+    default=False,
+    help="Clone the document from GitHub in the image (instead of copying the local "
+    "document of CONVERT_DOC_DIR).",
+)
+@click.option(
     "--local-pdf-to-markdown",
     is_flag=True,
     default=False,
@@ -107,6 +114,7 @@ def build(
     conv,
     no_cache: bool,
     token_file: str | None,
+    no_local_document: bool,
     local_pdf_to_markdown: bool,
 ):
     """Build the converter Docker image.
@@ -119,19 +127,22 @@ def build(
     repository, the credentials of --token-file (or GIT_ACCESS_TOKEN_FILE, or GIT_ACCESS_TOKEN) are passed
     to docker build as the BuildKit secret `git_credentials`.
 
-    By default the image clones the document from GitHub and uses the
-    pdf-to-markdown version locked in the uv.lock of the document. The
-    --local-pdf-to-markdown flag uses instead the local pdf-to-markdown, searched
+    By default the image copies the local document (the one of CONVERT_DOC_DIR,
+    uncommitted changes included) and uses the pdf-to-markdown version locked in
+    its uv.lock. --no-local-document clones the document from GitHub instead. The
+    --local-pdf-to-markdown flag uses the local pdf-to-markdown, searched
     in $JEJUNE_ROOT_DIR, then in .jejune/tmp (cloned there when found nowhere).
     The sources used are recorded as image labels.
     """
+    local_documents = not no_local_document
     try:
         click.echo(
-            f"Building {conv._image_tag(local_pdf_to_markdown=local_pdf_to_markdown)} ..."
+            f"Building {conv._image_tag(local_documents, local_pdf_to_markdown)} ..."
         )
         conv.build(
             no_cache=no_cache,
             token_file=token_file,
+            local_documents=local_documents,
             local_pdf_to_markdown=local_pdf_to_markdown,
         )
     except ValueError as exc:
@@ -159,6 +170,13 @@ def build(
     help="Run container tests (pytest) instead of converting.",
 )
 @click.option(
+    "--no-local-document",
+    is_flag=True,
+    default=False,
+    help="Run the image built with the document cloned from GitHub "
+    "(`jejune convert build --no-local-document`).",
+)
+@click.option(
     "--local-pdf-to-markdown",
     is_flag=True,
     default=False,
@@ -167,13 +185,18 @@ def build(
 )
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
 @click.pass_obj
-def run_cmd(conv, output_dir, test, local_pdf_to_markdown, extra_args):
+def run_cmd(
+    conv, output_dir, test, no_local_document, local_pdf_to_markdown, extra_args
+):
     """Run the converter container, forwarding EXTRA_ARGS to the entrypoint."""
-    image = conv._image_tag(local_pdf_to_markdown=local_pdf_to_markdown)
-    if not conv.is_built(local_pdf_to_markdown):
-        flag = " --local-pdf-to-markdown" if local_pdf_to_markdown else ""
+    local_documents = not no_local_document
+    image = conv._image_tag(local_documents, local_pdf_to_markdown)
+    if not conv.is_built(local_documents, local_pdf_to_markdown):
+        flags = (" --no-local-document" if no_local_document else "") + (
+            " --local-pdf-to-markdown" if local_pdf_to_markdown else ""
+        )
         raise click.ClickException(
-            f"Docker image {image!r} is not built. Run `jejune convert build{flag}` first."
+            f"Docker image {image!r} is not built. Run `jejune convert build{flags}` first."
         )
     if test:
         result = subprocess.run(

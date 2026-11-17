@@ -2,7 +2,6 @@
 
 import json
 import subprocess
-from contextlib import nullcontext
 from pathlib import Path
 
 import click
@@ -171,7 +170,6 @@ class CompConverters(ContComp):
         if not selection.documents:
             click.echo("  no documents found in catalog")
             return
-        extra = ["--no-cache"] if no_cache else []
         built_any = False
         failed_images: list[str] = []
         token_files = CatalogFile(CatalogFile.resolve_path()).token_files()
@@ -196,91 +194,34 @@ class CompConverters(ContComp):
                 if local_documents
                 else ConverterSource()
             )
-            git_access = self._context.git_access
-            document_urls = CompConvert.dockerfile_git_urls(dockerfile)
-            # A document cloned by the Dockerfile is pinned to the remote HEAD
-            # recorded in the image; a local one is recorded as it is
-            document_commit = (
-                ConverterCommits.local_commit(git_access, repo_dir)
-                if document.is_local
-                else (
-                    ConverterCommits.remote_head(
-                        git_access, document_urls[0], token_files.get(name)
-                    )
-                    if document_urls
-                    else None
-                )
-            )
-            pdf_to_markdown_commit = (
-                ConverterCommits.local_commit(git_access, pdf_to_markdown.path)
-                if pdf_to_markdown.is_local
-                else None
-            )
             click.echo(
                 f"  Building {image_name} "
                 f"(document: {document.label_value(self.DEFAULT_DOCUMENT_SOURCE)}, "
                 f"pdf-to-markdown: "
                 f"{pdf_to_markdown.label_value(self.DEFAULT_PDF_TO_MARKDOWN_SOURCE)}) ..."
             )
-            # Private repositories are cloned with the credentials handed over as
-            # a BuildKit secret: they never end up in an image layer. A local
-            # document is not cloned: no credentials needed.
-            with (
-                nullcontext(None)
-                if document.is_local
-                else self._context.git_access.credentials_file(
-                    CompConvert.dockerfile_git_urls(dockerfile), token_files.get(name)
+            try:
+                ConverterSources.build_image(
+                    self._context.git_access,
+                    image_name=image_name,
+                    dockerfile=dockerfile,
+                    context_dir=ctx,
+                    document=document,
+                    document_urls=CompConvert.dockerfile_git_urls(dockerfile),
+                    pdf_to_markdown=pdf_to_markdown,
+                    token_file=token_files.get(name),
+                    no_cache=no_cache,
                 )
-            ) as credentials:
-                secret = (
-                    ["--secret", f"id=git_credentials,src={credentials}"]
-                    if credentials
-                    else []
+            except subprocess.CalledProcessError as error:
+                click.echo(
+                    click.style(
+                        f"  docker build of {image_name} failed (exit code {error.returncode}), see the docker output above",
+                        fg="red",
+                    ),
+                    err=True,
                 )
-                try:
-                    subprocess.run(
-                        [
-                            "docker",
-                            "build",
-                            *extra,
-                            *secret,
-                            *ConverterSources.source_arguments(
-                                document, pdf_to_markdown
-                            ),
-                            *ConverterCommits.build_arguments(
-                                document_commit,
-                                not document.is_local,
-                                pdf_to_markdown_commit,
-                            ),
-                            "-t",
-                            image_name,
-                            "-f",
-                            str(dockerfile),
-                            str(ctx),
-                        ],
-                        check=True,
-                    )
-                except subprocess.CalledProcessError as error:
-                    click.echo(
-                        click.style(
-                            f"  docker build of {image_name} failed (exit code {error.returncode}), see the docker output above",
-                            fg="red",
-                        ),
-                        err=True,
-                    )
-                    failed_images.append(image_name)
-                    continue
-            if not pdf_to_markdown.is_local:
-                # pdf-to-markdown is the one locked by the uv.lock of the cloned
-                # document, which is only known inside the image
-                locked_commit = ConverterCommits.locked_pdf_to_markdown_commit(
-                    image_name
-                )
-                if locked_commit:
-                    ConverterCommits.add_labels(
-                        image_name,
-                        {ConverterCommits.PDF_TO_MARKDOWN_COMMIT_LABEL: locked_commit},
-                    )
+                failed_images.append(image_name)
+                continue
             built_any = True
         if failed_images:
             raise click.ClickException(

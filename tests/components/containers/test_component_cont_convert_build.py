@@ -74,15 +74,33 @@ def build_component(tmp_path):
     return component
 
 
-def test_default_build_uses_the_locked_pdf_to_markdown(
+def build_command(commands, option):
+    command = commands[0]
+    return command[command.index(option) + 1]
+
+
+def test_default_build_copies_the_local_document(
     document_dir, docker_commands, tmp_path
 ):
     commands, _ = docker_commands
     build_component(tmp_path).build()
     command = commands[0]
-    assert "--build-context" not in command
+    assert build_command(commands, "--build-context") == (f"jejune-doc={document_dir}")
+    assert "DOC_SOURCE=local" in command
     assert "PDF_TO_MARKDOWN_SOURCE=local" not in command
-    assert command[command.index("-t") + 1] == "jejune:convert_doc_Sample"
+    assert "--secret" not in command
+    assert build_command(commands, "-t") == "jejune:convert_doc_Sample-local_doc"
+
+
+def test_no_local_document_build_clones_the_document(
+    document_dir, docker_commands, tmp_path
+):
+    commands, _ = docker_commands
+    build_component(tmp_path).build(local_documents=False)
+    command = commands[0]
+    assert "--build-context" not in command
+    assert "DOC_SOURCE=local" not in command
+    assert build_command(commands, "-t") == "jejune:convert_doc_Sample"
 
 
 def test_local_pdf_to_markdown_build_selects_the_local_checkout(
@@ -93,4 +111,17 @@ def test_local_pdf_to_markdown_build_selects_the_local_checkout(
     command = commands[0]
     assert f"pdf-to-markdown={pdf_to_markdown_dir}" in command
     assert "PDF_TO_MARKDOWN_SOURCE=local" in command
-    assert command[command.index("-t") + 1] == "jejune:convert_doc_Sample-local_pdf"
+    assert build_command(commands, "-t") == "jejune:convert_doc_Sample-local"
+
+
+def test_the_image_is_built_whatever_its_sources(document_dir, tmp_path):
+    component = build_component(tmp_path)
+    existing = {"jejune:convert_doc_Sample-local_pdf"}
+    component._context.docker = SimpleNamespace(
+        image_exists=lambda image: image in existing
+    )
+    assert component.is_built()
+    assert not component.is_built(local_documents=True)
+    assert component.is_built(local_documents=False, local_pdf_to_markdown=True)
+    existing.clear()
+    assert not component.is_built()

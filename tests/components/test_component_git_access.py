@@ -153,8 +153,9 @@ def test_convert_build_passes_credentials_as_docker_secret(
     convert._context = SimpleNamespace(git_access=git_access)
     convert.configuration = SimpleNamespace(check=lambda: ("ok", "", ""))
 
-    convert.build(token_file=token_file)
-    convert.build()
+    # The credentials are those of the clone of the document made by the Dockerfile
+    convert.build(token_file=token_file, local_documents=False)
+    convert.build(local_documents=False)
     monkeypatch.delenv(CompGitAccess.TOKEN_FILE_ENV_VAR, raising=False)
     monkeypatch.delenv(CompGitAccess.TOKEN_ENV_VAR, raising=False)
 
