@@ -2,6 +2,7 @@
 
 import os
 import re
+import subprocess
 from pathlib import Path
 
 from jejune_cli.core._package_paths import CatalogConfig, PdfToMarkdownConfig
@@ -155,6 +156,60 @@ class CompConvert(ContComp):
             pdf_to_markdown=pdf_to_markdown,
             token_file=token_file,
             no_cache=no_cache,
+        )
+
+    @staticmethod
+    def container_arguments(
+        image: str,
+        output_directory: Path | None = None,
+        test: bool = False,
+        warnings: bool = False,
+        debug: bool = False,
+        extra_args: tuple[str, ...] = (),
+    ) -> list[str]:
+        """The `docker run` command of the converter *image*: the pytest run with
+        *test*, else the conversion writing in *output_directory* (mounted as
+        /output). *warnings* and *debug* are the options of Convert/main.py (debug
+        implies warnings there)."""
+        if test:
+            return ["docker", "run", "--rm", image, "--test", *extra_args]
+        if output_directory is None:
+            raise ValueError("output_directory is required to convert")
+        return [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{output_directory}:/output",
+            image,
+            "--output_directory",
+            "/output",
+            *(["--warnings"] if warnings else []),
+            *(["--debug"] if debug else []),
+            *extra_args,
+        ]
+
+    @classmethod
+    def run_container(
+        cls,
+        image: str,
+        output_directory: Path | None = None,
+        test: bool = False,
+        warnings: bool = False,
+        debug: bool = False,
+        extra_args: tuple[str, ...] = (),
+        capture: bool = False,
+    ) -> subprocess.CompletedProcess:
+        """Run the converter *image* (see container_arguments): its output streams
+        to the terminal, or is captured with *capture*."""
+        if output_directory is not None:
+            output_directory.mkdir(parents=True, exist_ok=True)
+        return subprocess.run(
+            cls.container_arguments(
+                image, output_directory, test, warnings, debug, extra_args
+            ),
+            capture_output=capture,
+            text=capture,
         )
 
     def check(self) -> tuple[str, str]:

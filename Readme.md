@@ -42,7 +42,7 @@ jejune deployment        # manage deployments
 
 ### Testing pdf-to-markdown changes against the catalog
 
-By default a converter image clones its `jejune_doc_*` from GitHub and uses the
+By default a converter image copies its local `jejune_doc_*` clone and uses the
 pdf-to-markdown version locked in the `uv.lock` of the document. To check a local
 pdf-to-markdown against every document, without pushing anything, **first commit
 the change locally in pdf-to-markdown (do not push)**: the version of pdf-to-markdown
@@ -51,15 +51,16 @@ what was tested; uncommitted changes only add a date to the version. A rejected 
 commit costs nothing (`git reset`): GitHub never sees it.
 
 ```sh
-jejune converters build --local-pdf-to-markdown   # or --local-documents, or --local for both
+jejune converters build --local-pdf-to-markdown   # --no-local-document clones the documents from GitHub instead
 jejune converters test --local-pdf-to-markdown    # same flags: tests those images, building the missing ones
+jejune converters run --local-pdf-to-markdown --warnings --debug   # converts every document into ./converted/<document>
 ```
 
 pdf-to-markdown and the documents are looked for in `$JEJUNE_ROOT_DIR` (or `--root-dir`),
 then in `.jejune/tmp` (pdf-to-markdown is cloned there when found nowhere, with its
 whole git history: the commit count is part of its version; a checkout of
 `$JEJUNE_ROOT_DIR` is never touched).
-`converters test` accepts the same `--local*` flags as `converters build`: it tests the
+`converters test` and `converters run` accept the same flags as `converters build`: it tests the
 images built with those sources, building first (with the same flags) those that do not
 exist yet. Its report shows which sources each image was built with; without any flag it
 tests the default images (`document: git, pdf-to-markdown: locked`).
@@ -114,8 +115,9 @@ The converter image of a document is named `jejune:convert_<owner>_<slug>[<suffi
   `doc` (built by `jejune convert build`, doc-steward), so that both never overwrite
   each other;
 - `<slug>` is the name of the document repository without its `jejune_doc_` prefix;
-- `<suffix>` is `-local_doc` (`--local-documents`), `-local_pdf`
-  (`--local-pdf-to-markdown`) or `-local` (both, i.e. `--local`), and empty otherwise.
+- `<suffix>` is `-local_doc` (the local document, the default), `-local_pdf`
+  (`--local-pdf-to-markdown`) or `-local` (both), and empty otherwise
+  (`--no-local-document` without `--local-pdf-to-markdown`).
 
 The build fails when the tag exceeds the 128 characters accepted by docker or holds
 a character it refuses. Images built with the former names (`jejune:convert_<slug>`)

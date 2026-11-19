@@ -247,24 +247,23 @@ class CompConverters(ContComp):
         df = ctx / "Dockerfile"
         return (ctx.is_dir() and df.exists()), df, ctx
 
-    def run_converter_test(
+    def ensure_image(
         self,
         repo_dir: Path,
         document_name: str,
         catalog_file: str | None,
         root_dir: str | None,
         no_cache: bool,
-        local_documents: bool = False,
-        local_pdf_to_markdown: bool = False,
+        local_documents: bool,
+        local_pdf_to_markdown: bool,
     ) -> tuple[str, str, str]:
-        """Return (outcome, detail, verbose_output). outcome taken among skipped,
-        build_failed, image_not_found, unchanged or changed. The image built with
-        the selected sources is built first when absent (or when no_cache)."""
+        """Return (outcome, detail, image). outcome is ok, skipped, build_failed or
+        image_not_found. The image built with the selected sources is built first
+        when absent (or when no_cache)."""
         has, _, _ = self.has_converter(repo_dir)
         if not has:
             return "skipped", "no DockerContext", ""
         image = self.docker_image_name(repo_dir, local_documents, local_pdf_to_markdown)
-        verbose_lines: list[str] = []
         if no_cache or not self._context.docker.image_exists(image):
             try:
                 self.build(
@@ -279,15 +278,79 @@ class CompConverters(ContComp):
                 return "build_failed", error.format_message(), ""
             if not self._context.docker.image_exists(image):
                 return "image_not_found", f"image {image!r} not found", ""
-        run_result = subprocess.run(
-            ["docker", "run", "--rm", image, "--test"], capture_output=True, text=True
+        return "ok", "", image
+
+    def run_converter_test(
+        self,
+        repo_dir: Path,
+        document_name: str,
+        catalog_file: str | None,
+        root_dir: str | None,
+        no_cache: bool,
+        local_documents: bool = False,
+        local_pdf_to_markdown: bool = False,
+    ) -> tuple[str, str, str]:
+        """Return (outcome, detail, verbose_output). outcome taken among skipped,
+        build_failed, image_not_found, unchanged or changed. The image built with
+        the selected sources is built first when absent (or when no_cache)."""
+        outcome, detail, image = self.ensure_image(
+            repo_dir,
+            document_name,
+            catalog_file,
+            root_dir,
+            no_cache,
+            local_documents,
+            local_pdf_to_markdown,
         )
-        verbose_lines.extend(
-            (run_result.stdout + run_result.stderr).strip().splitlines()
+        if outcome != "ok":
+            return outcome, detail, ""
+        run_result = CompConvert.run_container(image, test=True, capture=True)
+        verbose_output = (run_result.stdout + run_result.stderr).strip()
+        sources = self.image_source_summary(image)
+        return (
+            ("unchanged", f"tests passed ({sources})", verbose_output)
+            if run_result.returncode == 0
+            else ("changed", f"tests failed ({sources})", verbose_output)
+        )
+
+    def run_converter_convert(
+        self,
+        repo_dir: Path,
+        document_name: str,
+        catalog_file: str | None,
+        root_dir: str | None,
+        no_cache: bool,
+        output_directory: Path,
+        local_documents: bool = False,
+        local_pdf_to_markdown: bool = False,
+        warnings: bool = False,
+        debug: bool = False,
+        extra_args: tuple[str, ...] = (),
+    ) -> tuple[str, str]:
+        """Return (outcome, detail). outcome taken among skipped, build_failed,
+        image_not_found, converted or failed. The conversion of the document is
+        written in *output_directory*; its logs stream to the terminal."""
+        outcome, detail, image = self.ensure_image(
+            repo_dir,
+            document_name,
+            catalog_file,
+            root_dir,
+            no_cache,
+            local_documents,
+            local_pdf_to_markdown,
+        )
+        if outcome != "ok":
+            return outcome, detail
+        run_result = CompConvert.run_container(
+            image,
+            output_directory,
+            warnings=warnings,
+            debug=debug,
+            extra_args=extra_args,
         )
         sources = self.image_source_summary(image)
         return (
-            ("unchanged", f"tests passed ({sources})", "\n".join(verbose_lines))
+            ("converted", f"{output_directory} ({sources})")
             if run_result.returncode == 0
-            else ("changed", f"tests failed ({sources})", "\n".join(verbose_lines))
+            else ("failed", f"exit code {run_result.returncode} ({sources})")
         )

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import click
 
+from jejune_cli.components.containers.component_cont_convert import CompConvert
 from jejune_cli.core.app_context import AppContext
 from jejune_cli.click.click_configuration import print_config_check, print_config_status
 
@@ -183,10 +184,29 @@ def build(
     help="Run the image built with the local pdf-to-markdown "
     "(`jejune convert build --local-pdf-to-markdown`).",
 )
+@click.option(
+    "--warnings",
+    is_flag=True,
+    default=False,
+    help="Report conversion warnings (e.g. typos that cannot be found).",
+)
+@click.option(
+    "--debug",
+    is_flag=True,
+    default=False,
+    help="Report debug traces of the conversion (implies --warnings).",
+)
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
 @click.pass_obj
 def run_cmd(
-    conv, output_dir, test, no_local_document, local_pdf_to_markdown, extra_args
+    conv,
+    output_dir,
+    test,
+    no_local_document,
+    local_pdf_to_markdown,
+    warnings,
+    debug,
+    extra_args,
 ):
     """Run the converter container, forwarding EXTRA_ARGS to the entrypoint."""
     local_documents = not no_local_document
@@ -198,24 +218,12 @@ def run_cmd(
         raise click.ClickException(
             f"Docker image {image!r} is not built. Run `jejune convert build{flags}` first."
         )
-    if test:
-        result = subprocess.run(
-            ["docker", "run", "--rm", image, "--test", *extra_args],
-        )
-    else:
-        out = Path(output_dir).resolve()
-        out.mkdir(parents=True, exist_ok=True)
-        result = subprocess.run(
-            [
-                "docker",
-                "run",
-                "--rm",
-                "-v",
-                f"{out}:/output",
-                image,
-                "--output_directory",
-                "/output",
-                *extra_args,
-            ],
-        )
+    result = CompConvert.run_container(
+        image,
+        None if test else Path(output_dir).resolve(),
+        test,
+        warnings,
+        debug,
+        extra_args,
+    )
     sys.exit(result.returncode)

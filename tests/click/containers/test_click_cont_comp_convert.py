@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import pytest
 from click.testing import CliRunner
 
@@ -67,3 +69,41 @@ def test_run_hints_the_build_command_of_the_selected_sources():
     result = invoke(RecordingConvert(), "run", "--no-local-document")
     assert result.exit_code != 0
     assert "jejune convert build --no-local-document" in result.output
+
+
+@pytest.fixture
+def docker_commands(monkeypatch):
+    commands = []
+    monkeypatch.setattr(
+        click_cont_comp_convert.CompConvert,
+        "run_container",
+        classmethod(
+            lambda cls, image, *arguments, **options: commands.append(
+                CompConvert.container_arguments(image, *arguments)
+            )
+            or SimpleNamespace(returncode=0)
+        ),
+    )
+    return commands
+
+
+def test_run_forwards_warnings_and_debug_to_the_container(docker_commands, tmp_path):
+    convert = RecordingConvert(built_image_flags=(True, False))
+    result = invoke(
+        convert, "run", "--output-dir", str(tmp_path), "--warnings", "--debug"
+    )
+    assert result.exit_code == 0, result.output
+    command = docker_commands[0]
+    assert command[-3:] == ["/output", "--warnings", "--debug"]
+
+
+def test_run_without_options_forwards_neither(docker_commands, tmp_path):
+    convert = RecordingConvert(built_image_flags=(True, False))
+    invoke(convert, "run", "--output-dir", str(tmp_path))
+    assert "--warnings" not in docker_commands[0]
+    assert "--debug" not in docker_commands[0]
+
+
+def test_test_run_ignores_warnings_and_debug():
+    command = CompConvert.container_arguments("image", None, True, True, True)
+    assert command == ["docker", "run", "--rm", "image", "--test"]

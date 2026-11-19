@@ -241,13 +241,15 @@ def test_image_source_summary_reads_the_labels(
 @pytest.mark.parametrize(
     "arguments, expected",
     [
-        ([], (False, False)),
-        (["--local-documents"], (True, False)),
-        (["--local-pdf-to-markdown"], (False, True)),
-        (["--local"], (True, True)),
+        ([], (True, False)),
+        (["--no-local-document"], (False, False)),
+        (["--local-pdf-to-markdown"], (True, True)),
+        (["--no-local-document", "--local-pdf-to-markdown"], (False, True)),
     ],
 )
-def test_local_flag_stands_for_both_local_flags(arguments, expected, monkeypatch):
+def test_build_flags_select_the_sources_like_convert_build(
+    arguments, expected, monkeypatch
+):
     class FakeApplication:
         def __init__(self):
             self.built_with = None
@@ -346,3 +348,52 @@ def test_test_reports_an_image_absent_after_its_build(testable_converters, tmp_p
     outcome, detail, _ = run_test(testable_converters, tmp_path, [])
     assert outcome == "image_not_found"
     assert detail == "image 'jejune:convert_catalog_Private' not found"
+
+
+def test_run_converts_in_the_output_directory(
+    testable_converters, tmp_path, monkeypatch
+):
+    commands = []
+    monkeypatch.setattr(
+        component_cont_converters.subprocess,
+        "run",
+        lambda command, capture_output, text: (
+            commands.append(command)
+            or SimpleNamespace(returncode=0, stdout="{}", stderr="")
+        ),
+    )
+    testable_converters._context.docker = FakeDocker(["jejune:convert_catalog_Private"])
+    outcome, _ = testable_converters.run_converter_convert(
+        tmp_path / "jejune_doc_Private",
+        "Private",
+        None,
+        None,
+        False,
+        tmp_path / "out" / "Private",
+        warnings=True,
+        debug=True,
+    )
+    assert outcome == "converted"
+    assert commands[0][-3:] == ["/output", "--warnings", "--debug"]
+    assert (tmp_path / "out" / "Private").is_dir()
+
+
+def test_run_reports_a_failed_conversion(testable_converters, tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        component_cont_converters.subprocess,
+        "run",
+        lambda command, capture_output, text: SimpleNamespace(
+            returncode=2, stdout="{}", stderr=""
+        ),
+    )
+    testable_converters._context.docker = FakeDocker(["jejune:convert_catalog_Private"])
+    outcome, detail = testable_converters.run_converter_convert(
+        tmp_path / "jejune_doc_Private",
+        "Private",
+        None,
+        None,
+        False,
+        tmp_path / "out",
+    )
+    assert outcome == "failed"
+    assert detail.startswith("exit code 2")
