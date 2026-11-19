@@ -10,15 +10,11 @@ class RecordingEcosystem:
         self.registrations = []
         self.document_images = []
 
-    def register_repository(
-        self, owner_component_name, repository_name, when=None, used_commits=None
-    ):
-        self.registrations.append(
-            (owner_component_name, repository_name, when, used_commits)
-        )
+    def register_repository(self, owner_component_name, repository_name, when=None):
+        self.registrations.append((owner_component_name, repository_name, when))
 
-    def register_document_images(self, owner_component_name, document_commits):
-        self.document_images.append((owner_component_name, document_commits))
+    def register_document_images(self, owner_component_name, image_commits):
+        self.document_images.append((owner_component_name, image_commits))
 
 
 @pytest.fixture
@@ -42,10 +38,9 @@ def test_pdf_to_markdown_is_registered_on_the_condition_of_a_converter_main(
             "convert",
             "pdf-to-markdown",
             component.offers_converter_main,
-            component.image_pdf_to_markdown_commits,
         )
     ]
-    assert ecosystem.document_images == [("convert", component.image_document_commits)]
+    assert ecosystem.document_images == [("convert", component.image_commits)]
 
 
 def test_no_converter_main_without_document_directory(convert_component, monkeypatch):

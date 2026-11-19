@@ -8,6 +8,8 @@ from jejune_cli.core.app_context import AppContext
 from jejune_cli.components.catalog.component_catalog_file import CatalogFile
 from jejune_cli.click.click_theme import ClickTheme
 from jejune_cli.components.component_ecosystem import CompEcosystem
+from jejune_cli.components.containers.converter_commits import ImageAlignment
+from jejune_cli.core._package_paths import PdfToMarkdownConfig
 from jejune_cli.core.dot_jejune import DotJejune
 
 
@@ -24,7 +26,13 @@ class _StatusTable:
     ICON_WIDTH = 1  # display width of ✓/✗
     UP_TO_DATE_HEADER = "Up-to-date"
     COMMIT_HEADER = "Commit"
-    IMAGE_HEADER = "Image"
+    IMAGE_HEADER = "Convert Image"
+    # The `ClickTheme.status_icons` entry of each alignment of an image
+    ALIGNMENT_ICON = {
+        ImageAlignment.ALIGNED: "ok",
+        ImageAlignment.MISALIGNED: "error",
+        ImageAlignment.UNKNOWN: "warn",
+    }
 
     @staticmethod
     def remote_label(remote_url: str, repo_root_dir: str) -> str:
@@ -37,9 +45,17 @@ class _StatusTable:
     def status_cell(status: bool | None, header: str) -> str:
         """The ✓/✗ cell (blank when *status* is None), centred under *header*."""
         if status is None:
+            return _StatusTable.icon_status_cell(None, header)
+        return _StatusTable.icon_status_cell("ok" if status else "error", header)
+
+    @staticmethod
+    def icon_status_cell(icon_key: str | None, header: str) -> str:
+        """The cell of the `ClickTheme.status_icons` entry *icon_key* (blank when it
+        is None), centred under *header*."""
+        if icon_key is None:
             icon, color = "", ""
         else:
-            icon, color = ClickTheme.status_icons["ok" if status else "error"]
+            icon, color = ClickTheme.status_icons[icon_key]
         cell = click.style(icon, fg=color) if color else ""
         pad = (len(header) - _StatusTable.ICON_WIDTH) // 2
         trail = len(header) - pad - _StatusTable.ICON_WIDTH
@@ -53,10 +69,12 @@ class _StatusTable:
         return _StatusTable.status_cell(up_to_date, _StatusTable.UP_TO_DATE_HEADER)
 
     @staticmethod
-    def image_cell(aligned: bool | None) -> str:
-        """The centred, padded Image cell: is the document of the converter image the
-        HEAD of its remote?"""
-        return _StatusTable.status_cell(aligned, _StatusTable.IMAGE_HEADER)
+    def image_cell(alignment: ImageAlignment | None) -> str:
+        """The centred, padded Convert Image cell: is the converter image made of the
+        document and of the pdf-to-markdown designated now? ✓ yes, ✗ no, a dash when
+        it cannot be told, blank without image."""
+        icon_key = None if alignment is None else _StatusTable.ALIGNMENT_ICON[alignment]
+        return _StatusTable.icon_status_cell(icon_key, _StatusTable.IMAGE_HEADER)
 
     @staticmethod
     def icon_cell(ok: bool, icon_header: str) -> str:
@@ -121,7 +139,7 @@ class _StatusRow:
     location: str
     up_to_date: bool | None
     commit: str
-    image_aligned: bool | None = None
+    image_aligned: ImageAlignment | None = None
 
 
 @click.group(invoke_without_command=True, short_help="Ecosystem repository status")
@@ -237,8 +255,15 @@ def ecosystem_status(ctx) -> None:
         CatalogFile(catalog_path).token_files() if catalog_path.is_file() else {}
     )
     component_names = [] if active is None else [comp.name for comp in active]
-    # The Image column exists when a component of the role builds images of documents
+    # The Convert Image column exists when a component of the role builds images of
+    # documents
     with_image = eco.offers_document_images(component_names)
+    # The pdf-to-markdown the ecosystem designates is the same for every document
+    pdf_to_markdown_commit = (
+        eco.designated_commit(PdfToMarkdownConfig.REPO_NAME, directories)
+        if with_image
+        else None
+    )
     doc_rows: list[_StatusRow] = [
         _StatusRow(
             name=name,
@@ -247,7 +272,12 @@ def ecosystem_status(ctx) -> None:
             up_to_date=eco.repo_up_to_date(Path(path_str), token_files.get(name)),
             commit=eco.short_head(Path(path_str)) or "",
             image_aligned=(
-                eco.document_image_aligned(component_names, name, token_files.get(name))
+                eco.document_image_alignment(
+                    component_names,
+                    name,
+                    eco.checkout_commit(Path(path_str)),
+                    pdf_to_markdown_commit,
+                )
                 if with_image
                 else None
             ),

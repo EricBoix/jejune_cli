@@ -1,8 +1,9 @@
 # Code Style & Tooling
 
 - Always format Python files using `uv run black <file_path>`
-- Never use bare `black` without `uv run`
-
+- Never use bare `black <file>`. Either try
+  - `uv run black <file>` or on failure try
+  - `uv run python -m black <file>`
 - When working in a git repository using python, never use bare `python`
   command. Instead use a python version that is compatible with the
   python versions specified in the technical requirements of the project

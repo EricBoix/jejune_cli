@@ -2,7 +2,7 @@
 
 A converter image is labelled with the commit of the document and the commit of
 pdf-to-markdown it was built with, so that `ecosystem status` can tell whether they
-are the HEAD of their GitHub reference repository. The document clone of the
+are the ones of the sources the ecosystem designates now. The document clone of the
 Dockerfile is pinned to the labelled commit (build argument), otherwise a cached
 `git clone` layer would make the label lie.
 """
@@ -10,7 +10,27 @@ Dockerfile is pinned to the labelled commit (build argument), otherwise a cached
 import json
 import re
 import subprocess
+from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
+
+
+class ImageAlignment(Enum):
+    """Is a converter image built from the sources the ecosystem designates now?
+    UNKNOWN is "maybe": it cannot be told from the commits."""
+
+    ALIGNED = "aligned"
+    MISALIGNED = "misaligned"
+    UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True)
+class ImageCommits:
+    """The commits recorded in the built image(s) of a document: one per image (and
+    per input) that is labelled with one."""
+
+    document: list[str] = field(default_factory=list)
+    pdf_to_markdown: list[str] = field(default_factory=list)
 
 
 class ConverterCommits:
@@ -25,6 +45,9 @@ class ConverterCommits:
     # Appended to the commit of a checkout with uncommitted changes: such a commit
     # is never the one of a remote HEAD
     DIRTY_SUFFIX = "-dirty"
+    # Untracked files of this kind make a checkout dirty (the other ones do not)
+    PYTHON_SOURCE_SUFFIX = ".py"
+    UNTRACKED_STATUS = "??"
     LOCKED_COMMIT_PATTERN = re.compile(
         r'name = "pdf-to-markdown"\s+version = "[^"]*"\s+'
         r'source = \{ git = "[^"#]*#([0-9a-f]{40})" \}'
@@ -51,25 +74,34 @@ class ConverterCommits:
         # ls-remote output: "<SHA>\tHEAD" (nothing for an empty repository)
         return completed.stdout.strip().split("\t")[0] or None
 
-    @staticmethod
-    def has_uncommitted_changes(checkout: Path) -> bool:
-        """Does *checkout* have modified tracked files? Untracked files are ignored.
-        Raises CalledProcessError when it is not a git checkout."""
-        return bool(
-            subprocess.run(
-                [
-                    "git",
-                    "-C",
-                    str(checkout),
-                    "status",
-                    "--porcelain",
-                    "--untracked-files=no",
-                ],
-                capture_output=True,
-                text=True,
-                check=True,
-            ).stdout.strip()
-        )
+    @classmethod
+    def has_uncommitted_changes(cls, checkout: Path) -> bool:
+        """Does *checkout* have modified tracked files or untracked Python source
+        files (those ignored by git do not count)? The other untracked files are
+        ignored. Raises CalledProcessError when it is not a git checkout."""
+        status = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(checkout),
+                "status",
+                "--porcelain",
+                "--untracked-files=all",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        return any(cls._is_uncommitted(line) for line in status.splitlines() if line)
+
+    @classmethod
+    def _is_uncommitted(cls, status_line: str) -> bool:
+        """Does this line of `git status --porcelain` make a checkout dirty?"""
+        if not status_line.startswith(cls.UNTRACKED_STATUS):
+            return True
+        # A path with special characters is quoted; in doubt, it is dirty
+        untracked_path = status_line[len(cls.UNTRACKED_STATUS) :].strip().strip('"')
+        return not untracked_path or untracked_path.endswith(cls.PYTHON_SOURCE_SUFFIX)
 
     @classmethod
     def local_commit(cls, git_access, checkout: Path) -> str | None:
@@ -77,15 +109,10 @@ class ConverterCommits:
         has uncommitted changes (None when it is not a git checkout)."""
         try:
             commit = git_access.head_sha(checkout)
-            status = subprocess.run(
-                ["git", "-C", str(checkout), "status", "--porcelain"],
-                capture_output=True,
-                text=True,
-                check=True,
-            ).stdout.strip()
+            dirty = cls.has_uncommitted_changes(checkout)
         except (OSError, subprocess.CalledProcessError):
             return None
-        return commit + cls.DIRTY_SUFFIX if status else commit
+        return commit + cls.DIRTY_SUFFIX if dirty else commit
 
     @classmethod
     def build_arguments(
@@ -163,10 +190,37 @@ class ConverterCommits:
             if label in labels
         ]
 
+    @classmethod
+    def image_commits(cls, docker, images: list[str]) -> ImageCommits:
+        """The commits of the document and of pdf-to-markdown recorded in the
+        existing *images*."""
+        return ImageCommits(
+            document=cls.labelled_commits(docker, images, cls.DOCUMENT_COMMIT_LABEL),
+            pdf_to_markdown=cls.labelled_commits(
+                docker, images, cls.PDF_TO_MARKDOWN_COMMIT_LABEL
+            ),
+        )
+
+    @classmethod
+    def compare(cls, image_commit: str, current_commit: str | None) -> ImageAlignment:
+        """Is *image_commit* (recorded in an image) the *current_commit* of the
+        source the ecosystem designates? Unknown when that commit is not known, and
+        when both are the same dirty commit: the uncommitted changes may differ."""
+        if current_commit is None:
+            return ImageAlignment.UNKNOWN
+        if image_commit != current_commit:
+            return ImageAlignment.MISALIGNED
+        if image_commit.endswith(cls.DIRTY_SUFFIX):
+            return ImageAlignment.UNKNOWN
+        return ImageAlignment.ALIGNED
+
     @staticmethod
-    def is_aligned(commits: list[str], remote_head: str | None) -> bool | None:
-        """Are all the *commits* the *remote_head*? None when there is nothing to
-        compare."""
-        if not commits or remote_head is None:
+    def combine(verdicts: list[ImageAlignment]) -> ImageAlignment | None:
+        """The verdict of an image from those of its inputs: a known difference
+        prevails, then an unknown one. None when there is nothing to combine."""
+        if not verdicts:
             return None
-        return all(commit == remote_head for commit in commits)
+        for verdict in (ImageAlignment.MISALIGNED, ImageAlignment.UNKNOWN):
+            if verdict in verdicts:
+                return verdict
+        return ImageAlignment.ALIGNED

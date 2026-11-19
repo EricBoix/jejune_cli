@@ -5,7 +5,11 @@ from types import SimpleNamespace
 import pytest
 
 from jejune_cli.components.containers import converter_commits
-from jejune_cli.components.containers.converter_commits import ConverterCommits
+from jejune_cli.components.containers.converter_commits import (
+    ConverterCommits,
+    ImageAlignment,
+    ImageCommits,
+)
 
 COMMIT = "e2b9e0a6a3ab7ff6d22706c0257362a29b8bda98"
 OTHER_COMMIT = "1" * 40
@@ -183,16 +187,118 @@ def test_labelled_commits_only_look_at_existing_labelled_images(monkeypatch):
     ) == [COMMIT]
 
 
+DIRTY = ConverterCommits.DIRTY_SUFFIX
+
+
 @pytest.mark.parametrize(
-    "commits, remote_head, expected",
+    "image_commit, current_commit, expected",
     [
-        ([COMMIT], COMMIT, True),
-        ([COMMIT, COMMIT], COMMIT, True),
-        ([COMMIT, OTHER_COMMIT], COMMIT, False),
-        ([COMMIT + ConverterCommits.DIRTY_SUFFIX], COMMIT, False),
-        ([], COMMIT, None),
-        ([COMMIT], None, None),
+        (COMMIT, COMMIT, ImageAlignment.ALIGNED),
+        (COMMIT, OTHER_COMMIT, ImageAlignment.MISALIGNED),
+        (COMMIT, COMMIT + DIRTY, ImageAlignment.MISALIGNED),
+        (COMMIT + DIRTY, COMMIT, ImageAlignment.MISALIGNED),
+        (COMMIT + DIRTY, OTHER_COMMIT + DIRTY, ImageAlignment.MISALIGNED),
+        # The same dirty commit: the uncommitted changes may differ
+        (COMMIT + DIRTY, COMMIT + DIRTY, ImageAlignment.UNKNOWN),
+        (COMMIT, None, ImageAlignment.UNKNOWN),
     ],
 )
-def test_alignment_with_the_remote_head(commits, remote_head, expected):
-    assert ConverterCommits.is_aligned(commits, remote_head) is expected
+def test_image_commit_compared_with_the_current_one(
+    image_commit, current_commit, expected
+):
+    assert ConverterCommits.compare(image_commit, current_commit) is expected
+
+
+@pytest.mark.parametrize(
+    "verdicts, expected",
+    [
+        ([], None),
+        ([ImageAlignment.ALIGNED], ImageAlignment.ALIGNED),
+        (
+            [ImageAlignment.ALIGNED, ImageAlignment.UNKNOWN],
+            ImageAlignment.UNKNOWN,
+        ),
+        (
+            [ImageAlignment.UNKNOWN, ImageAlignment.MISALIGNED],
+            ImageAlignment.MISALIGNED,
+        ),
+        (
+            [ImageAlignment.MISALIGNED, ImageAlignment.ALIGNED],
+            ImageAlignment.MISALIGNED,
+        ),
+    ],
+)
+def test_a_known_difference_prevails_over_an_unknown_one(verdicts, expected):
+    assert ConverterCommits.combine(verdicts) is expected
+
+
+def test_image_commits_are_the_labelled_commits_of_the_two_inputs(monkeypatch):
+    labels = {
+        "jejune:built": {
+            "jejune.document-commit": COMMIT,
+            "jejune.pdf-to-markdown-commit": OTHER_COMMIT,
+        },
+    }
+    monkeypatch.setattr(ConverterCommits, "image_labels", lambda image: labels[image])
+    assert ConverterCommits.image_commits(
+        FakeDocker(["jejune:built"]), ["jejune:built", "jejune:missing"]
+    ) == ImageCommits(document=[COMMIT], pdf_to_markdown=[OTHER_COMMIT])
+
+
+def git(checkout, *arguments):
+    subprocess.run(
+        ["git", "-C", str(checkout), *arguments], check=True, capture_output=True
+    )
+
+
+@pytest.fixture
+def checkout(tmp_path):
+    git(tmp_path, "init", "-q", "-b", "main")
+    (tmp_path / "tracked.md").write_text("tracked")
+    (tmp_path / ".gitignore").write_text("ignored/\n")
+    git(tmp_path, "add", ".")
+    git(
+        tmp_path,
+        "-c",
+        "user.name=test",
+        "-c",
+        "user.email=test@example.org",
+        "commit",
+        "-q",
+        "-m",
+        "first",
+    )
+    return tmp_path
+
+
+def test_a_clean_checkout_has_no_uncommitted_changes(checkout):
+    assert not ConverterCommits.has_uncommitted_changes(checkout)
+
+
+def test_a_modified_tracked_file_is_an_uncommitted_change(checkout):
+    (checkout / "tracked.md").write_text("modified")
+    assert ConverterCommits.has_uncommitted_changes(checkout)
+
+
+@pytest.mark.parametrize(
+    "relative_path, expected",
+    [
+        ("untracked.py", True),
+        ("Convert/untracked.py", True),
+        ("with space.py", True),
+        ("untracked.md", False),
+        ("ignored/untracked.py", False),
+    ],
+)
+def test_only_untracked_python_sources_make_a_checkout_dirty(
+    relative_path, expected, checkout
+):
+    untracked = checkout / relative_path
+    untracked.parent.mkdir(exist_ok=True)
+    untracked.write_text("")
+    assert ConverterCommits.has_uncommitted_changes(checkout) is expected
+
+
+def test_uncommitted_changes_of_something_that_is_not_a_checkout_raise(tmp_path):
+    with pytest.raises(subprocess.CalledProcessError):
+        ConverterCommits.has_uncommitted_changes(tmp_path)

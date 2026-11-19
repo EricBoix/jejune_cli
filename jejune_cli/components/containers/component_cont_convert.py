@@ -9,7 +9,10 @@ from jejune_cli.core.component_containerized import ContComp
 from jejune_cli.core.configuration import Configuration
 from jejune_cli.core.configuration_entry import ConfigurationEntry
 from jejune_cli.core.containerized_context import ContainerizedContext
-from jejune_cli.components.containers.converter_commits import ConverterCommits
+from jejune_cli.components.containers.converter_commits import (
+    ConverterCommits,
+    ImageCommits,
+)
 from jejune_cli.components.containers.converter_image_name import ConverterImageName
 from jejune_cli.components.containers.converter_sources import (
     ConverterSource,
@@ -48,9 +51,8 @@ class CompConvert(ContComp):
             self.name,
             PdfToMarkdownConfig.REPO_NAME,
             when=self.offers_converter_main,
-            used_commits=self.image_pdf_to_markdown_commits,
         )
-        ecosystem.register_document_images(self.name, self.image_document_commits)
+        ecosystem.register_document_images(self.name, self.image_commits)
 
     @property
     def image_name(self) -> str:
@@ -64,23 +66,14 @@ class CompConvert(ContComp):
         # always computed from CONVERT_DOC_DIR
         pass
 
-    def image_pdf_to_markdown_commits(self) -> list[str]:
-        """The pdf-to-markdown commit recorded in the image, when it is built."""
-        return ConverterCommits.labelled_commits(
-            self._context.docker,
-            self.image_variants(),
-            ConverterCommits.PDF_TO_MARKDOWN_COMMIT_LABEL,
-        )
-
-    def image_document_commits(self, document_name: str) -> list[str]:
-        """The commit of the document *document_name* recorded in the image, when it
-        is the document of CONVERT_DOC_DIR and the image is built."""
+    def image_commits(self, document_name: str) -> ImageCommits:
+        """The commits of the document *document_name* and of pdf-to-markdown recorded
+        in the image, when it is the document of CONVERT_DOC_DIR and the image is
+        built."""
         if document_name != CompConvert._document_name():
-            return []
-        return ConverterCommits.labelled_commits(
-            self._context.docker,
-            self.image_variants(),
-            ConverterCommits.DOCUMENT_COMMIT_LABEL,
+            return ImageCommits()
+        return ConverterCommits.image_commits(
+            self._context.docker, self.image_variants()
         )
 
     def offers_converter_main(self) -> bool:

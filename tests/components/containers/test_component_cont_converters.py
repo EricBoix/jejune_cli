@@ -204,13 +204,8 @@ def test_converters_register_pdf_to_markdown_with_the_ecosystem():
         catalog_comp=None,
         context=SimpleNamespace(docker=None, docker_daemon=None),
     )
-    assert registered == [
-        (
-            ("converters", "pdf-to-markdown"),
-            {"used_commits": converters.image_pdf_to_markdown_commits},
-        )
-    ]
-    assert document_images == [("converters", converters.image_document_commits)]
+    assert registered == [(("converters", "pdf-to-markdown"), {})]
+    assert document_images == [("converters", converters.image_commits)]
 
 
 @pytest.mark.parametrize(

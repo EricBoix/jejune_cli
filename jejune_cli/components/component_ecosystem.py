@@ -14,7 +14,11 @@ from jejune_cli.components.catalog.component_catalog_file import CatalogFile
 from jejune_cli.core.configuration import Configuration
 from jejune_cli.core.configuration_entry import ConfigurationEntry
 from jejune_cli.core.component_with_config import ConfComp
-from jejune_cli.components.containers.converter_commits import ConverterCommits
+from jejune_cli.components.containers.converter_commits import (
+    ConverterCommits,
+    ImageAlignment,
+    ImageCommits,
+)
 from jejune_cli.core.dot_jejune import DotJejune
 
 RepoTier = Literal["root", "tmp", "remote"]
@@ -95,12 +99,9 @@ class CompEcosystem(ConfComp):
         self._registered_repositories: dict[
             str, dict[str, Callable[[], bool] | None]
         ] = {}
-        # (owner component name, repository name) -> commits of the repository found
-        # in the artefacts (docker images) the owner built
-        self._used_commits: dict[tuple[str, str], Callable[[], list[str]]] = {}
-        # owner component name -> commits of a document found in the images the owner
-        # built of it
-        self._document_image_commits: dict[str, Callable[[str], list[str]]] = {}
+        # owner component name -> commits of a document and of pdf-to-markdown found
+        # in the images the owner built of it
+        self._document_image_commits: dict[str, Callable[[str], ImageCommits]] = {}
         self.conditional_dependencies = [(self.ecosystem_needs_remote, git_server)]
 
     def register_repository(
@@ -108,75 +109,86 @@ class CompEcosystem(ConfComp):
         owner_component_name: str,
         repository_name: str,
         when: Callable[[], bool] | None = None,
-        used_commits: Callable[[], list[str]] | None = None,
     ) -> None:
         """Register *repository_name* as a repository managed by the ecosystem on
         behalf of a component: `ecosystem status` lists it whenever that component
         is active in the current role (idempotent). With *when*, the repository is
         only registered while *when* returns true: it is evaluated lazily, at each
         listing, since the configuration is loaded after the components are built.
-        An unconditional registration prevails over a conditional one.
-        With *used_commits*, `ecosystem status` tells whether the commits it returns
-        (those the owner is using, e.g. the ones recorded in its docker images) are
-        the HEAD of the remote repository, instead of whether a clone is up to date."""
+        An unconditional registration prevails over a conditional one."""
         owned = self._registered_repositories.setdefault(owner_component_name, {})
         if repository_name not in owned or when is None:
             owned[repository_name] = when
-        if used_commits is not None:
-            self._used_commits[(owner_component_name, repository_name)] = used_commits
 
     def register_document_images(
         self,
         owner_component_name: str,
-        document_commits: Callable[[str], list[str]],
+        image_commits: Callable[[str], ImageCommits],
     ) -> None:
         """Register how to find the commits of a document (by the name of its
-        repository) recorded in the images *owner_component_name* built of it."""
-        self._document_image_commits[owner_component_name] = document_commits
+        repository) and of pdf-to-markdown recorded in the images
+        *owner_component_name* built of that document."""
+        self._document_image_commits[owner_component_name] = image_commits
 
     def offers_document_images(self, component_names: list[str]) -> bool:
         """Does one of the given components tell the commits of the documents in the
         images it built?"""
         return any(name in self._document_image_commits for name in component_names)
 
-    def used_commits(
-        self, repository_name: str, component_names: list[str]
-    ) -> list[str] | None:
-        """The commits of *repository_name* used by the given components (None when
-        none of them says what it uses)."""
-        providers = [
-            self._used_commits[(component_name, repository_name)]
-            for component_name in component_names
-            if (component_name, repository_name) in self._used_commits
-        ]
-        if not providers:
-            return None
-        return [commit for provider in providers for commit in provider()]
+    def checkout_commit(self, checkout: Path) -> str | None:
+        """The commit of HEAD in *checkout*, marked as dirty when it has uncommitted
+        changes (None when it is not a git checkout)."""
+        return ConverterCommits.local_commit(self._git_access, checkout)
 
-    def document_image_aligned(
+    def designated_commit(
+        self, name: str, directories: EcosystemDirectories
+    ) -> str | None:
+        """The commit of the repository *name* where the ecosystem designates it: the
+        one of its local clone (marked as dirty when it has uncommitted changes) or,
+        when it is only remote, the one of the remote HEAD (None when unreachable)."""
+        location = self.locate(name, directories)
+        if location.is_local:
+            return self.checkout_commit(location.local_path)
+        return ConverterCommits.remote_head(
+            self._git_access,
+            self._git_server.remote_git_url(name),
+            timeout=self.REMOTE_PROBE_TIMEOUT_SECONDS,
+        )
+
+    def document_image_alignment(
         self,
         component_names: list[str],
         document_name: str,
-        token_file: Path | str | None = None,
-    ) -> bool | None:
-        """Is the commit of the document *document_name* recorded in the images of the
-        given components the HEAD of its remote? None when there is no such image or
-        the remote cannot be reached."""
-        commits = [
-            commit
+        document_commit: str | None,
+        pdf_to_markdown_commit: str | None,
+    ) -> ImageAlignment | None:
+        """Is the image the given components built of the document *document_name*
+        made of the sources designated now, whose commits are *document_commit* and
+        *pdf_to_markdown_commit*? None when there is no image to tell about. An input
+        whose commit the image does not record cannot be verified: unknown."""
+        image_commits = [
+            self._document_image_commits[component_name](document_name)
             for component_name in component_names
             if component_name in self._document_image_commits
-            for commit in self._document_image_commits[component_name](document_name)
         ]
-        if not commits:
+        document_images = [
+            commit for commits in image_commits for commit in commits.document
+        ]
+        pdf_to_markdown_images = [
+            commit for commits in image_commits for commit in commits.pdf_to_markdown
+        ]
+        if not document_images and not pdf_to_markdown_images:
             return None
-        remote_head = ConverterCommits.remote_head(
-            self._git_access,
-            self._git_server.remote_git_url(document_name),
-            token_file,
-            timeout=self.REMOTE_PROBE_TIMEOUT_SECONDS,
-        )
-        return ConverterCommits.is_aligned(commits, remote_head)
+        verdicts = [
+            ConverterCommits.compare(commit, document_commit)
+            for commit in document_images
+        ] + [
+            ConverterCommits.compare(commit, pdf_to_markdown_commit)
+            for commit in pdf_to_markdown_images
+        ]
+        if not document_images or not pdf_to_markdown_images:
+            verdicts.append(ImageAlignment.UNKNOWN)
+        return ConverterCommits.combine(verdicts)
 
     def registered_repositories(self, component_names: list[str]) -> list[str]:
         """The repositories registered by the given components (whose condition, if
@@ -197,47 +209,28 @@ class CompEcosystem(ConfComp):
         name: str,
         directories: EcosystemDirectories,
         probe_remote: bool = False,
-        used_commits: list[str] | None = None,
     ) -> RepositoryState:
         """The state of repository *name*; the remote of a repository found nowhere
-        locally is only probed (network) when *probe_remote*. With *used_commits*
-        (the commits of the repository in use, e.g. in docker images), up_to_date
-        tells whether they are the remote HEAD instead of whether the clone is up to
-        date (when there are none, or the remote cannot be reached, it is the
-        status of the clone, None if there is no clone)."""
+        locally is only probed (network) when *probe_remote*."""
         location = self.locate(name, directories)
         if location.is_local:
-            state = RepositoryState(
+            return RepositoryState(
                 name,
                 location,
                 up_to_date=self.repo_up_to_date(location.local_path),
                 commit=self.short_head(location.local_path),
             )
-        else:
-            remote_url = self._git_server.remote_git_url(name)
-            reachable, commit = (
-                self.probe_remote(remote_url) if probe_remote else (None, None)
-            )
-            state = RepositoryState(
-                name,
-                location,
-                remote_url=remote_url,
-                reachable=reachable,
-                commit=commit,
-            )
-        if used_commits is None:
-            return state
-        remote_head = ConverterCommits.remote_head(
-            self._git_access,
-            self._git_server.remote_git_url(name),
-            timeout=self.REMOTE_PROBE_TIMEOUT_SECONDS,
+        remote_url = self._git_server.remote_git_url(name)
+        reachable, commit = (
+            self.probe_remote(remote_url) if probe_remote else (None, None)
         )
-        images_aligned = ConverterCommits.is_aligned(used_commits, remote_head)
-        if images_aligned is None:
-            # Nothing to compare (no image built, or remote unreachable): the clone
-            # status, if there is a clone, is the best information available
-            return state
-        return replace(state, up_to_date=images_aligned)
+        return RepositoryState(
+            name,
+            location,
+            remote_url=remote_url,
+            reachable=reachable,
+            commit=commit,
+        )
 
     def repository_states(
         self, active_components: list, directories: EcosystemDirectories
@@ -264,7 +257,6 @@ class CompEcosystem(ConfComp):
                 name,
                 directories,
                 probe_remote=True,
-                used_commits=self.used_commits(name, component_names),
             )
             for name in self.registered_repositories(component_names)
             if name not in listed

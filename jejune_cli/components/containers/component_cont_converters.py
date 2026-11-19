@@ -11,7 +11,10 @@ from jejune_cli.components.containers.component_cont_convert import CompConvert
 from jejune_cli.core.component_containerized import ContComp
 from jejune_cli.components.component_ecosystem import EcosystemDirectories
 from jejune_cli.core.containerized_context import ContainerizedContext
-from jejune_cli.components.containers.converter_commits import ConverterCommits
+from jejune_cli.components.containers.converter_commits import (
+    ConverterCommits,
+    ImageCommits,
+)
 from jejune_cli.components.containers.converter_image_name import ConverterImageName
 from jejune_cli.components.containers.converter_sources import (
     ConverterSource,
@@ -47,9 +50,8 @@ class CompConverters(ContComp):
         ecosystem.register_repository(
             self.name,
             self.PDF_TO_MARKDOWN_NAME,
-            used_commits=self.image_pdf_to_markdown_commits,
         )
-        ecosystem.register_document_images(self.name, self.image_document_commits)
+        ecosystem.register_document_images(self.name, self.image_commits)
 
     def image_variants(self, repo_dir_name: str) -> list[str]:
         """Every image name of the converter of *repo_dir_name* (whatever its local
@@ -58,25 +60,11 @@ class CompConverters(ContComp):
             ConverterImageName.CATALOG_OWNER, repo_dir_name
         )
 
-    def image_pdf_to_markdown_commits(self) -> list[str]:
-        """The pdf-to-markdown commits recorded in the built images of the documents
-        of the catalog."""
-        return [
-            commit
-            for repo_dir, _ in self._iter_local_converter_repos()
-            for commit in ConverterCommits.labelled_commits(
-                self._context.docker,
-                self.image_variants(repo_dir.resolve().name),
-                ConverterCommits.PDF_TO_MARKDOWN_COMMIT_LABEL,
-            )
-        ]
-
-    def image_document_commits(self, document_name: str) -> list[str]:
-        """The commits of the document *document_name* recorded in its built images."""
-        return ConverterCommits.labelled_commits(
-            self._context.docker,
-            self.image_variants(document_name),
-            ConverterCommits.DOCUMENT_COMMIT_LABEL,
+    def image_commits(self, document_name: str) -> ImageCommits:
+        """The commits of the document *document_name* and of pdf-to-markdown recorded
+        in its built images."""
+        return ConverterCommits.image_commits(
+            self._context.docker, self.image_variants(document_name)
         )
 
     def _iter_local_converter_repos(self) -> list[tuple[Path, str]]:
