@@ -142,13 +142,8 @@ def ecosystem_probe_rows(app: AppContext) -> list[tuple[str, str, str]]:
     cloned locally: whether its remote can be reached."""
     ecosystem = app.component_registry.get("ecosystem")
     role = app.role_registry.detect_role()
-    active = app.role_registry.role_components(role)
     states = ecosystem.repository_states(
-        (
-            []
-            if active is None
-            else [comp for comp in app.component_registry if comp in active]
-        ),
+        app.role_registry.active_components(role),
         ecosystem.resolve_dirs(),
     )
     return [

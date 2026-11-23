@@ -88,7 +88,7 @@ class FakeApplication:
         )
         self.role_registry = SimpleNamespace(
             detect_role=lambda: SimpleNamespace(name="catalog-contributor"),
-            role_components=lambda role: set(components),
+            active_components=lambda role: list(components),
             role_is_doc_steward_family=lambda role: False,
         )
 

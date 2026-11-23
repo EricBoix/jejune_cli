@@ -112,6 +112,15 @@ class RoleRegistry:
                 own = own | _resolve(parent)
         return own or None
 
+    def active_components(self, role: Role) -> "list[BaseComp]":
+        """Return the components of *role* plus those they depend on (the ones
+        dynamically wired by plugins included), in topological order; empty when the
+        role has no components."""
+        role_components = self.role_components(role)
+        if role_components is None:
+            return []
+        return self._component_registry.sorted_active_set(role_components)
+
     def role_cli_commands(self, role: Role) -> list[str]:
         """Return CLI command names contributed by *role*'s components plus extra_commands."""
         registry = self._component_registry

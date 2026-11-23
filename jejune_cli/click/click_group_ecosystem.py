@@ -119,16 +119,11 @@ def ecosystem_status(ctx) -> None:
     click.echo()
 
     # --- Components table ---
-    active = app.role_registry.role_components(role)
     # Repositories needed by the active components, plus those registered with the
     # ecosystem on their behalf. The remote of those not cloned is probed: reachable
     # or not is what their icon tells.
     states = eco.repository_states(
-        (
-            []
-            if active is None
-            else [comp for comp in app.component_registry if comp in active]
-        ),
+        app.role_registry.active_components(role),
         directories,
     )
     if not states:

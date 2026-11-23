@@ -139,9 +139,9 @@ def images_list(ctx) -> None:
         raise click.ClickException(message)
     eco = app.component_registry.get("ecosystem")
     role = app.role_registry.detect_role()
-    active = app.role_registry.role_components(role)
+    active = app.role_registry.active_components(role)
     components = sorted(
-        (comp for comp in active or () if isinstance(comp, ContComp)),
+        (comp for comp in active if isinstance(comp, ContComp)),
         key=lambda comp: comp.name,
     )
     directories = eco.resolve_dirs()

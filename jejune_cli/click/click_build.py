@@ -48,8 +48,7 @@ def build_cmd(app: AppContext, no_cache: bool, update: bool) -> None:
         raise SystemExit(
             app.component_registry.get("deployment").build(Path("."), no_cache=no_cache)
         )
-    role_comps = app.role_registry.role_components(active_role_obj) or frozenset()
-    all_active = app.component_registry.sorted_active_set(role_comps)
+    all_active = app.role_registry.active_components(active_role_obj)
     builders = [
         inst
         for inst in all_active

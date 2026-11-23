@@ -15,10 +15,7 @@ def register_heuristics(
     role_registry: RoleRegistry,
 ) -> None:
     def _any_buildable_image_missing() -> bool:
-        role_comps = (
-            role_registry.role_components(role_registry.detect_role()) or frozenset()
-        )
-        active = component_registry.sorted_active_set(role_comps)
+        active = role_registry.active_components(role_registry.detect_role())
         return any(
             not inst.is_built()
             for inst in active

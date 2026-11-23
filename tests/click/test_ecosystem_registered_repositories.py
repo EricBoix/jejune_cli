@@ -232,7 +232,7 @@ class FakeApplication:
         )
         self.role_registry = SimpleNamespace(
             detect_role=lambda: SimpleNamespace(name="catalog-contributor"),
-            role_components=lambda role: {converters},
+            active_components=lambda role: [converters],
             role_is_doc_steward_family=lambda role: doc_steward,
         )
         self.plugin_registry = SimpleNamespace(repo_name_for_plugin=lambda name: None)
