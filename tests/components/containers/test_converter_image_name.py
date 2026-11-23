@@ -6,6 +6,7 @@ from jejune_cli.components.containers.component_cont_converters import CompConve
 from jejune_cli.components.containers.converter_image_name import (
     ConverterImageName,
     ConverterImageNameError,
+    ParsedConverterImage,
 )
 
 
@@ -47,3 +48,44 @@ def test_too_long_tag_is_refused():
 def test_tag_with_forbidden_characters_is_refused():
     with pytest.raises(ConverterImageNameError, match="not accepted"):
         ConverterImageName.build(ConverterImageName.DOCUMENT_OWNER, "my book")
+
+
+@pytest.mark.parametrize("owner", ["catalog", "doc"])
+@pytest.mark.parametrize(
+    "local_documents, local_pdf_to_markdown, suffix",
+    [
+        (False, False, ""),
+        (True, False, "-local_doc"),
+        (False, True, "-local_pdf"),
+        (True, True, "-local"),
+    ],
+)
+def test_parse_is_the_inverse_of_build(
+    owner, local_documents, local_pdf_to_markdown, suffix
+):
+    image = ConverterImageName.build(
+        owner, "jejune_doc_book", local_documents, local_pdf_to_markdown
+    )
+    assert ConverterImageName.parse(image) == ParsedConverterImage(
+        owner, "book", suffix
+    )
+
+
+@pytest.mark.parametrize(
+    "image",
+    [
+        "jejune:hub",
+        "jejune:convert_book",
+        "jejune:convert_catalog_",
+        "jejune:convert_catalog_-local",
+        "other:convert_catalog_book",
+        "convert_catalog_book",
+        "",
+    ],
+)
+def test_parse_ignores_what_is_not_a_converter_image(image):
+    assert ConverterImageName.parse(image) is None
+
+
+def test_repository_names_of_a_slug_are_the_prefixed_one_and_the_slug():
+    assert ConverterImageName.repository_names("book") == ["jejune_doc_book", "book"]

@@ -8,7 +8,6 @@ from jejune_cli.components.containers import converter_commits
 from jejune_cli.components.containers.converter_commits import (
     ConverterCommits,
     ImageAlignment,
-    ImageCommits,
 )
 
 COMMIT = "e2b9e0a6a3ab7ff6d22706c0257362a29b8bda98"
@@ -37,14 +36,6 @@ class FakeGitAccess:
 
     def head_sha(self, repo_path):
         return COMMIT
-
-
-class FakeDocker:
-    def __init__(self, existing_images):
-        self.existing_images = existing_images
-
-    def image_exists(self, tag):
-        return tag in self.existing_images
 
 
 @pytest.mark.parametrize(
@@ -174,19 +165,6 @@ def test_image_labels(returncode, stdout, expected, monkeypatch):
     assert ConverterCommits.image_labels("jejune:image") == expected
 
 
-def test_labelled_commits_only_look_at_existing_labelled_images(monkeypatch):
-    labels = {
-        "jejune:built": {"jejune.document-commit": COMMIT},
-        "jejune:unlabelled": {},
-    }
-    monkeypatch.setattr(ConverterCommits, "image_labels", lambda image: labels[image])
-    assert ConverterCommits.labelled_commits(
-        FakeDocker(["jejune:built", "jejune:unlabelled"]),
-        ["jejune:built", "jejune:unlabelled", "jejune:missing"],
-        "jejune.document-commit",
-    ) == [COMMIT]
-
-
 DIRTY = ConverterCommits.DIRTY_SUFFIX
 
 
@@ -226,23 +204,37 @@ def test_image_commit_compared_with_the_current_one(
             [ImageAlignment.MISALIGNED, ImageAlignment.ALIGNED],
             ImageAlignment.MISALIGNED,
         ),
+        # An orphan source prevails over an unknown one, not over a known difference
+        (
+            [ImageAlignment.UNKNOWN, ImageAlignment.ORPHAN],
+            ImageAlignment.ORPHAN,
+        ),
+        (
+            [ImageAlignment.ORPHAN, ImageAlignment.MISALIGNED],
+            ImageAlignment.MISALIGNED,
+        ),
+        (
+            [ImageAlignment.ALIGNED, ImageAlignment.ORPHAN],
+            ImageAlignment.ORPHAN,
+        ),
     ],
 )
-def test_a_known_difference_prevails_over_an_unknown_one(verdicts, expected):
+def test_a_known_difference_prevails_over_an_orphan_then_an_unknown_one(
+    verdicts, expected
+):
     assert ConverterCommits.combine(verdicts) is expected
 
 
-def test_image_commits_are_the_labelled_commits_of_the_two_inputs(monkeypatch):
-    labels = {
-        "jejune:built": {
-            "jejune.document-commit": COMMIT,
-            "jejune.pdf-to-markdown-commit": OTHER_COMMIT,
-        },
-    }
-    monkeypatch.setattr(ConverterCommits, "image_labels", lambda image: labels[image])
-    assert ConverterCommits.image_commits(
-        FakeDocker(["jejune:built"]), ["jejune:built", "jejune:missing"]
-    ) == ImageCommits(document=[COMMIT], pdf_to_markdown=[OTHER_COMMIT])
+@pytest.mark.parametrize(
+    "commit, expected",
+    [
+        (COMMIT, COMMIT[:7]),
+        (COMMIT + ConverterCommits.DIRTY_SUFFIX, COMMIT[:7] + "-dirty"),
+        ("abc", "abc"),
+    ],
+)
+def test_short_commit_keeps_the_dirty_mark(commit, expected):
+    assert ConverterCommits.short_commit(commit) == expected
 
 
 def git(checkout, *arguments):

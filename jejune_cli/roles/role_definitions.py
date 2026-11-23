@@ -61,6 +61,7 @@ def wire_roles(registry: RoleRegistry) -> None:
                 "role",
                 "containers",
                 "ecosystem",
+                "images",
                 "git-access",
                 "next",
                 "discover",

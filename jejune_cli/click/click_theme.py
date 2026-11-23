@@ -11,4 +11,5 @@ class ClickTheme:
         "ok": ("✓", "green"),
         "warn": ("–", "yellow"),
         "error": ("✗", "red"),
+        "orphan": ("?", "red"),
     }

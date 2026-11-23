@@ -6,14 +6,13 @@ from pathlib import Path
 
 from jejune_cli.core.app_context import AppContext
 from jejune_cli.components.catalog.component_catalog_file import CatalogFile
+from jejune_cli.click.click_status_table import StatusTable
 from jejune_cli.click.click_theme import ClickTheme
 from jejune_cli.components.component_ecosystem import CompEcosystem
-from jejune_cli.components.containers.converter_commits import ImageAlignment
-from jejune_cli.core._package_paths import PdfToMarkdownConfig
 from jejune_cli.core.dot_jejune import DotJejune
 
 
-class _StatusTable:
+class _StatusTable(StatusTable):
     """What the tables of `ecosystem status` share: the placeholders standing for
     the directories listed in the header, and the Up-to-date / Commit cells."""
 
@@ -23,16 +22,7 @@ class _StatusTable:
         "cwd": "[CWD]",
     }
     REPO_ROOT_LABEL = "[REPO_ROOT_DIR]"
-    ICON_WIDTH = 1  # display width of ✓/✗
-    UP_TO_DATE_HEADER = "Up-to-date"
     COMMIT_HEADER = "Commit"
-    IMAGE_HEADER = "Convert Image"
-    # The `ClickTheme.status_icons` entry of each alignment of an image
-    ALIGNMENT_ICON = {
-        ImageAlignment.ALIGNED: "ok",
-        ImageAlignment.MISALIGNED: "error",
-        ImageAlignment.UNKNOWN: "warn",
-    }
 
     @staticmethod
     def remote_label(remote_url: str, repo_root_dir: str) -> str:
@@ -40,41 +30,6 @@ class _StatusTable:
         if remote_url.startswith(repo_root_dir):
             return _StatusTable.REPO_ROOT_LABEL + remote_url[len(repo_root_dir) :]
         return remote_url
-
-    @staticmethod
-    def status_cell(status: bool | None, header: str) -> str:
-        """The ✓/✗ cell (blank when *status* is None), centred under *header*."""
-        if status is None:
-            return _StatusTable.icon_status_cell(None, header)
-        return _StatusTable.icon_status_cell("ok" if status else "error", header)
-
-    @staticmethod
-    def icon_status_cell(icon_key: str | None, header: str) -> str:
-        """The cell of the `ClickTheme.status_icons` entry *icon_key* (blank when it
-        is None), centred under *header*."""
-        if icon_key is None:
-            icon, color = "", ""
-        else:
-            icon, color = ClickTheme.status_icons[icon_key]
-        cell = click.style(icon, fg=color) if color else ""
-        pad = (len(header) - _StatusTable.ICON_WIDTH) // 2
-        trail = len(header) - pad - _StatusTable.ICON_WIDTH
-        # Unstyled blanks of the icon width when there is no icon
-        icon_blank = "" if cell else " " * _StatusTable.ICON_WIDTH
-        return f"{'':>{pad}}{cell}{icon_blank}{'':<{trail}}"
-
-    @staticmethod
-    def up_to_date_cell(up_to_date: bool | None) -> str:
-        """The centred, padded Up-to-date cell."""
-        return _StatusTable.status_cell(up_to_date, _StatusTable.UP_TO_DATE_HEADER)
-
-    @staticmethod
-    def image_cell(alignment: ImageAlignment | None) -> str:
-        """The centred, padded Convert Image cell: is the converter image made of the
-        document and of the pdf-to-markdown designated now? ✓ yes, ✗ no, a dash when
-        it cannot be told, blank without image."""
-        icon_key = None if alignment is None else _StatusTable.ALIGNMENT_ICON[alignment]
-        return _StatusTable.icon_status_cell(icon_key, _StatusTable.IMAGE_HEADER)
 
     @staticmethod
     def icon_cell(ok: bool, icon_header: str) -> str:
@@ -92,27 +47,18 @@ class _StatusTable:
         first_width,
         location_width,
         commit_width: int = len(COMMIT_HEADER),
-        with_image: bool = False,
     ) -> str:
-        """The header row: *first* is bold and *location_header* is centred. With
-        *with_image*, an Image column follows the (padded) Commit one."""
+        """The header row: *first* is bold and *location_header* is centred."""
         bold_first = click.style(f"{first:<{first_width}}", bold=True)
         row = (
             f"  {bold_first}  {icon_header}  "
             f"{location_header:^{location_width}}  "
             f"{_StatusTable.UP_TO_DATE_HEADER}  "
         )
-        if with_image:
-            return (
-                f"{row}{_StatusTable.COMMIT_HEADER:<{commit_width}}  "
-                f"{_StatusTable.IMAGE_HEADER}"
-            )
         return f"{row}{_StatusTable.COMMIT_HEADER}"
 
     @staticmethod
-    def rule(
-        first_width, icon_header, location_width, commit_width, with_image=False
-    ) -> str:
+    def rule(first_width, icon_header, location_width, commit_width) -> str:
         total = (
             first_width
             + 2
@@ -123,7 +69,6 @@ class _StatusTable:
             + len(_StatusTable.UP_TO_DATE_HEADER)
             + 2
             + commit_width
-            + (2 + len(_StatusTable.IMAGE_HEADER) if with_image else 0)
         )
         return "  " + "─" * total
 
@@ -131,15 +76,13 @@ class _StatusTable:
 @dataclass(frozen=True)
 class _StatusRow:
     """One line of a table of `ecosystem status`: *found* is the state under the
-    icon column (Available or Manifest); *image_aligned* only applies to the
-    Documents table."""
+    icon column (Available or Manifest)."""
 
     name: str
     found: bool
     location: str
     up_to_date: bool | None
     commit: str
-    image_aligned: ImageAlignment | None = None
 
 
 @click.group(invoke_without_command=True, short_help="Ecosystem repository status")
@@ -254,16 +197,6 @@ def ecosystem_status(ctx) -> None:
     token_files = (
         CatalogFile(catalog_path).token_files() if catalog_path.is_file() else {}
     )
-    component_names = [] if active is None else [comp.name for comp in active]
-    # The Convert Image column exists when a component of the role builds images of
-    # documents
-    with_image = eco.offers_document_images(component_names)
-    # The pdf-to-markdown the ecosystem designates is the same for every document
-    pdf_to_markdown_commit = (
-        eco.designated_commit(PdfToMarkdownConfig.REPO_NAME, directories)
-        if with_image
-        else None
-    )
     doc_rows: list[_StatusRow] = [
         _StatusRow(
             name=name,
@@ -271,16 +204,6 @@ def ecosystem_status(ctx) -> None:
             location=_StatusTable.LOCATION_LABEL.get(tier, tier),
             up_to_date=eco.repo_up_to_date(Path(path_str), token_files.get(name)),
             commit=eco.short_head(Path(path_str)) or "",
-            image_aligned=(
-                eco.document_image_alignment(
-                    component_names,
-                    name,
-                    eco.checkout_commit(Path(path_str)),
-                    pdf_to_markdown_commit,
-                )
-                if with_image
-                else None
-            ),
         )
         for name, tier, path_str, has_doc in doc_repos
     ]
@@ -300,7 +223,6 @@ def ecosystem_status(ctx) -> None:
             doc_name_width,
             doc_location_width,
             doc_commit_width,
-            with_image,
         )
     )
     click.echo(
@@ -309,24 +231,16 @@ def ecosystem_status(ctx) -> None:
             "Manifest",
             doc_location_width,
             doc_commit_width,
-            with_image,
         )
     )
     for doc_row in doc_rows:
-        line = (
+        click.echo(
             f"  {doc_row.name:<{doc_name_width}}  "
             f"{_StatusTable.icon_cell(doc_row.found, 'Manifest')}  "
             f"{doc_row.location:<{doc_location_width}}  "
             f"{_StatusTable.up_to_date_cell(doc_row.up_to_date)}  "
+            f"{doc_row.commit}"
         )
-        if with_image:
-            line += (
-                f"{doc_row.commit:<{doc_commit_width}}  "
-                f"{_StatusTable.image_cell(doc_row.image_aligned)}"
-            )
-        else:
-            line += doc_row.commit
-        click.echo(line)
     _echo_catalog_entries_unknown_to_ecosystem(eco, known_names)
 
 

@@ -1,7 +1,7 @@
 """Commits recorded in the converter images.
 
 A converter image is labelled with the commit of the document and the commit of
-pdf-to-markdown it was built with, so that `ecosystem status` can tell whether they
+pdf-to-markdown it was built with, so that `images list` can tell whether they
 are the ones of the sources the ecosystem designates now. The document clone of the
 Dockerfile is pinned to the labelled commit (build argument), otherwise a cached
 `git clone` layer would make the label lie.
@@ -10,27 +10,19 @@ Dockerfile is pinned to the labelled commit (build argument), otherwise a cached
 import json
 import re
 import subprocess
-from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
 
 class ImageAlignment(Enum):
     """Is a converter image built from the sources the ecosystem designates now?
-    UNKNOWN is "maybe": it cannot be told from the commits."""
+    UNKNOWN is "maybe": it cannot be told from the commits. ORPHAN: the repository
+    of the source is not (or no longer) in the ecosystem."""
 
     ALIGNED = "aligned"
     MISALIGNED = "misaligned"
+    ORPHAN = "orphan"
     UNKNOWN = "unknown"
-
-
-@dataclass(frozen=True)
-class ImageCommits:
-    """The commits recorded in the built image(s) of a document: one per image (and
-    per input) that is labelled with one."""
-
-    document: list[str] = field(default_factory=list)
-    pdf_to_markdown: list[str] = field(default_factory=list)
 
 
 class ConverterCommits:
@@ -45,6 +37,8 @@ class ConverterCommits:
     # Appended to the commit of a checkout with uncommitted changes: such a commit
     # is never the one of a remote HEAD
     DIRTY_SUFFIX = "-dirty"
+    # Number of characters of a commit shown to the user
+    SHORT_COMMIT_LENGTH = 7
     # Untracked files of this kind make a checkout dirty (the other ones do not)
     PYTHON_SOURCE_SUFFIX = ".py"
     UNTRACKED_STATUS = "??"
@@ -180,28 +174,6 @@ class ConverterCommits:
         return json.loads(inspected.stdout) or {}
 
     @classmethod
-    def labelled_commits(cls, docker, images: list[str], label: str) -> list[str]:
-        """The *label* commit of every existing image of *images* that has one."""
-        return [
-            labels[label]
-            for image in images
-            if docker.image_exists(image)
-            for labels in [cls.image_labels(image)]
-            if label in labels
-        ]
-
-    @classmethod
-    def image_commits(cls, docker, images: list[str]) -> ImageCommits:
-        """The commits of the document and of pdf-to-markdown recorded in the
-        existing *images*."""
-        return ImageCommits(
-            document=cls.labelled_commits(docker, images, cls.DOCUMENT_COMMIT_LABEL),
-            pdf_to_markdown=cls.labelled_commits(
-                docker, images, cls.PDF_TO_MARKDOWN_COMMIT_LABEL
-            ),
-        )
-
-    @classmethod
     def compare(cls, image_commit: str, current_commit: str | None) -> ImageAlignment:
         """Is *image_commit* (recorded in an image) the *current_commit* of the
         source the ecosystem designates? Unknown when that commit is not known, and
@@ -214,13 +186,28 @@ class ConverterCommits:
             return ImageAlignment.UNKNOWN
         return ImageAlignment.ALIGNED
 
+    @classmethod
+    def short_commit(cls, commit: str) -> str:
+        """*commit* shortened to SHORT_COMMIT_LENGTH characters, DIRTY_SUFFIX kept."""
+        if commit.endswith(cls.DIRTY_SUFFIX):
+            return (
+                commit.removesuffix(cls.DIRTY_SUFFIX)[: cls.SHORT_COMMIT_LENGTH]
+                + cls.DIRTY_SUFFIX
+            )
+        return commit[: cls.SHORT_COMMIT_LENGTH]
+
     @staticmethod
     def combine(verdicts: list[ImageAlignment]) -> ImageAlignment | None:
         """The verdict of an image from those of its inputs: a known difference
-        prevails, then an unknown one. None when there is nothing to combine."""
+        prevails, then an orphan input, then an unknown one. None when there is
+        nothing to combine."""
         if not verdicts:
             return None
-        for verdict in (ImageAlignment.MISALIGNED, ImageAlignment.UNKNOWN):
+        for verdict in (
+            ImageAlignment.MISALIGNED,
+            ImageAlignment.ORPHAN,
+            ImageAlignment.UNKNOWN,
+        ):
             if verdict in verdicts:
                 return verdict
         return ImageAlignment.ALIGNED

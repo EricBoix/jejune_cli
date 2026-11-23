@@ -1,5 +1,7 @@
 # Code Style & Tooling
 
+## Python
+
 - Always format Python files using `uv run black <file_path>`
 - Never use bare `black <file>`. Either try
   - `uv run black <file>` or on failure try
@@ -9,3 +11,9 @@
   python versions specified in the technical requirements of the project
   (e.g. `pyproject.toml` or the `Readme.md`) e.g. python3.10 or by default
   python3 (but never a bare python).
+
+## Markdown
+
+When the David Anson's markdownlint extension is recommended (refer  
+`.vscode/extensions.json` file) then markdown linting should be done with
+`npx markdownlint-cli2 <filename>.md`

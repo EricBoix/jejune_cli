@@ -18,9 +18,6 @@ class FakeEcosystem:
     def register_repository(self, *args, **kwargs):
         pass
 
-    def register_document_images(self, *args, **kwargs):
-        pass
-
     def resolve_dirs(self):
         return None
 

@@ -10,10 +10,6 @@ from jejune_cli.core.component_containerized import ContComp
 from jejune_cli.core.configuration import Configuration
 from jejune_cli.core.configuration_entry import ConfigurationEntry
 from jejune_cli.core.containerized_context import ContainerizedContext
-from jejune_cli.components.containers.converter_commits import (
-    ConverterCommits,
-    ImageCommits,
-)
 from jejune_cli.components.containers.converter_image_name import ConverterImageName
 from jejune_cli.components.containers.converter_sources import (
     ConverterSource,
@@ -53,7 +49,6 @@ class CompConvert(ContComp):
             PdfToMarkdownConfig.REPO_NAME,
             when=self.offers_converter_main,
         )
-        ecosystem.register_document_images(self.name, self.image_commits)
 
     @property
     def image_name(self) -> str:
@@ -67,15 +62,12 @@ class CompConvert(ContComp):
         # always computed from CONVERT_DOC_DIR
         pass
 
-    def image_commits(self, document_name: str) -> ImageCommits:
-        """The commits of the document *document_name* and of pdf-to-markdown recorded
-        in the image, when it is the document of CONVERT_DOC_DIR and the image is
-        built."""
-        if document_name != CompConvert._document_name():
-            return ImageCommits()
-        return ConverterCommits.image_commits(
-            self._context.docker, self.image_variants()
-        )
+    def converter_image_owner(self) -> str:
+        return ConverterImageName.DOCUMENT_OWNER
+
+    def handles_document(self, slug: str) -> bool:
+        """Only the document of CONVERT_DOC_DIR has its converter image built here."""
+        return slug == ConverterImageName.slug(CompConvert._document_name())
 
     def offers_converter_main(self) -> bool:
         """True when the document of CONVERT_DOC_DIR has a Convert/main.py."""

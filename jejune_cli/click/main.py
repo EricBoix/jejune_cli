@@ -34,6 +34,7 @@ from jejune_cli.click.click_catalog import catalog_group
 from jejune_cli.click.click_group_deployment import deployment
 from jejune_cli.click.click_group_ecosystem import ecosystem
 from jejune_cli.click.click_group_git_access import git_access
+from jejune_cli.click.click_group_images import images
 
 # Infrastructure / cross-cutting groups
 cli.add_command(document)
@@ -65,6 +66,7 @@ cli.add_command(manifest)
 cli.add_command(catalog_group, "catalog")
 cli.add_command(deployment)
 cli.add_command(ecosystem)
+cli.add_command(images)
 cli.add_command(git_access, "git-access")
 
 cli.aliases = register_aliases(cli, document)

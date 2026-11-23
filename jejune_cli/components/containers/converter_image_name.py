@@ -7,12 +7,22 @@ that none of these builds silently overwrites another one.
 """
 
 import re
+from dataclasses import dataclass
 
 import click
 
 
 class ConverterImageNameError(click.ClickException):
     """The generated image name is not accepted by docker."""
+
+
+@dataclass(frozen=True)
+class ParsedConverterImage:
+    """The parts of the name of a converter image: see ConverterImageName.parse."""
+
+    owner: str
+    slug: str
+    suffix: str
 
 
 class ConverterImageName:
@@ -75,6 +85,39 @@ class ConverterImageName:
                 f"by docker: only letters, digits, '_', '.' and '-' are allowed"
             )
         return reference
+
+    @classmethod
+    def parse(cls, image: str) -> ParsedConverterImage | None:
+        """The inverse of build: the owner, the slug and the local suffix of the
+        converter image *image* (None when it is not a converter image)."""
+        repository, _, tag = image.partition(":")
+        if repository != cls.REPOSITORY:
+            return None
+        for owner in (cls.CATALOG_OWNER, cls.DOCUMENT_OWNER):
+            prefix = f"convert_{owner}_"
+            if tag.startswith(prefix):
+                remainder = tag.removeprefix(prefix)
+                break
+        else:
+            return None
+        # The longest suffix first: LOCAL_SUFFIX is a prefix of the other ones
+        for suffix in (
+            cls.LOCAL_DOCUMENT_SUFFIX,
+            cls.LOCAL_PDF_TO_MARKDOWN_SUFFIX,
+            cls.LOCAL_SUFFIX,
+        ):
+            if remainder.endswith(suffix):
+                remainder = remainder.removesuffix(suffix)
+                break
+        else:
+            suffix = ""
+        return ParsedConverterImage(owner, remainder, suffix) if remainder else None
+
+    @classmethod
+    def repository_names(cls, slug: str) -> list[str]:
+        """The names the document repository of a converter image of *slug* can have:
+        the one with the DOC_PREFIX, else the slug itself."""
+        return [cls.DOC_PREFIX + slug, slug]
 
     @classmethod
     def variants(cls, owner: str, repo_dir_name: str) -> list[str]:

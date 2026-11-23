@@ -104,15 +104,30 @@ class ContComp(ConfComp):
             no_cache=no_cache,
         )
 
-    def is_built(self) -> bool:
-        """Return True if the Docker image named image_name exists locally."""
+    def built_image_name(self) -> str | None:
+        """The name of the local Docker image of the component: image_name or, for a
+        service built by docker compose, the name compose gave it (None when there is
+        none)."""
         if self._context.docker.image_exists(self.image_name):
-            return True
+            return self.image_name
         if self.service_name:
             deploy_name = Path(".").resolve().name.lower()
-            return self._context.docker.image_exists(
-                f"jejune:{deploy_name}-{self.service_name}"
-            )
+            compose_image_name = f"jejune:{deploy_name}-{self.service_name}"
+            if self._context.docker.image_exists(compose_image_name):
+                return compose_image_name
+        return None
+
+    def is_built(self) -> bool:
+        """Return True if the Docker image named image_name exists locally."""
+        return self.built_image_name() is not None
+
+    def converter_image_owner(self) -> str | None:
+        """The owner of the converter images the component builds (None when it does
+        not build any): see ConverterImageName."""
+        return None
+
+    def handles_document(self, slug: str) -> bool:
+        """Does the component build the converter image of the document *slug*?"""
         return False
 
     @property

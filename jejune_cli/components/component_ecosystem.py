@@ -14,11 +14,7 @@ from jejune_cli.components.catalog.component_catalog_file import CatalogFile
 from jejune_cli.core.configuration import Configuration
 from jejune_cli.core.configuration_entry import ConfigurationEntry
 from jejune_cli.core.component_with_config import ConfComp
-from jejune_cli.components.containers.converter_commits import (
-    ConverterCommits,
-    ImageAlignment,
-    ImageCommits,
-)
+from jejune_cli.components.containers.converter_commits import ConverterCommits
 from jejune_cli.core.dot_jejune import DotJejune
 
 RepoTier = Literal["root", "tmp", "remote"]
@@ -99,9 +95,6 @@ class CompEcosystem(ConfComp):
         self._registered_repositories: dict[
             str, dict[str, Callable[[], bool] | None]
         ] = {}
-        # owner component name -> commits of a document and of pdf-to-markdown found
-        # in the images the owner built of it
-        self._document_image_commits: dict[str, Callable[[str], ImageCommits]] = {}
         self.conditional_dependencies = [(self.ecosystem_needs_remote, git_server)]
 
     def register_repository(
@@ -120,20 +113,15 @@ class CompEcosystem(ConfComp):
         if repository_name not in owned or when is None:
             owned[repository_name] = when
 
-    def register_document_images(
-        self,
-        owner_component_name: str,
-        image_commits: Callable[[str], ImageCommits],
-    ) -> None:
-        """Register how to find the commits of a document (by the name of its
-        repository) and of pdf-to-markdown recorded in the images
-        *owner_component_name* built of that document."""
-        self._document_image_commits[owner_component_name] = image_commits
-
-    def offers_document_images(self, component_names: list[str]) -> bool:
-        """Does one of the given components tell the commits of the documents in the
-        images it built?"""
-        return any(name in self._document_image_commits for name in component_names)
+    def component_repository_name(self, component) -> str | None:
+        """The name of the repository holding the sources of *component* (None when
+        the component does not set `repos`). Like `repository_states`, it assumes the
+        components that set `repos` live in a plugin repo."""
+        if not getattr(component, "repos", []):
+            return None
+        return self._plugin_registry.repo_name_for_plugin(component.name) or (
+            component.name
+        )
 
     def checkout_commit(self, checkout: Path) -> str | None:
         """The commit of HEAD in *checkout*, marked as dirty when it has uncommitted
@@ -154,41 +142,6 @@ class CompEcosystem(ConfComp):
             self._git_server.remote_git_url(name),
             timeout=self.REMOTE_PROBE_TIMEOUT_SECONDS,
         )
-
-    def document_image_alignment(
-        self,
-        component_names: list[str],
-        document_name: str,
-        document_commit: str | None,
-        pdf_to_markdown_commit: str | None,
-    ) -> ImageAlignment | None:
-        """Is the image the given components built of the document *document_name*
-        made of the sources designated now, whose commits are *document_commit* and
-        *pdf_to_markdown_commit*? None when there is no image to tell about. An input
-        whose commit the image does not record cannot be verified: unknown."""
-        image_commits = [
-            self._document_image_commits[component_name](document_name)
-            for component_name in component_names
-            if component_name in self._document_image_commits
-        ]
-        document_images = [
-            commit for commits in image_commits for commit in commits.document
-        ]
-        pdf_to_markdown_images = [
-            commit for commits in image_commits for commit in commits.pdf_to_markdown
-        ]
-        if not document_images and not pdf_to_markdown_images:
-            return None
-        verdicts = [
-            ConverterCommits.compare(commit, document_commit)
-            for commit in document_images
-        ] + [
-            ConverterCommits.compare(commit, pdf_to_markdown_commit)
-            for commit in pdf_to_markdown_images
-        ]
-        if not document_images or not pdf_to_markdown_images:
-            verdicts.append(ImageAlignment.UNKNOWN)
-        return ConverterCommits.combine(verdicts)
 
     def registered_repositories(self, component_names: list[str]) -> list[str]:
         """The repositories registered by the given components (whose condition, if

@@ -1,7 +1,6 @@
 import subprocess
 from types import SimpleNamespace
 
-import click
 import pytest
 from click.testing import CliRunner
 
@@ -10,11 +9,7 @@ from jejune_cli.components.component_ecosystem import (
     CompEcosystem,
     EcosystemDirectories,
 )
-from jejune_cli.components.containers.converter_commits import (
-    ConverterCommits,
-    ImageAlignment,
-    ImageCommits,
-)
+from jejune_cli.components.containers.converter_commits import ConverterCommits
 
 REMOTE_URL = "https://example.org/team/pdf-to-markdown.git"
 REMOTE_LABEL = "[REPO_ROOT_DIR]/pdf-to-markdown.git"
@@ -291,6 +286,8 @@ def test_doc_steward_documents_table_only_lists_the_current_directory(
     assert "[CWD]" in document_rows[0]
     # No catalog.yaml: no Catalog block
     assert "Catalog" not in output
+    # The converter images are told by `jejune images list`, not by this table
+    assert "Convert Image" not in output
 
 
 def pdf_to_markdown_row(output):
@@ -405,11 +402,6 @@ def test_git_access_does_not_probe_a_cloned_ecosystem_repository(
     assert click_group_git_access.ecosystem_probe_rows(FakeApplication(ecosystem)) == []
 
 
-IMAGE_COMMIT = "1111111111111111111111111111111111111111"
-OTHER_IMAGE_COMMIT = "2222222222222222222222222222222222222222"
-DIRTY = ConverterCommits.DIRTY_SUFFIX
-
-
 def test_pdf_to_markdown_up_to_date_is_the_clone_one_whatever_the_images(
     make_ecosystem, tmp_path
 ):
@@ -457,174 +449,6 @@ def test_designated_commit_of_a_remote_only_repository_is_its_remote_head(
     )
 
 
-def register_images(ecosystem, document=(), pdf_to_markdown=()):
-    ecosystem.register_document_images(
-        "convert",
-        lambda name: ImageCommits(list(document), list(pdf_to_markdown)),
-    )
-
-
-@pytest.mark.parametrize(
-    "document_image, pdf_to_markdown_image, document_now, pdf_to_markdown_now, expected",
-    [
-        (
-            IMAGE_COMMIT,
-            IMAGE_COMMIT,
-            IMAGE_COMMIT,
-            IMAGE_COMMIT,
-            ImageAlignment.ALIGNED,
-        ),
-        # Either input differing makes the image misaligned
-        (
-            IMAGE_COMMIT,
-            IMAGE_COMMIT,
-            IMAGE_COMMIT,
-            OTHER_IMAGE_COMMIT,
-            ImageAlignment.MISALIGNED,
-        ),
-        (
-            IMAGE_COMMIT,
-            IMAGE_COMMIT,
-            OTHER_IMAGE_COMMIT,
-            IMAGE_COMMIT,
-            ImageAlignment.MISALIGNED,
-        ),
-        # Built from a clean source, dirty now (and the other way round)
-        (
-            IMAGE_COMMIT,
-            IMAGE_COMMIT,
-            IMAGE_COMMIT + DIRTY,
-            IMAGE_COMMIT,
-            ImageAlignment.MISALIGNED,
-        ),
-        (
-            IMAGE_COMMIT + DIRTY,
-            IMAGE_COMMIT,
-            IMAGE_COMMIT,
-            IMAGE_COMMIT,
-            ImageAlignment.MISALIGNED,
-        ),
-        # The same dirty commit: the uncommitted changes may differ
-        (
-            IMAGE_COMMIT + DIRTY,
-            IMAGE_COMMIT,
-            IMAGE_COMMIT + DIRTY,
-            IMAGE_COMMIT,
-            ImageAlignment.UNKNOWN,
-        ),
-        # A known difference prevails over an unknown one
-        (
-            IMAGE_COMMIT + DIRTY,
-            IMAGE_COMMIT,
-            IMAGE_COMMIT + DIRTY,
-            OTHER_IMAGE_COMMIT,
-            ImageAlignment.MISALIGNED,
-        ),
-        # A source whose commit is not known
-        (IMAGE_COMMIT, IMAGE_COMMIT, IMAGE_COMMIT, None, ImageAlignment.UNKNOWN),
-        (IMAGE_COMMIT, IMAGE_COMMIT, None, None, ImageAlignment.UNKNOWN),
-    ],
-)
-def test_document_image_alignment_needs_both_inputs_aligned(
-    document_image,
-    pdf_to_markdown_image,
-    document_now,
-    pdf_to_markdown_now,
-    expected,
-    make_ecosystem,
-):
-    ecosystem = make_ecosystem()
-    register_images(
-        ecosystem, document=[document_image], pdf_to_markdown=[pdf_to_markdown_image]
-    )
-    assert (
-        ecosystem.document_image_alignment(
-            ["convert"], "jejune_doc_X", document_now, pdf_to_markdown_now
-        )
-        is expected
-    )
-
-
-def test_document_image_alignment_is_unknown_for_an_unrecorded_input(make_ecosystem):
-    ecosystem = make_ecosystem()
-    register_images(ecosystem, document=[IMAGE_COMMIT])
-    assert (
-        ecosystem.document_image_alignment(
-            ["convert"], "jejune_doc_X", IMAGE_COMMIT, IMAGE_COMMIT
-        )
-        is ImageAlignment.UNKNOWN
-    )
-    register_images(ecosystem, pdf_to_markdown=[IMAGE_COMMIT])
-    assert (
-        ecosystem.document_image_alignment(
-            ["convert"], "jejune_doc_X", IMAGE_COMMIT, IMAGE_COMMIT
-        )
-        is ImageAlignment.UNKNOWN
-    )
-
-
-def test_document_image_alignment_is_blank_without_image(make_ecosystem):
-    ecosystem = make_ecosystem()
-    register_images(ecosystem)
-    assert ecosystem.offers_document_images(["convert"])
-    assert not ecosystem.offers_document_images(["other"])
-    assert (
-        ecosystem.document_image_alignment(
-            ["convert"], "jejune_doc_X", IMAGE_COMMIT, IMAGE_COMMIT
-        )
-        is None
-    )
-    assert (
-        ecosystem.document_image_alignment(
-            ["other"], "jejune_doc_X", IMAGE_COMMIT, IMAGE_COMMIT
-        )
-        is None
-    )
-
-
-def test_every_image_of_a_document_has_to_be_aligned(make_ecosystem):
-    ecosystem = make_ecosystem()
-    register_images(
-        ecosystem,
-        document=[IMAGE_COMMIT, OTHER_IMAGE_COMMIT],
-        pdf_to_markdown=[IMAGE_COMMIT],
-    )
-    assert (
-        ecosystem.document_image_alignment(
-            ["convert"], "jejune_doc_X", IMAGE_COMMIT, IMAGE_COMMIT
-        )
-        is ImageAlignment.MISALIGNED
-    )
-
-
-@pytest.mark.parametrize(
-    "alignment, icon",
-    [
-        (ImageAlignment.ALIGNED, "✓"),
-        (ImageAlignment.MISALIGNED, "✗"),
-        (ImageAlignment.UNKNOWN, "–"),
-        (None, ""),
-    ],
-)
-def test_image_cell_is_as_wide_as_its_header(alignment, icon):
-    cell = click_group_ecosystem._StatusTable.image_cell(alignment)
-    assert len(click.unstyle(cell)) == len(
-        click_group_ecosystem._StatusTable.IMAGE_HEADER
-    )
-    assert click.unstyle(cell).strip() == icon
-
-
-def test_documents_table_rule_spans_the_image_column():
-    table = click_group_ecosystem._StatusTable
-    header = click.unstyle(
-        table.header("Document", "Manifest", "Repository", 10, 12, 7, True)
-    )
-    rule = table.rule(10, "Manifest", 12, 7, True)
-    assert table.IMAGE_HEADER == "Convert Image"
-    assert header.endswith(f"Commit   {table.IMAGE_HEADER}")
-    assert len(rule) - 2 == len(header) - 2
-
-
 def test_dirty_clone_is_not_up_to_date_and_its_commit_is_flagged(
     monkeypatch, make_ecosystem
 ):
@@ -636,3 +460,26 @@ def test_dirty_clone_is_not_up_to_date_and_its_commit_is_flagged(
     assert ecosystem.short_head("clone") == (
         LOCAL_SHA[: ecosystem.SHORT_SHA_LENGTH] + ConverterCommits.DIRTY_SUFFIX
     )
+
+
+@pytest.mark.parametrize(
+    "repos, plugin_repository, expected",
+    [
+        ([(None, "HUB_CONTEXT")], "jejune_hub", "jejune_hub"),
+        # Not a plugin of a known repository: the name of the component
+        ([(None, "HUB_CONTEXT")], None, "hub"),
+        # A component that sets no `repos` has no repository of its own
+        ([], "jejune_hub", None),
+    ],
+)
+def test_the_repository_of_a_component_is_the_one_of_its_plugin(
+    repos, plugin_repository, expected
+):
+    ecosystem = CompEcosystem(
+        SimpleNamespace(name="git-server"),
+        FakeGitAccess(),
+        SimpleNamespace(),
+        SimpleNamespace(repo_name_for_plugin=lambda name: plugin_repository),
+    )
+    component = SimpleNamespace(name="hub", repos=repos)
+    assert ecosystem.component_repository_name(component) == expected

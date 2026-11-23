@@ -11,10 +11,7 @@ from jejune_cli.components.containers.component_cont_convert import CompConvert
 from jejune_cli.core.component_containerized import ContComp
 from jejune_cli.components.component_ecosystem import EcosystemDirectories
 from jejune_cli.core.containerized_context import ContainerizedContext
-from jejune_cli.components.containers.converter_commits import (
-    ConverterCommits,
-    ImageCommits,
-)
+from jejune_cli.components.containers.converter_commits import ConverterCommits
 from jejune_cli.components.containers.converter_image_name import ConverterImageName
 from jejune_cli.components.containers.converter_sources import (
     ConverterSource,
@@ -51,7 +48,6 @@ class CompConverters(ContComp):
             self.name,
             self.PDF_TO_MARKDOWN_NAME,
         )
-        ecosystem.register_document_images(self.name, self.image_commits)
 
     def image_variants(self, repo_dir_name: str) -> list[str]:
         """Every image name of the converter of *repo_dir_name* (whatever its local
@@ -60,12 +56,12 @@ class CompConverters(ContComp):
             ConverterImageName.CATALOG_OWNER, repo_dir_name
         )
 
-    def image_commits(self, document_name: str) -> ImageCommits:
-        """The commits of the document *document_name* and of pdf-to-markdown recorded
-        in its built images."""
-        return ConverterCommits.image_commits(
-            self._context.docker, self.image_variants(document_name)
-        )
+    def converter_image_owner(self) -> str:
+        return ConverterImageName.CATALOG_OWNER
+
+    def handles_document(self, slug: str) -> bool:
+        """Every document of the catalog has its converter image built here."""
+        return True
 
     def _iter_local_converter_repos(self) -> list[tuple[Path, str]]:
         """Return (repo_dir, image_name) for catalog repos that are local and have a DockerContext."""

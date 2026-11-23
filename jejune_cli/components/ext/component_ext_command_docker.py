@@ -22,6 +22,22 @@ class CompCommandDocker(ExtCommand):
         )
         return bool(result.returncode == 0 and result.stdout.strip())
 
+    def list_images(self) -> list[str]:
+        """Return the `repository:tag` of every local Docker image (the untagged ones
+        are left out)."""
+        result = subprocess.run(
+            ["docker", "images", "--format", "{{.Repository}}:{{.Tag}}"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            return []
+        return [
+            image
+            for image in result.stdout.splitlines()
+            if image and "<none>" not in image
+        ]
+
     def container_exists(self, name: str) -> bool:
         """Return True if a container named *name* exists (running or stopped)."""
         return (

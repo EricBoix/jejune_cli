@@ -90,24 +90,8 @@ probes the same repositories and tells which one cannot be reached.
 `.jejune/tmp` but never clones a missing one: the first
 `jejune converters build --local-pdf-to-markdown` does.
 
-For `pdf-to-markdown` the `Up-to-date` column does not compare a clone: it tells whether
-the pdf-to-markdown inside the converter images of the current role is the HEAD of its
-GitHub repository. Every build records the commits it used as image labels
-(`docker inspect --format '{{json .Config.Labels}}' <image>`):
-
-- `jejune.pdf-to-markdown-commit`: the commit of the local checkout (suffixed with
-  `-dirty` when it has uncommitted changes, which never equals a remote HEAD) or, for a
-  locked build, the commit of the `uv.lock` of the cloned document, read from the image
-  after the build;
-- `jejune.document-commit`: the commit of the document (idem for a local document).
-
-A document cloned by the Dockerfile is pinned to its commit: jejune_cli resolves the
-remote HEAD, passes it as the build argument `DOC_COMMIT` (checked out by the
-`Dockerfile` of the document) and records it in the label, so that a cached clone layer
-can never make the label lie. The `Up-to-date` cell is blank when no image is built or
-the remote cannot be reached. In the document table, the `Image` column does the same
-for the document itself (the `Up-to-date` column of that table still compares the
-clone). Images built before these labels existed must be rebuilt.
+The Docker images built of the repositories are not part of this output:
+whether they are up to date is told by `jejune images list` (see below).
 
 The converter image of a document is named `jejune:convert_<owner>_<slug>[<suffix>]`:
 
@@ -126,6 +110,50 @@ must be rebuilt.
 Every `DockerContext/Dockerfile` selects its sources with the `DOC_SOURCE` and
 `PDF_TO_MARKDOWN_SOURCE` build arguments, and the repository root carries a
 `.dockerignore` restricting what is copied from a local clone.
+
+#### Images of the workspace
+
+```bash
+jejune images list   # `jejune images` does the same
+```
+
+lists the local `jejune:*` Docker images of the components of the current
+role (the workspace): the converter images in the catalog-contributor and
+doc-steward roles, the `hub`, `docs-server`, `md-browser` and `kg-viewer`
+images in a deployment. Two tables are printed, each only when the role has
+images of its kind.
+
+*Convert images* have the columns `Image Name`, `Up-to-date`, `Document` and
+`pdf-to-markdown`. Every build records the commits it used as image labels
+(`docker inspect --format '{{json .Config.Labels}}' <image>`):
+
+- `jejune.pdf-to-markdown-commit`: the commit of the local checkout (suffixed
+  with `-dirty` when it has uncommitted changes, which never equals a remote
+  HEAD) or, for a locked build, the commit of the `uv.lock` of the cloned
+  document, read from the image after the build;
+- `jejune.document-commit`: the commit of the document (idem for a local
+  document).
+
+A document cloned by the Dockerfile is pinned to its commit: jejune_cli
+resolves the remote HEAD, passes it as the build argument `DOC_COMMIT` (checked
+out by the `Dockerfile` of the document) and records it in the label, so that
+a cached clone layer can never make the label lie. Images built before these
+labels existed must be rebuilt.
+
+The `Document` and `pdf-to-markdown` cells show the short commit recorded in
+the image preceded by an icon: ✓ when it is the commit the ecosystem
+designates now (the one of the local clone, else the remote HEAD), ✗ when it
+is another one, a yellow dash when it cannot be told (a dirty commit equal to
+the designated one, an unreachable remote, a label the image does not record)
+and a red `?` when the repository is no longer in the ecosystem (neither
+cloned nor listed by the catalog). `Up-to-date` summarizes the two: ✗
+prevails, then the red `?`, then the dash, else ✓.
+
+*Other images* have the columns `Image Name`, `Up-to-date` and `Repository`:
+the short commit of the repository recorded in the image label
+`jejune.repository-commit`, compared like above, or, for an image that records
+none, its `org.opencontainers.image.version` label (blank when it has
+neither).
 
 ### Activity Diagram
 

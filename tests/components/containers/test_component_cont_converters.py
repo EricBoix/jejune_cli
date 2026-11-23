@@ -190,22 +190,17 @@ def test_pdf_to_markdown_found_nowhere_is_cloned_into_tmp_with_its_history(tmp_p
 
 def test_converters_register_pdf_to_markdown_with_the_ecosystem():
     registered = []
-    document_images = []
-    converters = CompConverters(
+    CompConverters(
         docker_daemon=SimpleNamespace(name="docker-daemon"),
         ecosystem=SimpleNamespace(
             register_repository=lambda *arguments, **options: registered.append(
                 (arguments, options)
-            ),
-            register_document_images=lambda *arguments: document_images.append(
-                arguments
             ),
         ),
         catalog_comp=None,
         context=SimpleNamespace(docker=None, docker_daemon=None),
     )
     assert registered == [(("converters", "pdf-to-markdown"), {})]
-    assert document_images == [("converters", converters.image_commits)]
 
 
 @pytest.mark.parametrize(
