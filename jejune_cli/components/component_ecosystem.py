@@ -317,6 +317,7 @@ class CompEcosystem(ConfComp):
     ) -> list[tuple[str, RepoTier, str, bool]]:
         seen: set[str] = set()
         results: list[tuple[str, RepoTier, str, bool]] = []
+        catalog_names = self._catalog_document_names()
         for tier, base in (
             ("root", directories.root_dir),
             ("tmp", directories.tmp_dir),
@@ -324,6 +325,11 @@ class CompEcosystem(ConfComp):
             if base is None:
                 continue
             for document_path in sorted(base.glob("jejune_doc_*")):
+                if (
+                    catalog_names is not None
+                    and document_path.name not in catalog_names
+                ):
+                    continue
                 if document_path.is_dir() and document_path.name not in seen:
                     seen.add(document_path.name)
                     results.append((document_path.name, tier, str(document_path), (document_path / "manifest.yaml").exists()))  # type: ignore[arg-type]
@@ -336,6 +342,18 @@ class CompEcosystem(ConfComp):
                         (name, "tmp", str(local), (local / "manifest.yaml").exists())
                     )
         return results
+
+    @staticmethod
+    def _catalog_document_names() -> set[str] | None:
+        """The names of the documents of the catalog: the only documents the
+        ecosystem considers. None (no restriction) without a readable catalog."""
+        catalog_path = CatalogFile.resolve_path()
+        if not catalog_path.is_file():
+            return None
+        try:
+            return set(CatalogFile(catalog_path).names())
+        except ValueError:
+            return None
 
     def cwd_doc_repo(self) -> tuple[str, Literal["cwd"], str, bool]:
         """The document of the current directory, in the shape of discover_doc_repos'
