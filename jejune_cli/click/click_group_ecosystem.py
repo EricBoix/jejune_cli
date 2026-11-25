@@ -277,13 +277,24 @@ def ecosystem_update(ctx) -> None:
     app = ctx.find_object(AppContext)
     catalog = app.component_registry.get("catalog")
     catalog_path = CatalogFile.resolve_path()
-    if not catalog_path.is_file():
+    role = app.role_registry.detect_role()
+    # A doc-steward has no catalog by design: nothing to warn about
+    if not catalog_path.is_file() and not app.role_registry.role_is_doc_steward_family(
+        role
+    ):
         click.echo(
             click.style(
                 f"No catalog at {catalog_path}: only updating .jejune/tmp/.",
                 fg="yellow",
             )
         )
+    click.echo(
+        click.style(
+            "Only .jejune/tmp/ is updated, not the current directory: "
+            'to update it run e.g. "git pull --ff-only".',
+            fg="yellow",
+        )
+    )
     outcomes = catalog.updater.update_all_repos(catalog_path)
     if not outcomes:
         click.echo("No repositories found in the catalog nor in .jejune/tmp/.")
