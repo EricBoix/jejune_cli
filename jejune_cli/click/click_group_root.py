@@ -25,10 +25,11 @@ class _RootClickGroup(click.Group):
         fresh = "obj" not in extra
         if fresh:
             extra["obj"] = AppContext(cli=self)
-        ctx = super().make_context(info_name, args, parent=parent, **extra)
-        if fresh:
-            load_plugins(ctx.obj)
-        return ctx
+            # Plugins must be loaded before super().make_context(): Click handles
+            # --help (an eager option) inside it and exits there, so help would
+            # otherwise be rendered without any plugin.
+            load_plugins(extra["obj"])
+        return super().make_context(info_name, args, parent=parent, **extra)
 
     def invoke(self, ctx: click.Context) -> object:
         # invoked_subcommand is set inside Group.invoke(), so read it after.
