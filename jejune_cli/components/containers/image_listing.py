@@ -43,13 +43,17 @@ class ConvertImageRow:
 
 @dataclass(frozen=True)
 class OtherImageRow:
-    """Another image of a component: *repository* is the (shortened) commit of the
+    """Another image of a component: *commit* is the (shortened) commit of the
     repository recorded in the image or, when it records none, its version (blank
-    when it has neither). *summary* is None when there is nothing to compare."""
+    when it has neither). *summary* is None when there is nothing to compare.
+    *available* tells whether the image exists locally; *repository_name* is the
+    repository holding the sources of the component (None when it has none)."""
 
     name: str
     summary: ImageAlignment | None
-    repository: str
+    commit: str
+    available: bool = True
+    repository_name: str | None = None
 
 
 class ImageListing:
@@ -97,9 +101,12 @@ class ImageListing:
                     rows.append(self._convert_row(image, parsed))
         return sorted(rows, key=lambda row: row.name)
 
-    def other_rows(self, components: list) -> list[OtherImageRow]:
+    def other_rows(
+        self, components: list, include_unbuilt: bool = False
+    ) -> list[OtherImageRow]:
         """The images of the *components* that are neither converter images nor
-        external ones, existing locally, sorted by name."""
+        external ones, existing locally (and, when *include_unbuilt*, the missing
+        ones too), sorted by name."""
         rows: list[OtherImageRow] = []
         for component in components:
             if (
@@ -111,6 +118,18 @@ class ImageListing:
             image = component.built_image_name()
             if image is not None:
                 rows.append(self._other_row(component, image))
+            elif include_unbuilt:
+                rows.append(
+                    OtherImageRow(
+                        component.image_name,
+                        None,
+                        "",
+                        available=False,
+                        repository_name=self._ecosystem.component_repository_name(
+                            component
+                        ),
+                    )
+                )
         return sorted(rows, key=lambda row: row.name)
 
     def _convert_row(self, image: str, parsed: ParsedConverterImage) -> ConvertImageRow:
@@ -175,9 +194,14 @@ class ImageListing:
     def _other_row(self, component, image: str) -> OtherImageRow:
         labels = ConverterCommits.image_labels(image)
         recorded_commit = labels.get(self.REPOSITORY_COMMIT_LABEL)
-        if recorded_commit is None:
-            return OtherImageRow(image, None, labels.get(self.VERSION_LABEL, ""))
         repository_name = self._ecosystem.component_repository_name(component)
+        if recorded_commit is None:
+            return OtherImageRow(
+                image,
+                None,
+                labels.get(self.VERSION_LABEL, ""),
+                repository_name=repository_name,
+            )
         designated_commit = (
             self._ecosystem.designated_commit(repository_name, self._directories)
             if repository_name
@@ -187,4 +211,5 @@ class ImageListing:
             image,
             ConverterCommits.compare(recorded_commit, designated_commit),
             ConverterCommits.short_commit(recorded_commit),
+            repository_name=repository_name,
         )

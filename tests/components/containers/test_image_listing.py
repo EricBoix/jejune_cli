@@ -273,8 +273,12 @@ def test_other_images_compare_their_repository_commit_to_the_designated_one(
         ]
     )
     assert rows == [
-        OtherImageRow("jejune:docs", ImageAlignment.MISALIGNED, "7fe327e"),
-        OtherImageRow("jejune:hub", ImageAlignment.ALIGNED, "8e8834c"),
+        OtherImageRow(
+            "jejune:docs", ImageAlignment.MISALIGNED, "7fe327e", repository_name="jejune_docs"
+        ),
+        OtherImageRow(
+            "jejune:hub", ImageAlignment.ALIGNED, "8e8834c", repository_name="jejune_hub"
+        ),
         OtherImageRow("jejune:unknown", ImageAlignment.UNKNOWN, "7fe327e"),
     ]
 
@@ -312,6 +316,14 @@ def test_other_images_are_the_built_jejune_ones_of_no_converter(monkeypatch):
         ]
     )
     assert [row.name for row in rows] == ["jejune:compose-hub"]
+
+
+def test_unbuilt_images_are_listed_on_demand_as_unavailable(monkeypatch):
+    FakeLabels(monkeypatch, {})
+    rows = listing().other_rows(
+        [other_component("missing", "jejune:missing", None)], include_unbuilt=True
+    )
+    assert rows == [OtherImageRow("jejune:missing", None, "", available=False)]
 
 
 @pytest.mark.parametrize("image_count", [1, 3])

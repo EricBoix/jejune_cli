@@ -4,7 +4,7 @@ from pathlib import Path
 
 import click
 
-from jejune_cli.click.click_status_table import StatusTable
+from jejune_cli.click.click_status_table import ComponentStatusTable, StatusTable
 from jejune_cli.click.click_theme import ClickTheme
 from jejune_cli.components.catalog.component_catalog_file import CatalogFile
 from jejune_cli.components.containers.converter_commits import ImageAlignment
@@ -26,6 +26,7 @@ class _ImagesTable(StatusTable):
     DOCUMENT_HEADER = "Document"
     PDF_TO_MARKDOWN_HEADER = "pdf-to-markdown"
     REPOSITORY_HEADER = "Repository"
+    AVAILABLE_HEADER = "Available"
     CONVERT_TITLE = "Convert images"
     OTHER_TITLE = "Other images"
     # The `ClickTheme.status_icons` entry of each alignment of an image
@@ -104,7 +105,7 @@ class _ImagesTable(StatusTable):
     def echo_other_table(cls, rows: list[OtherImageRow]) -> None:
         name_width = max(len(cls.NAME_HEADER), max(len(row.name) for row in rows))
         repository_width = max(
-            len(cls.REPOSITORY_HEADER), max(len(row.repository) for row in rows)
+            len(cls.REPOSITORY_HEADER), max(len(row.commit) for row in rows)
         )
         click.echo(click.style(f"  {cls.OTHER_TITLE}", bold=True))
         click.echo(cls.header(name_width, cls.REPOSITORY_HEADER))
@@ -112,7 +113,55 @@ class _ImagesTable(StatusTable):
         for row in rows:
             click.echo(
                 f"  {row.name:<{name_width}}  {cls.alignment_cell(row.summary)}  "
-                f"{row.repository}".rstrip()
+                f"{row.commit}".rstrip()
+            )
+
+    @classmethod
+    def echo_other_status_table(
+        cls, rows: list[OtherImageRow], eco, directories, repo_root_dir: str
+    ) -> None:
+        """The "Other images" table laid out like the components of `ecosystem
+        status`: the repository is shown by the placeholder of its directory."""
+        locations = [
+            (
+                ComponentStatusTable.location_label(
+                    eco.repository_state(row.repository_name, directories),
+                    repo_root_dir,
+                )
+                if row.repository_name
+                else ""
+            )
+            for row in rows
+        ]
+        name_width = max(len(cls.NAME_HEADER), max(len(row.name) for row in rows))
+        location_width = max(
+            len(cls.REPOSITORY_HEADER), max(len(location) for location in locations)
+        )
+        commit_width = max(
+            len(ComponentStatusTable.COMMIT_HEADER),
+            max(len(row.commit) for row in rows),
+        )
+        click.echo(click.style(f"  {cls.OTHER_TITLE}", bold=True))
+        click.echo(
+            ComponentStatusTable.header(
+                cls.NAME_HEADER,
+                cls.AVAILABLE_HEADER,
+                cls.REPOSITORY_HEADER,
+                name_width,
+                location_width,
+            )
+        )
+        click.echo(
+            ComponentStatusTable.rule(
+                name_width, cls.AVAILABLE_HEADER, location_width, commit_width
+            )
+        )
+        for row, location in zip(rows, locations):
+            click.echo(
+                f"  {row.name:<{name_width}}  "
+                f"{ComponentStatusTable.icon_cell(row.available, cls.AVAILABLE_HEADER)}  "
+                f"{location:<{location_width}}  "
+                f"{cls.alignment_cell(row.summary)}  {row.commit}".rstrip()
             )
 
 
@@ -146,10 +195,9 @@ def images_list(ctx) -> None:
     )
     directories = eco.resolve_dirs()
     # A doc-steward only handles the document of the current directory
+    is_doc_steward = app.role_registry.role_is_doc_steward_family(role)
     document_repos = (
-        [eco.cwd_doc_repo()]
-        if app.role_registry.role_is_doc_steward_family(role)
-        else eco.discover_doc_repos(directories)
+        [eco.cwd_doc_repo()] if is_doc_steward else eco.discover_doc_repos(directories)
     )
     listing = ImageListing(
         eco,
@@ -159,7 +207,7 @@ def images_list(ctx) -> None:
         _catalog_document_names(),
     )
     convert_rows = listing.convert_rows(components)
-    other_rows = listing.other_rows(components)
+    other_rows = listing.other_rows(components, include_unbuilt=is_doc_steward)
     if not convert_rows and not other_rows:
         click.echo(
             click.style(
@@ -172,7 +220,14 @@ def images_list(ctx) -> None:
         _ImagesTable.echo_convert_table(convert_rows)
     if convert_rows and other_rows:
         click.echo()
-    if other_rows:
+    if other_rows and is_doc_steward:
+        _ImagesTable.echo_other_status_table(
+            other_rows,
+            eco,
+            directories,
+            app.component_registry.get("git-server").repo_root_dir(),
+        )
+    elif other_rows:
         _ImagesTable.echo_other_table(other_rows)
 
 

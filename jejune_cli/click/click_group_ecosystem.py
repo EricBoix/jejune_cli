@@ -6,71 +6,10 @@ from pathlib import Path
 
 from jejune_cli.core.app_context import AppContext
 from jejune_cli.components.catalog.component_catalog_file import CatalogFile
-from jejune_cli.click.click_status_table import StatusTable
+from jejune_cli.click.click_status_table import ComponentStatusTable
 from jejune_cli.click.click_theme import ClickTheme
 from jejune_cli.components.component_ecosystem import CompEcosystem
 from jejune_cli.core.dot_jejune import DotJejune
-
-
-class _StatusTable(StatusTable):
-    """What the tables of `ecosystem status` share: the placeholders standing for
-    the directories listed in the header, and the Up-to-date / Commit cells."""
-
-    LOCATION_LABEL = {
-        "root": "[JEJUNE_ROOT_DIR]",
-        "tmp": "[ECOSYSTEM_DIR]",
-        "cwd": "[CWD]",
-    }
-    REPO_ROOT_LABEL = "[REPO_ROOT_DIR]"
-    COMMIT_HEADER = "Commit"
-
-    @staticmethod
-    def remote_label(remote_url: str, repo_root_dir: str) -> str:
-        """*remote_url* with its REPO_ROOT_DIR prefix replaced by its placeholder."""
-        if remote_url.startswith(repo_root_dir):
-            return _StatusTable.REPO_ROOT_LABEL + remote_url[len(repo_root_dir) :]
-        return remote_url
-
-    @staticmethod
-    def icon_cell(ok: bool, icon_header: str) -> str:
-        """The ✓/✗ cell, centred under *icon_header*."""
-        icon, color = ClickTheme.status_icons["ok" if ok else "error"]
-        pad = (len(icon_header) - _StatusTable.ICON_WIDTH) // 2
-        trail = len(icon_header) - pad - _StatusTable.ICON_WIDTH
-        return f"{'':>{pad}}{click.style(icon, fg=color)}{'':<{trail}}"
-
-    @staticmethod
-    def header(
-        first,
-        icon_header,
-        location_header,
-        first_width,
-        location_width,
-        commit_width: int = len(COMMIT_HEADER),
-    ) -> str:
-        """The header row: *first* is bold and *location_header* is centred."""
-        bold_first = click.style(f"{first:<{first_width}}", bold=True)
-        row = (
-            f"  {bold_first}  {icon_header}  "
-            f"{location_header:^{location_width}}  "
-            f"{_StatusTable.UP_TO_DATE_HEADER}  "
-        )
-        return f"{row}{_StatusTable.COMMIT_HEADER}"
-
-    @staticmethod
-    def rule(first_width, icon_header, location_width, commit_width) -> str:
-        total = (
-            first_width
-            + 2
-            + len(icon_header)
-            + 2
-            + location_width
-            + 2
-            + len(_StatusTable.UP_TO_DATE_HEADER)
-            + 2
-            + commit_width
-        )
-        return "  " + "─" * total
 
 
 @dataclass(frozen=True)
@@ -135,10 +74,7 @@ def ecosystem_status(ctx) -> None:
     else:
         rows: list[_StatusRow] = []
         for state in states:
-            if state.location.is_local:
-                location = _StatusTable.LOCATION_LABEL[state.location.tier]
-            else:
-                location = _StatusTable.remote_label(state.remote_url, repo_root_dir)
+            location = ComponentStatusTable.location_label(state, repo_root_dir)
             rows.append(
                 _StatusRow(
                     name=state.name,
@@ -152,23 +88,23 @@ def ecosystem_status(ctx) -> None:
         name_width = max(len("Component"), max(len(row.name) for row in rows))
         location_width = max(len("Repository"), max(len(row.location) for row in rows))
         commit_width = max(
-            len(_StatusTable.COMMIT_HEADER), max(len(row.commit) for row in rows)
+            len(ComponentStatusTable.COMMIT_HEADER), max(len(row.commit) for row in rows)
         )
 
         click.echo(
-            _StatusTable.header(
+            ComponentStatusTable.header(
                 "Component", "Available", "Repository", name_width, location_width
             )
         )
         click.echo(
-            _StatusTable.rule(name_width, "Available", location_width, commit_width)
+            ComponentStatusTable.rule(name_width, "Available", location_width, commit_width)
         )
         for row in rows:
             click.echo(
                 f"  {row.name:<{name_width}}  "
-                f"{_StatusTable.icon_cell(row.found, 'Available')}  "
+                f"{ComponentStatusTable.icon_cell(row.found, 'Available')}  "
                 f"{row.location:<{location_width}}  "
-                f"{_StatusTable.up_to_date_cell(row.up_to_date)}  {row.commit}"
+                f"{ComponentStatusTable.up_to_date_cell(row.up_to_date)}  {row.commit}"
             )
 
     # --- Documents table ---
@@ -196,7 +132,7 @@ def ecosystem_status(ctx) -> None:
         _StatusRow(
             name=name,
             found=has_doc,
-            location=_StatusTable.LOCATION_LABEL.get(tier, tier),
+            location=ComponentStatusTable.LOCATION_LABEL.get(tier, tier),
             up_to_date=eco.repo_up_to_date(Path(path_str), token_files.get(name)),
             commit=eco.short_head(Path(path_str)) or "",
         )
@@ -207,11 +143,11 @@ def ecosystem_status(ctx) -> None:
         len("Repository"), max(len(row.location) for row in doc_rows)
     )
     doc_commit_width = max(
-        len(_StatusTable.COMMIT_HEADER), max(len(row.commit) for row in doc_rows)
+        len(ComponentStatusTable.COMMIT_HEADER), max(len(row.commit) for row in doc_rows)
     )
 
     click.echo(
-        _StatusTable.header(
+        ComponentStatusTable.header(
             "Document",
             "Manifest",
             "Repository",
@@ -221,7 +157,7 @@ def ecosystem_status(ctx) -> None:
         )
     )
     click.echo(
-        _StatusTable.rule(
+        ComponentStatusTable.rule(
             doc_name_width,
             "Manifest",
             doc_location_width,
@@ -231,9 +167,9 @@ def ecosystem_status(ctx) -> None:
     for doc_row in doc_rows:
         click.echo(
             f"  {doc_row.name:<{doc_name_width}}  "
-            f"{_StatusTable.icon_cell(doc_row.found, 'Manifest')}  "
+            f"{ComponentStatusTable.icon_cell(doc_row.found, 'Manifest')}  "
             f"{doc_row.location:<{doc_location_width}}  "
-            f"{_StatusTable.up_to_date_cell(doc_row.up_to_date)}  "
+            f"{ComponentStatusTable.up_to_date_cell(doc_row.up_to_date)}  "
             f"{doc_row.commit}"
         )
     _echo_catalog_entries_unknown_to_ecosystem(eco, known_names)
