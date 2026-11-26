@@ -56,6 +56,13 @@ jejune converters test --local-pdf-to-markdown    # same flags: tests those imag
 jejune converters run --local-pdf-to-markdown --warnings --debug   # converts every document into ./converted/<document>
 ```
 
+The html comments of pdf-to-markdown (page markers, markdownlint guards, converter
+notes) are written with `--with-debug-comments` (it sets `PDF_TO_MARKDOWN_DEBUG_COMMENTS=1`
+in the container) and not with `--without-debug-comments`. The default is without when
+converting (`convert run`, `converters run`) and with when testing (`convert run --test`,
+`converters test`), the references holding them. A document whose reference holds none
+is tested with `--without-debug-comments`.
+
 pdf-to-markdown and the documents are looked for in `$JEJUNE_ROOT_DIR` (or `--root-dir`),
 then in `.jejune/tmp` (pdf-to-markdown is cloned there when found nowhere, with its
 whole git history: the commit count is part of its version; a checkout of

@@ -285,6 +285,7 @@ class CompConverters(ContComp):
         no_cache: bool,
         local_documents: bool = False,
         local_pdf_to_markdown: bool = False,
+        with_debug_comments: bool = False,
     ) -> tuple[str, str, str]:
         """Return (outcome, detail, verbose_output). outcome taken among skipped,
         build_failed, image_not_found, unchanged or changed. The image built with
@@ -300,7 +301,12 @@ class CompConverters(ContComp):
         )
         if outcome != "ok":
             return outcome, detail, ""
-        run_result = CompConvert.run_container(image, test=True, capture=True)
+        run_result = CompConvert.run_container(
+            image,
+            test=True,
+            capture=True,
+            with_debug_comments=with_debug_comments,
+        )
         verbose_output = (run_result.stdout + run_result.stderr).strip()
         sources = self.image_source_summary(image)
         return (
@@ -322,6 +328,7 @@ class CompConverters(ContComp):
         warnings: bool = False,
         debug: bool = False,
         extra_args: tuple[str, ...] = (),
+        with_debug_comments: bool = False,
     ) -> tuple[str, str]:
         """Return (outcome, detail). outcome taken among skipped, build_failed,
         image_not_found, converted or failed. The conversion of the document is
@@ -343,6 +350,7 @@ class CompConverters(ContComp):
             warnings=warnings,
             debug=debug,
             extra_args=extra_args,
+            with_debug_comments=with_debug_comments,
         )
         sources = self.image_source_summary(image)
         return (

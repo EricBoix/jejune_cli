@@ -79,7 +79,7 @@ def docker_commands(monkeypatch):
         "run_container",
         classmethod(
             lambda cls, image, *arguments, **options: commands.append(
-                CompConvert.container_arguments(image, *arguments)
+                CompConvert.container_arguments(image, *arguments, **options)
             )
             or SimpleNamespace(returncode=0)
         ),
@@ -107,3 +107,23 @@ def test_run_without_options_forwards_neither(docker_commands, tmp_path):
 def test_test_run_ignores_warnings_and_debug():
     command = CompConvert.container_arguments("image", None, True, True, True)
     assert command == ["docker", "run", "--rm", "image", "--test"]
+
+
+def _debug_comments_in_command(docker_commands):
+    return "PDF_TO_MARKDOWN_DEBUG_COMMENTS=1" in docker_commands[0]
+
+
+@pytest.mark.parametrize(
+    "arguments, expected",
+    [
+        (["run"], False),
+        (["run", "--with-debug-comments"], True),
+        (["run", "--test"], True),
+        (["run", "--test", "--without-debug-comments"], False),
+        (["run", "--with-debug-comments", "--without-debug-comments"], False),
+    ],
+)
+def test_debug_comments_default_to_the_job(docker_commands, tmp_path, arguments, expected):
+    convert = RecordingConvert(built_image_flags=(True, False))
+    invoke(convert, *arguments, "--output-dir", str(tmp_path))
+    assert _debug_comments_in_command(docker_commands) is expected

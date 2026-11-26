@@ -121,6 +121,13 @@ def converters_build(
 @ConvertersOptions.catalog_selection
 @ConvertersOptions.sources
 @click.option("--verbose", is_flag=True, default=False, help="Show full docker output.")
+@click.option(
+    "--with-debug-comments/--without-debug-comments",
+    default=True,
+    help="Run the converters with the html comments (page markers, markdownlint "
+    "guards, converter notes), the references holding them. Default: with; "
+    "--without-debug-comments compares with references that hold none.",
+)
 def converters_test(
     document_name,
     catalog_file,
@@ -130,6 +137,7 @@ def converters_test(
     no_local_document,
     local_pdf_to_markdown,
     verbose,
+    with_debug_comments,
 ):
     """Build (when needed) and test converter containers for all catalog documents.
 
@@ -180,6 +188,7 @@ def converters_test(
             no_cache,
             local_documents,
             local_pdf_to_markdown,
+            with_debug_comments,
         )
         counts[outcome] += 1
         label = click.style(outcome.replace("_", "-"), fg=_COLORS[outcome])
@@ -225,6 +234,12 @@ def converters_test(
     default=False,
     help="Report debug traces of the conversion (implies --warnings).",
 )
+@click.option(
+    "--with-debug-comments/--without-debug-comments",
+    default=False,
+    help="Write the html comments of the converter (page markers, markdownlint "
+    "guards, converter notes) in the markdown. Default: without.",
+)
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
 def converters_run(
     document_name,
@@ -237,6 +252,7 @@ def converters_run(
     output_dir,
     warnings,
     debug,
+    with_debug_comments,
     extra_args,
 ):
     """Convert all catalog documents, forwarding EXTRA_ARGS to their entrypoint.
@@ -291,6 +307,7 @@ def converters_run(
             warnings,
             debug,
             extra_args,
+            with_debug_comments,
         )
         counts[outcome] += 1
         label = click.style(outcome.replace("_", "-"), fg=_COLORS[outcome])

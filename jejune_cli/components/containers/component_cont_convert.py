@@ -18,6 +18,11 @@ from jejune_cli.components.containers.converter_sources import (
 
 
 class CompConvert(ContComp):
+    # pdf-to-markdown writes the html comments of the converter (page markers,
+    # markdownlint guards, converter notes) when set to 1 (see
+    # pdf_to_markdown.DebugComments.ENV_VAR): off unless opted in.
+    DEBUG_COMMENTS_VARIABLE = "PDF_TO_MARKDOWN_DEBUG_COMMENTS"
+
     def __init__(
         self,
         pypi_server,
@@ -158,19 +163,36 @@ class CompConvert(ContComp):
         warnings: bool = False,
         debug: bool = False,
         extra_args: tuple[str, ...] = (),
+        with_debug_comments: bool = False,
     ) -> list[str]:
         """The `docker run` command of the converter *image*: the pytest run with
         *test*, else the conversion writing in *output_directory* (mounted as
         /output). *warnings* and *debug* are the options of Convert/main.py (debug
-        implies warnings there)."""
+        implies warnings there). *with_debug_comments* makes the converter write
+        its html comments (page markers, markdownlint guards, converter notes) in
+        the markdown it converts, or compares with the reference when *test*."""
+        environment_options = (
+            ["-e", f"{CompConvert.DEBUG_COMMENTS_VARIABLE}=1"]
+            if with_debug_comments
+            else []
+        )
         if test:
-            return ["docker", "run", "--rm", image, "--test", *extra_args]
+            return [
+                "docker",
+                "run",
+                "--rm",
+                *environment_options,
+                image,
+                "--test",
+                *extra_args,
+            ]
         if output_directory is None:
             raise ValueError("output_directory is required to convert")
         return [
             "docker",
             "run",
             "--rm",
+            *environment_options,
             "-v",
             f"{output_directory}:/output",
             image,
@@ -191,6 +213,7 @@ class CompConvert(ContComp):
         debug: bool = False,
         extra_args: tuple[str, ...] = (),
         capture: bool = False,
+        with_debug_comments: bool = False,
     ) -> subprocess.CompletedProcess:
         """Run the converter *image* (see container_arguments): its output streams
         to the terminal, or is captured with *capture*."""
@@ -198,7 +221,13 @@ class CompConvert(ContComp):
             output_directory.mkdir(parents=True, exist_ok=True)
         return subprocess.run(
             cls.container_arguments(
-                image, output_directory, test, warnings, debug, extra_args
+                image,
+                output_directory,
+                test,
+                warnings,
+                debug,
+                extra_args,
+                with_debug_comments,
             ),
             capture_output=capture,
             text=capture,

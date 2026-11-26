@@ -196,6 +196,13 @@ def build(
     default=False,
     help="Report debug traces of the conversion (implies --warnings).",
 )
+@click.option(
+    "--with-debug-comments/--without-debug-comments",
+    default=None,
+    help="Write the html comments of the converter (page markers, markdownlint "
+    "guards, converter notes) in the markdown. Default: without when converting, "
+    "with --test (the references hold them).",
+)
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
 @click.pass_obj
 def run_cmd(
@@ -206,6 +213,7 @@ def run_cmd(
     local_pdf_to_markdown,
     warnings,
     debug,
+    with_debug_comments,
     extra_args,
 ):
     """Run the converter container, forwarding EXTRA_ARGS to the entrypoint."""
@@ -218,6 +226,8 @@ def run_cmd(
         raise click.ClickException(
             f"Docker image {image!r} is not built. Run `jejune convert build{flags}` first."
         )
+    if with_debug_comments is None:
+        with_debug_comments = test
     result = CompConvert.run_container(
         image,
         None if test else Path(output_dir).resolve(),
@@ -225,5 +235,6 @@ def run_cmd(
         warnings,
         debug,
         extra_args,
+        with_debug_comments=with_debug_comments,
     )
     sys.exit(result.returncode)
