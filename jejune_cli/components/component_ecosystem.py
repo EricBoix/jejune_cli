@@ -118,7 +118,9 @@ class CompEcosystem(ConfComp):
         the component does not set `repos`). Like `repository_states`, it assumes the
         components that set `repos` live in a plugin repo."""
         if not getattr(component, "repos", []):
-            return None
+            # A component of a plugin repository registers it with the ecosystem
+            registered = self.registered_repositories([component.name])
+            return registered[0] if registered else None
         return self._plugin_registry.repo_name_for_plugin(component.name) or (
             component.name
         )
