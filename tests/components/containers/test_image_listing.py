@@ -252,7 +252,7 @@ def test_only_the_images_of_the_owner_and_of_the_handled_documents_are_listed(
 def test_other_images_compare_their_repository_commit_to_the_designated_one(
     monkeypatch,
 ):
-    label = ImageListing.REPOSITORY_COMMIT_LABEL
+    label = ConverterCommits.REPOSITORY_COMMIT_LABEL
     FakeLabels(
         monkeypatch,
         {
@@ -274,10 +274,16 @@ def test_other_images_compare_their_repository_commit_to_the_designated_one(
     )
     assert rows == [
         OtherImageRow(
-            "jejune:docs", ImageAlignment.MISALIGNED, "7fe327e", repository_name="jejune_docs"
+            "jejune:docs",
+            ImageAlignment.MISALIGNED,
+            "7fe327e",
+            repository_name="jejune_docs",
         ),
         OtherImageRow(
-            "jejune:hub", ImageAlignment.ALIGNED, "8e8834c", repository_name="jejune_hub"
+            "jejune:hub",
+            ImageAlignment.ALIGNED,
+            "8e8834c",
+            repository_name="jejune_hub",
         ),
         OtherImageRow("jejune:unknown", ImageAlignment.UNKNOWN, "7fe327e"),
     ]
@@ -344,3 +350,11 @@ def test_the_pdf_to_markdown_is_designated_once(monkeypatch, image_count):
     )
     listing(images[:image_count], ecosystem).convert_rows([converter_component()])
     assert calls == ["pdf-to-markdown"]
+
+
+def test_the_repository_commit_label_is_only_built_for_a_known_commit():
+    assert ConverterCommits.repository_label_arguments(None) == []
+    assert ConverterCommits.repository_label_arguments(DOCUMENT_COMMIT) == [
+        "--label",
+        f"jejune.repository-commit={DOCUMENT_COMMIT}",
+    ]

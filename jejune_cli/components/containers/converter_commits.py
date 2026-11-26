@@ -32,6 +32,8 @@ class ConverterCommits:
     # Image labels recording the commits of the inputs of an image
     DOCUMENT_COMMIT_LABEL = "jejune.document-commit"
     PDF_TO_MARKDOWN_COMMIT_LABEL = "jejune.pdf-to-markdown-commit"
+    # Image label recording the commit of the repository an image was built from
+    REPOSITORY_COMMIT_LABEL = "jejune.repository-commit"
     # Build argument of the Dockerfile of every document: commit to check out
     DOCUMENT_COMMIT_ARGUMENT = "DOC_COMMIT"
     # Appended to the commit of a checkout with uncommitted changes: such a commit
@@ -131,6 +133,14 @@ class ConverterCommits:
                 f"{cls.PDF_TO_MARKDOWN_COMMIT_LABEL}={pdf_to_markdown_commit}",
             ]
         return arguments
+
+    @classmethod
+    def repository_label_arguments(cls, repository_commit: str | None) -> list[str]:
+        """The `docker build` arguments recording the commit of the repository an
+        image is built from (none when that commit is unknown)."""
+        if not repository_commit:
+            return []
+        return ["--label", f"{cls.REPOSITORY_COMMIT_LABEL}={repository_commit}"]
 
     @classmethod
     def locked_pdf_to_markdown_commit(cls, image: str) -> str | None:

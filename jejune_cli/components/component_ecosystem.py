@@ -130,6 +130,19 @@ class CompEcosystem(ConfComp):
         changes (None when it is not a git checkout)."""
         return ConverterCommits.local_commit(self._git_access, checkout)
 
+    def built_commit(self, build_context: str) -> str | None:
+        """The commit of the sources a docker build of *build_context* uses: the
+        remote HEAD when it is a git url (docker clones it) or the HEAD of the
+        checkout when it is a local directory (None when unknown)."""
+        repository_url = build_context.split("#")[0]
+        if repository_url.endswith(".git"):
+            return ConverterCommits.remote_head(
+                self._git_access,
+                repository_url,
+                timeout=self.REMOTE_PROBE_TIMEOUT_SECONDS,
+            )
+        return self.checkout_commit(Path(repository_url))
+
     def designated_commit(
         self, name: str, directories: EcosystemDirectories
     ) -> str | None:

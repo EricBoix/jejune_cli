@@ -57,7 +57,6 @@ class OtherImageRow:
 
 
 class ImageListing:
-    REPOSITORY_COMMIT_LABEL = "jejune.repository-commit"
     VERSION_LABEL = "org.opencontainers.image.version"
     IMAGE_PREFIX = f"{ConverterImageName.REPOSITORY}:"
 
@@ -193,7 +192,7 @@ class ImageListing:
 
     def _other_row(self, component, image: str) -> OtherImageRow:
         labels = ConverterCommits.image_labels(image)
-        recorded_commit = labels.get(self.REPOSITORY_COMMIT_LABEL)
+        recorded_commit = labels.get(ConverterCommits.REPOSITORY_COMMIT_LABEL)
         repository_name = self._ecosystem.component_repository_name(component)
         if recorded_commit is None:
             return OtherImageRow(

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import click
 
+from jejune_cli.components.containers.converter_commits import ConverterCommits
 from jejune_cli.core.component_with_config import ConfComp
 from jejune_cli.core.configuration import Configuration
 from jejune_cli.core.containerized_context import ContainerizedContext
@@ -97,11 +98,22 @@ class ContComp(ConfComp):
         if not self.build_context:
             return
         click.echo(f"Building {self.image_name} ...")
+        ecosystem = self._context.ecosystem
+        # Recorded in the image, for `jejune images` to compare it to the one the
+        # ecosystem designates
+        repository_commit = (
+            ecosystem.built_commit(self.build_context)
+            if ecosystem.component_repository_name(self)
+            else None
+        )
         self._context.docker.build_image(
             self.image_name,
             self.build_context,
             dockerfile=self.dockerfile,
             no_cache=no_cache,
+            extra_arguments=ConverterCommits.repository_label_arguments(
+                repository_commit
+            ),
         )
 
     def built_image_name(self) -> str | None:

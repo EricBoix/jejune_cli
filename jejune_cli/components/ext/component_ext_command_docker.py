@@ -65,9 +65,10 @@ class CompCommandDocker(ExtCommand):
         context: str,
         dockerfile: str | None = None,
         no_cache: bool = False,
+        extra_arguments: list[str] | None = None,
     ) -> None:
         """Build a Docker image, raising SystemExit on failure."""
-        cmd = ["docker", "build"]
+        cmd = ["docker", "build", *(extra_arguments or [])]
         if no_cache:
             cmd.append("--no-cache")
         if dockerfile:

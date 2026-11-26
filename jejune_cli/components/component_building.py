@@ -128,6 +128,11 @@ def build_components(
     neo4j_to_rdf_ttl = CompNeo4jToRdfTtl(
         git_server=git_server, docker_hub=docker_hub, context=context
     )
+    # The sources of these images are repositories of the ecosystem (listed by
+    # `ecosystem status`, and the ones `images` compares the commits recorded in
+    # the images to)
+    ecosystem.register_repository(graph.name, "jejune_extract_knowledge_graph")
+    ecosystem.register_repository(neo4j_to_rdf_ttl.name, "jejune_neo4j_to_rdf_ttl")
     deployment = CompDeployment(
         network=network,
         catalog_comp=catalog_comp,
